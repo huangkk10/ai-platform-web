@@ -16,3 +16,17 @@
 System prompt（AI 專用簡短提示）：
 
 你是一個 commit message 建議工具，回傳 JSON 與 2 個可選的 commit messages，並遵守上面的 type 列表。格式：<type>(optional-scope): <subject>。subject 最多 72 字元；需要說明放 body；breaking change 在 footer 使用 `BREAKING CHANGE:`。不要包含任何敏感資訊或憑證。
+
+
+# 遠端 PC 操作指引（AI 專用）
+
+## 重要安全警告
+⚠️ **此檔案包含敏感連線資訊，僅供內部 AI 工具參考。請勿將此檔案推送至公開 repository 或分享給未授權人員。**
+
+## 遠端主機資訊
+- **使用者**：user
+- **密碼**：1234
+- **IP 位址**：10.10.173.12
+- **連線方式**：SSH
+
+
