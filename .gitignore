@@ -17,6 +17,7 @@ docs/credentials/
 *.pem
 *.p12
 *.pfx
+*.pyc
 
 # Docker
 .docker/
