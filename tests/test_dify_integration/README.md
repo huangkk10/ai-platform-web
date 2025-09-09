@@ -12,6 +12,22 @@
   - 員工資料分析測試 (RAG 功能)
   - 與 DeepSeek 直接調用的比較測試
 
+### `test_vector_rag.py`
+- **功能**: 測試向量化 RAG 系統，將資料庫資料轉換為向量並進行智能搜尋
+- **測試內容**:
+  - 資料向量化處理
+  - 向量相似度搜尋
+  - 基於向量搜尋的 AI 問答
+  - 向量化 RAG vs 傳統 RAG 效能比較
+
+### `test_simple_vector_rag.py`
+- **功能**: 簡化版向量化 RAG 測試，無需額外依賴
+- **特點**:
+  - 使用內建函式庫實現向量化
+  - 基於字元頻率和關鍵詞的簡化算法
+  - 快速部署，適合初步測試
+  - 包含完整的搜尋和比較功能
+
 ## ⚙️ 配置說明
 
 ### API 設定
@@ -25,8 +41,14 @@ DIFY_CONFIG = {
 
 ### 必要依賴
 ```bash
-# 安裝必要的套件
-pip install requests paramiko
+# 基本依賴安裝
+pip install requests numpy
+
+# 向量化增強功能（可選）
+pip install sentence-transformers chromadb
+
+# 或一次安裝所有依賴
+pip install -r tests/test_dify_integration/requirements.txt
 ```
 
 ## 🚀 使用方法
@@ -38,6 +60,12 @@ source venv/bin/activate
 
 # 執行 Dify chunwei 測試
 python tests/test_dify_integration/test_dify_chunwei.py
+
+# 執行向量化 RAG 測試
+python tests/test_dify_integration/test_vector_rag.py
+
+# 執行簡化版向量化 RAG 測試（無需額外依賴）
+python tests/test_dify_integration/test_simple_vector_rag.py
 ```
 
 ### 測試功能說明
@@ -62,6 +90,12 @@ python tests/test_dify_integration/test_dify_chunwei.py
 - 同時測試 Dify chunwei 和 DeepSeek SSH
 - 比較回應時間和品質
 - 評估不同平台的優勢
+
+#### 5. 向量化 RAG 測試
+- 將員工資料轉換為向量表示
+- 使用向量相似度進行智能搜尋
+- 測試基於向量搜尋的問答品質
+- 比較向量化 RAG 與傳統 RAG 的效能差異
 
 ## 📊 測試結果
 
@@ -90,16 +124,25 @@ python tests/test_dify_integration/test_dify_chunwei.py
    - 檢查 Python 環境的編碼設定
    - 驗證資料庫的中文資料編碼
 
+4. **向量化依賴問題**
+   - 缺少 sentence-transformers: `pip install sentence-transformers`
+   - 缺少 chromadb: `pip install chromadb`
+   - 缺少 numpy: `pip install numpy`
+   - 系統會自動回退到簡化版實現
+
 ### 依賴問題
 ```bash
 # 如果缺少 requests 套件
 pip install requests
 
+# 如果缺少向量化相關套件
+pip install sentence-transformers chromadb numpy
+
 # 如果缺少 paramiko 套件  
 pip install paramiko
 
 # 或者一次安裝所有依賴
-pip install -r requirements.txt
+pip install -r tests/test_dify_integration/requirements.txt
 ```
 
 ## 🔄 整合建議
@@ -117,6 +160,12 @@ pip install -r requirements.txt
    - 實施連接池
    - 批量處理請求
    - 快取重複查詢
+
+4. **向量化優化**
+   - 選擇合適的嵌入模型
+   - 調整向量維度和相似度閾值
+   - 實施向量資料的持久化存儲
+   - 使用更高效的向量資料庫（如 Pinecone、Weaviate）
 
 ## 📚 相關文件
 
