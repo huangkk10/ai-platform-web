@@ -65,6 +65,7 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
+      - ./library:/app/library
       - static_files:/app/static
       - media_files:/app/media
     depends_on:
