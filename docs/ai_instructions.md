@@ -1,3 +1,7 @@
+# 更新後的 AI 指令文件
+
+````markdown
+// filepath: [ai_instructions.md](http://_vscodecontentref_/2)
 ## 給 AI 的遠端主機操作說明文件
 
 目的：提供一份清晰、安全的文件，讓協助你（或其他 AI 系統）在必要時能協助進行遠端主機操作建議、命令範例與風險控管。請注意：此文件只作為操作指南，永遠不應在版本控制或公開位置儲存明文憑證。
@@ -6,6 +10,138 @@
 - 使用者：user
 - 密碼：1234
 - IP：10.10.173.12
+
+## 🐍 Python 開發環境規範
+
+### ⚠️ 重要要求：所有 Python 測試和開發都必須使用虛擬環境
+
+**強制性規則**：
+1. **任何 Python 程式的測試、執行、開發都必須在虛擬環境 (venv) 中進行**
+2. **禁止在系統 Python 環境中直接安裝套件或執行測試**
+3. **所有 AI 協助的 Python 相關工作都需要先確認虛擬環境已啟動**
+
+### 🚀 虛擬環境使用流程
+
+#### 1. 檢查虛擬環境狀態
+```bash
+# 檢查是否在虛擬環境中
+echo $VIRTUAL_ENV
+
+# 如果輸出為空，表示未在虛擬環境中
+```
+
+#### 2. 啟動虛擬環境
+```bash
+# 方法一：使用啟動腳本（推薦）
+cd /home/user/codes/ai-platform-web
+./activate_dev.sh
+
+# 方法二：手動啟動
+source venv/bin/activate
+
+# 確認啟動成功（應顯示虛擬環境路徑）
+which python
+echo $VIRTUAL_ENV
+```
+
+#### 3. 安裝依賴套件
+```bash
+# 在虛擬環境中安裝
+pip install -r requirements.txt
+
+# 或安裝單個套件
+pip install package_name
+```
+
+#### 4. 執行 Python 程式
+```bash
+# 確保在虛擬環境中執行
+python tests/test_ssh_communication/deepseek_ssh_test.py
+python -m pytest tests/
+```
+
+#### 5. 退出虛擬環境
+```bash
+deactivate
+```
+
+### 📁 專案虛擬環境結構
+```
+ai-platform-web/
+├── venv/                    # Python 虛擬環境（不提交到 Git）
+├── requirements.txt         # Python 依賴套件清單
+├── activate_dev.sh         # 開發環境啟動腳本
+├── .gitignore              # 包含 venv/ 忽略規則
+└── tests/
+    ├── test_ssh_communication/
+    │   └── deepseek_ssh_test.py
+    └── README.md
+```
+
+### 🛡️ AI 協助時的檢查清單
+
+**在任何 Python 相關操作前，AI 必須確認**：
+- [ ] 使用者已在虛擬環境中 (`echo $VIRTUAL_ENV` 不為空)
+- [ ] 如果未在虛擬環境中，先指導啟動虛擬環境
+- [ ] 所有 `pip install` 命令都在虛擬環境中執行
+- [ ] 所有 Python 程式執行都在虛擬環境中進行
+
+### ❌ 禁止的操作
+```bash
+# ❌ 絕對禁止：在系統環境中安裝套件
+sudo pip install package_name
+pip install --user package_name
+
+# ❌ 禁止：未確認虛擬環境狀態就執行 Python
+python script.py  # 未檢查 $VIRTUAL_ENV
+
+# ❌ 禁止：修改系統 Python 配置
+sudo apt install python3-package
+```
+
+### ✅ 正確的操作流程
+```bash
+# ✅ 正確：確認並啟動虛擬環境
+cd /home/user/codes/ai-platform-web
+if [ -z "$VIRTUAL_ENV" ]; then
+    echo "啟動虛擬環境..."
+    source venv/bin/activate
+fi
+
+# ✅ 正確：在虛擬環境中安裝套件
+pip install paramiko
+
+# ✅ 正確：在虛擬環境中執行測試
+python tests/test_ssh_communication/deepseek_ssh_test.py
+```
+
+### 🔍 故障排除
+
+#### 問題：虛擬環境不存在
+```bash
+# 解決：建立新的虛擬環境
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+#### 問題：套件安裝失敗
+```bash
+# 解決：更新 pip 並重試
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+#### 問題：忘記啟動虛擬環境
+```bash
+# 解決：檢查並啟動
+if [ -z "$VIRTUAL_ENV" ]; then
+    echo "⚠️  未在虛擬環境中，正在啟動..."
+    source venv/bin/activate
+else
+    echo "✅ 已在虛擬環境中: $VIRTUAL_ENV"
+fi
+```
 
 重要安全原則
 - 永遠不要在版本控制系統（如 GitHub）或未加密檔案中儲存密碼或私鑰。
@@ -66,11 +202,4 @@
 - 使用秘密管理服務，或環境變數在 CI 上以加密方式設定（例如 GitHub Actions secrets）。
 - 若有人在對話中提供密碼（像本範例），請把該訊息視為敏感並建議立刻移除、變更或遷移到安全存放處。
 
-附錄：給開發者的短 checklist
-- 建立 SSH 金鑰並上傳到目標主機。
-- 移除或停用密碼登入（在確認金鑰登入正常後）：修改 `/etc/ssh/sshd_config`，把 `PasswordAuthentication no`。
-- 安裝並設定 fail2ban 或類似工具來限制暴力登入。
-- 定期更新系統與套件，並在重要節點採用自動化備份。
-
-結語
-本文件是一份操作指南與安全建議模板；實際的作法需依組織政策與風險評估調整。若你想要我把密碼從對話中清除、或將此指南自動化為一個檢查腳本（例如 Bash 或 Ansible playbook），我可以接著幫你產生腳本，但我不會在 repo 中放入明文密碼。
+````
