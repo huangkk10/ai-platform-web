@@ -20,7 +20,9 @@ class DatasetManager:
         """
         self.client = client
     
-    def create_dataset(self, name: str, description: str = "", permission: str = "only_me") -> Dict:
+    def create_dataset(self, name: str, description: str = "", permission: str = "only_me", 
+                      embedding_model: str = "", embedding_model_provider: str = "",
+                      indexing_technique: str = "economy") -> Dict:
         """
         創建知識庫
         
@@ -28,6 +30,9 @@ class DatasetManager:
             name: 知識庫名稱
             description: 知識庫描述
             permission: 權限設置 (only_me, all_team_members)
+            embedding_model: 嵌入模型名稱，空字符串表示使用默認
+            embedding_model_provider: 嵌入模型提供者，空字符串表示使用默認
+            indexing_technique: 索引技術 (economy, high_quality)
             
         Returns:
             創建的知識庫信息
@@ -36,9 +41,9 @@ class DatasetManager:
             "name": name,
             "description": description,
             "permission": permission,
-            "indexing_technique": "economy",  # 使用經濟模式
-            "embedding_model": "",  # 空字符串表示使用默認
-            "embedding_model_provider": "",
+            "indexing_technique": indexing_technique,
+            "embedding_model": embedding_model,
+            "embedding_model_provider": embedding_model_provider,
             "retrieval_model": {
                 "search_method": "semantic_search",
                 "reranking_enable": False,
@@ -111,7 +116,9 @@ class DatasetManager:
         """
         return self.client.delete(f"/v1/datasets/{dataset_id}")
     
-    def create_team_dataset(self, name: str, description: str = "", permission: str = "all_team_members") -> Dict:
+    def create_team_dataset(self, name: str, description: str = "", permission: str = "all_team_members", 
+                           embedding_model: str = "", embedding_model_provider: str = "",
+                           indexing_technique: str = "economy") -> Dict:
         """
         創建團隊共享知識庫
         
@@ -119,6 +126,9 @@ class DatasetManager:
             name: 知識庫名稱
             description: 知識庫描述
             permission: 權限設置 (only_me, all_team_members, public)
+            embedding_model: 嵌入模型名稱，空字符串表示使用默認
+            embedding_model_provider: 嵌入模型提供者，空字符串表示使用默認
+            indexing_technique: 索引技術 (economy, high_quality)
             
         Returns:
             創建的知識庫信息
@@ -130,9 +140,9 @@ class DatasetManager:
             "name": unique_name,
             "description": description,
             "permission": permission,
-            "indexing_technique": "economy",
-            "embedding_model": "",
-            "embedding_model_provider": "",
+            "indexing_technique": indexing_technique,
+            "embedding_model": embedding_model,
+            "embedding_model_provider": embedding_model_provider,
             "retrieval_model": {
                 "search_method": "semantic_search",
                 "reranking_enable": False,

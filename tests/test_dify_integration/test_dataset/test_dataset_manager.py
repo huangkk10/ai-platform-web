@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-DatasetManager 的 pytest 測試（使用真實 API）
+DatasetManager 的 pyte        # 使用 bge-m3 模型（根據測試結果，不設定 provider 讓系統自動選擇）
+        result = dataset_manager.create_team_dataset(
+            name=base_name,
+            description="pytest 團隊測試知識庫 (使用 bge-m3 嵌入模型)",
+            permission="all_team_members",
+            embedding_model="bge-m3"  # 使用 bge-m3，不設定 provider
+        )真實 API）
 測試 library/dify_integration/dataset_manager.py 的功能
 """
 
@@ -60,13 +66,20 @@ class TestDatasetManagerReal:
     
     
     def test_real_create_team_dataset(self, dataset_manager):
-        """測試真實創建團隊知識庫（包含資料上傳）"""
+        """測試真實創建團隊知識庫（包含資料上傳）
+        
+        使用正確的 embedding_model_provider 和 indexing_technique
+        """
         base_name = "pytest團隊測試"
         
+        # 使用正確的 provider 和高品質索引技術
         result = dataset_manager.create_team_dataset(
             name=base_name,
-            description="pytest 團隊測試知識庫",
-            permission="all_team_members"
+            description="pytest 團隊測試知識庫 (使用 bge-m3 嵌入模型)",
+            permission="all_team_members",
+            embedding_model="bge-m3",
+            embedding_model_provider="langgenius/ollama/ollama",  # 使用正確的 provider
+            indexing_technique="high_quality"  # 使用高品質索引
         )
         
         # 驗證創建成功
@@ -79,7 +92,21 @@ class TestDatasetManagerReal:
         print(f"  🆔 ID: {result['id']}")
         print(f"  📝 名稱: {result['name']}")
         print(f"  🔒 權限: {result.get('permission')}")
+        print(f"  🤖 嵌入模型: {result.get('embedding_model', 'None')}")
+        print(f"  🏭 模型提供者: {result.get('embedding_model_provider', 'None')}")
+        print(f"  🔧 索引技術: {result.get('indexing_technique', 'None')}")
         print(f"  🌐 直接 URL: {dataset_manager.get_dataset_direct_url(result['id'])}")
+        
+        # 驗證嵌入模型設定
+        if result.get('embedding_model') == 'bge-m3':
+            print(f"  ✅ 嵌入模型設定成功: bge-m3")
+        else:
+            print(f"  ⚠️ 嵌入模型未如預期設定: {result.get('embedding_model')}")
+        
+        if result.get('embedding_model_provider') == 'langgenius/ollama/ollama':
+            print(f"  ✅ 模型提供者設定成功: langgenius/ollama/ollama")
+        else:
+            print(f"  ⚠️ 模型提供者未如預期設定: {result.get('embedding_model_provider')}")
         
         # 插入測試資料
         try:
