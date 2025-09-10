@@ -6,5 +6,6 @@ Dify API 整合模組
 from .client import DifyClient
 from .dataset_manager import DatasetManager
 from .document_manager import DocumentManager
+from .batch_operations import DifyBatchOperations
 
-__all__ = ['DifyClient', 'DatasetManager', 'DocumentManager']
+__all__ = ['DifyClient', 'DatasetManager', 'DocumentManager', 'DifyBatchOperations']
