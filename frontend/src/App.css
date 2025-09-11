@@ -1,122 +1,348 @@
+/* 華生飲水企業級管理平台樣式 */
+
 .App {
-  text-align: center;
-  min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 20px;
-}
-
-.App-header {
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.App-header h1 {
-  font-size: 3rem;
-  margin-bottom: 0.5rem;
-  text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-}
-
-.status-section, .services-section, .info-section {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border-radius: 15px;
-  padding: 2rem;
-  margin: 2rem 0;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.status-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin: 1rem 0;
-  padding: 1rem;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-}
-
-.status-label {
-  font-weight: bold;
-}
-
-.status-value {
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
-  font-weight: bold;
-}
-
-.status-value.success {
-  background: #4caf50;
-  color: white;
-}
-
-.status-value.error {
-  background: #f44336;
-  color: white;
-}
-
-.api-data {
-  margin-top: 1rem;
   text-align: left;
+  min-height: 100vh;
+  background: #f5f5f5;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
-.api-data pre {
-  background: rgba(0, 0, 0, 0.3);
-  padding: 1rem;
+/* 側邊欄樣式自定義 */
+.ant-layout-sider {
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+}
+
+/* 菜單項目樣式 */
+.ant-menu-dark .ant-menu-item-selected {
+  background-color: #1890ff !important;
+  border-radius: 6px;
+  margin: 4px 8px;
+  width: calc(100% - 16px);
+}
+
+.ant-menu-dark .ant-menu-item {
+  margin: 2px 8px;
+  border-radius: 6px;
+  width: calc(100% - 16px);
+  transition: all 0.3s;
+}
+
+.ant-menu-dark .ant-menu-item:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.ant-menu-dark .ant-menu-submenu-title {
+  margin: 2px 8px;
+  border-radius: 6px;
+  width: calc(100% - 16px);
+}
+
+.ant-menu-dark .ant-menu-submenu-title:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* 卡片樣式 */
+.ant-card {
   border-radius: 8px;
-  overflow-x: auto;
-  font-size: 0.9rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.09);
+  border: none;
 }
 
-.service-links {
+.ant-card-head {
+  border-bottom: 1px solid #f0f0f0;
+  padding: 16px 24px;
+}
+
+.ant-card-head-title {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.ant-card-body {
+  padding: 24px;
+}
+
+/* 表格樣式 */
+.ant-table {
+  font-size: 14px;
+}
+
+.ant-table-thead > tr > th {
+  background: #fafafa;
+  border-bottom: 1px solid #f0f0f0;
+  color: #262626;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 12px 16px;
+}
+
+.ant-table-tbody > tr > td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.ant-table-tbody > tr:hover > td {
+  background: #f5f5f5;
+}
+
+/* 按鈕樣式 */
+.ant-btn-primary {
+  background: #1890ff;
+  border-color: #1890ff;
+  border-radius: 6px;
+  font-weight: 500;
+  box-shadow: 0 2px 4px rgba(24, 144, 255, 0.2);
+}
+
+.ant-btn-primary:hover,
+.ant-btn-primary:focus {
+  background: #40a9ff;
+  border-color: #40a9ff;
+  box-shadow: 0 4px 8px rgba(24, 144, 255, 0.3);
+}
+
+.ant-btn {
+  border-radius: 6px;
+  font-weight: 500;
+  height: 36px;
+  padding: 4px 15px;
+}
+
+/* 輸入框樣式 */
+.ant-input,
+.ant-select-selector {
+  border-radius: 6px;
+  border: 1px solid #d9d9d9;
+}
+
+.ant-input:focus,
+.ant-input-focused,
+.ant-select-focused .ant-select-selector {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.1);
+}
+
+/* 日期選擇器樣式 */
+.ant-picker {
+  border-radius: 6px;
+  border: 1px solid #d9d9d9;
+}
+
+.ant-picker:hover,
+.ant-picker-focused {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.1);
+}
+
+/* 標籤樣式 */
+.ant-tag {
+  border-radius: 4px;
+  border: none;
+  font-weight: 500;
+  padding: 2px 8px;
+}
+
+.ant-tag-green {
+  background: #f6ffed;
+  color: #52c41a;
+}
+
+.ant-tag-blue {
+  background: #e6f7ff;
+  color: #1890ff;
+}
+
+.ant-tag-orange {
+  background: #fff7e6;
+  color: #fa8c16;
+}
+
+.ant-tag-success {
+  background: #f6ffed;
+  color: #52c41a;
+}
+
+.ant-tag-processing {
+  background: #e6f7ff;
+  color: #1890ff;
+}
+
+.ant-tag-error {
+  background: #fff2f0;
+  color: #ff4d4f;
+}
+
+/* 分頁樣式 */
+.ant-pagination {
+  text-align: center;
+  margin-top: 24px;
+}
+
+.ant-pagination-item {
+  border-radius: 6px;
+  border: 1px solid #d9d9d9;
+}
+
+.ant-pagination-item-active {
+  border-color: #1890ff;
+  background: #1890ff;
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+  .ant-card-body {
+    padding: 16px;
+  }
+  
+  .ant-table-wrapper {
+    overflow-x: auto;
+  }
+  
+  .ant-btn {
+    margin-bottom: 8px;
+  }
+}
+
+@media (max-width: 576px) {
+  .ant-card-body {
+    padding: 12px;
+  }
+  
+  .ant-table-thead > tr > th,
+  .ant-table-tbody > tr > td {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+}
+
+/* 自定義動畫 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* 側邊欄收縮動畫 */
+.ant-layout-sider {
+  transition: all 0.2s ease;
+}
+
+/* 頂部導航欄陰影 */
+.ant-layout-header {
+  box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
+}
+
+/* 內容區域 */
+.ant-layout-content {
+  transition: margin-left 0.2s ease;
+}
+
+/* 搜尋表單樣式 */
+.search-form .ant-form-item {
+  margin-bottom: 16px;
+}
+
+.search-form .ant-form-item-label {
+  padding-bottom: 4px;
+}
+
+.search-form .ant-form-item-label > label {
+  font-weight: 500;
+  color: #262626;
+}
+
+/* 狀態指示器 */
+.status-indicator {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 8px;
+}
+
+.status-indicator.success {
+  background-color: #52c41a;
+}
+
+.status-indicator.warning {
+  background-color: #fa8c16;
+}
+
+.status-indicator.error {
+  background-color: #ff4d4f;
+}
+
+.status-indicator.processing {
+  background-color: #1890ff;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* 可用服務按鈕網格 */
+.service-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-  margin-top: 1rem;
+  gap: 16px;
+  margin-top: 16px;
 }
 
-.service-links a {
-  display: block;
-  padding: 1rem;
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-  text-decoration: none;
-  border-radius: 8px;
-  transition: all 0.3s ease;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+.service-grid .ant-btn {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
 }
 
-.service-links a:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+/* 華生飲水品牌色彩 */
+:root {
+  --hwseng-primary: #2c3e50;
+  --hwseng-secondary: #34495e;
+  --hwseng-accent: #3498db;
+  --hwseng-success: #27ae60;
+  --hwseng-warning: #f39c12;
+  --hwseng-error: #e74c3c;
+  --hwseng-text: #2c3e50;
+  --hwseng-bg: #ecf0f1;
 }
 
-.info-section ul {
-  list-style: none;
-  padding: 0;
+/* 自定義滾動條 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
 }
 
-.info-section li {
-  background: rgba(255, 255, 255, 0.1);
-  margin: 0.5rem 0;
-  padding: 1rem;
-  border-radius: 8px;
-  border-left: 4px solid #4caf50;
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
 }
 
-@media (max-width: 768px) {
-  .App-header h1 {
-    font-size: 2rem;
-  }
-  
-  .status-item {
-    flex-direction: column;
-    gap: 1rem;
-  }
-  
-  .service-links {
-    grid-template-columns: 1fr;
-  }
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
 }
