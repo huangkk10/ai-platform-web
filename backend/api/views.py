@@ -7,8 +7,8 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 import json
 import logging
-from .models import UserProfile, Project, Task
-from .serializers import UserSerializer, UserProfileSerializer, ProjectSerializer, TaskSerializer
+from .models import UserProfile, Project, Task, Employee
+from .serializers import UserSerializer, UserProfileSerializer, ProjectSerializer, TaskSerializer, EmployeeSerializer, EmployeeListSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -146,6 +146,65 @@ class TaskViewSet(viewsets.ModelViewSet):
                 {'error': 'Invalid status'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+
+class EmployeeViewSet(viewsets.ModelViewSet):
+    """員工 ViewSet - 支援資料庫照片存儲"""
+    queryset = Employee.objects.all()
+    permission_classes = []  # 公開訪問，用於 Dify 知識庫查詢
+    
+    def get_serializer_class(self):
+        """根據動作選擇序列化器"""
+        if self.action == 'list':
+            # 列表頁面不包含照片資料以提升效能
+            return EmployeeListSerializer
+        return EmployeeSerializer
+    
+    @action(detail=True, methods=['get'], url_path='photo')
+    def get_photo(self, request, pk=None):
+        """獲取員工照片"""
+        employee = self.get_object()
+        if employee.photo_binary:
+            data_url = employee.get_photo_data_url()
+            return Response({
+                'photo_data_url': data_url,
+                'filename': employee.photo_filename,
+                'content_type': employee.photo_content_type,
+                'size_kb': len(employee.photo_binary) // 1024
+            })
+        else:
+            return Response(
+                {'error': 'No photo available'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+    
+    @action(detail=False, methods=['get'], url_path='with-photos')
+    def with_photos(self, request):
+        """獲取有照片的員工列表"""
+        employees = Employee.objects.exclude(photo_binary__isnull=True).exclude(photo_binary__exact=b'')
+        serializer = EmployeeListSerializer(employees, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['post'], url_path='search')
+    def search_employees(self, request):
+        """搜索員工"""
+        query = request.data.get('query', '')
+        if not query:
+            return Response(
+                {'error': 'Query parameter is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # 使用 Django ORM 搜索
+        employees = Employee.objects.filter(
+            models.Q(name__icontains=query) |
+            models.Q(department__icontains=query) |
+            models.Q(position__icontains=query) |
+            models.Q(skills__icontains=query)
+        )
+        
+        serializer = EmployeeListSerializer(employees, many=True)
+        return Response(serializer.data)
 
 
 def search_postgres_knowledge(query_text, limit=5):

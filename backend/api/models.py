@@ -77,6 +77,12 @@ class Employee(models.Model):
     phone = models.CharField(max_length=20, blank=True, verbose_name="電話")
     hire_date = models.DateField(verbose_name="入職日期")
     is_active = models.BooleanField(default=True, verbose_name="是否在職")
+    
+    # 照片直接存儲在資料庫中
+    photo_binary = models.BinaryField(blank=True, null=True, verbose_name="員工照片二進位資料")
+    photo_filename = models.CharField(max_length=255, blank=True, verbose_name="照片檔名")
+    photo_content_type = models.CharField(max_length=100, blank=True, verbose_name="照片類型")
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -100,4 +106,44 @@ class Employee(models.Model):
             info += f"技能: {self.skills}\n"
         info += f"入職日期: {self.hire_date}\n"
         info += f"狀態: {'在職' if self.is_active else '離職'}"
+        
+        # 添加照片資訊
+        if self.photo_binary:
+            import math
+            size_kb = math.ceil(len(self.photo_binary) / 1024)
+            info += f"\n照片: 已存儲在資料庫中 ({self.photo_filename}, {size_kb}KB)"
+            
         return info
+    
+    def save_photo_to_db(self, image_path):
+        """將照片檔案讀取並存入資料庫"""
+        try:
+            with open(image_path, 'rb') as f:
+                self.photo_binary = f.read()
+                self.photo_filename = image_path.split('/')[-1]
+                # 根據副檔名判斷類型
+                if image_path.lower().endswith('.jpg') or image_path.lower().endswith('.jpeg'):
+                    self.photo_content_type = 'image/jpeg'
+                elif image_path.lower().endswith('.png'):
+                    self.photo_content_type = 'image/png'
+                else:
+                    self.photo_content_type = 'image/jpeg'  # 預設
+                self.save()
+                return True
+        except Exception as e:
+            print(f"存儲照片失敗: {e}")
+            return False
+    
+    def get_photo_data_url(self):
+        """獲取可用於 HTML 的 data URL"""
+        if self.photo_binary:
+            import base64
+            encoded = base64.b64encode(self.photo_binary).decode('utf-8')
+            return f"data:{self.photo_content_type};base64,{encoded}"
+        return None
+    
+    def get_photo_url(self):
+        """獲取照片 URL（資料庫存儲版本）"""
+        if self.photo_binary:
+            return f"data:image;base64,{len(self.photo_binary)} bytes stored in database"
+        return None
