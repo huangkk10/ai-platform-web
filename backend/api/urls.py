@@ -11,4 +11,10 @@ router.register(r'tasks', views.TaskViewSet)
 urlpatterns = [
     path('', include(router.urls)),
     path('auth/', include('rest_framework.urls')),
+    # Dify 外部知識 API - 同時支援有斜槓和無斜槓的版本
+    path('dify/knowledge/retrieval', views.dify_knowledge_search, name='dify_knowledge_search_no_slash'),
+    path('dify/knowledge/retrieval/', views.dify_knowledge_search, name='dify_knowledge_search'),
+    # 相容舊路徑
+    path('dify/knowledge/search/', views.dify_knowledge_search, name='dify_knowledge_search_legacy'),
+    path('dify/knowledge/search/retrieval/', views.dify_knowledge_search, name='dify_knowledge_search_official'),
 ]

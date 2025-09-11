@@ -65,3 +65,39 @@ class Task(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class Employee(models.Model):
+    """員工模型 - 用於 Dify 知識庫查詢演示"""
+    name = models.CharField(max_length=100, verbose_name="姓名")
+    email = models.EmailField(unique=True, verbose_name="電子郵件")
+    department = models.CharField(max_length=100, verbose_name="部門")
+    position = models.CharField(max_length=100, verbose_name="職位")
+    skills = models.TextField(blank=True, verbose_name="技能")
+    phone = models.CharField(max_length=20, blank=True, verbose_name="電話")
+    hire_date = models.DateField(verbose_name="入職日期")
+    is_active = models.BooleanField(default=True, verbose_name="是否在職")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = "員工"
+        verbose_name_plural = "員工"
+
+    def __str__(self):
+        return f"{self.name} - {self.position}"
+    
+    def get_full_info(self):
+        """獲取完整的員工資訊文本"""
+        info = f"姓名: {self.name}\n"
+        info += f"部門: {self.department}\n"
+        info += f"職位: {self.position}\n"
+        info += f"Email: {self.email}\n"
+        if self.phone:
+            info += f"電話: {self.phone}\n"
+        if self.skills:
+            info += f"技能: {self.skills}\n"
+        info += f"入職日期: {self.hire_date}\n"
+        info += f"狀態: {'在職' if self.is_active else '離職'}"
+        return info
