@@ -164,8 +164,15 @@ SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_SECURE = False  # 開發環境設為 False
 SESSION_COOKIE_NAME = 'sessionid'
+SESSION_COOKIE_DOMAIN = None  # 允許所有域名
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 SESSION_SAVE_EVERY_REQUEST = True  # 確保每次請求都保存 session
+
+# 增加 CSRF Cookie 設定
+CSRF_COOKIE_HTTPONLY = False  # 允許 JavaScript 讀取 CSRF token
+CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SECURE = False  # 開發環境設為 False
+CSRF_USE_SESSIONS = False  # 使用獨立的 CSRF cookie
 
 # Whitenoise settings
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'

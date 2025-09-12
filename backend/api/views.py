@@ -12,8 +12,8 @@ from django.views import View
 from django.http import JsonResponse
 import json
 import logging
-from .models import UserProfile, Project, Task, Employee
-from .serializers import UserSerializer, UserProfileSerializer, ProjectSerializer, TaskSerializer, EmployeeSerializer, EmployeeListSerializer
+from .models import UserProfile, Project, Task, Employee, KnowIssue
+from .serializers import UserSerializer, UserProfileSerializer, ProjectSerializer, TaskSerializer, EmployeeSerializer, EmployeeListSerializer, KnowIssueSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -396,6 +396,66 @@ def dify_knowledge_search(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+class KnowIssueViewSet(viewsets.ModelViewSet):
+    """問題知識庫 ViewSet"""
+    queryset = KnowIssue.objects.all()
+    serializer_class = KnowIssueSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_permissions(self):
+        """根據動作決定權限"""
+        print(f"KnowIssue get_permissions - Action: {self.action}")
+        print(f"KnowIssue get_permissions - User: {self.request.user}")
+        print(f"KnowIssue get_permissions - Is authenticated: {self.request.user.is_authenticated}")
+        print(f"KnowIssue get_permissions - Is staff: {getattr(self.request.user, 'is_staff', False)}")
+        print(f"KnowIssue get_permissions - Is superuser: {getattr(self.request.user, 'is_superuser', False)}")
+        
+        # 檢查是否為管理員用戶
+        if self.request.user.is_authenticated and (self.request.user.is_staff or self.request.user.is_superuser):
+            return [permissions.IsAuthenticated()]
+        else:
+            return [permissions.IsAdminUser()]
+    
+    def get_queryset(self):
+        """根據查詢參數過濾資料"""
+        queryset = KnowIssue.objects.all()
+        
+        # 根據專案過濾
+        project = self.request.query_params.get('project', None)
+        if project:
+            queryset = queryset.filter(project__icontains=project)
+            
+        # 根據狀態過濾
+        status = self.request.query_params.get('status', None)
+        if status:
+            queryset = queryset.filter(status=status)
+            
+        # 根據問題類型過濾
+        issue_type = self.request.query_params.get('issue_type', None)
+        if issue_type:
+            queryset = queryset.filter(issue_type=issue_type)
+            
+        # 根據關鍵字搜尋
+        search = self.request.query_params.get('search', None)
+        if search:
+            queryset = queryset.filter(
+                models.Q(issue_id__icontains=search) |
+                models.Q(project__icontains=search) |
+                models.Q(error_message__icontains=search) |
+                models.Q(supplement__icontains=search)
+            )
+            
+        return queryset.order_by('-updated_at')
+    
+    def perform_create(self, serializer):
+        """建立時設定更新人員為當前用戶"""
+        serializer.save(updated_by=self.request.user)
+    
+    def perform_update(self, serializer):
+        """更新時設定更新人員為當前用戶"""
+        serializer.save(updated_by=self.request.user)
+
+
 # === 用戶認證 API ===
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -601,8 +661,17 @@ def user_info(request):
     獲取當前用戶資訊 API
     """
     try:
+        print(f"user_info - Request method: {request.method}")
+        print(f"user_info - Request user: {request.user}")
+        print(f"user_info - Is authenticated: {request.user.is_authenticated}")
+        print(f"user_info - Session key: {request.session.session_key}")
+        print(f"user_info - Session items: {dict(request.session.items())}")
+        print(f"user_info - Cookies: {request.COOKIES}")
+        print(f"user_info - Headers: {dict(request.headers)}")
+        
         if request.user.is_authenticated:
             user = request.user
+            print(f"user_info - Authenticated user: {user.username}")
             
             # 獲取用戶資料
             try:
@@ -610,7 +679,7 @@ def user_info(request):
                 bio = profile.bio
             except UserProfile.DoesNotExist:
                 bio = ''
-            
+
             return Response({
                 'success': True,
                 'authenticated': True,
@@ -628,6 +697,7 @@ def user_info(request):
                 }
             }, status=status.HTTP_200_OK)
         else:
+            print(f"user_info - User not authenticated: {request.user}")
             return Response({
                 'success': True,
                 'authenticated': False,

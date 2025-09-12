@@ -147,3 +147,60 @@ class Employee(models.Model):
         if self.photo_binary:
             return f"data:image;base64,{len(self.photo_binary)} bytes stored in database"
         return None
+
+
+class KnowIssue(models.Model):
+    """問題知識庫模型"""
+    
+    ISSUE_TYPE_CHOICES = [
+        ('bug', 'Bug'),
+        ('feature', 'Feature Request'),
+        ('improvement', 'Improvement'),
+        ('task', 'Task'),
+        ('support', 'Support'),
+        ('other', 'Other'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('open', '開放中'),
+        ('in_progress', '處理中'),
+        ('resolved', '已解決'),
+        ('closed', '已關閉'),
+        ('pending', '等待中'),
+        ('won_fix', '不修復'),
+    ]
+    
+    # 基本資訊
+    issue_id = models.CharField(max_length=50, unique=True, verbose_name="Issue ID", help_text="唯一的問題識別碼")
+    test_version = models.CharField(max_length=100, verbose_name="測試版本", help_text="發現問題的測試版本")
+    jira_number = models.CharField(max_length=50, blank=True, verbose_name="JIRA 號碼", help_text="相關的 JIRA 票號")
+    
+    # 人員與專案
+    updated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="更新人員", related_name="updated_issues")
+    project = models.CharField(max_length=200, verbose_name="Project", help_text="相關專案名稱")
+    
+    # 技術資訊
+    script = models.TextField(blank=True, verbose_name="Script", help_text="相關腳本或代碼")
+    issue_type = models.CharField(max_length=20, choices=ISSUE_TYPE_CHOICES, default='bug', verbose_name="Issue Type")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open', verbose_name="修復狀態")
+    
+    # 問題描述
+    error_message = models.TextField(verbose_name="錯誤訊息", help_text="具體的錯誤訊息內容")
+    supplement = models.TextField(blank=True, verbose_name="補充", help_text="額外的補充說明或解決方案")
+    
+    # 時間戳記
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="建立時間")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新時間")
+    
+    class Meta:
+        ordering = ['-updated_at', '-created_at']
+        verbose_name = "問題知識"
+        verbose_name_plural = "問題知識庫"
+        db_table = 'know_issue'
+    
+    def __str__(self):
+        return f"[{self.issue_id}] {self.project} - {self.get_issue_type_display()}"
+    
+    def get_summary(self):
+        """獲取問題摘要"""
+        return f"Issue ID: {self.issue_id} | Project: {self.project} | Status: {self.get_status_display()}"

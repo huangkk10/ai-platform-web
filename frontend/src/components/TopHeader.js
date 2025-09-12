@@ -15,7 +15,7 @@ const { Header } = Layout;
 const { Text } = Typography;
 
 const TopHeader = ({ collapsed, onToggleSidebar }) => {
-  const { user, isAuthenticated, logout, loading } = useAuth();
+  const { user, isAuthenticated, logout, loading, initialized } = useAuth();
   const [loginVisible, setLoginVisible] = useState(false);
   
   const handleLogout = async () => {
@@ -115,7 +115,7 @@ const TopHeader = ({ collapsed, onToggleSidebar }) => {
             </Badge>
 
             {/* 用戶下拉選單 */}
-            {loading ? (
+            {!initialized ? (
               <div style={{ display: 'flex', alignItems: 'center', minWidth: '120px' }}>
                 <Avatar icon={<UserOutlined />} />
                 <div style={{ marginLeft: '8px', textAlign: 'left' }}>

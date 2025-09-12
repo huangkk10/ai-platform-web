@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Layout, Menu, Avatar, Space, Typography } from 'antd';
 import {
   SettingOutlined,
@@ -12,13 +13,14 @@ import { useAuth } from '../contexts/AuthContext';
 const { Sider } = Layout;
 const { Text } = Typography;
 
-const Sidebar = ({ collapsed, onCollapse, selectedKey, onMenuSelect }) => {
-  const { user, isAuthenticated } = useAuth();
+const Sidebar = ({ collapsed, onCollapse }) => {
+  const { user, isAuthenticated, loading, initialized } = useAuth();
+  const navigate = useNavigate();
 
   // 基本選單項目（所有用戶都能看到）
   const baseMenuItems = [
     {
-      key: 'query',
+      key: 'dashboard',
       icon: <FileSearchOutlined />,
       label: '查詢結果',
     },
@@ -35,14 +37,46 @@ const Sidebar = ({ collapsed, onCollapse, selectedKey, onMenuSelect }) => {
     icon: <DatabaseOutlined />,
     label: '知識庫',
     children: [
-      { key: 'knowledge.know_issue', icon: <DatabaseOutlined />, label: 'know issue' },
-      { key: 'knowledge.rvt_log', icon: <DatabaseOutlined />, label: 'RVT Log' },
+      { key: 'know-issue', icon: <DatabaseOutlined />, label: 'know issue' },
+      { key: 'rvt-log', icon: <DatabaseOutlined />, label: 'RVT Log' },
     ],
+  };
+
+  // 處理選單點擊
+  const handleMenuClick = ({ key }) => {
+    console.log('Menu clicked:', key);
+    switch (key) {
+      case 'dashboard':
+        navigate('/dashboard');
+        break;
+      case 'query':
+        navigate('/query');
+        break;
+      case 'settings':
+        navigate('/settings');
+        break;
+      case 'know-issue':
+        navigate('/knowledge/know-issue');
+        break;
+      case 'rvt-log':
+        navigate('/knowledge/rvt-log');
+        break;
+      default:
+        console.log('Unknown menu key:', key);
+        break;
+    }
   };
 
   const getMenuItems = () => {
     const items = [...baseMenuItems];
-    if (isAuthenticated && user && (user.is_staff || user.is_superuser)) {
+    
+    // 如果還未初始化完成，檢查當前路徑是否包含知識庫路由
+    // 如果是，暫時顯示知識庫選單以避免閃爍
+    const currentPath = window.location.pathname;
+    const isKnowledgePage = currentPath.startsWith('/knowledge/');
+    
+    if ((initialized && isAuthenticated && user && (user.is_staff || user.is_superuser)) || 
+        (!initialized && isKnowledgePage)) {
       // insert knowledge menu before settings if present
       const idx = items.findIndex(i => i.key === 'settings');
       if (idx >= 0) {
@@ -120,8 +154,7 @@ const Sidebar = ({ collapsed, onCollapse, selectedKey, onMenuSelect }) => {
       <Menu
         theme="dark"
         mode="inline"
-        selectedKeys={[selectedKey]}
-        onClick={onMenuSelect}
+        onClick={handleMenuClick}
         items={menuItems}
         style={{
           background: 'transparent',

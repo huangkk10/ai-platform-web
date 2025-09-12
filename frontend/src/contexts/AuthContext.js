@@ -5,6 +5,7 @@ import axios from 'axios';
 axios.defaults.withCredentials = true;
 axios.defaults.xsrfCookieName = 'csrftoken';
 axios.defaults.xsrfHeaderName = 'X-CSRFToken';
+// 不再設置 baseURL，使用相對路徑
 
 const AuthContext = createContext();
 
@@ -20,26 +21,33 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [initialized, setInitialized] = useState(false);
 
   // 檢查當前用戶是否已登入
   const checkAuthStatus = async () => {
+    console.log('AuthContext: Checking auth status...');
     try {
       const response = await axios.get('/api/auth/user/', {
         withCredentials: true
       });
+      console.log('AuthContext: Auth API response:', response.data);
       if (response.data.success && response.data.authenticated) {
         setUser(response.data.user);
         setIsAuthenticated(true);
+        console.log('AuthContext: User authenticated:', response.data.user);
       } else {
         setUser(null);
         setIsAuthenticated(false);
+        console.log('AuthContext: User not authenticated');
       }
     } catch (error) {
-      console.error('檢查認證狀態失敗:', error);
+      console.error('AuthContext: 檢查認證狀態失敗:', error);
       setUser(null);
       setIsAuthenticated(false);
     } finally {
       setLoading(false);
+      setInitialized(true);
+      console.log('AuthContext: Loading completed, initialized');
     }
   };
 
@@ -125,6 +133,7 @@ export const AuthProvider = ({ children }) => {
     user,
     isAuthenticated,
     loading,
+    initialized,
     login,
     logout,
     refreshUserInfo,
