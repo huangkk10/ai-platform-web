@@ -186,35 +186,6 @@ const KnowIssuePage = () => {
       },
     },
     {
-      title: '修復狀態',
-      dataIndex: 'status',
-      key: 'status',
-      width: 100,
-      render: (text) => {
-        const colors = {
-          'open': 'red',
-          '開放中': 'red',
-          'in_progress': 'orange',
-          '處理中': 'orange',
-          'resolved': 'green',
-          '已解決': 'green',
-          'closed': 'gray',
-          '已關閉': 'gray',
-          'pending': 'yellow',
-          '等待中': 'yellow',
-          'won_fix': 'gray',
-          '不修復': 'gray'
-        };
-        return <Tag color={colors[text] || 'default'}>{text}</Tag>;
-      },
-    },
-    {
-      title: '更新人員',
-      dataIndex: 'updated_by_name',
-      key: 'updated_by',
-      width: 100,
-    },
-    {
       title: 'Script',
       dataIndex: 'script',
       key: 'script',
@@ -237,14 +208,6 @@ const KnowIssuePage = () => {
           {text}
         </div>
       ),
-    },
-    {
-      title: '更新時間',
-      dataIndex: 'updated_at',
-      key: 'updated_at',
-      width: 120,
-      render: (text) => new Date(text).toLocaleDateString('zh-TW'),
-      sorter: (a, b) => new Date(a.updated_at) - new Date(b.updated_at),
     },
     {
       title: '操作',
