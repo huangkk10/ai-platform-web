@@ -1,17 +1,22 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Layout, Menu, Avatar, Space, Typography } from 'antd';
 import {
   SettingOutlined,
   FileSearchOutlined,
   MenuFoldOutlined,
-  MenuUnfoldOutlined
+  MenuUnfoldOutlined,
+  DatabaseOutlined,
 } from '@ant-design/icons';
+import { useAuth } from '../contexts/AuthContext';
 
 const { Sider } = Layout;
 const { Text } = Typography;
 
 const Sidebar = ({ collapsed, onCollapse, selectedKey, onMenuSelect }) => {
-  const menuItems = [
+  const { user, isAuthenticated } = useAuth();
+
+  // 基本選單項目（所有用戶都能看到）
+  const baseMenuItems = [
     {
       key: 'query',
       icon: <FileSearchOutlined />,
@@ -23,6 +28,33 @@ const Sidebar = ({ collapsed, onCollapse, selectedKey, onMenuSelect }) => {
       label: '系統設定',
     },
   ];
+
+  // knowledge submenu only for admin users
+  const knowledgeSubmenu = {
+    key: 'knowledge',
+    icon: <DatabaseOutlined />,
+    label: '知識庫',
+    children: [
+      { key: 'knowledge.know_issue', icon: <DatabaseOutlined />, label: 'know issue' },
+      { key: 'knowledge.rvt_log', icon: <DatabaseOutlined />, label: 'RVT Log' },
+    ],
+  };
+
+  const getMenuItems = () => {
+    const items = [...baseMenuItems];
+    if (isAuthenticated && user && (user.is_staff || user.is_superuser)) {
+      // insert knowledge menu before settings if present
+      const idx = items.findIndex(i => i.key === 'settings');
+      if (idx >= 0) {
+        items.splice(idx, 0, knowledgeSubmenu);
+      } else {
+        items.push(knowledgeSubmenu);
+      }
+    }
+    return items;
+  };
+
+  const menuItems = getMenuItems();
 
   return (
     <Sider 

@@ -227,6 +227,26 @@ function App() {
           </div>
         );
 
+      case 'knowledge.know_issue':
+        return (
+          <div style={{ padding: 24 }}>
+            <Card>
+              <Title level={3}>know issue 管理</Title>
+              <Paragraph>此處為 know issue 管理介面（僅限 admin 可見）。</Paragraph>
+            </Card>
+          </div>
+        );
+
+      case 'knowledge.rvt_log':
+        return (
+          <div style={{ padding: 24 }}>
+            <Card>
+              <Title level={3}>RVT Log 檢視</Title>
+              <Paragraph>此處為 RVT Log 檢視介面（僅限 admin 可見）。</Paragraph>
+            </Card>
+          </div>
+        );
+
       default:
         return (
           <div style={{ padding: 24 }}>
