@@ -11,6 +11,7 @@ import QueryPage from './pages/QueryPage';
 import SettingsPage from './pages/SettingsPage';
 import KnowIssuePage from './pages/KnowIssuePage';
 import RvtLogPage from './pages/RvtLogPage';
+import TestClassManagementPage from './pages/TestClassManagementPage';
 
 const { Content } = Layout;
 
@@ -51,6 +52,7 @@ function App() {
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/knowledge/know-issue" element={<KnowIssuePage />} />
                 <Route path="/knowledge/rvt-log" element={<RvtLogPage />} />
+                <Route path="/admin/test-class-management" element={<TestClassManagementPage />} />
               </Routes>
             </Content>
           </Layout>

@@ -7,6 +7,8 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   DatabaseOutlined,
+  ExperimentOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 import smiLogo from '../assets/images/smi.png';
@@ -32,7 +34,7 @@ const Sidebar = ({ collapsed, onCollapse }) => {
     },
   ];
 
-  // knowledge submenu only for admin users
+  // knowledge submenu for authenticated users
   const knowledgeSubmenu = {
     key: 'knowledge',
     icon: <DatabaseOutlined />,
@@ -40,6 +42,17 @@ const Sidebar = ({ collapsed, onCollapse }) => {
     children: [
       { key: 'know-issue', icon: <DatabaseOutlined />, label: 'know issue' },
       { key: 'rvt-log', icon: <DatabaseOutlined />, label: 'RVT Log' },
+    ],
+  };
+
+  // admin submenu - 只有管理員可見
+  const adminSubmenu = {
+    key: 'admin',
+    icon: <SettingOutlined />,
+    label: '管理功能',
+    children: [
+      { key: 'test-class-management', icon: <ExperimentOutlined />, label: 'TestClass 管理' },
+      { key: 'user-management', icon: <UserOutlined />, label: '用戶管理' },
     ],
   };
 
@@ -62,6 +75,12 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       case 'rvt-log':
         navigate('/knowledge/rvt-log');
         break;
+      case 'test-class-management':
+        navigate('/admin/test-class-management');
+        break;
+      case 'user-management':
+        navigate('/admin/user-management');
+        break;
       default:
         console.log('Unknown menu key:', key);
         break;
@@ -71,12 +90,12 @@ const Sidebar = ({ collapsed, onCollapse }) => {
   const getMenuItems = () => {
     const items = [...baseMenuItems];
     
-    // 如果還未初始化完成，檢查當前路徑是否包含知識庫路由
-    // 如果是，暫時顯示知識庫選單以避免閃爍
+    // 如果還未初始化完成，檢查當前路徑是否包含知識庫或管理路由
     const currentPath = window.location.pathname;
     const isKnowledgePage = currentPath.startsWith('/knowledge/');
+    const isAdminPage = currentPath.startsWith('/admin/');
     
-    // 修改權限控制：所有登入用戶都能看到知識庫，訪客看不到
+    // 知識庫選單 - 所有登入用戶都能看到
     if ((initialized && isAuthenticated && user) || 
         (!initialized && isKnowledgePage)) {
       // insert knowledge menu before settings if present
@@ -87,6 +106,13 @@ const Sidebar = ({ collapsed, onCollapse }) => {
         items.push(knowledgeSubmenu);
       }
     }
+    
+    // 管理功能選單 - 只有管理員可見
+    if ((initialized && isAuthenticated && user && (user.is_staff || user.is_superuser)) ||
+        (!initialized && isAdminPage)) {
+      items.push(adminSubmenu);
+    }
+    
     return items;
   };
 

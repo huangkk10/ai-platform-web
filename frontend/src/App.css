@@ -355,3 +355,145 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
 }
+
+/* Admin 管理頁面樣式 */
+.admin-page {
+  padding: 24px;
+}
+
+.admin-page .ant-card-head-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.admin-page .filter-bar {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.admin-page .filter-bar .ant-input,
+.admin-page .filter-bar .ant-select {
+  min-width: 120px;
+}
+
+/* TestClass 管理頁面特殊樣式 */
+.test-class-management {
+  background: #fff;
+  border-radius: 8px;
+}
+
+.test-class-management .ant-table-thead > tr > th {
+  background: #fafafa;
+  font-weight: 600;
+  color: #262626;
+}
+
+.test-class-management .ant-tag {
+  font-weight: 500;
+  border-radius: 4px;
+  border: none;
+  padding: 2px 8px;
+}
+
+/* 狀態標籤樣式 */
+.status-tag-active {
+  background: #f6ffed;
+  color: #52c41a;
+  border: 1px solid #b7eb8f;
+}
+
+.status-tag-inactive {
+  background: #fff2f0;
+  color: #ff4d4f;
+  border: 1px solid #ffccc7;
+}
+
+/* Modal 樣式優化 */
+.admin-modal .ant-modal-header {
+  border-bottom: 1px solid #f0f0f0;
+  padding: 16px 24px;
+}
+
+.admin-modal .ant-modal-title {
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-modal .ant-form-item-label > label {
+  font-weight: 600;
+  color: #262626;
+}
+
+.admin-modal .ant-form-item-explain {
+  color: #8c8c8c;
+  font-size: 12px;
+}
+
+/* 管理頁面按鈕樣式 */
+.admin-action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.admin-action-buttons .ant-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 32px;
+}
+
+/* 響應式設計 - 管理頁面 */
+@media (max-width: 768px) {
+  .admin-page {
+    padding: 16px;
+  }
+  
+  .admin-page .filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .admin-page .filter-bar .ant-input,
+  .admin-page .filter-bar .ant-select {
+    width: 100%;
+  }
+  
+  .admin-page .ant-card-head-title {
+    font-size: 16px;
+  }
+  
+  .admin-action-buttons {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .admin-action-buttons .ant-btn {
+    width: 100%;
+    margin-bottom: 4px;
+  }
+}
+
+@media (max-width: 576px) {
+  .admin-page {
+    padding: 12px;
+  }
+  
+  .test-class-management .ant-table {
+    font-size: 12px;
+  }
+  
+  .test-class-management .ant-table-thead > tr > th,
+  .test-class-management .ant-table-tbody > tr > td {
+    padding: 8px 4px;
+  }
+}

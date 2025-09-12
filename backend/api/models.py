@@ -204,3 +204,22 @@ class KnowIssue(models.Model):
     def get_summary(self):
         """獲取問題摘要"""
         return f"Issue ID: {self.issue_id} | Project: {self.project} | Status: {self.status}"
+
+
+class TestClass(models.Model):
+    """測試類別模型 - Admin 專用管理"""
+    name = models.CharField(max_length=200, unique=True, verbose_name="類別名稱")
+    description = models.TextField(blank=True, verbose_name="描述")
+    is_active = models.BooleanField(default=True, verbose_name="是否啟用")
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="建立者")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="建立時間")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新時間")
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "測試類別"
+        verbose_name_plural = "測試類別"
+        db_table = 'test_class'
+
+    def __str__(self):
+        return self.name

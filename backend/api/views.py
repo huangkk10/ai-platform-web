@@ -12,8 +12,8 @@ from django.views import View
 from django.http import JsonResponse
 import json
 import logging
-from .models import UserProfile, Project, Task, Employee, DifyEmployee, KnowIssue
-from .serializers import UserSerializer, UserProfileSerializer, ProjectSerializer, TaskSerializer, EmployeeSerializer, DifyEmployeeSerializer, DifyEmployeeListSerializer, KnowIssueSerializer
+from .models import UserProfile, Project, Task, Employee, DifyEmployee, KnowIssue, TestClass
+from .serializers import UserSerializer, UserProfileSerializer, ProjectSerializer, TaskSerializer, EmployeeSerializer, DifyEmployeeSerializer, DifyEmployeeListSerializer, KnowIssueSerializer, TestClassSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -448,6 +448,46 @@ class KnowIssueViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         """更新時設定更新人員為當前用戶"""
         serializer.save(updated_by=self.request.user)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class TestClassViewSet(viewsets.ModelViewSet):
+    """測試類別 ViewSet - 只有 admin 可以操作"""
+    queryset = TestClass.objects.all()
+    serializer_class = TestClassSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_permissions(self):
+        """只有 staff 或 superuser 可以訪問"""
+        if not (self.request.user.is_staff or self.request.user.is_superuser):
+            self.permission_denied(
+                self.request,
+                message='只有管理員才能管理測試類別'
+            )
+        return [permissions.IsAuthenticated()]
+    
+    def perform_create(self, serializer):
+        """建立時設定建立者為當前用戶"""
+        serializer.save(created_by=self.request.user)
+    
+    def get_queryset(self):
+        """支援搜尋和篩選"""
+        queryset = TestClass.objects.all()
+        
+        # 搜尋功能
+        search = self.request.query_params.get('search', None)
+        if search:
+            queryset = queryset.filter(name__icontains=search)
+        
+        # 狀態篩選
+        is_active = self.request.query_params.get('is_active', None)
+        if is_active is not None:
+            if is_active.lower() in ['true', '1']:
+                queryset = queryset.filter(is_active=True)
+            elif is_active.lower() in ['false', '0']:
+                queryset = queryset.filter(is_active=False)
+        
+        return queryset.order_by('-created_at')
 
 
 # === 用戶認證 API ===
