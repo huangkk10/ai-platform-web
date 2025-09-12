@@ -201,7 +201,7 @@ const KnowIssuePage = () => {
       title: 'Issue ID',
       dataIndex: 'issue_id',
       key: 'issue_id',
-      width: 120,
+      width: 240,
       fixed: 'left',
       render: (text) => <Tag color="blue">{text}</Tag>,
       sorter: (a, b) => a.issue_id.localeCompare(b.issue_id),
@@ -218,13 +218,6 @@ const KnowIssuePage = () => {
       dataIndex: 'test_version',
       key: 'test_version',
       width: 120,
-    },
-    {
-      title: '測試類別',
-      dataIndex: 'test_class_name',
-      key: 'test_class_name',
-      width: 120,
-      render: (text) => text ? <Tag color="green">{text}</Tag> : '-',
     },
     {
       title: 'JIRA 號碼',
