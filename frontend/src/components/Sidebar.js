@@ -115,8 +115,11 @@ const Sidebar = ({ collapsed, onCollapse }) => {
         alignItems: 'center',
         justifyContent: collapsed ? 'center' : 'flex-start',
         padding: collapsed ? 0 : '0 20px',
-        borderBottom: '1px solid rgba(255,255,255,0.1)'
-      }}>
+        borderBottom: '1px solid rgba(255,255,255,0.1)',
+        cursor: 'pointer'
+      }}
+      onClick={() => navigate('/dashboard')}
+      >
         {!collapsed ? (
           <Space align="center">
             <Avatar 
