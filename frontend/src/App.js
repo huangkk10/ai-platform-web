@@ -10,6 +10,7 @@ import {
   ContainerOutlined,
   SettingOutlined
 } from '@ant-design/icons';
+import { AuthProvider } from './contexts/AuthContext';
 import Sidebar from './components/Sidebar';
 import TopHeader from './components/TopHeader';
 import './App.css';
@@ -239,27 +240,29 @@ function App() {
   };
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <Sidebar 
-        collapsed={collapsed}
-        onCollapse={toggleSidebar}
-        selectedKey={selectedKey}
-        onMenuSelect={handleMenuSelect}
-      />
-      
-      <Layout style={{ marginLeft: collapsed ? 80 : 250, transition: 'margin-left 0.2s' }}>
-        <TopHeader collapsed={collapsed} onToggleSidebar={toggleSidebar} />
+    <AuthProvider>
+      <Layout style={{ minHeight: '100vh' }}>
+        <Sidebar 
+          collapsed={collapsed}
+          onCollapse={toggleSidebar}
+          selectedKey={selectedKey}
+          onMenuSelect={handleMenuSelect}
+        />
         
-        <Content style={{ 
-          marginTop: 64,
-          background: '#f5f5f5',
-          minHeight: 'calc(100vh - 64px)',
-          overflow: 'auto'
-        }}>
-          {renderContent()}
-        </Content>
+        <Layout style={{ marginLeft: collapsed ? 80 : 250, transition: 'margin-left 0.2s' }}>
+          <TopHeader collapsed={collapsed} onToggleSidebar={toggleSidebar} />
+          
+          <Content style={{ 
+            marginTop: 64,
+            background: '#f5f5f5',
+            minHeight: 'calc(100vh - 64px)',
+            overflow: 'auto'
+          }}>
+            {renderContent()}
+          </Content>
+        </Layout>
       </Layout>
-    </Layout>
+    </AuthProvider>
   );
 }
 

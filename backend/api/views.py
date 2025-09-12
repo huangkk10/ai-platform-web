@@ -1,10 +1,15 @@
 from rest_framework import viewsets, permissions, status
-from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.decorators import action, api_view, permission_classes, authentication_classes
 from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
 from django.db import models, connection
 from django.contrib.auth.models import User
+from django.contrib.auth import authenticate, login, logout
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
+from django.contrib.sessions.models import Session
+from django.views import View
+from django.http import JsonResponse
 import json
 import logging
 from .models import UserProfile, Project, Task, Employee
@@ -388,4 +393,226 @@ def dify_knowledge_search(request):
         return Response({
             'error_code': 2001,
             'error_msg': 'Internal server error'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# === 用戶認證 API ===
+
+@method_decorator(csrf_exempt, name='dispatch')
+class UserLoginView(View):
+    """
+    用戶登入 API - 使用 class-based view 避免 CSRF 問題
+    """
+    def post(self, request):
+        try:
+            data = json.loads(request.body)
+            username = data.get('username', '')
+            password = data.get('password', '')
+            
+            if not username or not password:
+                return JsonResponse({
+                    'success': False,
+                    'message': '用戶名和密碼不能為空'
+                }, status=400)
+            
+            # Django 認證
+            user = authenticate(request, username=username, password=password)
+            
+            if user is not None:
+                if user.is_active:
+                    login(request, user)
+                    
+                    # 獲取或創建用戶資料
+                    try:
+                        profile = UserProfile.objects.get(user=user)
+                        bio = profile.bio
+                    except UserProfile.DoesNotExist:
+                        bio = ''
+                    
+                    return JsonResponse({
+                        'success': True,
+                        'message': '登入成功',
+                        'user': {
+                            'id': user.id,
+                            'username': user.username,
+                            'email': user.email,
+                            'first_name': user.first_name,
+                            'last_name': user.last_name,
+                            'is_staff': user.is_staff,
+                            'is_superuser': user.is_superuser,
+                            'bio': bio,
+                            'date_joined': user.date_joined.isoformat(),
+                            'last_login': user.last_login.isoformat() if user.last_login else None
+                        }
+                    }, status=200)
+                else:
+                    return JsonResponse({
+                        'success': False,
+                        'message': '該帳號已被停用'
+                    }, status=401)
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'message': '用戶名或密碼錯誤'
+                }, status=401)
+                
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'success': False,
+                'message': '無效的 JSON 格式'
+            }, status=400)
+        except Exception as e:
+            logger.error(f"Login error: {str(e)}")
+            return JsonResponse({
+                'success': False,
+                'message': '伺服器錯誤'
+            }, status=500)
+
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@authentication_classes([])
+def user_login(request):
+    """
+    用戶登入 API
+    """
+    try:
+        data = json.loads(request.body)
+        username = data.get('username', '')
+        password = data.get('password', '')
+        
+        if not username or not password:
+            return Response({
+                'success': False,
+                'message': '用戶名和密碼不能為空'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Django 認證
+        user = authenticate(request, username=username, password=password)
+        
+        if user is not None:
+            if user.is_active:
+                login(request, user)
+                
+                # 獲取或創建用戶資料
+                try:
+                    profile = UserProfile.objects.get(user=user)
+                    bio = profile.bio
+                except UserProfile.DoesNotExist:
+                    bio = ''
+                
+                return Response({
+                    'success': True,
+                    'message': '登入成功',
+                    'user': {
+                        'id': user.id,
+                        'username': user.username,
+                        'email': user.email,
+                        'first_name': user.first_name,
+                        'last_name': user.last_name,
+                        'is_staff': user.is_staff,
+                        'is_superuser': user.is_superuser,
+                        'bio': bio,
+                        'date_joined': user.date_joined.isoformat(),
+                        'last_login': user.last_login.isoformat() if user.last_login else None
+                    }
+                }, status=status.HTTP_200_OK)
+            else:
+                return Response({
+                    'success': False,
+                    'message': '該帳號已被停用'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+        else:
+            return Response({
+                'success': False,
+                'message': '用戶名或密碼錯誤'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+            
+    except json.JSONDecodeError:
+        return Response({
+            'success': False,
+            'message': '無效的 JSON 格式'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        logger.error(f"Login error: {str(e)}")
+        return Response({
+            'success': False,
+            'message': '伺服器錯誤'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@authentication_classes([])
+def user_logout(request):
+    """
+    用戶登出 API
+    """
+    try:
+        if request.user.is_authenticated:
+            username = request.user.username
+            logout(request)
+            return Response({
+                'success': True,
+                'message': f'用戶 {username} 已成功登出'
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response({
+                'success': False,
+                'message': '用戶未登入'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+    except Exception as e:
+        logger.error(f"Logout error: {str(e)}")
+        return Response({
+            'success': False,
+            'message': '登出失敗'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([])
+def user_info(request):
+    """
+    獲取當前用戶資訊 API
+    """
+    try:
+        if request.user.is_authenticated:
+            user = request.user
+            
+            # 獲取用戶資料
+            try:
+                profile = UserProfile.objects.get(user=user)
+                bio = profile.bio
+            except UserProfile.DoesNotExist:
+                bio = ''
+            
+            return Response({
+                'success': True,
+                'authenticated': True,
+                'user': {
+                    'id': user.id,
+                    'username': user.username,
+                    'email': user.email,
+                    'first_name': user.first_name,
+                    'last_name': user.last_name,
+                    'is_staff': user.is_staff,
+                    'is_superuser': user.is_superuser,
+                    'bio': bio,
+                    'date_joined': user.date_joined.isoformat(),
+                    'last_login': user.last_login.isoformat() if user.last_login else None
+                }
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response({
+                'success': True,
+                'authenticated': False,
+                'message': '用戶未登入'
+            }, status=status.HTTP_200_OK)
+    except Exception as e:
+        logger.error(f"Get user info error: {str(e)}")
+        return Response({
+            'success': False,
+            'message': '獲取用戶資訊失敗'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

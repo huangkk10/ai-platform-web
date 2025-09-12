@@ -1,0 +1,121 @@
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import axios from 'axios';
+
+const AuthContext = createContext();
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // 檢查當前用戶是否已登入
+  const checkAuthStatus = async () => {
+    try {
+      const response = await axios.get('/api/auth/user/');
+      if (response.data.success && response.data.authenticated) {
+        setUser(response.data.user);
+        setIsAuthenticated(true);
+      } else {
+        setUser(null);
+        setIsAuthenticated(false);
+      }
+    } catch (error) {
+      console.error('檢查認證狀態失敗:', error);
+      setUser(null);
+      setIsAuthenticated(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 登入函數
+  const login = async (username, password) => {
+    try {
+      const response = await axios.post('/api/auth/login/', {
+        username,
+        password
+      });
+
+      if (response.data.success) {
+        setUser(response.data.user);
+        setIsAuthenticated(true);
+        return { success: true, message: response.data.message };
+      } else {
+        return { success: false, message: response.data.message };
+      }
+    } catch (error) {
+      console.error('登入失敗:', error);
+      
+      if (error.response?.data?.message) {
+        return { success: false, message: error.response.data.message };
+      } else if (error.response?.status === 401) {
+        return { success: false, message: '用戶名或密碼錯誤' };
+      } else if (error.response?.status === 400) {
+        return { success: false, message: '請求格式錯誤' };
+      } else {
+        return { success: false, message: '網路連接失敗，請稍後再試' };
+      }
+    }
+  };
+
+  // 登出函數
+  const logout = async () => {
+    try {
+      await axios.post('/api/auth/logout/');
+      setUser(null);
+      setIsAuthenticated(false);
+      return { success: true, message: '已成功登出' };
+    } catch (error) {
+      console.error('登出失敗:', error);
+      // 即使 API 失敗，也清除本地狀態
+      setUser(null);
+      setIsAuthenticated(false);
+      return { success: false, message: '登出失敗，但已清除本地登入狀態' };
+    }
+  };
+
+  // 獲取用戶資訊
+  const refreshUserInfo = async () => {
+    if (!isAuthenticated) return;
+    
+    try {
+      const response = await axios.get('/api/auth/user/');
+      if (response.data.success && response.data.authenticated) {
+        setUser(response.data.user);
+      }
+    } catch (error) {
+      console.error('刷新用戶資訊失敗:', error);
+    }
+  };
+
+  // 組件掛載時檢查認證狀態
+  useEffect(() => {
+    checkAuthStatus();
+  }, []);
+
+  const value = {
+    user,
+    isAuthenticated,
+    loading,
+    login,
+    logout,
+    refreshUserInfo,
+    checkAuthStatus
+  };
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export default AuthContext;

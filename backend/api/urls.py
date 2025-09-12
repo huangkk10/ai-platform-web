@@ -11,7 +11,15 @@ router.register(r'employees', views.EmployeeViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('auth/', include('rest_framework.urls')),
+    
+    # 用戶認證 API (放在 rest_framework.urls 之前)
+    path('auth/login/', views.UserLoginView.as_view(), name='user_login'),
+    path('auth/logout/', views.user_logout, name='user_logout'),
+    path('auth/user/', views.user_info, name='user_info'),
+    
+    # Django REST framework 認證頁面（使用不同路徑）
+    path('auth/drf/', include('rest_framework.urls')),
+    
     # Dify 外部知識 API - 同時支援有斜槓和無斜槓的版本
     path('dify/knowledge/retrieval', views.dify_knowledge_search, name='dify_knowledge_search_no_slash'),
     path('dify/knowledge/retrieval/', views.dify_knowledge_search, name='dify_knowledge_search'),
