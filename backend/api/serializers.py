@@ -122,7 +122,7 @@ class DifyEmployeeListSerializer(serializers.ModelSerializer):
 
 class KnowIssueSerializer(serializers.ModelSerializer):
     """問題知識庫序列化器"""
-    updated_by_name = serializers.CharField(source='updated_by.name', read_only=True)
+    updated_by_name = serializers.CharField(source='updated_by.username', read_only=True)
     summary = serializers.CharField(source='get_summary', read_only=True)
     
     class Meta:

@@ -176,7 +176,7 @@ class KnowIssue(models.Model):
     jira_number = models.CharField(max_length=50, blank=True, verbose_name="JIRA 號碼", help_text="相關的 JIRA 票號")
     
     # 人員與專案
-    updated_by = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="更新人員", related_name="updated_issues")
+    updated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="更新人員", related_name="updated_issues")
     project = models.CharField(max_length=200, verbose_name="Project", help_text="相關專案名稱")
     
     # 技術資訊

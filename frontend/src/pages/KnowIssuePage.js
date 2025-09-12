@@ -10,7 +10,6 @@ const { Option } = Select;
 const KnowIssuePage = () => {
   const { user, isAuthenticated, loading: authLoading, initialized } = useAuth();
   const [issues, setIssues] = useState([]);
-  const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingIssue, setEditingIssue] = useState(null);
@@ -24,19 +23,6 @@ const KnowIssuePage = () => {
     statuses: [],
     jiraNumbers: []
   });
-
-  // 載入員工資料
-  const fetchEmployees = async () => {
-    try {
-      const response = await axios.get('/api/employees/', {
-        withCredentials: true
-      });
-      setEmployees(response.data.results || []);
-    } catch (error) {
-      console.error('載入員工列表失敗:', error);
-      // 員工列表載入失敗不影響主要功能
-    }
-  };
 
   // 提取自動完成選項
   const extractAutoCompleteOptions = (issues) => {
@@ -145,7 +131,6 @@ const KnowIssuePage = () => {
     // 只有在認證狀態初始化完成且用戶已認證時才載入資料
     if (initialized && isAuthenticated && user && (user.is_staff || user.is_superuser)) {
       fetchIssues();
-      fetchEmployees();
     } else if (initialized && (!isAuthenticated || !user || (!user.is_staff && !user.is_superuser))) {
       console.log('User not authorized or not authenticated');
       if (!isAuthenticated) {
@@ -515,19 +500,6 @@ const KnowIssuePage = () => {
                 option.value.toLowerCase().includes(inputValue.toLowerCase())
               }
             />
-          </Form.Item>
-          
-          <Form.Item
-            name="updated_by"
-            label="更新人員"
-          >
-            <Select placeholder="請選擇更新人員" allowClear>
-              {employees.map(employee => (
-                <Option key={employee.id} value={employee.id}>
-                  {employee.name}
-                </Option>
-              ))}
-            </Select>
           </Form.Item>
           
           <Form.Item

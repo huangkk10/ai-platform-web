@@ -447,12 +447,12 @@ class KnowIssueViewSet(viewsets.ModelViewSet):
         return queryset.order_by('-updated_at')
     
     def perform_create(self, serializer):
-        """建立時保存，updated_by 由前端提供的員工 ID 決定"""
-        serializer.save()
+        """建立時設定更新人員為當前用戶"""
+        serializer.save(updated_by=self.request.user)
     
     def perform_update(self, serializer):
-        """更新時保存，updated_by 由前端提供的員工 ID 決定"""
-        serializer.save()
+        """更新時設定更新人員為當前用戶"""
+        serializer.save(updated_by=self.request.user)
 
 
 # === 用戶認證 API ===
