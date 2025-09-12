@@ -123,8 +123,6 @@ class DifyEmployeeListSerializer(serializers.ModelSerializer):
 class KnowIssueSerializer(serializers.ModelSerializer):
     """問題知識庫序列化器"""
     updated_by_name = serializers.CharField(source='updated_by.name', read_only=True)
-    issue_type_display = serializers.CharField(source='get_issue_type_display', read_only=True)
-    status_display = serializers.CharField(source='get_status_display', read_only=True)
     summary = serializers.CharField(source='get_summary', read_only=True)
     
     class Meta:
@@ -132,8 +130,7 @@ class KnowIssueSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'issue_id', 'test_version', 'jira_number', 'updated_by', 
             'updated_by_name', 'project', 'script', 'issue_type', 
-            'issue_type_display', 'status', 'status_display', 'error_message', 
-            'supplement', 'summary', 'created_at', 'updated_at'
+            'status', 'error_message', 'supplement', 'summary', 
+            'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'updated_by_name', 
-                           'issue_type_display', 'status_display', 'summary']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'updated_by_name', 'summary']

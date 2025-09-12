@@ -170,24 +170,6 @@ class Employee(models.Model):
 class KnowIssue(models.Model):
     """問題知識庫模型"""
     
-    ISSUE_TYPE_CHOICES = [
-        ('bug', 'Bug'),
-        ('feature', 'Feature Request'),
-        ('improvement', 'Improvement'),
-        ('task', 'Task'),
-        ('support', 'Support'),
-        ('other', 'Other'),
-    ]
-    
-    STATUS_CHOICES = [
-        ('open', '開放中'),
-        ('in_progress', '處理中'),
-        ('resolved', '已解決'),
-        ('closed', '已關閉'),
-        ('pending', '等待中'),
-        ('won_fix', '不修復'),
-    ]
-    
     # 基本資訊
     issue_id = models.CharField(max_length=50, unique=True, verbose_name="Issue ID", help_text="唯一的問題識別碼")
     test_version = models.CharField(max_length=100, verbose_name="測試版本", help_text="發現問題的測試版本")
@@ -199,8 +181,8 @@ class KnowIssue(models.Model):
     
     # 技術資訊
     script = models.TextField(blank=True, verbose_name="Script", help_text="相關腳本或代碼")
-    issue_type = models.CharField(max_length=20, choices=ISSUE_TYPE_CHOICES, default='bug', verbose_name="Issue Type")
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open', verbose_name="修復狀態")
+    issue_type = models.CharField(max_length=50, verbose_name="Issue Type", help_text="問題類型，如 Bug, Feature Request, Improvement 等")
+    status = models.CharField(max_length=50, verbose_name="修復狀態", help_text="狀態描述，如 開放中, 處理中, 已解決 等")
     
     # 問題描述
     error_message = models.TextField(verbose_name="錯誤訊息", help_text="具體的錯誤訊息內容")
@@ -217,8 +199,8 @@ class KnowIssue(models.Model):
         db_table = 'know_issue'
     
     def __str__(self):
-        return f"[{self.issue_id}] {self.project} - {self.get_issue_type_display()}"
+        return f"[{self.issue_id}] {self.project} - {self.issue_type}"
     
     def get_summary(self):
         """獲取問題摘要"""
-        return f"Issue ID: {self.issue_id} | Project: {self.project} | Status: {self.get_status_display()}"
+        return f"Issue ID: {self.issue_id} | Project: {self.project} | Status: {self.status}"
