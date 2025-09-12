@@ -121,6 +121,7 @@ const Sidebar = ({ collapsed, onCollapse }) => {
           <Space align="center">
             <Avatar 
               src={smiLogo}
+              size={48}
               style={{ 
                 backgroundColor: '#3498db',
                 fontSize: '18px',
@@ -142,6 +143,7 @@ const Sidebar = ({ collapsed, onCollapse }) => {
         ) : (
           <Avatar 
             src={smiLogo}
+            size={40}
             style={{ 
               backgroundColor: '#3498db',
               fontSize: '18px',
