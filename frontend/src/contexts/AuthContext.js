@@ -1,6 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 
+// 設置 axios 默認配置
+axios.defaults.withCredentials = true;
+axios.defaults.xsrfCookieName = 'csrftoken';
+axios.defaults.xsrfHeaderName = 'X-CSRFToken';
+
 const AuthContext = createContext();
 
 export const useAuth = () => {
@@ -19,7 +24,9 @@ export const AuthProvider = ({ children }) => {
   // 檢查當前用戶是否已登入
   const checkAuthStatus = async () => {
     try {
-      const response = await axios.get('/api/auth/user/');
+      const response = await axios.get('/api/auth/user/', {
+        withCredentials: true
+      });
       if (response.data.success && response.data.authenticated) {
         setUser(response.data.user);
         setIsAuthenticated(true);
@@ -42,6 +49,8 @@ export const AuthProvider = ({ children }) => {
       const response = await axios.post('/api/auth/login/', {
         username,
         password
+      }, {
+        withCredentials: true
       });
 
       if (response.data.success) {
@@ -69,16 +78,25 @@ export const AuthProvider = ({ children }) => {
   // 登出函數
   const logout = async () => {
     try {
-      await axios.post('/api/auth/logout/');
+      const response = await axios.post('/api/auth/logout/', {}, {
+        withCredentials: true
+      });
+      
+      // 無論 API 回應如何，都清除前端狀態
       setUser(null);
       setIsAuthenticated(false);
-      return { success: true, message: '已成功登出' };
+      
+      if (response.data.success) {
+        return { success: true, message: response.data.message };
+      } else {
+        return { success: true, message: '已清除登入狀態' };
+      }
     } catch (error) {
       console.error('登出失敗:', error);
       // 即使 API 失敗，也清除本地狀態
       setUser(null);
       setIsAuthenticated(false);
-      return { success: false, message: '登出失敗，但已清除本地登入狀態' };
+      return { success: true, message: '已清除登入狀態' };
     }
   };
 
@@ -87,7 +105,9 @@ export const AuthProvider = ({ children }) => {
     if (!isAuthenticated) return;
     
     try {
-      const response = await axios.get('/api/auth/user/');
+      const response = await axios.get('/api/auth/user/', {
+        withCredentials: true
+      });
       if (response.data.success && response.data.authenticated) {
         setUser(response.data.user);
       }

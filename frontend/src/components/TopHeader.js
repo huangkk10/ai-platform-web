@@ -103,63 +103,109 @@ const TopHeader = ({ collapsed, onToggleSidebar }) => {
         />
 
         {/* 右側：用戶資訊 */}
-        <Space size="large">
-          {/* 通知圖標 */}
-          <Badge count={3} size="small">
-            <Button 
-              type="text" 
-              icon={<BellOutlined />} 
-              style={{ fontSize: '16px' }}
-            />
-          </Badge>
+        <div style={{ display: 'flex', alignItems: 'center', minWidth: '200px', justifyContent: 'flex-end' }}>
+          <Space size="large">
+            {/* 通知圖標 */}
+            <Badge count={3} size="small">
+              <Button 
+                type="text" 
+                icon={<BellOutlined />} 
+                style={{ fontSize: '16px' }}
+              />
+            </Badge>
 
-          {/* 用戶下拉選單 */}
-          {loading ? (
-            <Avatar icon={<UserOutlined />} />
-          ) : isAuthenticated ? (
-            <Dropdown
-              menu={{ items: userMenuItems }}
-              placement="bottomRight"
-              arrow
-            >
-              <Space style={{ cursor: 'pointer' }}>
-                <Avatar 
-                  style={{ backgroundColor: '#1890ff' }}
-                  icon={<UserOutlined />}
-                />
-                <div style={{ textAlign: 'left' }}>
-                  <Text strong style={{ display: 'block', lineHeight: '16px' }}>
-                    {user?.first_name && user?.last_name 
-                      ? `${user.first_name} ${user.last_name}` 
-                      : user?.username || '用戶'
-                    }
-                  </Text>
-                  <Text type="secondary" style={{ fontSize: '12px', lineHeight: '16px' }}>
-                    {user?.is_superuser ? '超級管理員' : user?.is_staff ? '管理員' : '用戶'}
-                  </Text>
-                </div>
-              </Space>
-            </Dropdown>
-          ) : (
-            <Dropdown
-              menu={{ items: guestMenuItems }}
-              placement="bottomRight"
-              arrow
-            >
-              <Space style={{ cursor: 'pointer' }}>
+            {/* 用戶下拉選單 */}
+            {loading ? (
+              <div style={{ display: 'flex', alignItems: 'center', minWidth: '120px' }}>
                 <Avatar icon={<UserOutlined />} />
-                <div style={{ textAlign: 'left' }}>
-                  <Text style={{ display: 'block', lineHeight: '16px' }}>
-                    訪客
-                  </Text>
-                  <Text type="secondary" style={{ fontSize: '12px', lineHeight: '16px' }}>
-                    點擊登入
-                  </Text>
+                <div style={{ marginLeft: '8px', textAlign: 'left' }}>
+                  <Text>載入中...</Text>
                 </div>
-              </Space>
-            </Dropdown>
-          )}
-        </Space>
+              </div>
+            ) : isAuthenticated ? (
+              <Dropdown
+                menu={{ items: userMenuItems }}
+                placement="bottomRight"
+                arrow
+              >
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  cursor: 'pointer',
+                  minWidth: '120px',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  transition: 'background-color 0.2s'
+                }}>
+                  <Avatar 
+                    style={{ backgroundColor: '#1890ff' }}
+                    icon={<UserOutlined />}
+                  />
+                  <div style={{ marginLeft: '8px', textAlign: 'left', flex: 1, paddingTop: '6px' }}>
+                    <Text strong style={{ 
+                      display: 'block', 
+                      lineHeight: '18px',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      maxWidth: '100px',
+                      marginTop: '6px'
+                    }}>
+                      {user?.first_name && user?.last_name 
+                        ? `${user.first_name} ${user.last_name}` 
+                        : user?.username || '用戶'
+                      }
+                    </Text>
+                    <Text type="secondary" style={{ 
+                      fontSize: '12px', 
+                      lineHeight: '14px',
+                      whiteSpace: 'nowrap',
+                      marginTop: '2px'
+                    }}>
+                      {user?.is_superuser ? '超級管理員' : user?.is_staff ? '管理員' : '用戶'}
+                    </Text>
+                  </div>
+                </div>
+              </Dropdown>
+            ) : (
+              <Dropdown
+                menu={{ items: guestMenuItems }}
+                placement="bottomRight"
+                arrow
+              >
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  cursor: 'pointer',
+                  minWidth: '120px',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  transition: 'background-color 0.2s'
+                }}>
+                  <Avatar icon={<UserOutlined />} />
+                  <div style={{ marginLeft: '8px', textAlign: 'left', flex: 1, paddingTop: '6px' }}>
+                    <Text style={{ 
+                      display: 'block', 
+                      lineHeight: '18px',
+                      whiteSpace: 'nowrap',
+                      marginTop: '6px'
+                    }}>
+                      訪客
+                    </Text>
+                    <Text type="secondary" style={{ 
+                      fontSize: '12px', 
+                      lineHeight: '14px',
+                      whiteSpace: 'nowrap',
+                      marginTop: '2px'
+                    }}>
+                      點擊登入
+                    </Text>
+                  </div>
+                </div>
+              </Dropdown>
+            )}
+          </Space>
+        </div>
       </Header>
 
       {/* 登入表單 Modal */}

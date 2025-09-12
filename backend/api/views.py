@@ -548,27 +548,50 @@ def user_login(request):
 @authentication_classes([])
 def user_logout(request):
     """
-    用戶登出 API
+    用戶登出 API - 強制清除 session
     """
     try:
-        if request.user.is_authenticated:
+        username = None
+        
+        # 嘗試獲取用戶名（如果有的話）
+        if hasattr(request, 'user') and request.user.is_authenticated:
             username = request.user.username
-            logout(request)
-            return Response({
-                'success': True,
-                'message': f'用戶 {username} 已成功登出'
-            }, status=status.HTTP_200_OK)
-        else:
-            return Response({
-                'success': False,
-                'message': '用戶未登入'
-            }, status=status.HTTP_401_UNAUTHORIZED)
+        
+        # 強制清除 session
+        if hasattr(request, 'session'):
+            request.session.flush()  # 完全清除 session
+        
+        # Django logout
+        logout(request)
+        
+        # 清除所有相關的 session
+        from django.contrib.sessions.models import Session
+        if username:
+            # 清除該用戶的所有 session（可選）
+            user_sessions = Session.objects.filter(
+                session_data__contains=username
+            )
+            user_sessions.delete()
+        
+        return Response({
+            'success': True,
+            'message': f'用戶 {username or "用戶"} 已成功登出並清除所有 session'
+        }, status=status.HTTP_200_OK)
+        
     except Exception as e:
         logger.error(f"Logout error: {str(e)}")
+        # 即使出錯也要嘗試清除 session
+        try:
+            if hasattr(request, 'session'):
+                request.session.flush()
+            logout(request)
+        except:
+            pass
+            
         return Response({
-            'success': False,
-            'message': '登出失敗'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            'success': True,
+            'message': '已強制清除登入狀態'
+        }, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
