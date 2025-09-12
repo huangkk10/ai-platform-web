@@ -13,6 +13,7 @@ const KnowIssuePage = () => {
   const [filteredIssues, setFilteredIssues] = useState([]);
   const [testClasses, setTestClasses] = useState([]);
   const [selectedTestClass, setSelectedTestClass] = useState(null);
+  const [selectedFormTestClass, setSelectedFormTestClass] = useState(null);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingIssue, setEditingIssue] = useState(null);
@@ -26,6 +27,12 @@ const KnowIssuePage = () => {
     statuses: [],
     jiraNumbers: []
   });
+
+  // 處理表單中測試類別的選擇
+  const handleFormTestClassChange = (testClassId) => {
+    const selectedClass = testClasses.find(cls => cls.id === testClassId);
+    setSelectedFormTestClass(selectedClass);
+  };
 
   // 處理測試類別過濾
   const handleTestClassFilter = (testClassId) => {
@@ -114,7 +121,13 @@ const KnowIssuePage = () => {
       });
       
       const classesData = response.data.results || [];
-      setTestClasses(classesData.filter(cls => cls.is_active));
+      const activeClasses = classesData.filter(cls => cls.is_active);
+      setTestClasses(activeClasses);
+      
+      // 設置默認選中第一個測試類別
+      if (activeClasses.length > 0 && selectedTestClass === null) {
+        setSelectedTestClass(activeClasses[0].id);
+      }
     } catch (error) {
       console.error('載入測試類別失敗:', error);
       // 不顯示錯誤消息，因為這不是必要功能
@@ -286,8 +299,20 @@ const KnowIssuePage = () => {
 
   // 編輯處理
   const handleEdit = (issue) => {
+    if (!selectedTestClass) {
+      message.warning('請先選擇測試類別過濾條件');
+      return;
+    }
+    
     setEditingIssue(issue);
-    form.setFieldsValue(issue);
+    
+    // 使用過濾器選中的測試類別，而不是原問題的測試類別
+    const formValues = { ...issue, test_class: selectedTestClass };
+    form.setFieldsValue(formValues);
+    
+    const selectedClass = testClasses.find(cls => cls.id === selectedTestClass);
+    setSelectedFormTestClass(selectedClass);
+    
     setModalVisible(true);
   };
 
@@ -333,6 +358,7 @@ const KnowIssuePage = () => {
       if (values.jira_number) saveToLocalStorage('jiraNumbers', values.jira_number);
       
       setModalVisible(false);
+      setSelectedFormTestClass(null);
       form.resetFields();
       setEditingIssue(null);
       fetchIssues();
@@ -384,7 +410,7 @@ const KnowIssuePage = () => {
         
         {/* 測試類別過濾器 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '14px', color: '#666' }}>過濾條件：</span>
+          <span style={{ fontSize: '14px', color: '#666' }}>測試類別：</span>
           <Select
             placeholder="選擇測試類別"
             allowClear
@@ -416,8 +442,19 @@ const KnowIssuePage = () => {
             type="primary" 
             icon={<PlusOutlined />}
             onClick={() => {
+              if (!selectedTestClass) {
+                message.warning('請先選擇測試類別過濾條件');
+                return;
+              }
+              
               setEditingIssue(null);
               form.resetFields();
+              
+              // 使用過濾器選中的測試類別
+              const selectedClass = testClasses.find(cls => cls.id === selectedTestClass);
+              setSelectedFormTestClass(selectedClass);
+              form.setFieldsValue({ test_class: selectedTestClass });
+              
               setModalVisible(true);
             }}
           >
@@ -448,6 +485,7 @@ const KnowIssuePage = () => {
         open={modalVisible}
         onCancel={() => {
           setModalVisible(false);
+          setSelectedFormTestClass(null);
           form.resetFields();
           setEditingIssue(null);
         }}
@@ -459,13 +497,37 @@ const KnowIssuePage = () => {
           layout="vertical"
           onFinish={handleSubmit}
         >
+          {/* 測試類別信息顯示（使用過濾器選中的值） */}
           <Form.Item
-            name="issue_id"
-            label="Issue ID"
-            rules={[{ required: true, message: '請輸入 Issue ID' }]}
+            name="test_class"
+            label="測試類別"
+            style={{ display: 'none' }}
           >
-            <Input placeholder="例如: BUG-001" />
+            <Input />
           </Form.Item>
+          
+          {selectedFormTestClass && (
+            <div style={{ 
+              marginBottom: '16px',
+              padding: '12px 16px', 
+              backgroundColor: '#e6f7ff', 
+              border: '1px solid #91d5ff',
+              borderRadius: '8px',
+              fontSize: '14px',
+              color: '#0050b3'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <strong>📂 測試類別：</strong> 
+                <Tag color="blue">{selectedFormTestClass.name}</Tag>
+              </div>
+              <div style={{ fontSize: '12px', color: '#666' }}>
+                <strong>🏷️ Issue ID 格式：</strong> {selectedFormTestClass.name.replace(' ', '_')}-[序號]
+              </div>
+              <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                💡 使用頁面頂部過濾器選中的測試類別
+              </div>
+            </div>
+          )}
           
           <Form.Item
             name="test_version"
@@ -506,26 +568,6 @@ const KnowIssuePage = () => {
                 option.value.toLowerCase().includes(inputValue.toLowerCase())
               }
             />
-          </Form.Item>
-          
-          <Form.Item
-            name="test_class"
-            label="測試類別"
-          >
-            <Select
-              placeholder="請選擇測試類別"
-              allowClear
-              showSearch
-              filterOption={(input, option) =>
-                (option?.children ?? '').toLowerCase().includes(input.toLowerCase())
-              }
-            >
-              {testClasses.map(testClass => (
-                <Option key={testClass.id} value={testClass.id}>
-                  {testClass.name}
-                </Option>
-              ))}
-            </Select>
           </Form.Item>
           
           <Form.Item

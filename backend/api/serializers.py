@@ -131,10 +131,10 @@ class KnowIssueSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'issue_id', 'test_version', 'jira_number', 'updated_by', 
             'updated_by_name', 'project', 'test_class', 'test_class_name',
-            'script', 'issue_type', 'status', 'error_message', 'supplement', 
-            'summary', 'created_at', 'updated_at'
+            'class_sequence_id', 'script', 'issue_type', 'status', 
+            'error_message', 'supplement', 'summary', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'updated_by_name', 'test_class_name', 'summary']
+        read_only_fields = ['id', 'issue_id', 'class_sequence_id', 'created_at', 'updated_at', 'updated_by_name', 'test_class_name', 'summary']
 
 
 class TestClassSerializer(serializers.ModelSerializer):

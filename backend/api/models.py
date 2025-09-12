@@ -181,6 +181,7 @@ class KnowIssue(models.Model):
     
     # 分類資訊
     test_class = models.ForeignKey('TestClass', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="測試類別", help_text="問題所屬的測試類別")
+    class_sequence_id = models.PositiveIntegerField(null=True, blank=True, verbose_name="類別序號", help_text="在該測試類別內的遞增ID號碼")
     
     # 技術資訊
     script = models.TextField(blank=True, verbose_name="Script", help_text="相關腳本或代碼")
@@ -203,6 +204,23 @@ class KnowIssue(models.Model):
     
     def __str__(self):
         return f"[{self.issue_id}] {self.project} - {self.issue_type}"
+    
+    def save(self, *args, **kwargs):
+        """自動生成 Issue ID"""
+        if not self.issue_id and self.test_class:
+            # 獲取該測試類別下一個可用的 ID
+            last_issue = KnowIssue.objects.filter(
+                test_class=self.test_class
+            ).order_by('-class_sequence_id').first()
+            
+            next_id = 1 if not last_issue else (last_issue.class_sequence_id or 0) + 1
+            self.class_sequence_id = next_id
+            
+            # 生成 Issue ID 格式: {test_class_name}-{id}
+            test_class_name = self.test_class.name.replace(' ', '_')
+            self.issue_id = f"{test_class_name}-{next_id}"
+        
+        super().save(*args, **kwargs)
     
     def get_summary(self):
         """獲取問題摘要"""
