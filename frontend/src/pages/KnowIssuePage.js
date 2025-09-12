@@ -291,19 +291,12 @@ const KnowIssuePage = () => {
       width: 120,
       fixed: 'right',
       render: (_, record) => (
-        <Space>
-          <Button 
-            icon={<EditOutlined />} 
-            size="small" 
-            onClick={() => handleEdit(record)}
-          />
-          <Button 
-            icon={<DeleteOutlined />} 
-            size="small" 
-            danger
-            onClick={() => handleDelete(record.id)}
-          />
-        </Space>
+        <Button 
+          icon={<EditOutlined />} 
+          size="small" 
+          onClick={() => handleEdit(record)}
+          title="編輯"
+        />
       ),
     },
   ];
