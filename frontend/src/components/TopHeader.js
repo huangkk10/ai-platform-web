@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import { Layout, Button, Dropdown, Avatar, Badge, Space, Typography, message } from 'antd';
+import { Layout, Button, Dropdown, Avatar, Space, Typography, message } from 'antd';
 import { 
   MenuOutlined,
   UserOutlined,
   SettingOutlined,
   LogoutOutlined,
-  LoginOutlined,
-  BellOutlined
+  LoginOutlined
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 import LoginForm from './LoginForm';
@@ -105,15 +104,6 @@ const TopHeader = ({ collapsed, onToggleSidebar }) => {
         {/* 右側：用戶資訊 */}
         <div style={{ display: 'flex', alignItems: 'center', minWidth: '200px', justifyContent: 'flex-end' }}>
           <Space size="large">
-            {/* 通知圖標 */}
-            <Badge count={3} size="small">
-              <Button 
-                type="text" 
-                icon={<BellOutlined />} 
-                style={{ fontSize: '16px' }}
-              />
-            </Badge>
-
             {/* 用戶下拉選單 */}
             {!initialized ? (
               <div style={{ display: 'flex', alignItems: 'center', minWidth: '120px' }}>
