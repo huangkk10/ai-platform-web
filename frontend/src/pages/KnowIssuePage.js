@@ -10,6 +10,7 @@ const { Option } = Select;
 const KnowIssuePage = () => {
   const { user, isAuthenticated, loading: authLoading, initialized } = useAuth();
   const [issues, setIssues] = useState([]);
+  const [testClasses, setTestClasses] = useState([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingIssue, setEditingIssue] = useState(null);
@@ -78,6 +79,25 @@ const KnowIssuePage = () => {
     }
   };
 
+  // 載入測試類別
+  const fetchTestClasses = async () => {
+    try {
+      const response = await axios.get('/api/test-classes/', {
+        withCredentials: true,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        }
+      });
+      
+      const classesData = response.data.results || [];
+      setTestClasses(classesData.filter(cls => cls.is_active));
+    } catch (error) {
+      console.error('載入測試類別失敗:', error);
+      // 不顯示錯誤消息，因為這不是必要功能
+    }
+  };
+
   // 載入資料
   const fetchIssues = async () => {
     try {
@@ -131,6 +151,7 @@ const KnowIssuePage = () => {
     // 只有在認證狀態初始化完成且用戶已認證時才載入資料
     if (initialized && isAuthenticated && user) {
       fetchIssues();
+      fetchTestClasses();
     } else if (initialized && !isAuthenticated) {
       console.log('User not authenticated');
       message.warning('請先登入以查看知識庫');
@@ -160,6 +181,13 @@ const KnowIssuePage = () => {
       dataIndex: 'test_version',
       key: 'test_version',
       width: 120,
+    },
+    {
+      title: '測試類別',
+      dataIndex: 'test_class_name',
+      key: 'test_class_name',
+      width: 120,
+      render: (text) => text ? <Tag color="green">{text}</Tag> : '-',
     },
     {
       title: 'JIRA 號碼',
@@ -431,6 +459,26 @@ const KnowIssuePage = () => {
                 option.value.toLowerCase().includes(inputValue.toLowerCase())
               }
             />
+          </Form.Item>
+          
+          <Form.Item
+            name="test_class"
+            label="測試類別"
+          >
+            <Select
+              placeholder="請選擇測試類別"
+              allowClear
+              showSearch
+              filterOption={(input, option) =>
+                (option?.children ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+            >
+              {testClasses.map(testClass => (
+                <Option key={testClass.id} value={testClass.id}>
+                  {testClass.name}
+                </Option>
+              ))}
+            </Select>
           </Form.Item>
           
           <Form.Item

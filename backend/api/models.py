@@ -179,6 +179,9 @@ class KnowIssue(models.Model):
     updated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="更新人員", related_name="updated_issues")
     project = models.CharField(max_length=200, verbose_name="Project", help_text="相關專案名稱")
     
+    # 分類資訊
+    test_class = models.ForeignKey('TestClass', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="測試類別", help_text="問題所屬的測試類別")
+    
     # 技術資訊
     script = models.TextField(blank=True, verbose_name="Script", help_text="相關腳本或代碼")
     issue_type = models.CharField(max_length=50, verbose_name="Issue Type", help_text="問題類型，如 Bug, Feature Request, Improvement 等")
