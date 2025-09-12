@@ -5,10 +5,12 @@ import {
   UserOutlined,
   SettingOutlined,
   LogoutOutlined,
-  LoginOutlined
+  LoginOutlined,
+  UserAddOutlined
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 import LoginForm from './LoginForm';
+import RegisterForm from './RegisterForm';
 
 const { Header } = Layout;
 const { Text } = Typography;
@@ -16,6 +18,7 @@ const { Text } = Typography;
 const TopHeader = ({ collapsed, onToggleSidebar }) => {
   const { user, isAuthenticated, logout, loading, initialized } = useAuth();
   const [loginVisible, setLoginVisible] = useState(false);
+  const [registerVisible, setRegisterVisible] = useState(false);
   
   const handleLogout = async () => {
     try {
@@ -32,6 +35,14 @@ const TopHeader = ({ collapsed, onToggleSidebar }) => {
 
   const handleLoginSuccess = (msg) => {
     message.success(msg || '登入成功');
+  };
+
+  const handleRegisterSuccess = (msg) => {
+    message.success(msg || '註冊成功！請使用新帳號登入');
+    // 註冊成功後可以選擇自動打開登入表單
+    setTimeout(() => {
+      setLoginVisible(true);
+    }, 1000);
   };
 
   // 已登入用戶的下拉選單
@@ -65,6 +76,12 @@ const TopHeader = ({ collapsed, onToggleSidebar }) => {
       icon: <LoginOutlined />,
       label: '登入',
       onClick: () => setLoginVisible(true),
+    },
+    {
+      key: 'register',
+      icon: <UserAddOutlined />,
+      label: '註冊',
+      onClick: () => setRegisterVisible(true),
     },
   ];
 
@@ -203,6 +220,13 @@ const TopHeader = ({ collapsed, onToggleSidebar }) => {
         visible={loginVisible}
         onClose={() => setLoginVisible(false)}
         onSuccess={handleLoginSuccess}
+      />
+
+      {/* 註冊表單 Modal */}
+      <RegisterForm
+        visible={registerVisible}
+        onClose={() => setRegisterVisible(false)}
+        onSuccess={handleRegisterSuccess}
       />
     </>
   );

@@ -605,6 +605,104 @@ def user_login(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 @authentication_classes([])
+def user_register(request):
+    """
+    用戶註冊 API
+    """
+    try:
+        data = json.loads(request.body)
+        username = data.get('username', '').strip()
+        password = data.get('password', '')
+        email = data.get('email', '').strip()
+        first_name = data.get('first_name', '').strip()
+        last_name = data.get('last_name', '').strip()
+        
+        # 基本驗證
+        if not username:
+            return Response({
+                'success': False,
+                'message': '用戶名不能為空'
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+        if not password:
+            return Response({
+                'success': False,
+                'message': '密碼不能為空'
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+        if len(password) < 6:
+            return Response({
+                'success': False,
+                'message': '密碼長度至少需要 6 個字符'
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+        if not email:
+            return Response({
+                'success': False,
+                'message': 'Email 不能為空'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # 檢查用戶名是否已存在
+        if User.objects.filter(username=username).exists():
+            return Response({
+                'success': False,
+                'message': '用戶名已存在'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # 檢查 Email 是否已存在
+        if User.objects.filter(email=email).exists():
+            return Response({
+                'success': False,
+                'message': 'Email 已被註冊'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # 創建新用戶
+        user = User.objects.create_user(
+            username=username,
+            password=password,
+            email=email,
+            first_name=first_name,
+            last_name=last_name
+        )
+        
+        # 創建對應的 UserProfile
+        UserProfile.objects.create(
+            user=user,
+            bio=f'歡迎 {first_name or username} 加入！'
+        )
+        
+        logger.info(f"New user registered: {username} ({email})")
+        
+        return Response({
+            'success': True,
+            'message': '註冊成功！請使用新帳號登入',
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'date_joined': user.date_joined.isoformat()
+            }
+        }, status=status.HTTP_201_CREATED)
+        
+    except json.JSONDecodeError:
+        return Response({
+            'success': False,
+            'message': '無效的 JSON 格式'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        logger.error(f"Registration error: {str(e)}")
+        return Response({
+            'success': False,
+            'message': f'註冊失敗: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@authentication_classes([])
 def user_logout(request):
     """
     用戶登出 API - 強制清除 session

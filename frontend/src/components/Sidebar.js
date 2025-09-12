@@ -76,7 +76,8 @@ const Sidebar = ({ collapsed, onCollapse }) => {
     const currentPath = window.location.pathname;
     const isKnowledgePage = currentPath.startsWith('/knowledge/');
     
-    if ((initialized && isAuthenticated && user && (user.is_staff || user.is_superuser)) || 
+    // 修改權限控制：所有登入用戶都能看到知識庫，訪客看不到
+    if ((initialized && isAuthenticated && user) || 
         (!initialized && isKnowledgePage)) {
       // insert knowledge menu before settings if present
       const idx = items.findIndex(i => i.key === 'settings');

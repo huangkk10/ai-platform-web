@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Modal, Form, Input, Button, Alert, Space } from 'antd';
-import { UserOutlined, LockOutlined, LoginOutlined } from '@ant-design/icons';
+import { Modal, Form, Input, Button, Alert, Space, Divider } from 'antd';
+import { UserOutlined, LockOutlined, LoginOutlined, UserAddOutlined } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 
-const LoginForm = ({ visible, onClose, onSuccess }) => {
+const LoginForm = ({ visible, onClose, onSuccess, onRegister }) => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -113,6 +113,25 @@ const LoginForm = ({ visible, onClose, onSuccess }) => {
           </Space>
         </Form.Item>
       </Form>
+
+      {onRegister && (
+        <>
+          <Divider style={{ margin: '16px 0' }}>或</Divider>
+          <div style={{ textAlign: 'center' }}>
+            <Button 
+              type="link" 
+              icon={<UserAddOutlined />}
+              onClick={() => {
+                onClose();
+                onRegister();
+              }}
+              style={{ padding: 0 }}
+            >
+              沒有帳號？立即註冊
+            </Button>
+          </div>
+        </>
+      )}
 
       <div style={{ 
         marginTop: 16, 
