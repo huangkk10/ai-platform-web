@@ -10,7 +10,9 @@ const { Option } = Select;
 const KnowIssuePage = () => {
   const { user, isAuthenticated, loading: authLoading, initialized } = useAuth();
   const [issues, setIssues] = useState([]);
+  const [filteredIssues, setFilteredIssues] = useState([]);
   const [testClasses, setTestClasses] = useState([]);
+  const [selectedTestClass, setSelectedTestClass] = useState(null);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingIssue, setEditingIssue] = useState(null);
@@ -24,6 +26,27 @@ const KnowIssuePage = () => {
     statuses: [],
     jiraNumbers: []
   });
+
+  // 處理測試類別過濾
+  const handleTestClassFilter = (testClassId) => {
+    setSelectedTestClass(testClassId);
+    
+    if (!testClassId) {
+      // 如果沒有選擇測試類別，顯示所有問題
+      setFilteredIssues(issues);
+    } else {
+      // 根據選擇的測試類別過濾問題
+      const filtered = issues.filter(issue => 
+        issue.test_class === testClassId
+      );
+      setFilteredIssues(filtered);
+    }
+  };
+
+  // 當 issues 數據變更時，重新應用過濾
+  useEffect(() => {
+    handleTestClassFilter(selectedTestClass);
+  }, [issues, selectedTestClass]); // 當 issues 或 selectedTestClass 變更時重新過濾
 
   // 提取自動完成選項
   const extractAutoCompleteOptions = (issues) => {
@@ -126,6 +149,7 @@ const KnowIssuePage = () => {
       console.log('API Response:', response.data);
       const issuesData = response.data.results || [];
       setIssues(issuesData);
+      setFilteredIssues(issuesData); // 初始化過濾數據
       extractAutoCompleteOptions(issuesData);
     } catch (error) {
       console.error('載入 know issues 失敗:', error);
@@ -357,6 +381,29 @@ const KnowIssuePage = () => {
           <DatabaseOutlined style={{ marginRight: '8px', color: '#1890ff' }} />
           Know Issue 管理
         </Title>
+        
+        {/* 測試類別過濾器 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ fontSize: '14px', color: '#666' }}>過濾條件：</span>
+          <Select
+            placeholder="選擇測試類別"
+            allowClear
+            style={{ minWidth: 200 }}
+            value={selectedTestClass}
+            onChange={handleTestClassFilter}
+            showSearch
+            filterOption={(input, option) =>
+              (option?.children ?? '').toLowerCase().includes(input.toLowerCase())
+            }
+          >
+            {testClasses.map(testClass => (
+              <Option key={testClass.id} value={testClass.id}>
+                {testClass.name}
+              </Option>
+            ))}
+          </Select>
+        </div>
+        
         <Space>
           <Button 
             icon={<ReloadOutlined />}
@@ -382,7 +429,7 @@ const KnowIssuePage = () => {
       <Card>
         <Table
           columns={columns}
-          dataSource={issues}
+          dataSource={filteredIssues}
           rowKey="id"
           loading={loading}
           scroll={{ x: 1200 }}
