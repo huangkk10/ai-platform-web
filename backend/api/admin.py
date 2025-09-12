@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import UserProfile, Project, Task, Employee, KnowIssue
+from .models import UserProfile, Project, Task, Employee, DifyEmployee, KnowIssue
 
 
 @admin.register(UserProfile)
@@ -30,6 +30,13 @@ class TaskAdmin(admin.ModelAdmin):
 
 @admin.register(Employee)
 class EmployeeAdmin(admin.ModelAdmin):
+    list_display = ('name', 'created_at', 'updated_at')
+    search_fields = ('name',)
+    readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(DifyEmployee)
+class DifyEmployeeAdmin(admin.ModelAdmin):
     list_display = ('name', 'department', 'position', 'email', 'is_active', 'hire_date')
     list_filter = ('department', 'position', 'is_active', 'hire_date')
     search_fields = ('name', 'email', 'department', 'position', 'skills')
@@ -62,6 +69,6 @@ class KnowIssueAdmin(admin.ModelAdmin):
     )
     
     def save_model(self, request, obj, form, change):
-        if not change:  # 新建時
-            obj.updated_by = request.user
+        # 由於 updated_by 現在指向 Employee 而非 User，暫時移除自動設定
+        # 管理員需要手動選擇員工
         super().save_model(request, obj, form, change)

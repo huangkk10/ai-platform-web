@@ -10,10 +10,24 @@ const { Option } = Select;
 const KnowIssuePage = () => {
   const { user, isAuthenticated, loading: authLoading, initialized } = useAuth();
   const [issues, setIssues] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingIssue, setEditingIssue] = useState(null);
   const [form] = Form.useForm();
+
+  // 載入員工資料
+  const fetchEmployees = async () => {
+    try {
+      const response = await axios.get('/api/employees/', {
+        withCredentials: true
+      });
+      setEmployees(response.data.results || []);
+    } catch (error) {
+      console.error('載入員工列表失敗:', error);
+      // 員工列表載入失敗不影響主要功能
+    }
+  };
 
   // 載入資料
   const fetchIssues = async () => {
@@ -67,6 +81,7 @@ const KnowIssuePage = () => {
     // 只有在認證狀態初始化完成且用戶已認證時才載入資料
     if (initialized && isAuthenticated && user && (user.is_staff || user.is_superuser)) {
       fetchIssues();
+      fetchEmployees();
     } else if (initialized && (!isAuthenticated || !user || (!user.is_staff && !user.is_superuser))) {
       console.log('User not authorized or not authenticated');
       if (!isAuthenticated) {
@@ -144,7 +159,7 @@ const KnowIssuePage = () => {
     },
     {
       title: '更新人員',
-      dataIndex: 'updated_by_username',
+      dataIndex: 'updated_by_name',
       key: 'updated_by',
       width: 100,
     },
@@ -369,30 +384,29 @@ const KnowIssuePage = () => {
           <Form.Item
             name="issue_type"
             label="Issue Type"
-            rules={[{ required: true, message: '請選擇問題類型' }]}
+            rules={[{ required: true, message: '請輸入問題類型' }]}
           >
-            <Select placeholder="請選擇問題類型">
-              <Option value="bug">Bug</Option>
-              <Option value="feature">Feature Request</Option>
-              <Option value="improvement">Improvement</Option>
-              <Option value="task">Task</Option>
-              <Option value="support">Support</Option>
-              <Option value="other">Other</Option>
-            </Select>
+            <Input placeholder="例如: Bug, Feature Request, Improvement, Task" />
           </Form.Item>
           
           <Form.Item
             name="status"
             label="修復狀態"
-            rules={[{ required: true, message: '請選擇狀態' }]}
+            rules={[{ required: true, message: '請輸入狀態' }]}
           >
-            <Select placeholder="請選擇狀態">
-              <Option value="open">開放中</Option>
-              <Option value="in_progress">處理中</Option>
-              <Option value="resolved">已解決</Option>
-              <Option value="closed">已關閉</Option>
-              <Option value="pending">等待中</Option>
-              <Option value="won_fix">不修復</Option>
+            <Input placeholder="例如: 開放中, 處理中, 已解決, 已關閉" />
+          </Form.Item>
+          
+          <Form.Item
+            name="updated_by"
+            label="更新人員"
+          >
+            <Select placeholder="請選擇更新人員" allowClear>
+              {employees.map(employee => (
+                <Option key={employee.id} value={employee.id}>
+                  {employee.name}
+                </Option>
+              ))}
             </Select>
           </Form.Item>
           

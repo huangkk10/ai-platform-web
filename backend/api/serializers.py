@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import UserProfile, Project, Task, Employee, KnowIssue
+from .models import UserProfile, Project, Task, Employee, DifyEmployee, KnowIssue
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -48,14 +48,23 @@ class TaskSerializer(serializers.ModelSerializer):
 
 
 class EmployeeSerializer(serializers.ModelSerializer):
-    """員工序列化器 - 支援資料庫照片存儲"""
+    """簡化員工序列化器 - 僅包含 id 和 name"""
+    
+    class Meta:
+        model = Employee
+        fields = ['id', 'name', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class DifyEmployeeSerializer(serializers.ModelSerializer):
+    """Dify員工序列化器 - 支援資料庫照片存儲"""
     photo_data_url = serializers.SerializerMethodField()
     photo_size_kb = serializers.SerializerMethodField()
     has_photo = serializers.SerializerMethodField()
     full_info = serializers.SerializerMethodField()
     
     class Meta:
-        model = Employee
+        model = DifyEmployee
         fields = [
             'id', 'name', 'email', 'department', 'position', 'skills', 
             'phone', 'hire_date', 'is_active', 'photo_filename', 
@@ -85,13 +94,13 @@ class EmployeeSerializer(serializers.ModelSerializer):
         return obj.get_full_info()
 
 
-class EmployeeListSerializer(serializers.ModelSerializer):
-    """員工列表序列化器 - 不包含照片資料以提升效能"""
+class DifyEmployeeListSerializer(serializers.ModelSerializer):
+    """Dify員工列表序列化器 - 不包含照片資料以提升效能"""
     photo_size_kb = serializers.SerializerMethodField()
     has_photo = serializers.SerializerMethodField()
     
     class Meta:
-        model = Employee
+        model = DifyEmployee
         fields = [
             'id', 'name', 'email', 'department', 'position', 'skills', 
             'phone', 'hire_date', 'is_active', 'photo_filename', 
@@ -113,7 +122,7 @@ class EmployeeListSerializer(serializers.ModelSerializer):
 
 class KnowIssueSerializer(serializers.ModelSerializer):
     """問題知識庫序列化器"""
-    updated_by_username = serializers.CharField(source='updated_by.username', read_only=True)
+    updated_by_name = serializers.CharField(source='updated_by.name', read_only=True)
     issue_type_display = serializers.CharField(source='get_issue_type_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     summary = serializers.CharField(source='get_summary', read_only=True)
@@ -122,9 +131,9 @@ class KnowIssueSerializer(serializers.ModelSerializer):
         model = KnowIssue
         fields = [
             'id', 'issue_id', 'test_version', 'jira_number', 'updated_by', 
-            'updated_by_username', 'project', 'script', 'issue_type', 
+            'updated_by_name', 'project', 'script', 'issue_type', 
             'issue_type_display', 'status', 'status_display', 'error_message', 
             'supplement', 'summary', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'updated_by_username', 
+        read_only_fields = ['id', 'created_at', 'updated_at', 'updated_by_name', 
                            'issue_type_display', 'status_display', 'summary']

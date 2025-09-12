@@ -12,8 +12,8 @@ from django.views import View
 from django.http import JsonResponse
 import json
 import logging
-from .models import UserProfile, Project, Task, Employee, KnowIssue
-from .serializers import UserSerializer, UserProfileSerializer, ProjectSerializer, TaskSerializer, EmployeeSerializer, EmployeeListSerializer, KnowIssueSerializer
+from .models import UserProfile, Project, Task, Employee, DifyEmployee, KnowIssue
+from .serializers import UserSerializer, UserProfileSerializer, ProjectSerializer, TaskSerializer, EmployeeSerializer, DifyEmployeeSerializer, DifyEmployeeListSerializer, KnowIssueSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -154,16 +154,31 @@ class TaskViewSet(viewsets.ModelViewSet):
 
 
 class EmployeeViewSet(viewsets.ModelViewSet):
-    """員工 ViewSet - 支援資料庫照片存儲"""
+    """簡化員工 ViewSet - 僅包含 id 和 name"""
     queryset = Employee.objects.all()
+    serializer_class = EmployeeSerializer
+    permission_classes = []  # 公開訪問
+    
+    def get_queryset(self):
+        """可選：支援搜索"""
+        queryset = Employee.objects.all()
+        search = self.request.query_params.get('search', None)
+        if search:
+            queryset = queryset.filter(name__icontains=search)
+        return queryset
+
+
+class DifyEmployeeViewSet(viewsets.ModelViewSet):
+    """Dify員工 ViewSet - 支援資料庫照片存儲"""
+    queryset = DifyEmployee.objects.all()
     permission_classes = []  # 公開訪問，用於 Dify 知識庫查詢
     
     def get_serializer_class(self):
         """根據動作選擇序列化器"""
         if self.action == 'list':
             # 列表頁面不包含照片資料以提升效能
-            return EmployeeListSerializer
-        return EmployeeSerializer
+            return DifyEmployeeListSerializer
+        return DifyEmployeeSerializer
     
     @action(detail=True, methods=['get'], url_path='photo')
     def get_photo(self, request, pk=None):
@@ -186,8 +201,8 @@ class EmployeeViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='with-photos')
     def with_photos(self, request):
         """獲取有照片的員工列表"""
-        employees = Employee.objects.exclude(photo_binary__isnull=True).exclude(photo_binary__exact=b'')
-        serializer = EmployeeListSerializer(employees, many=True)
+        employees = DifyEmployee.objects.exclude(photo_binary__isnull=True).exclude(photo_binary__exact=b'')
+        serializer = DifyEmployeeListSerializer(employees, many=True)
         return Response(serializer.data)
     
     @action(detail=False, methods=['post'], url_path='search')
@@ -201,55 +216,43 @@ class EmployeeViewSet(viewsets.ModelViewSet):
             )
         
         # 使用 Django ORM 搜索
-        employees = Employee.objects.filter(
+        employees = DifyEmployee.objects.filter(
             models.Q(name__icontains=query) |
             models.Q(department__icontains=query) |
             models.Q(position__icontains=query) |
             models.Q(skills__icontains=query)
         )
         
-        serializer = EmployeeListSerializer(employees, many=True)
+        serializer = DifyEmployeeListSerializer(employees, many=True)
         return Response(serializer.data)
 
 
 def search_postgres_knowledge(query_text, limit=5):
     """
     在 PostgreSQL 中搜索員工知識
-    使用全文搜索查詢員工資料
+    使用全文搜索查詢簡化員工資料
     """
     try:
         with connection.cursor() as cursor:
-            # 使用全文搜索查詢員工資料 (假設有 name, department, skills 欄位)
+            # 使用全文搜索查詢員工資料 (僅有 id, name 欄位)
             sql = """
             SELECT 
                 id,
                 name,
-                department,
-                skills,
-                email,
-                position,
                 CASE 
                     WHEN name ILIKE %s THEN 1.0
-                    WHEN department ILIKE %s THEN 0.8
-                    WHEN skills ILIKE %s THEN 0.9
-                    WHEN position ILIKE %s THEN 0.7
                     ELSE 0.5
                 END as score
-            FROM api_employee
+            FROM employee
             WHERE 
-                name ILIKE %s OR 
-                department ILIKE %s OR 
-                skills ILIKE %s OR 
-                position ILIKE %s
+                name ILIKE %s
             ORDER BY score DESC, name ASC
             LIMIT %s
             """
             
             search_pattern = f'%{query_text}%'
             cursor.execute(sql, [
-                search_pattern, search_pattern, search_pattern, search_pattern,
-                search_pattern, search_pattern, search_pattern, search_pattern,
-                limit
+                search_pattern, search_pattern, limit
             ])
             
             rows = cursor.fetchall()
@@ -260,20 +263,16 @@ def search_postgres_knowledge(query_text, limit=5):
                 employee_data = dict(zip(columns, row))
                 # 格式化為知識片段
                 content = f"員工姓名: {employee_data['name']}\n"
-                content += f"部門: {employee_data['department']}\n"
-                content += f"職位: {employee_data['position']}\n"
-                content += f"技能: {employee_data['skills']}\n"
-                content += f"Email: {employee_data['email']}"
+                content += f"員工ID: {employee_data['id']}"
                 
                 results.append({
                     'id': str(employee_data['id']),
-                    'title': f"{employee_data['name']} - {employee_data['position']}",
+                    'title': f"{employee_data['name']}",
                     'content': content,
                     'score': float(employee_data['score']),
                     'metadata': {
-                        'department': employee_data['department'],
-                        'position': employee_data['position'],
-                        'source': 'employee_database'
+                        'source': 'employee_database',
+                        'employee_id': employee_data['id']
                     }
                 })
             

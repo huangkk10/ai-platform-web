@@ -67,8 +67,8 @@ class Task(models.Model):
         return self.title
 
 
-class Employee(models.Model):
-    """員工模型 - 用於 Dify 知識庫查詢演示"""
+class DifyEmployee(models.Model):
+    """員工模型 - 用於 Dify 知識庫查詢演示（保留原有複雜模型）"""
     name = models.CharField(max_length=100, verbose_name="姓名")
     email = models.EmailField(unique=True, verbose_name="電子郵件")
     department = models.CharField(max_length=100, verbose_name="部門")
@@ -88,8 +88,9 @@ class Employee(models.Model):
 
     class Meta:
         ordering = ['name']
-        verbose_name = "員工"
-        verbose_name_plural = "員工"
+        verbose_name = "Dify員工"
+        verbose_name_plural = "Dify員工"
+        db_table = 'dify_employee'
 
     def __str__(self):
         return f"{self.name} - {self.position}"
@@ -100,6 +101,23 @@ class Employee(models.Model):
         info += f"部門: {self.department}\n"
         info += f"職位: {self.position}\n"
         info += f"Email: {self.email}\n"
+
+
+class Employee(models.Model):
+    """簡化員工模型 - 僅包含 id 和 name"""
+    name = models.CharField(max_length=100, verbose_name="姓名")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = "員工"
+        verbose_name_plural = "員工"
+        db_table = 'employee'
+
+    def __str__(self):
+        return self.name
         if self.phone:
             info += f"電話: {self.phone}\n"
         if self.skills:
@@ -176,7 +194,7 @@ class KnowIssue(models.Model):
     jira_number = models.CharField(max_length=50, blank=True, verbose_name="JIRA 號碼", help_text="相關的 JIRA 票號")
     
     # 人員與專案
-    updated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="更新人員", related_name="updated_issues")
+    updated_by = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="更新人員", related_name="updated_issues")
     project = models.CharField(max_length=200, verbose_name="Project", help_text="相關專案名稱")
     
     # 技術資訊
