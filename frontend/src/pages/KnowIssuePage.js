@@ -121,7 +121,6 @@ const KnowIssuePage = () => {
       const issuesData = response.data.results || [];
       setIssues(issuesData);
       extractAutoCompleteOptions(issuesData);
-      message.success(`資料載入成功，共 ${issuesData.length} 筆記錄`);
     } catch (error) {
       console.error('載入 know issues 失敗:', error);
       console.error('Error response:', error.response);
