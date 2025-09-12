@@ -122,7 +122,7 @@ class DifyEmployeeListSerializer(serializers.ModelSerializer):
 
 class KnowIssueSerializer(serializers.ModelSerializer):
     """問題知識庫序列化器"""
-    updated_by_name = serializers.CharField(source='updated_by.username', read_only=True)
+    updated_by_name = serializers.SerializerMethodField()
     test_class_name = serializers.CharField(source='test_class.name', read_only=True)
     summary = serializers.CharField(source='get_summary', read_only=True)
     
@@ -135,6 +135,14 @@ class KnowIssueSerializer(serializers.ModelSerializer):
             'error_message', 'supplement', 'summary', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'issue_id', 'class_sequence_id', 'created_at', 'updated_at', 'updated_by_name', 'test_class_name', 'summary']
+    
+    def get_updated_by_name(self, obj):
+        """獲取修改者的友好名稱"""
+        if obj.updated_by:
+            # 優先使用 first_name + last_name，如果沒有則使用 username
+            full_name = f"{obj.updated_by.first_name} {obj.updated_by.last_name}".strip()
+            return full_name if full_name else obj.updated_by.username
+        return None
 
 
 class TestClassSerializer(serializers.ModelSerializer):

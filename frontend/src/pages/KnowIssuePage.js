@@ -832,13 +832,34 @@ const KnowIssuePage = () => {
               <Title level={4} style={{ margin: '0 0 12px 0', color: '#666' }}>
                 📊 系統信息
               </Title>
-              <div style={{ fontSize: '12px', color: '#999', lineHeight: '1.6' }}>
-                <div><strong>ID：</strong> {previewIssue.id}</div>
-                {previewIssue.created_by && (
-                  <div><strong>建立者：</strong> {previewIssue.created_by}</div>
+              <div style={{ fontSize: '13px', color: '#666', lineHeight: '1.8' }}>
+                <div style={{ marginBottom: '8px' }}>
+                  <strong>🆔 記錄ID：</strong> 
+                  <span style={{ marginLeft: '8px', fontFamily: 'monospace' }}>{previewIssue.id}</span>
+                </div>
+                {previewIssue.updated_by_name && (
+                  <div style={{ marginBottom: '8px' }}>
+                    <strong>✏️ 修改者：</strong> 
+                    <Tag color="orange" size="small" style={{ marginLeft: '8px' }}>
+                      {previewIssue.updated_by_name}
+                    </Tag>
+                  </div>
+                )}
+                {previewIssue.created_at && (
+                  <div style={{ marginBottom: '8px' }}>
+                    <strong>📅 建立時間：</strong> 
+                    <span style={{ marginLeft: '8px' }}>
+                      {new Date(previewIssue.created_at).toLocaleString('zh-TW')}
+                    </span>
+                  </div>
                 )}
                 {previewIssue.updated_at && (
-                  <div><strong>更新時間：</strong> {new Date(previewIssue.updated_at).toLocaleString('zh-TW')}</div>
+                  <div style={{ marginBottom: '8px' }}>
+                    <strong>🔄 更新時間：</strong> 
+                    <span style={{ marginLeft: '8px' }}>
+                      {new Date(previewIssue.updated_at).toLocaleString('zh-TW')}
+                    </span>
+                  </div>
                 )}
               </div>
             </div>
