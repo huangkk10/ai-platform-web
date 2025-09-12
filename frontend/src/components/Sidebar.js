@@ -168,7 +168,8 @@ const Sidebar = ({ collapsed, onCollapse }) => {
         style={{
           background: 'transparent',
           border: 'none',
-          color: '#ecf0f1'
+          color: '#ecf0f1',
+          fontSize: '18px'
         }}
       />
 
