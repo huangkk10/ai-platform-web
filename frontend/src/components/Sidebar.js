@@ -9,6 +9,7 @@ import {
   DatabaseOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
+import smiLogo from '../assets/images/smi.png';
 
 const { Sider } = Layout;
 const { Text } = Typography;
@@ -119,6 +120,7 @@ const Sidebar = ({ collapsed, onCollapse }) => {
         {!collapsed ? (
           <Space align="center">
             <Avatar 
+              src={smiLogo}
               style={{ 
                 backgroundColor: '#3498db',
                 fontSize: '18px',
@@ -139,6 +141,7 @@ const Sidebar = ({ collapsed, onCollapse }) => {
           </Space>
         ) : (
           <Avatar 
+            src={smiLogo}
             style={{ 
               backgroundColor: '#3498db',
               fontSize: '18px',
