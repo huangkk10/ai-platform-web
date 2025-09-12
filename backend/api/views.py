@@ -406,14 +406,9 @@ class KnowIssueViewSet(viewsets.ModelViewSet):
         print(f"KnowIssue get_permissions - Action: {self.action}")
         print(f"KnowIssue get_permissions - User: {self.request.user}")
         print(f"KnowIssue get_permissions - Is authenticated: {self.request.user.is_authenticated}")
-        print(f"KnowIssue get_permissions - Is staff: {getattr(self.request.user, 'is_staff', False)}")
-        print(f"KnowIssue get_permissions - Is superuser: {getattr(self.request.user, 'is_superuser', False)}")
         
-        # 檢查是否為管理員用戶
-        if self.request.user.is_authenticated and (self.request.user.is_staff or self.request.user.is_superuser):
-            return [permissions.IsAuthenticated()]
-        else:
-            return [permissions.IsAdminUser()]
+        # 允許所有登入用戶訪問
+        return [permissions.IsAuthenticated()]
     
     def get_queryset(self):
         """根據查詢參數過濾資料"""

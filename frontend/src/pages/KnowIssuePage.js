@@ -84,14 +84,14 @@ const KnowIssuePage = () => {
       setLoading(true);
       console.log('Fetching issues, authenticated:', isAuthenticated, 'user:', user);
       
-      // 確保用戶已認證且有權限
+      // 確保用戶已認證
       if (!isAuthenticated) {
         message.error('請先登入');
         return;
       }
       
-      if (!user || (!user.is_staff && !user.is_superuser)) {
-        message.error('權限不足，需要管理員權限');
+      if (!user) {
+        message.error('用戶資訊載入失敗');
         return;
       }
       
@@ -116,7 +116,7 @@ const KnowIssuePage = () => {
       if (error.response?.status === 401) {
         message.error('認證已過期，請重新登入');
       } else if (error.response?.status === 403) {
-        message.error('權限不足，請確認您有管理員權限');
+        message.error('權限不足，請檢查您的帳戶狀態');
       } else {
         message.error('載入資料失敗: ' + (error.response?.data?.detail || error.message));
       }
@@ -129,15 +129,11 @@ const KnowIssuePage = () => {
     console.log('KnowIssuePage mounted, isAuthenticated:', isAuthenticated, 'user:', user, 'initialized:', initialized);
     
     // 只有在認證狀態初始化完成且用戶已認證時才載入資料
-    if (initialized && isAuthenticated && user && (user.is_staff || user.is_superuser)) {
+    if (initialized && isAuthenticated && user) {
       fetchIssues();
-    } else if (initialized && (!isAuthenticated || !user || (!user.is_staff && !user.is_superuser))) {
-      console.log('User not authorized or not authenticated');
-      if (!isAuthenticated) {
-        message.warning('請先登入以查看知識庫');
-      } else {
-        message.warning('需要管理員權限才能查看知識庫');
-      }
+    } else if (initialized && !isAuthenticated) {
+      console.log('User not authenticated');
+      message.warning('請先登入以查看知識庫');
     }
   }, [isAuthenticated, user, initialized]); // 依賴認證狀態和初始化狀態
 
