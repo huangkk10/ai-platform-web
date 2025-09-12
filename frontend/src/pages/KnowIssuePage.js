@@ -289,27 +289,6 @@ const KnowIssuePage = () => {
             重新載入
           </Button>
           <Button 
-            type="default"
-            onClick={async () => {
-              try {
-                // 重新檢查認證狀態
-                const response = await axios.get('/api/auth/user/', { withCredentials: true });
-                console.log('Auth check response:', response.data);
-                if (response.data.authenticated) {
-                  message.success('認證狀態正常，重新載入資料...');
-                  fetchIssues();
-                } else {
-                  message.error('請重新登入');
-                }
-              } catch (error) {
-                console.error('Auth check failed:', error);
-                message.error('認證檢查失敗');
-              }
-            }}
-          >
-            檢查認證
-          </Button>
-          <Button 
             type="primary" 
             icon={<PlusOutlined />}
             onClick={() => {
