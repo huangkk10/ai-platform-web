@@ -16,6 +16,8 @@ const KnowIssuePage = () => {
   const [selectedFormTestClass, setSelectedFormTestClass] = useState(null);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [previewModalVisible, setPreviewModalVisible] = useState(false);
+  const [previewIssue, setPreviewIssue] = useState(null);
   const [editingIssue, setEditingIssue] = useState(null);
   const [form] = Form.useForm();
   
@@ -198,10 +200,26 @@ const KnowIssuePage = () => {
   // 表格欄位定義
   const columns = [
     {
+      title: '預覽',
+      key: 'preview',
+      width: 80,
+      fixed: 'left',
+      render: (_, record) => (
+        <Button 
+          icon={<DatabaseOutlined />}
+          size="small"
+          type="text"
+          onClick={() => handlePreview(record)}
+          title="查看詳細資料"
+          style={{ color: '#1890ff' }}
+        />
+      ),
+    },
+    {
       title: 'Issue ID',
       dataIndex: 'issue_id',
       key: 'issue_id',
-      width: 240,
+      minWidth: 180,
       fixed: 'left',
       render: (text) => <Tag color="blue">{text}</Tag>,
       sorter: (a, b) => a.issue_id.localeCompare(b.issue_id),
@@ -289,6 +307,12 @@ const KnowIssuePage = () => {
       ),
     },
   ];
+
+  // 預覽處理
+  const handlePreview = (issue) => {
+    setPreviewIssue(issue);
+    setPreviewModalVisible(true);
+  };
 
   // 編輯處理
   const handleEdit = (issue) => {
@@ -613,6 +637,220 @@ const KnowIssuePage = () => {
             <Input.TextArea rows={3} placeholder="額外的補充說明或解決方案..." />
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* 預覽 Modal */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <DatabaseOutlined style={{ color: '#1890ff' }} />
+            <span>資料預覽</span>
+            {previewIssue && (
+              <Tag color="blue" style={{ marginLeft: '8px' }}>
+                {previewIssue.issue_id}
+              </Tag>
+            )}
+          </div>
+        }
+        open={previewModalVisible}
+        onCancel={() => {
+          setPreviewModalVisible(false);
+          setPreviewIssue(null);
+        }}
+        footer={[
+          <Button key="close" onClick={() => {
+            setPreviewModalVisible(false);
+            setPreviewIssue(null);
+          }}>
+            關閉
+          </Button>,
+          <Button 
+            key="edit" 
+            type="primary" 
+            icon={<EditOutlined />}
+            onClick={() => {
+              setPreviewModalVisible(false);
+              handleEdit(previewIssue);
+            }}
+          >
+            編輯
+          </Button>
+        ]}
+        width={900}
+      >
+        {previewIssue && (
+          <div style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+            {/* 基本信息 */}
+            <div style={{ 
+              marginBottom: '20px',
+              padding: '16px',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '8px',
+              border: '1px solid #e9ecef'
+            }}>
+              <Title level={4} style={{ margin: '0 0 12px 0', color: '#1890ff' }}>
+                📝 基本信息
+              </Title>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <strong>📂 Issue ID：</strong>
+                  <Tag color="blue" style={{ marginLeft: '8px' }}>{previewIssue.issue_id}</Tag>
+                </div>
+                <div>
+                  <strong>📁 Project：</strong>
+                  <span style={{ marginLeft: '8px' }}>{previewIssue.project}</span>
+                </div>
+                <div>
+                  <strong>📊 測試版本：</strong>
+                  <span style={{ marginLeft: '8px' }}>{previewIssue.test_version}</span>
+                </div>
+                <div>
+                  <strong>🏷️ 測試類別：</strong>
+                  <Tag color="green" style={{ marginLeft: '8px' }}>
+                    {previewIssue.test_class_name || '-'}
+                  </Tag>
+                </div>
+                <div>
+                  <strong>🔗 JIRA 號碼：</strong>
+                  {previewIssue.jira_number ? (
+                    <Tag color="orange" style={{ marginLeft: '8px' }}>{previewIssue.jira_number}</Tag>
+                  ) : (
+                    <span style={{ marginLeft: '8px', color: '#999' }}>-</span>
+                  )}
+                </div>
+                <div>
+                  <strong>🔄 問題類型：</strong>
+                  <Tag 
+                    color={
+                      {
+                        'bug': 'red',
+                        'feature': 'green',
+                        'improvement': 'blue',
+                        'task': 'purple',
+                        'support': 'cyan',
+                        'other': 'default'
+                      }[previewIssue.issue_type?.toLowerCase()] || 'default'
+                    }
+                    style={{ marginLeft: '8px' }}
+                  >
+                    {previewIssue.issue_type}
+                  </Tag>
+                </div>
+                <div>
+                  <strong>📊 修復狀態：</strong>
+                  <span style={{ marginLeft: '8px' }}>{previewIssue.status}</span>
+                </div>
+                <div>
+                  <strong>📅 建立時間：</strong>
+                  <span style={{ marginLeft: '8px' }}>
+                    {previewIssue.created_at ? new Date(previewIssue.created_at).toLocaleString('zh-TW') : '-'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 錯誤訊息 */}
+            <div style={{ 
+              marginBottom: '20px',
+              padding: '16px',
+              backgroundColor: '#fff2f0',
+              borderRadius: '8px',
+              border: '1px solid #ffccc7'
+            }}>
+              <Title level={4} style={{ margin: '0 0 12px 0', color: '#cf1322' }}>
+                ⚠️ 錯誤訊息
+              </Title>
+              <div style={{ 
+                backgroundColor: 'white',
+                padding: '12px',
+                borderRadius: '6px',
+                border: '1px solid #f5f5f5',
+                whiteSpace: 'pre-wrap',
+                wordWrap: 'break-word',
+                fontSize: '14px',
+                lineHeight: '1.6'
+              }}>
+                {previewIssue.error_message || '無錯誤訊息'}
+              </div>
+            </div>
+
+            {/* Script */}
+            {previewIssue.script && (
+              <div style={{ 
+                marginBottom: '20px',
+                padding: '16px',
+                backgroundColor: '#f6ffed',
+                borderRadius: '8px',
+                border: '1px solid #b7eb8f'
+              }}>
+                <Title level={4} style={{ margin: '0 0 12px 0', color: '#52c41a' }}>
+                  📄 Script
+                </Title>
+                <div style={{ 
+                  backgroundColor: '#f5f5f5',
+                  padding: '12px',
+                  borderRadius: '6px',
+                  border: '1px solid #d9d9d9',
+                  fontFamily: 'Monaco, Consolas, "Courier New", monospace',
+                  fontSize: '13px',
+                  whiteSpace: 'pre-wrap',
+                  wordWrap: 'break-word',
+                  overflow: 'auto'
+                }}>
+                  {previewIssue.script}
+                </div>
+              </div>
+            )}
+
+            {/* 補充說明 */}
+            {previewIssue.supplement && (
+              <div style={{ 
+                marginBottom: '20px',
+                padding: '16px',
+                backgroundColor: '#e6f7ff',
+                borderRadius: '8px',
+                border: '1px solid #91d5ff'
+              }}>
+                <Title level={4} style={{ margin: '0 0 12px 0', color: '#1890ff' }}>
+                  📝 補充說明
+                </Title>
+                <div style={{ 
+                  backgroundColor: 'white',
+                  padding: '12px',
+                  borderRadius: '6px',
+                  border: '1px solid #f5f5f5',
+                  whiteSpace: 'pre-wrap',
+                  wordWrap: 'break-word',
+                  fontSize: '14px',
+                  lineHeight: '1.6'
+                }}>
+                  {previewIssue.supplement}
+                </div>
+              </div>
+            )}
+
+            {/* 系統信息 */}
+            <div style={{ 
+              padding: '16px',
+              backgroundColor: '#fafafa',
+              borderRadius: '8px',
+              border: '1px solid #d9d9d9'
+            }}>
+              <Title level={4} style={{ margin: '0 0 12px 0', color: '#666' }}>
+                📊 系統信息
+              </Title>
+              <div style={{ fontSize: '12px', color: '#999', lineHeight: '1.6' }}>
+                <div><strong>ID：</strong> {previewIssue.id}</div>
+                {previewIssue.created_by && (
+                  <div><strong>建立者：</strong> {previewIssue.created_by}</div>
+                )}
+                {previewIssue.updated_at && (
+                  <div><strong>更新時間：</strong> {new Date(previewIssue.updated_at).toLocaleString('zh-TW')}</div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );
