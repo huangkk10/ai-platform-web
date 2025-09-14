@@ -50,8 +50,19 @@ const KnowIssuePage = () => {
   };
 
   // 處理測試類別過濾
-  const handleTestClassFilter = (testClassId) => {
+  const handleTestClassFilter = (testClassId, skipSave = false) => {
     setSelectedTestClass(testClassId);
+    
+    // 保存選擇到 localStorage（除非明確跳過保存）
+    if (!skipSave) {
+      if (testClassId) {
+        console.log('保存測試類別選擇到 localStorage:', testClassId);
+        localStorage.setItem('selectedTestClass', testClassId.toString());
+      } else {
+        console.log('從 localStorage 移除測試類別選擇');
+        localStorage.removeItem('selectedTestClass');
+      }
+    }
     
     if (!testClassId) {
       // 如果沒有選擇測試類別，顯示所有問題
@@ -65,9 +76,10 @@ const KnowIssuePage = () => {
     }
   };
 
-  // 當 issues 數據變更時，重新應用過濾
+  // 當 issues 數據變更時，重新應用過濾（但不保存到 localStorage）
   useEffect(() => {
-    handleTestClassFilter(selectedTestClass);
+    console.log('重新應用過濾，selectedTestClass:', selectedTestClass);
+    handleTestClassFilter(selectedTestClass, true); // 跳過保存，避免清除用戶選擇
   }, [issues, selectedTestClass]); // 當 issues 或 selectedTestClass 變更時重新過濾
 
   // 提取自動完成選項
@@ -137,12 +149,9 @@ const KnowIssuePage = () => {
       
       const classesData = response.data.results || [];
       const activeClasses = classesData.filter(cls => cls.is_active);
+      console.log('Loaded test classes:', activeClasses.map(c => ({ id: c.id, name: c.name })));
       setTestClasses(activeClasses);
       
-      // 設置默認選中第一個測試類別
-      if (activeClasses.length > 0 && selectedTestClass === null) {
-        setSelectedTestClass(activeClasses[0].id);
-      }
     } catch (error) {
       console.error('載入測試類別失敗:', error);
       
@@ -160,6 +169,56 @@ const KnowIssuePage = () => {
       setTestClasses([]);
     }
   };
+
+  // 專門處理測試類別選擇恢復的 useEffect
+  useEffect(() => {
+    if (testClasses.length > 0 && selectedTestClass === null) {
+      console.log('Attempting to restore test class selection...');
+      try {
+        const savedTestClass = localStorage.getItem('selectedTestClass');
+        console.log('Saved test class ID:', savedTestClass);
+        
+        if (savedTestClass) {
+          const savedId = parseInt(savedTestClass);
+          const validClass = testClasses.find(cls => cls.id === savedId);
+          console.log('Found valid class:', validClass);
+          
+          if (validClass) {
+            console.log('恢復測試類別選擇:', validClass.name, validClass.id);
+            // 使用 setTimeout 確保狀態更新不會被其他地方覆蓋
+            setTimeout(() => {
+              setSelectedTestClass(savedId);
+            }, 0);
+            return;
+          } else {
+            console.warn('保存的測試類別ID無效:', savedId);
+          }
+        }
+        
+        // 如果沒有保存的選擇或選擇無效，則選擇第一個
+        console.log('設置默認測試類別:', testClasses[0].name, testClasses[0].id);
+        setTimeout(() => {
+          setSelectedTestClass(testClasses[0].id);
+          localStorage.setItem('selectedTestClass', testClasses[0].id.toString());
+        }, 0);
+      } catch (error) {
+        console.warn('恢復測試類別選擇失敗:', error);
+        setTimeout(() => {
+          setSelectedTestClass(testClasses[0].id);
+          localStorage.setItem('selectedTestClass', testClasses[0].id.toString());
+        }, 0);
+      }
+    }
+  }, [testClasses]); // 只依賴 testClasses，避免 selectedTestClass 的競爭條件
+
+  // 調試用的 useEffect - 監控 selectedTestClass 變化
+  useEffect(() => {
+    console.log('selectedTestClass 狀態變化:', selectedTestClass);
+    if (testClasses.length > 0 && selectedTestClass !== null) {
+      const selectedClass = testClasses.find(cls => cls.id === selectedTestClass);
+      console.log('當前選中的測試類別:', selectedClass?.name);
+    }
+  }, [selectedTestClass, testClasses]);
 
   // 載入資料
   const fetchIssues = async () => {
@@ -211,6 +270,8 @@ const KnowIssuePage = () => {
 
   useEffect(() => {
     console.log('KnowIssuePage mounted, isAuthenticated:', isAuthenticated, 'user:', user, 'initialized:', initialized);
+    console.log('Current selectedTestClass:', selectedTestClass);
+    console.log('localStorage selectedTestClass:', localStorage.getItem('selectedTestClass'));
     
     // 只有在認證狀態初始化完成且用戶已認證時才載入資料
     if (initialized && isAuthenticated && user) {
@@ -501,6 +562,7 @@ const KnowIssuePage = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span style={{ fontSize: '16px', color: '#666', fontWeight: '500' }}>測試類別：</span>
           <Select
+            key={`test-class-select-${testClasses.length}-${selectedTestClass}-${Date.now()}`} // 加入時間戳強制重新渲染
             placeholder={
               testClasses.length === 0 
                 ? "無可用測試類別" 
@@ -509,7 +571,10 @@ const KnowIssuePage = () => {
             allowClear
             style={{ minWidth: 280, fontSize: '16px' }}
             value={selectedTestClass}
-            onChange={handleTestClassFilter}
+            onChange={(value) => {
+              console.log('Select onChange triggered with value:', value);
+              handleTestClassFilter(value);
+            }}
             showSearch
             size="large"
             disabled={testClasses.length === 0}
