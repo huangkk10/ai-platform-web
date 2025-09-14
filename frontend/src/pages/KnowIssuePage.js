@@ -219,9 +219,13 @@ const KnowIssuePage = () => {
       title: 'Issue ID',
       dataIndex: 'issue_id',
       key: 'issue_id',
-      minWidth: 180,
+      minWidth: 360,
       fixed: 'left',
-      render: (text) => <Tag color="blue">{text}</Tag>,
+      render: (text) => (
+        <Tag color="blue" title={text} style={{ cursor: 'help' }}>
+          {text}
+        </Tag>
+      ),
       sorter: (a, b) => a.issue_id.localeCompare(b.issue_id),
     },
     {
@@ -229,20 +233,36 @@ const KnowIssuePage = () => {
       dataIndex: 'project',
       key: 'project',
       width: 150,
-      ellipsis: true,
+      ellipsis: {
+        showTitle: true,
+      },
+      render: (text) => (
+        <div title={text} style={{ cursor: 'help' }}>
+          {text}
+        </div>
+      ),
     },
     {
       title: '測試版本',
       dataIndex: 'test_version',
       key: 'test_version',
       width: 120,
+      render: (text) => (
+        <div title={text} style={{ cursor: 'help' }}>
+          {text}
+        </div>
+      ),
     },
     {
       title: 'JIRA 號碼',
       dataIndex: 'jira_number',
       key: 'jira_number',
       width: 120,
-      render: (text) => text ? <Tag color="orange">{text}</Tag> : '-',
+      render: (text) => text ? (
+        <Tag color="orange" title={text} style={{ cursor: 'help' }}>
+          {text}
+        </Tag>
+      ) : '-',
     },
     {
       title: 'Issue Type',
@@ -258,7 +278,15 @@ const KnowIssuePage = () => {
           'support': 'cyan',
           'other': 'default'
         };
-        return <Tag color={colors[text.toLowerCase()] || 'default'}>{text}</Tag>;
+        return (
+          <Tag 
+            color={colors[text.toLowerCase()] || 'default'} 
+            title={text}
+            style={{ cursor: 'help' }}
+          >
+            {text}
+          </Tag>
+        );
       },
     },
     {
@@ -266,9 +294,14 @@ const KnowIssuePage = () => {
       dataIndex: 'script',
       key: 'script',
       width: 150,
-      ellipsis: true,
+      ellipsis: {
+        showTitle: true,
+      },
       render: (text) => (
-        <div style={{ maxWidth: 150 }} title={text}>
+        <div 
+          style={{ maxWidth: 150, cursor: text ? 'help' : 'default' }} 
+          title={text || '無 Script 內容'}
+        >
           {text || '-'}
         </div>
       ),
@@ -278,9 +311,14 @@ const KnowIssuePage = () => {
       dataIndex: 'error_message',
       key: 'error_message',
       width: 200,
-      ellipsis: true,
+      ellipsis: {
+        showTitle: true,
+      },
       render: (text) => (
-        <div style={{ maxWidth: 200 }} title={text}>
+        <div 
+          style={{ maxWidth: 200, cursor: 'help' }} 
+          title={text}
+        >
           {text}
         </div>
       ),
@@ -420,20 +458,21 @@ const KnowIssuePage = () => {
         
         {/* 測試類別過濾器 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '14px', color: '#666' }}>測試類別：</span>
+          <span style={{ fontSize: '16px', color: '#666', fontWeight: '500' }}>測試類別：</span>
           <Select
             placeholder="選擇測試類別"
             allowClear
-            style={{ minWidth: 200 }}
+            style={{ minWidth: 280, fontSize: '16px' }}
             value={selectedTestClass}
             onChange={handleTestClassFilter}
             showSearch
+            size="large"
             filterOption={(input, option) =>
               (option?.children ?? '').toLowerCase().includes(input.toLowerCase())
             }
           >
             {testClasses.map(testClass => (
-              <Option key={testClass.id} value={testClass.id}>
+              <Option key={testClass.id} value={testClass.id} style={{ fontSize: '16px' }}>
                 {testClass.name}
               </Option>
             ))}
