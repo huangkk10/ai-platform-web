@@ -1,5 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Table, Typography, Button, message, Tag, Space, Modal, Form, Input, Select, AutoComplete } from 'antd';
+import { 
+  Card, 
+  Table, 
+  Button, 
+  Modal, 
+  Form, 
+  Input, 
+  Select, 
+  Tag, 
+  Space, 
+  Typography,
+  AutoComplete,
+  message 
+} from 'antd';
 import { DatabaseOutlined, PlusOutlined, EditOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -132,7 +145,19 @@ const KnowIssuePage = () => {
       }
     } catch (error) {
       console.error('載入測試類別失敗:', error);
-      // 不顯示錯誤消息，因為這不是必要功能
+      
+      // 根據錯誤類型顯示不同提示
+      if (error.response?.status === 403) {
+        console.warn('權限不足：無法載入測試類別列表，請聯繫管理員');
+        // 可以在這裡設置一個默認的測試類別或顯示提示
+      } else if (error.response?.status === 401) {
+        console.warn('未認證：請重新登入');
+      } else {
+        console.warn('網路錯誤：無法連接到伺服器');
+      }
+      
+      // 設置空的測試類別列表，避免程式崩潰
+      setTestClasses([]);
     }
   };
 
@@ -219,12 +244,28 @@ const KnowIssuePage = () => {
       title: 'Issue ID',
       dataIndex: 'issue_id',
       key: 'issue_id',
-      minWidth: 360,
+      width: 280,
       fixed: 'left',
+      ellipsis: {
+        showTitle: true,
+      },
       render: (text) => (
-        <Tag color="blue" title={text} style={{ cursor: 'help' }}>
-          {text}
-        </Tag>
+        <div style={{ maxWidth: 260 }}>
+          <Tag 
+            color="blue" 
+            title={text} 
+            style={{ 
+              cursor: 'help',
+              maxWidth: '100%',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              display: 'inline-block'
+            }}
+          >
+            {text}
+          </Tag>
+        </div>
       ),
       sorter: (a, b) => a.issue_id.localeCompare(b.issue_id),
     },
@@ -460,13 +501,23 @@ const KnowIssuePage = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span style={{ fontSize: '16px', color: '#666', fontWeight: '500' }}>測試類別：</span>
           <Select
-            placeholder="選擇測試類別"
+            placeholder={
+              testClasses.length === 0 
+                ? "無可用測試類別" 
+                : "選擇測試類別"
+            }
             allowClear
             style={{ minWidth: 280, fontSize: '16px' }}
             value={selectedTestClass}
             onChange={handleTestClassFilter}
             showSearch
             size="large"
+            disabled={testClasses.length === 0}
+            notFoundContent={
+              testClasses.length === 0 
+                ? "無測試類別數據，請聯繫管理員" 
+                : "無匹配結果"
+            }
             filterOption={(input, option) =>
               (option?.children ?? '').toLowerCase().includes(input.toLowerCase())
             }
@@ -477,6 +528,17 @@ const KnowIssuePage = () => {
               </Option>
             ))}
           </Select>
+          
+          {testClasses.length === 0 && (
+            <span style={{ 
+              fontSize: '12px', 
+              color: '#ff4d4f', 
+              fontStyle: 'italic',
+              marginLeft: '8px'
+            }}>
+              ⚠️ 無法載入測試類別
+            </span>
+          )}
         </div>
         
         <Space>
@@ -490,7 +552,18 @@ const KnowIssuePage = () => {
           <Button 
             type="primary" 
             icon={<PlusOutlined />}
+            disabled={testClasses.length === 0}
+            title={
+              testClasses.length === 0 
+                ? "無可用測試類別，無法新增問題" 
+                : "新增問題"
+            }
             onClick={() => {
+              if (testClasses.length === 0) {
+                message.error('無可用測試類別，請聯繫管理員新增測試類別');
+                return;
+              }
+              
               if (!selectedTestClass) {
                 message.warning('請先選擇測試類別過濾條件');
                 return;

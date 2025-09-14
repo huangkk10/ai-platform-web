@@ -452,19 +452,27 @@ class KnowIssueViewSet(viewsets.ModelViewSet):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class TestClassViewSet(viewsets.ModelViewSet):
-    """測試類別 ViewSet - 只有 admin 可以操作"""
+    """測試類別 ViewSet - 讀取開放給所有用戶，但只有 admin 可以修改"""
     queryset = TestClass.objects.all()
     serializer_class = TestClassSerializer
     permission_classes = [permissions.IsAuthenticated]
     
     def get_permissions(self):
-        """只有 staff 或 superuser 可以訪問"""
-        if not (self.request.user.is_staff or self.request.user.is_superuser):
-            self.permission_denied(
-                self.request,
-                message='只有管理員才能管理測試類別'
-            )
-        return [permissions.IsAuthenticated()]
+        """
+        讀取操作(list, retrieve)開放給所有認證用戶
+        修改操作(create, update, partial_update, destroy)只允許管理員
+        """
+        if self.action in ['list', 'retrieve']:
+            # 讀取操作：所有認證用戶都可以訪問
+            return [permissions.IsAuthenticated()]
+        else:
+            # 修改操作：只有管理員可以訪問
+            if not (self.request.user.is_staff or self.request.user.is_superuser):
+                self.permission_denied(
+                    self.request,
+                    message='只有管理員才能管理測試類別'
+                )
+            return [permissions.IsAuthenticated()]
     
     def perform_create(self, serializer):
         """建立時設定建立者為當前用戶"""
