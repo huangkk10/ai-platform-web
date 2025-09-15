@@ -790,21 +790,21 @@ const KnowIssuePage = () => {
             label="錯誤訊息"
             rules={[{ required: true, message: '請輸入錯誤訊息' }]}
           >
-            <Input.TextArea rows={3} placeholder="請描述具體的錯誤訊息..." />
+            <Input.TextArea rows={6} placeholder="請描述具體的錯誤訊息..." />
           </Form.Item>
           
           <Form.Item
             name="script"
             label="Script"
           >
-            <Input.TextArea rows={3} placeholder="相關的腳本或代碼..." />
+            <Input.TextArea rows={6} placeholder="相關的腳本或代碼..." />
           </Form.Item>
           
           <Form.Item
             name="supplement"
             label="補充"
           >
-            <Input.TextArea rows={3} placeholder="額外的補充說明或解決方案..." />
+            <Input.TextArea rows={6} placeholder="額外的補充說明或解決方案..." />
           </Form.Item>
         </Form>
       </Modal>
