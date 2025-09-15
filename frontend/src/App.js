@@ -12,6 +12,7 @@ import SettingsPage from './pages/SettingsPage';
 import KnowIssuePage from './pages/KnowIssuePage';
 import RvtLogPage from './pages/RvtLogPage';
 import TestClassManagementPage from './pages/TestClassManagementPage';
+import KnowIssueChatPage from './pages/KnowIssueChatPage';
 
 const { Content } = Layout;
 
@@ -52,6 +53,7 @@ function App() {
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/knowledge/know-issue" element={<KnowIssuePage />} />
                 <Route path="/knowledge/rvt-log" element={<RvtLogPage />} />
+                <Route path="/know-issue-chat" element={<KnowIssueChatPage />} />
                 <Route path="/admin/test-class-management" element={<TestClassManagementPage />} />
               </Routes>
             </Content>

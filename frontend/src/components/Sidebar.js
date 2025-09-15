@@ -9,6 +9,7 @@ import {
   DatabaseOutlined,
   ExperimentOutlined,
   UserOutlined,
+  MessageOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 import smiLogo from '../assets/images/smi.png';
@@ -45,6 +46,13 @@ const Sidebar = ({ collapsed, onCollapse }) => {
     ],
   };
 
+  // Know Issue Chat - 獨立選項，所有用戶可見
+  const knowIssueChatItem = {
+    key: 'know-issue-chat',
+    icon: <MessageOutlined />,
+    label: 'Know Issue Chat',
+  };
+
   // admin submenu - 只有管理員可見
   const adminSubmenu = {
     key: 'admin',
@@ -75,6 +83,9 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       case 'rvt-log':
         navigate('/knowledge/rvt-log');
         break;
+      case 'know-issue-chat':
+        navigate('/know-issue-chat');
+        break;
       case 'test-class-management':
         navigate('/admin/test-class-management');
         break;
@@ -94,17 +105,26 @@ const Sidebar = ({ collapsed, onCollapse }) => {
     const currentPath = window.location.pathname;
     const isKnowledgePage = currentPath.startsWith('/knowledge/');
     const isAdminPage = currentPath.startsWith('/admin/');
+    const isKnowIssueChatPage = currentPath.startsWith('/know-issue-chat');
     
-    // 知識庫選單 - 所有登入用戶都能看到
+    // 知識庫選單 - 登入用戶可見
     if ((initialized && isAuthenticated && user) || 
         (!initialized && isKnowledgePage)) {
       // insert knowledge menu before settings if present
-      const idx = items.findIndex(i => i.key === 'settings');
-      if (idx >= 0) {
-        items.splice(idx, 0, knowledgeSubmenu);
+      const settingsIdx = items.findIndex(i => i.key === 'settings');
+      if (settingsIdx >= 0) {
+        items.splice(settingsIdx, 0, knowledgeSubmenu);
       } else {
         items.push(knowledgeSubmenu);
       }
+    }
+    
+    // Know Issue Chat - 所有用戶可見（包括訪客）
+    const settingsIdx = items.findIndex(i => i.key === 'settings');
+    if (settingsIdx >= 0) {
+      items.splice(settingsIdx, 0, knowIssueChatItem);
+    } else {
+      items.push(knowIssueChatItem);
     }
     
     // 管理功能選單 - 只有管理員可見

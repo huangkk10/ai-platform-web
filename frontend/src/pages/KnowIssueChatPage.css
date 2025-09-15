@@ -1,0 +1,210 @@
+/* Know Issue Chat Page Styles */
+
+.chat-header {
+  background: white;
+  padding: 16px 24px;
+  border-bottom: 1px solid #e8e8e8;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.messages-container {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  background: #f5f5f5;
+  background-image: 
+    radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.05) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.05) 0%, transparent 50%);
+}
+
+.message-wrapper {
+  margin-bottom: 16px;
+  display: flex;
+  width: 100%;
+}
+
+.message-wrapper.user {
+  justify-content: flex-end;
+}
+
+.message-wrapper.assistant {
+  justify-content: flex-start;
+}
+
+.message-content {
+  display: flex;
+  align-items: flex-start;
+  max-width: 70%;
+  gap: 8px;
+}
+
+.message-wrapper.user .message-content {
+  flex-direction: row-reverse;
+}
+
+.message-card {
+  border-radius: 18px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: none;
+  position: relative;
+}
+
+.message-card.user {
+  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+  color: white;
+}
+
+.message-card.user .ant-card-body {
+  color: white;
+}
+
+.message-card.assistant {
+  background: white;
+  border: 1px solid #e8e8e8;
+}
+
+.message-text {
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.message-card.user .message-text {
+  color: white;
+}
+
+.message-card.user .message-text .ant-typography {
+  color: white !important;
+}
+
+.message-time {
+  font-size: 11px;
+  opacity: 0.7;
+  text-align: right;
+  margin-top: 4px;
+}
+
+.message-card.user .message-time {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.message-card.assistant .message-time {
+  color: #999;
+}
+
+.input-area {
+  background: white;
+  padding: 16px 24px;
+  border-top: 1px solid #e8e8e8;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.input-container {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.input-container .ant-input {
+  flex: 1;
+  padding: 12px 16px;
+  font-size: 14px;
+  border: 1px solid #d9d9d9;
+  transition: all 0.3s;
+}
+
+.input-container .ant-input:focus {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+}
+
+.input-hint {
+  text-align: center;
+  margin-top: 8px;
+}
+
+/* 自定義滾動條 */
+.messages-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.messages-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.messages-container::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.messages-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+  .message-content {
+    max-width: 85%;
+  }
+  
+  .chat-header {
+    padding: 12px 16px;
+  }
+  
+  .messages-container {
+    padding: 12px;
+  }
+  
+  .input-area {
+    padding: 12px 16px;
+  }
+}
+
+/* 動畫效果 */
+.message-wrapper {
+  animation: fadeInUp 0.3s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Loading 動畫 */
+.message-card .ant-spin {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* 高亮效果 */
+.message-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  transition: all 0.2s ease;
+}
+
+.message-card.user:hover {
+  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.3);
+}
+
+/* 分隔線樣式 */
+.message-text hr {
+  border: none;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  margin: 12px 0;
+}
+
+.message-card.user .message-text hr {
+  border-top-color: rgba(255, 255, 255, 0.3);
+}
