@@ -27,7 +27,16 @@ urlpatterns = [
     # Dify 外部知識 API - 同時支援有斜槓和無斜槓的版本
     path('dify/knowledge/retrieval', views.dify_knowledge_search, name='dify_knowledge_search_no_slash'),
     path('dify/knowledge/retrieval/', views.dify_knowledge_search, name='dify_knowledge_search'),
+    # Dify 自動附加 /retrieval 的基礎路由
+    path('dify/knowledge/', views.dify_knowledge_search, name='dify_knowledge_auto_retrieval'),
     # 相容舊路徑
     path('dify/knowledge/search/', views.dify_knowledge_search, name='dify_knowledge_search_legacy'),
     path('dify/knowledge/search/retrieval/', views.dify_knowledge_search, name='dify_knowledge_search_official'),
+    
+    # Dify Know Issue 外部知識庫 API
+    path('dify/know-issue/retrieval', views.dify_know_issue_search, name='dify_know_issue_search_no_slash'),
+    path('dify/know-issue/retrieval/', views.dify_know_issue_search, name='dify_know_issue_search'),
+    # Dify 自動附加 /retrieval 的路由 (支援有斜槓和無斜槓)
+    path('dify/know-issue/', views.dify_know_issue_search, name='dify_know_issue_auto_retrieval_slash'),
+    path('dify/know-issue', views.dify_know_issue_search, name='dify_know_issue_auto_retrieval_no_slash'),
 ]

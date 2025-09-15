@@ -283,6 +283,105 @@ def search_postgres_knowledge(query_text, limit=5):
         return []
 
 
+def search_know_issue_knowledge(query_text, limit=5):
+    """
+    在 PostgreSQL 中搜索 Know Issue 知識庫
+    """
+    try:
+        with connection.cursor() as cursor:
+            sql = """
+            SELECT 
+                ki.id,
+                ki.issue_id,
+                ki.test_version,
+                ki.jira_number,
+                ki.project,
+                ki.test_class_id,
+                tc.name as test_class_name,
+                ki.script,
+                ki.issue_type,
+                ki.status,
+                ki.error_message,
+                ki.supplement,
+                ki.created_at,
+                CASE 
+                    WHEN ki.issue_id ILIKE %s THEN 1.0
+                    WHEN ki.project ILIKE %s THEN 0.9
+                    WHEN tc.name ILIKE %s THEN 0.8
+                    WHEN ki.error_message ILIKE %s THEN 0.7
+                    WHEN ki.supplement ILIKE %s THEN 0.6
+                    WHEN ki.script ILIKE %s THEN 0.5
+                    ELSE 0.3
+                END as score
+            FROM know_issue ki
+            LEFT JOIN test_class tc ON ki.test_class_id = tc.id
+            WHERE 
+                ki.issue_id ILIKE %s OR 
+                ki.project ILIKE %s OR 
+                tc.name ILIKE %s OR 
+                ki.error_message ILIKE %s OR 
+                ki.supplement ILIKE %s OR 
+                ki.script ILIKE %s
+            ORDER BY score DESC, ki.created_at DESC
+            LIMIT %s
+            """
+            
+            search_pattern = f'%{query_text}%'
+            cursor.execute(sql, [
+                search_pattern, search_pattern, search_pattern, 
+                search_pattern, search_pattern, search_pattern,
+                search_pattern, search_pattern, search_pattern,
+                search_pattern, search_pattern, search_pattern,
+                limit
+            ])
+            
+            rows = cursor.fetchall()
+            columns = [desc[0] for desc in cursor.description]
+            
+            results = []
+            for row in rows:
+                issue_data = dict(zip(columns, row))
+                
+                # 格式化為知識片段
+                content = f"問題編號: {issue_data['issue_id']}\n"
+                content += f"專案: {issue_data['project']}\n"
+                content += f"測試版本: {issue_data['test_version']}\n"
+                if issue_data['test_class_name']:
+                    content += f"測試類別: {issue_data['test_class_name']}\n"
+                if issue_data['jira_number']:
+                    content += f"JIRA編號: {issue_data['jira_number']}\n"
+                content += f"問題類型: {issue_data['issue_type']}\n"
+                content += f"狀態: {issue_data['status']}\n"
+                if issue_data['error_message']:
+                    content += f"錯誤訊息: {issue_data['error_message']}\n"
+                if issue_data['supplement']:
+                    content += f"補充說明: {issue_data['supplement']}\n"
+                if issue_data['script']:
+                    content += f"相關腳本: {issue_data['script']}\n"
+                content += f"建立時間: {issue_data['created_at']}"
+                
+                results.append({
+                    'id': str(issue_data['id']),
+                    'title': f"{issue_data['issue_id']} - {issue_data['project']}",
+                    'content': content,
+                    'score': float(issue_data['score']),
+                    'metadata': {
+                        'source': 'know_issue_database',
+                        'issue_id': issue_data['issue_id'],
+                        'project': issue_data['project'],
+                        'test_version': issue_data['test_version'],
+                        'issue_type': issue_data['issue_type'],
+                        'status': issue_data['status']
+                    }
+                })
+            
+            return results
+            
+    except Exception as e:
+        logger.error(f"Know Issue database search error: {str(e)}")
+        return []
+
+
 @api_view(['POST'])
 @permission_classes([])  # 公開 API，但會檢查 Authorization header
 @csrf_exempt
@@ -351,7 +450,16 @@ def dify_knowledge_search(request):
         
         # 搜索 PostgreSQL 知識
         logger.info(f"Searching for query: '{query}' with limit: {top_k}")
-        search_results = search_postgres_knowledge(query, limit=top_k)
+        
+        # 根據 knowledge_id 決定搜索哪個知識庫
+        if knowledge_id in ['know_issue_db', 'know_issue', 'know-issue']:
+            search_results = search_know_issue_knowledge(query, limit=top_k)
+            logger.info(f"Know Issue search results count: {len(search_results)}")
+        else:
+            # 默認搜索員工知識庫
+            search_results = search_postgres_knowledge(query, limit=top_k)
+            logger.info(f"Employee search results count: {len(search_results)}")
+        
         logger.info(f"Raw search results count: {len(search_results)}")
         
         # 過濾分數低於閾值的結果
@@ -389,6 +497,89 @@ def dify_knowledge_search(request):
         }, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         logger.error(f"Dify knowledge search error: {str(e)}")
+        return Response({
+            'error_code': 2001,
+            'error_msg': 'Internal server error'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([])  # 公開 API，但會檢查 Authorization header
+@csrf_exempt
+def dify_know_issue_search(request):
+    """
+    Dify Know Issue 外部知識庫 API 端點 - 專門針對問題知識庫搜索
+    
+    期望的請求格式:
+    {
+        "knowledge_id": "know_issue_db",
+        "query": "搜索字詞",
+        "retrieval_setting": {
+            "top_k": 3,
+            "score_threshold": 0.5
+        }
+    }
+    """
+    try:
+        # 記錄請求來源
+        logger.info(f"Dify Know Issue API request from: {request.META.get('REMOTE_ADDR')}")
+        
+        # 解析請求數據
+        data = json.loads(request.body) if request.body else {}
+        query = data.get('query', '')
+        knowledge_id = data.get('knowledge_id', 'know_issue_db')
+        retrieval_setting = data.get('retrieval_setting', {})
+        
+        top_k = retrieval_setting.get('top_k', 5)
+        score_threshold = retrieval_setting.get('score_threshold', 0.0)
+        
+        logger.info(f"Know Issue search - Query: {query}, Top K: {top_k}, Score threshold: {score_threshold}")
+        
+        # 驗證必要參數
+        if not query:
+            return Response({
+                'error_code': 2001,
+                'error_msg': 'Query parameter is required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # 搜索 Know Issue 資料
+        search_results = search_know_issue_knowledge(query, limit=top_k)
+        
+        # 過濾分數低於閾值的結果
+        filtered_results = [
+            result for result in search_results 
+            if result['score'] >= score_threshold
+        ]
+        
+        logger.info(f"Know Issue search found {len(search_results)} results, {len(filtered_results)} after filtering")
+        
+        # 構建符合 Dify 規格的響應
+        records = []
+        for result in filtered_results:
+            record = {
+                'content': result['content'],
+                'score': result['score'],
+                'title': result['title'],
+                'metadata': result['metadata']
+            }
+            records.append(record)
+            logger.info(f"Added Know Issue record: {record['title']}")
+        
+        response_data = {
+            'records': records
+        }
+        
+        logger.info(f"Know Issue API response: Found {len(records)} results")
+        
+        return Response(response_data, status=status.HTTP_200_OK)
+        
+    except json.JSONDecodeError:
+        return Response({
+            'error_code': 1001,
+            'error_msg': 'Invalid JSON format'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        logger.error(f"Dify Know Issue search error: {str(e)}")
         return Response({
             'error_code': 2001,
             'error_msg': 'Internal server error'
