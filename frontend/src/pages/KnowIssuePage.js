@@ -348,7 +348,7 @@ const KnowIssuePage = () => {
       title: '測試版本',
       dataIndex: 'test_version',
       key: 'test_version',
-      width: 120,
+      width: 80,
       render: (text) => (
         <div title={text} style={{ cursor: 'help' }}>
           {text}
@@ -359,7 +359,7 @@ const KnowIssuePage = () => {
       title: 'JIRA 號碼',
       dataIndex: 'jira_number',
       key: 'jira_number',
-      width: 120,
+      width: 130,
       render: (text) => text ? (
         <Tag color="orange" title={text} style={{ cursor: 'help' }}>
           {text}
@@ -370,7 +370,7 @@ const KnowIssuePage = () => {
       title: 'Issue Type',
       dataIndex: 'issue_type',
       key: 'issue_type',
-      width: 120,
+      width: 100,
       render: (text) => {
         const colors = {
           'bug': 'red',
@@ -395,13 +395,13 @@ const KnowIssuePage = () => {
       title: 'Script',
       dataIndex: 'script',
       key: 'script',
-      width: 150,
+      width: 350,
       ellipsis: {
         showTitle: true,
       },
       render: (text) => (
         <div 
-          style={{ maxWidth: 150, cursor: text ? 'help' : 'default' }} 
+          style={{ maxWidth: 350, cursor: text ? 'help' : 'default' }} 
           title={text || '無 Script 內容'}
         >
           {text || '-'}
@@ -412,13 +412,13 @@ const KnowIssuePage = () => {
       title: '錯誤訊息',
       dataIndex: 'error_message',
       key: 'error_message',
-      width: 200,
+      width: 400,
       ellipsis: {
         showTitle: true,
       },
       render: (text) => (
         <div 
-          style={{ maxWidth: 200, cursor: 'help' }} 
+          style={{ maxWidth: 400, cursor: 'help' }} 
           title={text}
         >
           {text}
