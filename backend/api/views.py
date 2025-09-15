@@ -304,10 +304,18 @@ def search_know_issue_knowledge(query_text, limit=5):
                 ki.error_message,
                 ki.supplement,
                 ki.created_at,
+                ki.updated_at,
+                ki.updated_by_id,
+                u.username as updated_by_name,
+                u.first_name as updated_by_first_name,
+                u.last_name as updated_by_last_name,
                 CASE 
                     WHEN ki.issue_id ILIKE %s THEN 1.0
                     WHEN ki.project ILIKE %s THEN 0.9
                     WHEN tc.name ILIKE %s THEN 0.8
+                    WHEN u.username ILIKE %s THEN 0.8
+                    WHEN u.first_name ILIKE %s THEN 0.8
+                    WHEN u.last_name ILIKE %s THEN 0.8
                     WHEN ki.error_message ILIKE %s THEN 0.7
                     WHEN ki.supplement ILIKE %s THEN 0.6
                     WHEN ki.script ILIKE %s THEN 0.5
@@ -315,10 +323,14 @@ def search_know_issue_knowledge(query_text, limit=5):
                 END as score
             FROM know_issue ki
             LEFT JOIN test_class tc ON ki.test_class_id = tc.id
+            LEFT JOIN auth_user u ON ki.updated_by_id = u.id
             WHERE 
                 ki.issue_id ILIKE %s OR 
                 ki.project ILIKE %s OR 
                 tc.name ILIKE %s OR 
+                u.username ILIKE %s OR 
+                u.first_name ILIKE %s OR 
+                u.last_name ILIKE %s OR 
                 ki.error_message ILIKE %s OR 
                 ki.supplement ILIKE %s OR 
                 ki.script ILIKE %s
@@ -329,6 +341,8 @@ def search_know_issue_knowledge(query_text, limit=5):
             search_pattern = f'%{query_text}%'
             cursor.execute(sql, [
                 search_pattern, search_pattern, search_pattern, 
+                search_pattern, search_pattern, search_pattern,
+                search_pattern, search_pattern, search_pattern,
                 search_pattern, search_pattern, search_pattern,
                 search_pattern, search_pattern, search_pattern,
                 search_pattern, search_pattern, search_pattern,
@@ -358,7 +372,18 @@ def search_know_issue_knowledge(query_text, limit=5):
                     content += f"補充說明: {issue_data['supplement']}\n"
                 if issue_data['script']:
                     content += f"相關腳本: {issue_data['script']}\n"
-                content += f"建立時間: {issue_data['created_at']}"
+                
+                # 添加更改人員資訊
+                if issue_data['updated_by_name']:
+                    updated_by_display = issue_data['updated_by_name']
+                    if issue_data['updated_by_first_name'] or issue_data['updated_by_last_name']:
+                        full_name = f"{issue_data['updated_by_first_name'] or ''} {issue_data['updated_by_last_name'] or ''}".strip()
+                        if full_name:
+                            updated_by_display = f"{full_name} ({issue_data['updated_by_name']})"
+                    content += f"更新人員: {updated_by_display}\n"
+                
+                content += f"建立時間: {issue_data['created_at']}\n"
+                content += f"更新時間: {issue_data['updated_at']}"
                 
                 results.append({
                     'id': str(issue_data['id']),
@@ -371,7 +396,10 @@ def search_know_issue_knowledge(query_text, limit=5):
                         'project': issue_data['project'],
                         'test_version': issue_data['test_version'],
                         'issue_type': issue_data['issue_type'],
-                        'status': issue_data['status']
+                        'status': issue_data['status'],
+                        'updated_by_id': issue_data['updated_by_id'],
+                        'updated_by_name': issue_data['updated_by_name'],
+                        'updated_at': str(issue_data['updated_at']) if issue_data['updated_at'] else None
                     }
                 })
             
