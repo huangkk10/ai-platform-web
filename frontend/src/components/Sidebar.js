@@ -21,48 +21,14 @@ const Sidebar = ({ collapsed, onCollapse }) => {
   const { user, isAuthenticated, loading, initialized } = useAuth();
   const navigate = useNavigate();
 
-  // 基本選單項目（所有用戶都能看到）
-  const baseMenuItems = [
+  // 上方清爽區域 - 只有 Know Issue Chat
+  const topMenuItems = [
     {
-      key: 'dashboard',
-      icon: <FileSearchOutlined />,
-      label: '查詢結果',
-    },
-    {
-      key: 'settings',
-      icon: <SettingOutlined />,
-      label: '系統設定',
+      key: 'know-issue-chat',
+      icon: <MessageOutlined />,
+      label: 'Know Issue Chat',
     },
   ];
-
-  // knowledge submenu for authenticated users
-  const knowledgeSubmenu = {
-    key: 'knowledge',
-    icon: <DatabaseOutlined />,
-    label: '知識庫',
-    children: [
-      { key: 'know-issue', icon: <DatabaseOutlined />, label: 'know issue' },
-      { key: 'rvt-log', icon: <DatabaseOutlined />, label: 'RVT Log' },
-    ],
-  };
-
-  // Know Issue Chat - 獨立選項，所有用戶可見
-  const knowIssueChatItem = {
-    key: 'know-issue-chat',
-    icon: <MessageOutlined />,
-    label: 'Know Issue Chat',
-  };
-
-  // admin submenu - 只有管理員可見
-  const adminSubmenu = {
-    key: 'admin',
-    icon: <SettingOutlined />,
-    label: '管理功能',
-    children: [
-      { key: 'test-class-management', icon: <ExperimentOutlined />, label: 'TestClass 管理' },
-      { key: 'user-management', icon: <UserOutlined />, label: '用戶管理' },
-    ],
-  };
 
   // 處理選單點擊
   const handleMenuClick = ({ key }) => {
@@ -98,33 +64,49 @@ const Sidebar = ({ collapsed, onCollapse }) => {
     }
   };
 
-  const getMenuItems = () => {
-    const items = [...baseMenuItems];
+  const getBottomMenuItems = () => {
+    // 基本選單項目（移除查詢結果）
+    const basicItems = [];
+
+    // knowledge submenu for authenticated users
+    const knowledgeSubmenu = {
+      key: 'knowledge',
+      icon: <DatabaseOutlined />,
+      label: '知識庫',
+      children: [
+        { key: 'know-issue', icon: <DatabaseOutlined />, label: 'know issue' },
+        { key: 'rvt-log', icon: <DatabaseOutlined />, label: 'RVT Log' },
+      ],
+    };
+
+    // admin submenu - 只有管理員可見
+    const adminSubmenu = {
+      key: 'admin',
+      icon: <SettingOutlined />,
+      label: '管理功能',
+      children: [
+        { key: 'test-class-management', icon: <ExperimentOutlined />, label: 'TestClass 管理' },
+        { key: 'user-management', icon: <UserOutlined />, label: '用戶管理' },
+      ],
+    };
+
+    const settingsItem = {
+      key: 'settings',
+      icon: <SettingOutlined />,
+      label: '系統設定',
+    };
+
+    const items = [...basicItems];
     
-    // 如果還未初始化完成，檢查當前路徑是否包含知識庫或管理路由
+    // 檢查當前路徑
     const currentPath = window.location.pathname;
     const isKnowledgePage = currentPath.startsWith('/knowledge/');
     const isAdminPage = currentPath.startsWith('/admin/');
-    const isKnowIssueChatPage = currentPath.startsWith('/know-issue-chat');
     
     // 知識庫選單 - 登入用戶可見
     if ((initialized && isAuthenticated && user) || 
         (!initialized && isKnowledgePage)) {
-      // insert knowledge menu before settings if present
-      const settingsIdx = items.findIndex(i => i.key === 'settings');
-      if (settingsIdx >= 0) {
-        items.splice(settingsIdx, 0, knowledgeSubmenu);
-      } else {
-        items.push(knowledgeSubmenu);
-      }
-    }
-    
-    // Know Issue Chat - 所有用戶可見（包括訪客）
-    const settingsIdx = items.findIndex(i => i.key === 'settings');
-    if (settingsIdx >= 0) {
-      items.splice(settingsIdx, 0, knowIssueChatItem);
-    } else {
-      items.push(knowIssueChatItem);
+      items.push(knowledgeSubmenu);
     }
     
     // 管理功能選單 - 只有管理員可見
@@ -133,10 +115,13 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       items.push(adminSubmenu);
     }
     
+    // 系統設定放在最後
+    items.push(settingsItem);
+    
     return items;
   };
 
-  const menuItems = getMenuItems();
+  const bottomMenuItems = getBottomMenuItems();
 
   return (
     <Sider 
@@ -181,11 +166,11 @@ const Sidebar = ({ collapsed, onCollapse }) => {
               IA
             </Avatar>
             <div>
-              <Text style={{ color: '#fff', fontSize: '16px', fontWeight: 'bold' }}>
+              <Text style={{ color: '#fff', fontSize: '20px', fontWeight: 'bold' }}>
                 IA
               </Text>
               <br />
-              <Text style={{ color: '#bdc3c7', fontSize: '12px' }}>
+              <Text style={{ color: '#bdc3c7', fontSize: '14px' }}>
                 Intelligence Assistant
               </Text>
             </div>
@@ -205,19 +190,49 @@ const Sidebar = ({ collapsed, onCollapse }) => {
         )}
       </div>
 
-      {/* 菜單 */}
-      <Menu
-        theme="dark"
-        mode="inline"
-        onClick={handleMenuClick}
-        items={menuItems}
-        style={{
-          background: 'transparent',
-          border: 'none',
-          color: '#ecf0f1',
-          fontSize: '18px'
-        }}
-      />
+      {/* 上方清爽區域 - Know Issue Chat */}
+      <div style={{
+        borderBottom: '2px solid #1f1f1f',
+        marginBottom: '32px',
+        backgroundColor: '#34495e',
+        padding: '8px 0'
+      }}>
+        <Menu
+          theme="dark"
+          mode="inline"
+          onClick={handleMenuClick}
+          items={topMenuItems}
+          style={{
+            background: '#34495e',
+            border: 'none',
+            color: '#ecf0f1',
+            fontSize: '20px'
+          }}
+        />
+      </div>
+
+      {/* 下方區域 - 其他選項（貼著底部） */}
+      <div style={{
+        position: 'absolute',
+        bottom: '60px', // 留出收縮按鈕的空間
+        left: 0,
+        right: 0,
+        paddingTop: '16px',
+        borderTop: '1px solid rgba(255,255,255,0.1)'
+      }}>
+        <Menu
+          theme="dark"
+          mode="inline"
+          onClick={handleMenuClick}
+          items={bottomMenuItems}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: '#ecf0f1',
+            fontSize: '20px'
+          }}
+        />
+      </div>
 
       {/* 收縮按鈕 */}
       <div 
@@ -228,7 +243,7 @@ const Sidebar = ({ collapsed, onCollapse }) => {
           transform: collapsed ? 'translateX(-50%)' : 'none',
           cursor: 'pointer',
           color: '#bdc3c7',
-          fontSize: '16px',
+          fontSize: '18px',
           padding: '8px',
           borderRadius: '4px',
           transition: 'all 0.3s'
