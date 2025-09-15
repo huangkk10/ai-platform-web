@@ -21,7 +21,6 @@ const Sidebar = ({ collapsed, onCollapse }) => {
   const { user, isAuthenticated, loading, initialized } = useAuth();
   const navigate = useNavigate();
 
-  // 上方清爽區域 - 只有 Know Issue Chat
   const topMenuItems = [
     {
       key: 'know-issue-chat',
