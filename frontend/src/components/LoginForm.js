@@ -86,8 +86,7 @@ const LoginForm = ({ visible, onClose, onSuccess, onRegister }) => {
           name="password"
           label="密碼"
           rules={[
-            { required: true, message: '請輸入密碼' },
-            { min: 6, message: '密碼至少需要6個字符' }
+            { required: true, message: '請輸入密碼' }
           ]}
         >
           <Input.Password

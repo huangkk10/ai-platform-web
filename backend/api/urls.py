@@ -20,6 +20,7 @@ urlpatterns = [
     path('auth/register/', views.user_register, name='user_register'),
     path('auth/logout/', views.user_logout, name='user_logout'),
     path('auth/user/', views.user_info, name='user_info'),
+    path('auth/change-password/', views.change_password, name='change_password'),
     
     # Django REST framework 認證頁面（使用不同路徑）
     path('auth/drf/', include('rest_framework.urls')),

@@ -1,8 +1,27 @@
-import React from 'react';
-import { Card, Typography } from 'antd';
-import { SettingOutlined } from '@ant-design/icons';
+import React, { useState } from 'react';
+import { 
+  Card, 
+  Typography, 
+  Form, 
+  Input, 
+  Button, 
+  Space, 
+  Divider, 
+  message,
+  Row,
+  Col,
+  Alert
+} from 'antd';
+import { 
+  SettingOutlined, 
+  LockOutlined, 
+  UserOutlined,
+  SafetyOutlined 
+} from '@ant-design/icons';
+import { useAuth } from '../contexts/AuthContext';
+import axios from 'axios';
 
-const { Title } = Typography;
+const { Title, Text, Paragraph } = Typography;
 
 const SettingsPage = () => {
   return (

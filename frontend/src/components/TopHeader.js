@@ -11,6 +11,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import LoginForm from './LoginForm';
 import RegisterForm from './RegisterForm';
+import AccountSettingsModal from './AccountSettingsModal';
 
 const { Header } = Layout;
 const { Text } = Typography;
@@ -19,6 +20,7 @@ const TopHeader = ({ collapsed, onToggleSidebar }) => {
   const { user, isAuthenticated, logout, loading, initialized } = useAuth();
   const [loginVisible, setLoginVisible] = useState(false);
   const [registerVisible, setRegisterVisible] = useState(false);
+  const [settingsVisible, setSettingsVisible] = useState(false);
   
   const handleLogout = async () => {
     try {
@@ -45,6 +47,23 @@ const TopHeader = ({ collapsed, onToggleSidebar }) => {
     }, 1000);
   };
 
+  // 下拉菜單點擊處理
+  const handleMenuClick = ({ key }) => {
+    switch (key) {
+      case 'profile':
+        message.info('個人資料功能開發中...');
+        break;
+      case 'settings':
+        setSettingsVisible(true);
+        break;
+      case 'logout':
+        handleLogout();
+        break;
+      default:
+        break;
+    }
+  };
+
   // 已登入用戶的下拉選單
   const userMenuItems = [
     {
@@ -65,7 +84,6 @@ const TopHeader = ({ collapsed, onToggleSidebar }) => {
       icon: <LogoutOutlined />,
       label: '登出',
       danger: true,
-      onClick: handleLogout,
     },
   ];
 
@@ -131,7 +149,7 @@ const TopHeader = ({ collapsed, onToggleSidebar }) => {
               </div>
             ) : isAuthenticated ? (
               <Dropdown
-                menu={{ items: userMenuItems }}
+                menu={{ items: userMenuItems, onClick: handleMenuClick }}
                 placement="bottomRight"
                 arrow
               >
@@ -227,6 +245,12 @@ const TopHeader = ({ collapsed, onToggleSidebar }) => {
         visible={registerVisible}
         onClose={() => setRegisterVisible(false)}
         onSuccess={handleRegisterSuccess}
+      />
+
+      {/* 帳戶設定 Modal */}
+      <AccountSettingsModal
+        visible={settingsVisible}
+        onClose={() => setSettingsVisible(false)}
       />
     </>
   );

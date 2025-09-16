@@ -116,13 +116,12 @@ const RegisterForm = ({ visible, onClose, onSuccess }) => {
           label="密碼"
           rules={[
             { required: true, message: '請輸入密碼' },
-            { min: 6, message: '密碼至少需要 6 個字符' },
             { max: 128, message: '密碼不能超過 128 個字符' }
           ]}
         >
           <Input.Password 
             prefix={<LockOutlined />} 
-            placeholder="請輸入密碼（至少6個字符）"
+            placeholder="請輸入密碼"
             autoComplete="new-password"
           />
         </Form.Item>

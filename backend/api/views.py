@@ -1,7 +1,7 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action, api_view, permission_classes, authentication_classes
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.db import models, connection
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout
@@ -988,12 +988,6 @@ def user_register(request):
                 'message': '密碼不能為空'
             }, status=status.HTTP_400_BAD_REQUEST)
             
-        if len(password) < 6:
-            return Response({
-                'success': False,
-                'message': '密碼長度至少需要 6 個字符'
-            }, status=status.HTTP_400_BAD_REQUEST)
-            
         if not email:
             return Response({
                 'success': False,
@@ -1107,6 +1101,61 @@ def user_logout(request):
             'success': True,
             'message': '已強制清除登入狀態'
         }, status=status.HTTP_200_OK)
+
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def change_password(request):
+    """
+    更改密碼 API
+    """
+    try:
+        # 使用 request.data 而不是 request.body
+        data = request.data
+        old_password = data.get('old_password', '')
+        new_password = data.get('new_password', '')
+        
+        # 基本驗證
+        if not old_password:
+            return Response({
+                'old_password': ['目前密碼不能為空']
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+        if not new_password:
+            return Response({
+                'new_password': ['新密碼不能為空']
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # 驗證目前密碼
+        user = request.user
+        if not user.check_password(old_password):
+            return Response({
+                'old_password': ['目前密碼不正確']
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # 檢查新密碼是否與舊密碼相同
+        if user.check_password(new_password):
+            return Response({
+                'new_password': ['新密碼不能與目前密碼相同']
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # 更改密碼
+        user.set_password(new_password)
+        user.save()
+        
+        logger.info(f"Password changed successfully for user: {user.username}")
+        
+        return Response({
+            'success': True,
+            'message': '密碼更改成功'
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Change password error: {str(e)}")
+        return Response({
+            'error': '伺服器錯誤，請稍後再試'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])
