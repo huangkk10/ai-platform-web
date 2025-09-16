@@ -125,6 +125,9 @@ class KnowIssueSerializer(serializers.ModelSerializer):
     updated_by_name = serializers.SerializerMethodField()
     test_class_name = serializers.CharField(source='test_class.name', read_only=True)
     summary = serializers.CharField(source='get_summary', read_only=True)
+    image_urls = serializers.SerializerMethodField()
+    image_count = serializers.SerializerMethodField()
+    image_list = serializers.SerializerMethodField()
     
     class Meta:
         model = KnowIssue
@@ -132,9 +135,19 @@ class KnowIssueSerializer(serializers.ModelSerializer):
             'id', 'issue_id', 'test_version', 'jira_number', 'updated_by', 
             'updated_by_name', 'project', 'test_class', 'test_class_name',
             'class_sequence_id', 'script', 'issue_type', 'status', 
-            'error_message', 'supplement', 'summary', 'created_at', 'updated_at'
+            'error_message', 'supplement', 'summary', 'created_at', 'updated_at',
+            # 二進制圖片欄位 (不直接暴露 data 欄位到 API)
+            'image1_filename', 'image1_content_type',
+            'image2_filename', 'image2_content_type',
+            'image3_filename', 'image3_content_type',
+            'image4_filename', 'image4_content_type',
+            'image5_filename', 'image5_content_type',
+            # 計算欄位
+            'image_urls', 'image_count', 'image_list'
         ]
-        read_only_fields = ['id', 'issue_id', 'class_sequence_id', 'created_at', 'updated_at', 'updated_by_name', 'test_class_name', 'summary']
+        read_only_fields = ['id', 'issue_id', 'class_sequence_id', 'created_at', 'updated_at', 
+                           'updated_by_name', 'test_class_name', 'summary', 'image_urls', 
+                           'image_count', 'image_list']
     
     def get_updated_by_name(self, obj):
         """獲取修改者的友好名稱"""
@@ -143,6 +156,18 @@ class KnowIssueSerializer(serializers.ModelSerializer):
             full_name = f"{obj.updated_by.first_name} {obj.updated_by.last_name}".strip()
             return full_name if full_name else obj.updated_by.username
         return None
+    
+    def get_image_urls(self, obj):
+        """獲取所有圖片的URL列表"""
+        return obj.get_image_urls()
+    
+    def get_image_count(self, obj):
+        """獲取圖片數量"""
+        return obj.get_image_count()
+    
+    def get_image_list(self, obj):
+        """獲取圖片詳細資訊列表"""
+        return obj.get_image_list()
 
 
 class TestClassSerializer(serializers.ModelSerializer):

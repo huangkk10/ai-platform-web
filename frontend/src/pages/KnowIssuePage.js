@@ -11,9 +11,20 @@ import {
   Space, 
   Typography,
   AutoComplete,
-  message 
+  message,
+  Upload,
+  Image
 } from 'antd';
-import { DatabaseOutlined, PlusOutlined, EditOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
+import { 
+  DatabaseOutlined, 
+  PlusOutlined, 
+  EditOutlined, 
+  DeleteOutlined, 
+  ReloadOutlined,
+  UploadOutlined,
+  PictureOutlined,
+  EyeOutlined
+} from '@ant-design/icons';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -34,6 +45,11 @@ const KnowIssuePage = () => {
   const [editingIssue, setEditingIssue] = useState(null);
   const [form] = Form.useForm();
   
+  // 圖片上傳相關狀態
+  const [imageFileList, setImageFileList] = useState([]);
+  const [imageModalVisible, setImageModalVisible] = useState(false);
+  const [currentImageSrc, setCurrentImageSrc] = useState('');
+  
   // 自動完成選項
   const [autoCompleteOptions, setAutoCompleteOptions] = useState({
     testVersions: [],
@@ -47,6 +63,57 @@ const KnowIssuePage = () => {
   const handleFormTestClassChange = (testClassId) => {
     const selectedClass = testClasses.find(cls => cls.id === testClassId);
     setSelectedFormTestClass(selectedClass);
+  };
+
+  // 圖片上傳處理函數
+  const handleImageUpload = ({ fileList }) => {
+    // 限制最多 5 張圖片
+    const limitedFileList = fileList.slice(-5);
+    setImageFileList(limitedFileList);
+  };
+
+  // 圖片預覽函數
+  const handleImagePreview = (file) => {
+    if (file.url || file.preview) {
+      setCurrentImageSrc(file.url || file.preview);
+      setImageModalVisible(true);
+    }
+  };
+
+  // 圖片上傳前的驗證
+  const beforeUpload = (file) => {
+    const isImage = file.type.startsWith('image/');
+    if (!isImage) {
+      message.error('只能上傳圖片檔案！');
+      return false;
+    }
+    
+    const isLt5M = file.size / 1024 / 1024 < 5;
+    if (!isLt5M) {
+      message.error('圖片大小必須小於 5MB！');
+      return false;
+    }
+    
+    return false; // 返回 false 以阻止自動上傳，由表單提交時統一處理
+  };
+
+  // 將編輯時的圖片轉換為文件列表格式
+  const convertExistingImagesToFileList = (issue) => {
+    const fileList = [];
+    if (issue.image_urls && issue.image_urls.length > 0) {
+      issue.image_urls.forEach((url, index) => {
+        if (url) {
+          fileList.push({
+            uid: `existing-${index}`,
+            name: `image${index + 1}.jpg`,
+            status: 'done',
+            url: url,
+            isExisting: true // 標記為現有圖片
+          });
+        }
+      });
+    }
+    return fileList;
   };
 
   // 處理測試類別過濾
@@ -409,6 +476,31 @@ const KnowIssuePage = () => {
       ),
     },
     {
+      title: '圖片',
+      key: 'images',
+      width: 100,
+      render: (_, record) => {
+        const imageCount = record.image_count || 0;
+        return (
+          <div style={{ textAlign: 'center' }}>
+            {imageCount > 0 ? (
+              <Tag 
+                color="green" 
+                icon={<PictureOutlined />}
+                style={{ cursor: 'pointer' }}
+                onClick={() => handlePreview(record)}
+                title="點擊查看圖片詳情"
+              >
+                {imageCount}
+              </Tag>
+            ) : (
+              <Tag color="default">0</Tag>
+            )}
+          </div>
+        );
+      },
+    },
+    {
       title: '錯誤訊息',
       dataIndex: 'error_message',
       key: 'error_message',
@@ -463,6 +555,10 @@ const KnowIssuePage = () => {
     const selectedClass = testClasses.find(cls => cls.id === selectedTestClass);
     setSelectedFormTestClass(selectedClass);
     
+    // 設置現有圖片
+    const existingImages = convertExistingImagesToFileList(issue);
+    setImageFileList(existingImages);
+    
     setModalVisible(true);
   };
 
@@ -488,15 +584,36 @@ const KnowIssuePage = () => {
   // 新增/編輯提交
   const handleSubmit = async (values) => {
     try {
+      // 創建 FormData 以支援圖片上傳
+      const formData = new FormData();
+      
+      // 添加文字欄位
+      Object.keys(values).forEach(key => {
+        if (values[key] !== null && values[key] !== undefined) {
+          formData.append(key, values[key]);
+        }
+      });
+      
+      // 處理圖片上傳
+      const newImages = imageFileList.filter(file => !file.isExisting);
+      newImages.forEach((file, index) => {
+        if (file.originFileObj) {
+          formData.append(`image${index + 1}`, file.originFileObj);
+        }
+      });
+      
+      const config = {
+        withCredentials: true,
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      };
+      
       if (editingIssue) {
-        await axios.put(`/api/know-issues/${editingIssue.id}/`, values, {
-          withCredentials: true
-        });
+        await axios.put(`/api/know-issues/${editingIssue.id}/`, formData, config);
         message.success('更新成功');
       } else {
-        await axios.post('/api/know-issues/', values, {
-          withCredentials: true
-        });
+        await axios.post('/api/know-issues/', formData, config);
         message.success('新增成功');
       }
       
@@ -509,6 +626,7 @@ const KnowIssuePage = () => {
       
       setModalVisible(false);
       setSelectedFormTestClass(null);
+      setImageFileList([]);
       form.resetFields();
       setEditingIssue(null);
       fetchIssues();
@@ -635,6 +753,7 @@ const KnowIssuePage = () => {
               }
               
               setEditingIssue(null);
+              setImageFileList([]);
               form.resetFields();
               
               // 使用過濾器選中的測試類別
@@ -673,6 +792,7 @@ const KnowIssuePage = () => {
         onCancel={() => {
           setModalVisible(false);
           setSelectedFormTestClass(null);
+          setImageFileList([]);
           form.resetFields();
           setEditingIssue(null);
         }}
@@ -806,7 +926,46 @@ const KnowIssuePage = () => {
           >
             <Input.TextArea rows={6} placeholder="額外的補充說明或解決方案..." />
           </Form.Item>
+          
+          {/* 圖片上傳欄位 */}
+          <Form.Item
+            label="相關圖片"
+            extra="最多上傳 5 張圖片，每張圖片大小不超過 5MB"
+          >
+            <Upload
+              listType="picture-card"
+              fileList={imageFileList}
+              onPreview={handleImagePreview}
+              onChange={handleImageUpload}
+              beforeUpload={beforeUpload}
+              multiple
+              accept="image/*"
+            >
+              {imageFileList.length < 5 && (
+                <div>
+                  <PlusOutlined />
+                  <div style={{ marginTop: 8 }}>上傳圖片</div>
+                </div>
+              )}
+            </Upload>
+          </Form.Item>
         </Form>
+      </Modal>
+
+      {/* 圖片預覽 Modal */}
+      <Modal
+        open={imageModalVisible}
+        title="圖片預覽"
+        footer={null}
+        onCancel={() => setImageModalVisible(false)}
+        width={800}
+        centered
+      >
+        <img
+          alt="preview"
+          style={{ width: '100%' }}
+          src={currentImageSrc}
+        />
       </Modal>
 
       {/* 預覽 Modal */}
@@ -995,6 +1154,70 @@ const KnowIssuePage = () => {
                   lineHeight: '1.6'
                 }}>
                   {previewIssue.supplement}
+                </div>
+              </div>
+            )}
+
+            {/* 圖片附件 */}
+            {previewIssue.image_urls && previewIssue.image_urls.length > 0 && (
+              <div style={{ 
+                marginBottom: '20px',
+                padding: '16px',
+                backgroundColor: '#f9f0ff',
+                borderRadius: '8px',
+                border: '1px solid #d3adf7'
+              }}>
+                <Title level={4} style={{ margin: '0 0 12px 0', color: '#722ed1' }}>
+                  🖼️ 相關圖片 ({previewIssue.image_count || previewIssue.image_urls.length})
+                </Title>
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                  gap: '12px'
+                }}>
+                  {previewIssue.image_urls.map((imageUrl, index) => (
+                    imageUrl && (
+                      <div key={index} style={{ 
+                        border: '1px solid #e9ecef',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        backgroundColor: 'white'
+                      }}>
+                        <Image
+                          src={imageUrl}
+                          alt={`問題圖片 ${index + 1}`}
+                          style={{ 
+                            width: '100%',
+                            height: '150px',
+                            objectFit: 'cover'
+                          }}
+                          preview={{
+                            mask: (
+                              <div style={{ 
+                                display: 'flex', 
+                                flexDirection: 'column', 
+                                alignItems: 'center', 
+                                gap: '4px',
+                                color: 'white'
+                              }}>
+                                <EyeOutlined style={{ fontSize: '20px' }} />
+                                <span style={{ fontSize: '12px' }}>預覽</span>
+                              </div>
+                            )
+                          }}
+                        />
+                        <div style={{ 
+                          padding: '8px',
+                          textAlign: 'center',
+                          fontSize: '12px',
+                          color: '#666',
+                          backgroundColor: '#f8f9fa'
+                        }}>
+                          圖片 {index + 1}
+                        </div>
+                      </div>
+                    )
+                  ))}
                 </div>
               </div>
             )}

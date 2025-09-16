@@ -192,6 +192,27 @@ class KnowIssue(models.Model):
     error_message = models.TextField(verbose_name="錯誤訊息", help_text="具體的錯誤訊息內容")
     supplement = models.TextField(blank=True, verbose_name="補充", help_text="額外的補充說明或解決方案")
     
+    # 圖片附件 (5張圖片支援 - 二進制存儲)
+    image1_data = models.BinaryField(blank=True, null=True, verbose_name="圖片1數據", help_text="第1張附件圖片的二進制數據")
+    image1_filename = models.CharField(max_length=255, blank=True, verbose_name="圖片1檔名")
+    image1_content_type = models.CharField(max_length=100, blank=True, verbose_name="圖片1類型")
+    
+    image2_data = models.BinaryField(blank=True, null=True, verbose_name="圖片2數據", help_text="第2張附件圖片的二進制數據")
+    image2_filename = models.CharField(max_length=255, blank=True, verbose_name="圖片2檔名")
+    image2_content_type = models.CharField(max_length=100, blank=True, verbose_name="圖片2類型")
+    
+    image3_data = models.BinaryField(blank=True, null=True, verbose_name="圖片3數據", help_text="第3張附件圖片的二進制數據")
+    image3_filename = models.CharField(max_length=255, blank=True, verbose_name="圖片3檔名")
+    image3_content_type = models.CharField(max_length=100, blank=True, verbose_name="圖片3類型")
+    
+    image4_data = models.BinaryField(blank=True, null=True, verbose_name="圖片4數據", help_text="第4張附件圖片的二進制數據")
+    image4_filename = models.CharField(max_length=255, blank=True, verbose_name="圖片4檔名")
+    image4_content_type = models.CharField(max_length=100, blank=True, verbose_name="圖片4類型")
+    
+    image5_data = models.BinaryField(blank=True, null=True, verbose_name="圖片5數據", help_text="第5張附件圖片的二進制數據")
+    image5_filename = models.CharField(max_length=255, blank=True, verbose_name="圖片5檔名")
+    image5_content_type = models.CharField(max_length=100, blank=True, verbose_name="圖片5類型")
+    
     # 時間戳記
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="建立時間")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新時間")
@@ -225,6 +246,57 @@ class KnowIssue(models.Model):
     def get_summary(self):
         """獲取問題摘要"""
         return f"Issue ID: {self.issue_id} | Project: {self.project} | Status: {self.status}"
+    
+    def get_image_list(self):
+        """獲取所有已上傳的圖片列表（二進制版本）"""
+        import base64
+        images = []
+        for i in range(1, 6):  # image1 到 image5
+            data_field = getattr(self, f'image{i}_data')
+            filename_field = getattr(self, f'image{i}_filename')
+            content_type_field = getattr(self, f'image{i}_content_type')
+            
+            if data_field and filename_field:
+                # 生成 base64 data URL
+                base64_data = base64.b64encode(data_field).decode('utf-8')
+                data_url = f"data:{content_type_field or 'image/jpeg'};base64,{base64_data}"
+                
+                images.append({
+                    'field': f'image{i}',
+                    'data_url': data_url,
+                    'filename': filename_field,
+                    'content_type': content_type_field,
+                    'size_kb': len(data_field) // 1024
+                })
+        return images
+    
+    def get_image_urls(self):
+        """獲取所有圖片的 data URL 列表"""
+        image_list = self.get_image_list()
+        return [img['data_url'] for img in image_list]
+    
+    def get_image_count(self):
+        """獲取已上傳圖片的數量"""
+        count = 0
+        for i in range(1, 6):
+            data_field = getattr(self, f'image{i}_data')
+            if data_field:
+                count += 1
+        return count
+    
+    def set_image_data(self, image_index, file_data, filename, content_type):
+        """設置圖片數據的輔助方法"""
+        if 1 <= image_index <= 5:
+            setattr(self, f'image{image_index}_data', file_data)
+            setattr(self, f'image{image_index}_filename', filename)
+            setattr(self, f'image{image_index}_content_type', content_type)
+    
+    def clear_image_data(self, image_index):
+        """清除特定圖片數據的輔助方法"""
+        if 1 <= image_index <= 5:
+            setattr(self, f'image{image_index}_data', None)
+            setattr(self, f'image{image_index}_filename', '')
+            setattr(self, f'image{image_index}_content_type', '')
 
 
 class TestClass(models.Model):

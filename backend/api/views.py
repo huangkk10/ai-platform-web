@@ -660,6 +660,102 @@ class KnowIssueViewSet(viewsets.ModelViewSet):
             
         return queryset.order_by('-updated_at')
     
+    def create(self, request, *args, **kwargs):
+        """創建 Know Issue，支援二進制圖片上傳"""
+        try:
+            # 處理圖片上傳
+            uploaded_images = {}
+            for i in range(1, 6):  # image1 到 image5
+                image_field = f'image{i}'
+                if image_field in request.FILES:
+                    image_file = request.FILES[image_field]
+                    uploaded_images[i] = {
+                        'data': image_file.read(),
+                        'filename': image_file.name,
+                        'content_type': image_file.content_type
+                    }
+            
+            # 創建序列化器實例
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            
+            # 保存實例，設置更新人員
+            instance = serializer.save(updated_by=request.user)
+            
+            # 處理上傳的圖片 - 存為二進制數據
+            for image_index, image_data in uploaded_images.items():
+                instance.set_image_data(
+                    image_index,
+                    image_data['data'],
+                    image_data['filename'],
+                    image_data['content_type']
+                )
+            
+            # 再次保存以處理圖片
+            if uploaded_images:
+                instance.save()
+            
+            # 返回完整的序列化數據
+            response_serializer = self.get_serializer(instance)
+            headers = self.get_success_headers(response_serializer.data)
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+            
+        except Exception as e:
+            logger.error(f"KnowIssue create error: {str(e)}")
+            return Response(
+                {'error': f'創建失敗: {str(e)}'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+    def update(self, request, *args, **kwargs):
+        """更新 Know Issue，支援二進制圖片上傳"""
+        try:
+            partial = kwargs.pop('partial', False)
+            instance = self.get_object()
+            
+            # 處理圖片上傳
+            uploaded_images = {}
+            for i in range(1, 6):  # image1 到 image5
+                image_field = f'image{i}'
+                if image_field in request.FILES:
+                    image_file = request.FILES[image_field]
+                    uploaded_images[i] = {
+                        'data': image_file.read(),
+                        'filename': image_file.name,
+                        'content_type': image_file.content_type
+                    }
+            
+            # 更新其他欄位
+            serializer = self.get_serializer(instance, data=request.data, partial=partial)
+            serializer.is_valid(raise_exception=True)
+            
+            # 保存實例，設置更新人員
+            instance = serializer.save(updated_by=request.user)
+            
+            # 處理上傳的圖片 - 存為二進制數據
+            for image_index, image_data in uploaded_images.items():
+                instance.set_image_data(
+                    image_index,
+                    image_data['data'],
+                    image_data['filename'],
+                    image_data['content_type']
+                )
+            
+            # 再次保存以處理圖片
+            if uploaded_images:
+                instance.save()
+            
+            # 返回完整的序列化數據
+            response_serializer = self.get_serializer(instance)
+            return Response(response_serializer.data)
+            
+        except Exception as e:
+            logger.error(f"KnowIssue update error: {str(e)}")
+            return Response(
+                {'error': f'更新失敗: {str(e)}'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
     def perform_create(self, serializer):
         """建立時設定更新人員為當前用戶"""
         serializer.save(updated_by=self.request.user)
