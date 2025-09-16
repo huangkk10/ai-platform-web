@@ -10,6 +10,7 @@ import {
   ExperimentOutlined,
   UserOutlined,
   MessageOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 import smiLogo from '../assets/images/smi.png';
@@ -26,6 +27,11 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       key: 'know-issue-chat',
       icon: <MessageOutlined />,
       label: 'Know Issue Chat',
+    },
+    {
+      key: 'log-analyze',
+      icon: <FileTextOutlined />,
+      label: 'Log Analyze',
     },
   ];
 
@@ -50,6 +56,9 @@ const Sidebar = ({ collapsed, onCollapse }) => {
         break;
       case 'know-issue-chat':
         navigate('/know-issue-chat');
+        break;
+      case 'log-analyze':
+        navigate('/log-analyze');
         break;
       case 'test-class-management':
         navigate('/admin/test-class-management');

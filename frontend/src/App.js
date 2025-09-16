@@ -13,6 +13,7 @@ import KnowIssuePage from './pages/KnowIssuePage';
 import RvtLogPage from './pages/RvtLogPage';
 import TestClassManagementPage from './pages/TestClassManagementPage';
 import KnowIssueChatPage from './pages/KnowIssueChatPage';
+import LogAnalyzePage from './pages/LogAnalyzePage';
 
 const { Content } = Layout;
 
@@ -54,6 +55,7 @@ function App() {
                 <Route path="/knowledge/know-issue" element={<KnowIssuePage />} />
                 <Route path="/knowledge/rvt-log" element={<RvtLogPage />} />
                 <Route path="/know-issue-chat" element={<KnowIssueChatPage />} />
+                <Route path="/log-analyze" element={<LogAnalyzePage />} />
                 <Route path="/admin/test-class-management" element={<TestClassManagementPage />} />
               </Routes>
             </Content>
