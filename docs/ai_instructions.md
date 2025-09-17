@@ -265,4 +265,94 @@ curl -X POST "http://10.10.173.12/api/dify/knowledge/retrieval/" \
 - **API 響應時間**：確保 < 2秒響應
 - **Dify 配置檢查**：確認知識庫啟用狀態
 
+## 🔧 Dify App Config 使用指南
+
+### 📁 配置管理系統
+專案已建立統一的 Dify 應用配置管理系統，避免配置散落各處。
+
+**配置文件位置**：
+- `/library/config/dify_app_configs.py` - 應用配置管理
+- `docs/guide/dify-app-config-usage.md` - 完整使用指南
+
+### 🎯 Protocol Known Issue System 配置
+
+#### 快速使用方式（推薦）
+```python
+# 導入配置工具
+from library.config.dify_app_configs import create_protocol_chat_client
+
+# 直接創建配置好的客戶端
+client = create_protocol_chat_client()
+
+# 測試連接
+if client.test_connection():
+    print("✅ 連接成功")
+    
+    # 發送查詢
+    result = client.chat("ULINK")
+    if result['success']:
+        print(f"回應: {result['answer']}")
+```
+
+#### 獲取配置資訊
+```python
+from library.config.dify_app_configs import get_protocol_known_issue_config
+
+# 獲取完整配置
+config = get_protocol_known_issue_config()
+
+# 配置包含：
+# - api_url: 'http://10.10.172.5/v1/chat-messages'
+# - api_key: 'app-Sql11xracJ71PtZThNJ4ZQQW'
+# - app_name: 'Protocol Known Issue System'
+# - workspace: 'Protocol_known_issue_system'
+# - 等等...
+
+print(f"API 端點: {config['api_url']}")
+print(f"應用名稱: {config['app_name']}")
+```
+
+### 🌍 環境變數支援
+可透過環境變數覆蓋配置：
+```bash
+export DIFY_PROTOCOL_API_KEY="app-NewApiKey"
+export DIFY_PROTOCOL_TIMEOUT=120
+```
+
+### 🧪 在測試腳本中使用
+```python
+#!/usr/bin/env python3
+import sys
+import os
+
+# 添加 library 路徑
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../'))
+
+from library.config.dify_app_configs import create_protocol_chat_client
+from library.dify_integration.chat_testing import DifyChatTester
+from library.ai_utils.test_analyzer import TestAnalyzer
+
+def main():
+    # 創建客戶端
+    client = create_protocol_chat_client()
+    
+    # 使用測試工具
+    tester = DifyChatTester(client)
+    results = tester.batch_test(["ULINK", "測試問題"])
+    
+    # 分析結果
+    analyzer = TestAnalyzer()
+    analyzer.add_results(results)
+    analyzer.print_summary_report()
+```
+
+### ⚠️ 重要提醒
+1. **不要硬編碼配置**：使用配置管理系統
+2. **路徑設定正確**：確保 library 路徑正確
+3. **環境變數優先**：敏感資訊用環境變數
+4. **驗證配置**：使用前先測試連接
+
+### 📚 更多資訊
+完整的使用指南和範例請參考：`docs/guide/dify-app-config-usage.md`
+
 ````
