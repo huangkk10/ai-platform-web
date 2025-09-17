@@ -40,4 +40,8 @@ urlpatterns = [
     # Dify 自動附加 /retrieval 的路由 (支援有斜槓和無斜槓)
     path('dify/know-issue/', views.dify_know_issue_search, name='dify_know_issue_auto_retrieval_slash'),
     path('dify/know-issue', views.dify_know_issue_search, name='dify_know_issue_auto_retrieval_no_slash'),
+    
+    # Dify Chat API
+    path('dify/chat/', views.dify_chat, name='dify_chat'),
+    path('dify/config/', views.dify_config_info, name='dify_config_info'),
 ]

@@ -12,8 +12,22 @@ from django.views import View
 from django.http import JsonResponse
 import json
 import logging
+import sys
+import os
+import time
 from .models import UserProfile, Project, Task, Employee, DifyEmployee, KnowIssue, TestClass
 from .serializers import UserSerializer, UserProfileSerializer, ProjectSerializer, TaskSerializer, EmployeeSerializer, DifyEmployeeSerializer, DifyEmployeeListSerializer, KnowIssueSerializer, TestClassSerializer
+
+# 添加 library 路徑
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../'))
+
+# 導入 Dify 配置管理
+try:
+    from library.config.dify_app_configs import create_protocol_chat_client, get_protocol_known_issue_config
+except ImportError:
+    # 如果 library 路徑有問題，提供備用配置
+    create_protocol_chat_client = None
+    get_protocol_known_issue_config = None
 
 logger = logging.getLogger(__name__)
 
@@ -1212,4 +1226,165 @@ def user_info(request):
         return Response({
             'success': False,
             'message': '獲取用戶資訊失敗'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def dify_chat(request):
+    """
+    Dify Chat API - 使用 PROTOCOL_KNOWN_ISSUE_SYSTEM 配置
+    """
+    try:
+        import requests
+        
+        data = request.data
+        message = data.get('message', '').strip()
+        conversation_id = data.get('conversation_id', '')
+        
+        if not message:
+            return Response({
+                'success': False,
+                'error': '訊息內容不能為空'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # 使用 library/config 模組的配置
+        try:
+            from library.config.dify_app_configs import get_protocol_known_issue_config
+            dify_config = get_protocol_known_issue_config()
+        except Exception as config_error:
+            logger.error(f"Failed to load Dify config: {config_error}")
+            return Response({
+                'success': False,
+                'error': f'配置載入失敗: {str(config_error)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        # 檢查必要配置
+        api_url = dify_config.get('api_url')
+        api_key = dify_config.get('api_key')
+        
+        if not api_url or not api_key:
+            return Response({
+                'success': False,
+                'error': 'Dify API 配置不完整'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        # 準備請求
+        headers = {
+            'Authorization': f'Bearer {api_key}',
+            'Content-Type': 'application/json'
+        }
+        
+        payload = {
+            'inputs': {},
+            'query': message,
+            'response_mode': 'blocking',
+            'user': f"web_user_{request.user.id}"
+        }
+        
+        if conversation_id:
+            payload['conversation_id'] = conversation_id
+        
+        start_time = time.time()
+        
+        # 發送請求到 Dify，增加錯誤處理
+        try:
+            response = requests.post(
+                api_url,
+                headers=headers,
+                json=payload,
+                timeout=60  # 延長超時時間，因為 AI 回應可能需要較長時間
+            )
+        except requests.exceptions.Timeout:
+            return Response({
+                'success': False,
+                'error': 'Dify API 請求超時，請稍後再試'
+            }, status=status.HTTP_408_REQUEST_TIMEOUT)
+        except requests.exceptions.ConnectionError:
+            return Response({
+                'success': False,
+                'error': 'Dify API 連接失敗，請檢查網路連接'
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        except Exception as req_error:
+            return Response({
+                'success': False,
+                'error': f'API 請求錯誤: {str(req_error)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        elapsed = time.time() - start_time
+        
+        if response.status_code == 200:
+            result = response.json()
+            
+            # 記錄成功的聊天
+            logger.info(f"Dify chat success for user {request.user.username}: {message[:50]}...")
+            
+            return Response({
+                'success': True,
+                'answer': result.get('answer', ''),
+                'conversation_id': result.get('conversation_id', ''),
+                'message_id': result.get('message_id', ''),
+                'response_time': elapsed,
+                'metadata': result.get('metadata', {}),
+                'usage': result.get('usage', {})
+            }, status=status.HTTP_200_OK)
+        else:
+            error_msg = f"Dify API 錯誤: {response.status_code} - {response.text}"
+            logger.error(f"Dify chat error for user {request.user.username}: {error_msg}")
+            
+            return Response({
+                'success': False,
+                'error': error_msg,
+                'response_time': elapsed
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+    except Exception as e:
+        logger.error(f"Dify chat API error: {str(e)}")
+        return Response({
+            'success': False,
+            'error': f'服務器錯誤: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def dify_config_info(request):
+    """
+    獲取 Dify 配置資訊 - 用於前端顯示
+    """
+    try:
+        if get_protocol_known_issue_config is None:
+            return Response({
+                'success': False,
+                'error': 'Dify 配置模組載入失敗'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        # 獲取配置
+        config = get_protocol_known_issue_config()
+        
+        # 只返回安全的配置資訊
+        safe_config = {
+            'app_name': config.get('app_name', 'Unknown App'),
+            'workspace': config.get('workspace', 'Unknown Workspace'),
+            'description': config.get('description', ''),
+            'features': config.get('features', []),
+            'api_url': config.get('api_url', ''),
+            'base_url': config.get('base_url', ''),
+            'timeout': config.get('timeout', 60),
+            'response_mode': config.get('response_mode', 'blocking'),
+            # 不返回完整的 API Key，只返回前幾位用於驗證
+            'api_key_prefix': config.get('api_key', '')[:10] + '...' if config.get('api_key') else ''
+        }
+        
+        return Response({
+            'success': True,
+            'config': safe_config
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Get Dify config error: {str(e)}")
+        return Response({
+            'success': False,
+            'error': f'獲取配置失敗: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
