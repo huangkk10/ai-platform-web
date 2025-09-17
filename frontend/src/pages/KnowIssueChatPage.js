@@ -119,7 +119,23 @@ const KnowIssueChatPage = () => {
         })
       });
 
-      const data = await response.json();
+      // 檢查回應的 Content-Type
+      const contentType = response.headers.get('content-type');
+      
+      let data;
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        // 如果不是 JSON，獲取文本內容並檢查
+        const textResponse = await response.text();
+        console.error('API 回應非 JSON 格式:', textResponse);
+        
+        if (textResponse.includes('<html>')) {
+          throw new Error('API 請求被重定向到 HTML 頁面，可能是認證問題');
+        } else {
+          throw new Error(`API 回應格式錯誤: ${textResponse.substring(0, 100)}...`);
+        }
+      }
       
       if (response.ok && data.success) {
         // 更新對話 ID
@@ -148,8 +164,18 @@ const KnowIssueChatPage = () => {
       console.error('Error calling Dify Chat API:', error);
       
       let errorText = '未知錯誤';
+      let shouldRedirectToLogin = false;
+      
       if (error.name === 'TypeError' && error.message.includes('fetch')) {
         errorText = '網路連接錯誤，請檢查網路連接';
+      } else if (error.message.includes('Unexpected token') && error.message.includes('html')) {
+        errorText = '用戶會話已過期，3秒後將自動跳轉到登入頁面';
+        shouldRedirectToLogin = true;
+      } else if (error.message.includes('認證問題') || error.message.includes('重定向到 HTML')) {
+        errorText = '用戶認證已過期，3秒後將自動跳轉到登入頁面';
+        shouldRedirectToLogin = true;
+      } else if (error.message.includes('配置載入失敗')) {
+        errorText = '系統配置載入失敗，請聯繫管理員';
       } else if (error.message.includes('504')) {
         errorText = 'AI 分析超時，可能是因為查詢較複雜，請稍後再試或簡化問題描述';
       } else if (error.message.includes('503')) {
@@ -163,6 +189,13 @@ const KnowIssueChatPage = () => {
       }
       
       message.error(`查詢失敗: ${errorText}`);
+      
+      // 如果是認證錯誤，自動跳轉到登入頁面
+      if (shouldRedirectToLogin) {
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 3000);
+      }
       
       const errorMessage = {
         id: Date.now() + 1,
@@ -198,23 +231,155 @@ const KnowIssueChatPage = () => {
   };
 
   const formatMessage = (content) => {
-    // 簡單的 Markdown 格式化
+    // 完整的 Markdown 格式化
     return content
       .split('\n')
       .map((line, index) => {
+        // 標題格式 (# ## ###)
+        if (line.startsWith('###')) {
+          return <Title key={index} level={5} style={{ display: 'block', marginBottom: '8px', marginTop: '12px' }}>
+            {line.replace(/^###\s*/, '')}
+          </Title>;
+        }
+        if (line.startsWith('##')) {
+          return <Title key={index} level={4} style={{ display: 'block', marginBottom: '8px', marginTop: '12px' }}>
+            {line.replace(/^##\s*/, '')}
+          </Title>;
+        }
+        if (line.startsWith('#')) {
+          return <Title key={index} level={3} style={{ display: 'block', marginBottom: '8px', marginTop: '12px' }}>
+            {line.replace(/^#\s*/, '')}
+          </Title>;
+        }
+        
+        // 粗體文字 (**text**)
         if (line.startsWith('**') && line.endsWith('**')) {
-          return <Text key={index} strong style={{ display: 'block', marginBottom: '4px' }}>
+          return <Text key={index} strong style={{ display: 'block', marginBottom: '6px', fontSize: '14px' }}>
             {line.slice(2, -2)}
           </Text>;
         }
-        if (line === '---') {
-          return <hr key={index} style={{ margin: '12px 0', border: 'none', borderTop: '1px solid #e8e8e8' }} />;
+        
+        // 水平分隔線
+        if (line === '---' || line === '***') {
+          return <hr key={index} style={{ margin: '16px 0', border: 'none', borderTop: '1px solid #e8e8e8' }} />;
         }
-        if (line.startsWith('• ')) {
-          return <Text key={index} style={{ display: 'block', marginLeft: '16px', marginBottom: '4px' }}>
-            {line}
-          </Text>;
+        
+        // 無序列表項目 (- 或 •)
+        if (line.startsWith('- ') || line.startsWith('• ')) {
+          const listContent = line.replace(/^[-•]\s*/, '');
+          // 檢查是否包含粗體文字
+          if (listContent.includes('**')) {
+            const parts = listContent.split(/(\*\*.*?\*\*)/);
+            return (
+              <div key={index} style={{ display: 'flex', marginLeft: '16px', marginBottom: '4px' }}>
+                <span style={{ marginRight: '8px', color: '#666' }}>•</span>
+                <Text style={{ flex: 1 }}>
+                  {parts.map((part, partIndex) => 
+                    part.startsWith('**') && part.endsWith('**') ? 
+                      <Text key={partIndex} strong>{part.slice(2, -2)}</Text> : 
+                      part
+                  )}
+                </Text>
+              </div>
+            );
+          }
+          return (
+            <div key={index} style={{ display: 'flex', marginLeft: '16px', marginBottom: '4px' }}>
+              <span style={{ marginRight: '8px', color: '#666' }}>•</span>
+              <Text style={{ flex: 1 }}>{listContent}</Text>
+            </div>
+          );
         }
+        
+        // 有序列表項目 (1. 2. 3.)
+        if (/^\d+\.\s/.test(line)) {
+          const match = line.match(/^(\d+)\.\s(.*)$/);
+          if (match) {
+            const [, number, listContent] = match;
+            return (
+              <div key={index} style={{ display: 'flex', marginLeft: '16px', marginBottom: '4px' }}>
+                <span style={{ marginRight: '8px', color: '#666', fontWeight: 'bold' }}>{number}.</span>
+                <Text style={{ flex: 1 }}>{listContent}</Text>
+              </div>
+            );
+          }
+        }
+        
+        // 引用文字 (> text)
+        if (line.startsWith('> ')) {
+          return (
+            <div key={index} style={{ 
+              borderLeft: '4px solid #d9d9d9', 
+              paddingLeft: '12px', 
+              marginBottom: '8px',
+              fontStyle: 'italic',
+              color: '#666'
+            }}>
+              <Text>{line.slice(2)}</Text>
+            </div>
+          );
+        }
+        
+        // 代碼塊 (```code```)
+        if (line.startsWith('```') && line.endsWith('```') && line.length > 6) {
+          return (
+            <div key={index} style={{ 
+              backgroundColor: '#f6f8fa', 
+              border: '1px solid #e1e4e8',
+              borderRadius: '6px',
+              padding: '12px',
+              margin: '8px 0',
+              fontFamily: 'Monaco, Consolas, "Courier New", monospace',
+              fontSize: '13px'
+            }}>
+              <Text code>{line.slice(3, -3)}</Text>
+            </div>
+          );
+        }
+        
+        // 行內代碼 (`code`)
+        if (line.includes('`')) {
+          const parts = line.split(/(`[^`]*`)/);
+          return (
+            <Text key={index} style={{ display: 'block', marginBottom: line.trim() ? '4px' : '8px' }}>
+              {parts.map((part, partIndex) => 
+                part.startsWith('`') && part.endsWith('`') ? 
+                  <Text key={partIndex} code>{part.slice(1, -1)}</Text> : 
+                  part
+              )}
+            </Text>
+          );
+        }
+        
+        // 處理行內粗體文字
+        if (line.includes('**')) {
+          const parts = line.split(/(\*\*.*?\*\*)/);
+          return (
+            <Text key={index} style={{ display: 'block', marginBottom: line.trim() ? '4px' : '8px' }}>
+              {parts.map((part, partIndex) => 
+                part.startsWith('**') && part.endsWith('**') ? 
+                  <Text key={partIndex} strong>{part.slice(2, -2)}</Text> : 
+                  part
+              )}
+            </Text>
+          );
+        }
+        
+        // 處理行內斜體文字 (*text*)
+        if (line.includes('*') && !line.includes('**')) {
+          const parts = line.split(/(\*[^*]*\*)/);
+          return (
+            <Text key={index} style={{ display: 'block', marginBottom: line.trim() ? '4px' : '8px' }}>
+              {parts.map((part, partIndex) => 
+                part.startsWith('*') && part.endsWith('*') && part.length > 2 ? 
+                  <Text key={partIndex} italic>{part.slice(1, -1)}</Text> : 
+                  part
+              )}
+            </Text>
+          );
+        }
+        
+        // 普通文字
         return <Text key={index} style={{ display: 'block', marginBottom: line.trim() ? '4px' : '8px' }}>
           {line || '\u00A0'}
         </Text>;
