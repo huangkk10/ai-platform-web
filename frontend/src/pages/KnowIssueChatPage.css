@@ -2,12 +2,13 @@
 
 .chat-header {
   background: white;
-  padding: 16px 24px;
+  padding: 8px 24px;
   border-bottom: 1px solid #e8e8e8;
   display: flex;
   justify-content: space-between;
   align-items: center;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  min-height: 50px;
 }
 
 .messages-container {
@@ -153,7 +154,7 @@
   }
   
   .chat-header {
-    padding: 12px 16px;
+    padding: 6px 16px;
   }
   
   .messages-container {

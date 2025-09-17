@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Layout, Input, Button, Card, Avatar, message, Spin, Typography, Tag } from 'antd';
-import { SendOutlined, UserOutlined, RobotOutlined, DeleteOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { SendOutlined, UserOutlined, RobotOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { useChatContext } from '../contexts/ChatContext';
 import './KnowIssueChatPage.css';
 
 const { Content } = Layout;
@@ -8,6 +9,7 @@ const { TextArea } = Input;
 const { Text, Title } = Typography;
 
 const KnowIssueChatPage = () => {
+  const { registerClearFunction, clearClearFunction } = useChatContext();
   // ... state variables ...
 
   // 動態載入提示組件
@@ -218,7 +220,7 @@ const KnowIssueChatPage = () => {
     }
   };
 
-  const clearChat = () => {
+  const clearChat = useCallback(() => {
     setMessages([
       {
         id: 1,
@@ -228,7 +230,15 @@ const KnowIssueChatPage = () => {
       }
     ]);
     setConversationId(''); // 重置對話 ID
-  };
+  }, []);
+
+  // 將 clearChat 函數傳遞給父組件
+  React.useEffect(() => {
+    registerClearFunction(clearChat);
+    return () => {
+      clearClearFunction();
+    };
+  }, [registerClearFunction, clearClearFunction, clearChat]);
 
   const formatMessage = (content) => {
     // 完整的 Markdown 格式化
@@ -388,38 +398,17 @@ const KnowIssueChatPage = () => {
 
   return (
     <Layout style={{ height: '100vh', background: '#f5f5f5' }}>
-      <Content style={{ display: 'flex', flexDirection: 'column', padding: '0' }}>
-        {/* Header */}
-        <div className="chat-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <Title level={3} style={{ margin: 0, color: '#1890ff' }}>
-              Know Issue Chat
-            </Title>
-            {difyConfig && (
-              <Tag icon={<InfoCircleOutlined />} color="blue">
-                {difyConfig.app_name}
-              </Tag>
-            )}
-          </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            {conversationId && (
-              <Tag color="green" style={{ fontSize: '11px' }}>
-                對話中: {conversationId.slice(-8)}
-              </Tag>
-            )}
-            <Button 
-              icon={<DeleteOutlined />} 
-              onClick={clearChat}
-              type="text"
-              style={{ color: '#666' }}
-            >
-              清空對話
-            </Button>
-          </div>
-        </div>
-
+      <Content style={{ display: 'flex', flexDirection: 'column', padding: '0', height: '100%', paddingTop: '64px' }}>
         {/* Messages Container */}
-        <div className="messages-container">
+        <div className="messages-container" style={{ 
+          flex: 1, 
+          overflowY: 'auto', 
+          padding: '8px 16px 16px 16px',  // 減少頂部 padding
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+          height: 'calc(100vh - 64px - 80px)'  // 移除配置欄後的高度
+        }}>
           {messages.map((msg) => (
             <div key={msg.id} className={`message-wrapper ${msg.type}`}>
               <div className="message-content">
@@ -485,7 +474,7 @@ const KnowIssueChatPage = () => {
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="請描述你遇到的問題..."
+              placeholder={`請描述你遇到的問題... (按 Enter 發送，Shift + Enter 換行${difyConfig ? ` • 連接到: ${difyConfig.workspace}` : ''})`}
               autoSize={{ minRows: 1, maxRows: 4 }}
               disabled={loading}
               style={{ borderRadius: '20px', resize: 'none' }}
@@ -506,16 +495,6 @@ const KnowIssueChatPage = () => {
                 justifyContent: 'center'
               }}
             />
-          </div>
-          <div className="input-hint">
-            <Text type="secondary" style={{ fontSize: '12px' }}>
-              按 Enter 發送，Shift + Enter 換行 
-              {difyConfig && (
-                <span style={{ marginLeft: '16px' }}>
-                  • 連接到: {difyConfig.workspace}
-                </span>
-              )}
-            </Text>
           </div>
         </div>
       </Content>

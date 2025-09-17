@@ -16,7 +16,7 @@ import AccountSettingsModal from './AccountSettingsModal';
 const { Header } = Layout;
 const { Text } = Typography;
 
-const TopHeader = ({ collapsed, onToggleSidebar }) => {
+const TopHeader = ({ collapsed, onToggleSidebar, pageTitle, extraActions }) => {
   const { user, isAuthenticated, logout, loading, initialized } = useAuth();
   const [loginVisible, setLoginVisible] = useState(false);
   const [registerVisible, setRegisterVisible] = useState(false);
@@ -124,17 +124,35 @@ const TopHeader = ({ collapsed, onToggleSidebar }) => {
           boxShadow: '0 1px 4px rgba(0,21,41,.08)'
         }}
       >
-        {/* 左側：選單切換按鈕 */}
-        <Button 
-          type="text" 
-          icon={<MenuOutlined />} 
-          onClick={onToggleSidebar}
-          style={{
-            fontSize: '16px',
-            width: 40,
-            height: 40,
-          }}
-        />
+        {/* 左側：選單切換按鈕和頁面標題 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1 }}>
+          <Button 
+            type="text" 
+            icon={<MenuOutlined />} 
+            onClick={onToggleSidebar}
+            style={{
+              fontSize: '16px',
+              width: 40,
+              height: 40,
+            }}
+          />
+          {pageTitle && (
+            <Text strong style={{ 
+              fontSize: '18px', 
+              color: '#1890ff',
+              lineHeight: '64px'
+            }}>
+              {pageTitle}
+            </Text>
+          )}
+          
+          {/* 額外的操作按鈕 */}
+          {extraActions && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto', marginRight: '20px' }}>
+              {extraActions}
+            </div>
+          )}
+        </div>
 
         {/* 右側：用戶資訊 */}
         <div style={{ display: 'flex', alignItems: 'center', minWidth: '200px', justifyContent: 'flex-end' }}>
