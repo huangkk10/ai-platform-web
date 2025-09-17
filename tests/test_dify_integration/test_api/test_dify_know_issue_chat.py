@@ -16,28 +16,23 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../'))
 from library.dify_integration.chat_client import DifyChatClient, create_chat_client
 from library.dify_integration.chat_testing import DifyChatTester, TestSuiteBuilder
 from library.ai_utils.test_analyzer import TestAnalyzer, analyze_results
+from library.config.dify_app_configs import get_protocol_known_issue_config, create_protocol_chat_client
 
-# Dify API 配置
-DIFY_CONFIG = {
-    'api_url': 'http://10.10.172.5/v1/chat-messages',
-    'api_key': 'app-Sql11xracJ71PtZThNJ4ZQQW',
-    'base_url': 'http://10.10.172.5'
-}
+# 使用統一的 Dify Protocol Known Issue System 配置
+DIFY_CONFIG = get_protocol_known_issue_config()
 
 def main():
     """主測試函數 - 使用 library 模組重構版本"""
-    print("� Dify Know Issue Chat 應用測試 (Library版本)")
+    print("🚀 Dify Know Issue Chat 應用測試 (Library版本)")
     print("=" * 60)
     print(f"🔗 Chat API 端點: {DIFY_CONFIG['api_url']}")
-    print(f"� API Key: {DIFY_CONFIG['api_key'][:20]}...")
+    print(f"🔑 API Key: {DIFY_CONFIG['api_key'][:20]}...")
+    print(f"📱 應用名稱: {DIFY_CONFIG.get('app_name', 'Unknown App')}")
+    print(f"🏢 工作室: {DIFY_CONFIG.get('workspace', 'Unknown Workspace')}")
     print("=" * 60)
     
-    # 創建 Chat 客戶端
-    client = create_chat_client(
-        api_url=DIFY_CONFIG['api_url'],
-        api_key=DIFY_CONFIG['api_key'],
-        base_url=DIFY_CONFIG['base_url']
-    )
+    # 創建 Chat 客戶端 - 使用專用函數
+    client = create_protocol_chat_client()
     
     # 1. 測試 API 連接
     if not client.test_connection():
@@ -69,7 +64,7 @@ def main():
         "謝謝你的幫助"
     ]
     
-    print("\n� 執行對話上下文測試...")
+    print("\n💬 執行對話上下文測試...")
     context_results = tester.context_test(
         conversation_flow,
         test_name="對話上下文測試",
@@ -88,7 +83,7 @@ def main():
     
     knowledge_keywords = ['python', '工程師', '技術部', '員工', 'know issue', '問題', 'ulink']
     
-    print("\n� 執行知識庫整合測試...")
+    print("\n📚 執行知識庫整合測試...")
     knowledge_results = tester.knowledge_integration_test(
         knowledge_questions,
         knowledge_keywords,
