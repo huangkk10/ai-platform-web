@@ -1231,7 +1231,7 @@ def user_info(request):
 
 @csrf_exempt
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def dify_chat(request):
     """
     Dify Chat API - 使用 PROTOCOL_KNOWN_ISSUE_SYSTEM 配置
@@ -1280,7 +1280,7 @@ def dify_chat(request):
             'inputs': {},
             'query': message,
             'response_mode': 'blocking',
-            'user': f"web_user_{request.user.id}"
+            'user': f"web_user_{request.user.id if request.user.is_authenticated else 'guest'}"
         }
         
         if conversation_id:
@@ -1348,7 +1348,7 @@ def dify_chat(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def dify_config_info(request):
     """
     獲取 Dify 配置資訊 - 用於前端顯示
