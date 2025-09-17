@@ -168,8 +168,9 @@ const TopHeader = ({ collapsed, onToggleSidebar, pageTitle, extraActions }) => {
             ) : isAuthenticated ? (
               <Dropdown
                 menu={{ items: userMenuItems, onClick: handleMenuClick }}
-                placement="bottomRight"
-                arrow
+                placement="bottom"
+                arrow={false}
+                overlayStyle={{ marginTop: '-2px' }}
               >
                 <div style={{ 
                   display: 'flex', 
@@ -213,8 +214,9 @@ const TopHeader = ({ collapsed, onToggleSidebar, pageTitle, extraActions }) => {
             ) : (
               <Dropdown
                 menu={{ items: guestMenuItems }}
-                placement="bottomRight"
-                arrow
+                placement="bottom"
+                arrow={false}
+                overlayStyle={{ marginTop: '-2px' }}
               >
                 <div style={{ 
                   display: 'flex', 
