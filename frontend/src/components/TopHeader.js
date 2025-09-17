@@ -12,6 +12,7 @@ import { useAuth } from '../contexts/AuthContext';
 import LoginForm from './LoginForm';
 import RegisterForm from './RegisterForm';
 import AccountSettingsModal from './AccountSettingsModal';
+import './TopHeader.css';
 
 const { Header } = Layout;
 const { Text } = Typography;
@@ -168,9 +169,11 @@ const TopHeader = ({ collapsed, onToggleSidebar, pageTitle, extraActions }) => {
             ) : isAuthenticated ? (
               <Dropdown
                 menu={{ items: userMenuItems, onClick: handleMenuClick }}
-                placement="bottom"
+                placement="bottomRight"
                 arrow={false}
-                overlayStyle={{ marginTop: '-2px' }}
+                overlayClassName="user-dropdown"
+                overlayStyle={{ marginTop: '-8px', transform: 'translateY(-8px)' }}
+                getPopupContainer={(triggerNode) => triggerNode.parentNode}
               >
                 <div style={{ 
                   display: 'flex', 
@@ -214,9 +217,11 @@ const TopHeader = ({ collapsed, onToggleSidebar, pageTitle, extraActions }) => {
             ) : (
               <Dropdown
                 menu={{ items: guestMenuItems }}
-                placement="bottom"
+                placement="bottomRight"
                 arrow={false}
-                overlayStyle={{ marginTop: '-2px' }}
+                overlayClassName="user-dropdown"
+                overlayStyle={{ marginTop: '-8px', transform: 'translateY(-8px)' }}
+                getPopupContainer={(triggerNode) => triggerNode.parentNode}
               >
                 <div style={{ 
                   display: 'flex', 

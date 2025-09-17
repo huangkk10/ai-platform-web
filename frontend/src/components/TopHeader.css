@@ -1,0 +1,26 @@
+/* TopHeader 組件的自定義樣式 */
+/* 緊密貼合的下拉選單樣式 */
+.user-dropdown.ant-dropdown {
+  margin-top: -10px !important;
+  padding-top: 0 !important;
+}
+
+.user-dropdown .ant-dropdown-menu {
+  margin-top: 0 !important;
+  border-radius: 6px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+.user-dropdown .ant-dropdown-arrow {
+  display: none !important;
+}
+
+.user-dropdown .ant-dropdown-menu-item {
+  padding: 8px 12px !important;
+  margin: 0 4px !important;
+  border-radius: 4px !important;
+}
+
+.user-dropdown .ant-dropdown-menu-item:hover {
+  background-color: #f5f5f5 !important;
+}

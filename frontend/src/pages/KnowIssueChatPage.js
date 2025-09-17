@@ -8,7 +8,7 @@ const { Content } = Layout;
 const { TextArea } = Input;
 const { Text, Title } = Typography;
 
-const KnowIssueChatPage = () => {
+const KnowIssueChatPage = ({ collapsed = false }) => {
   const { registerClearFunction, clearClearFunction } = useChatContext();
   // ... state variables ...
 
@@ -407,7 +407,8 @@ const KnowIssueChatPage = () => {
           display: 'flex',
           flexDirection: 'column',
           gap: '12px',
-          height: 'calc(100vh - 64px - 80px)'  // 移除配置欄後的高度
+          height: 'calc(100vh - 64px - 100px)',  // 為固定的輸入區域預留空間
+          paddingBottom: '100px'  // 為固定輸入框預留空間
         }}>
           {messages.map((msg) => (
             <div key={msg.id} className={`message-wrapper ${msg.type}`}>
@@ -467,8 +468,15 @@ const KnowIssueChatPage = () => {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input Area */}
-        <div className="input-area">
+        {/* Input Area - 固定在底部 */}
+        <div className="input-area" style={{
+          position: 'fixed',
+          bottom: 0,
+          left: collapsed ? 80 : 250,
+          right: 0,
+          transition: 'left 0.2s',
+          zIndex: 10
+        }}>
           <div className="input-container">
             <TextArea
               value={inputMessage}

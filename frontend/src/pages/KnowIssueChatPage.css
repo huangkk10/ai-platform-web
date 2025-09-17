@@ -101,6 +101,7 @@
   padding: 16px 24px;
   border-top: 1px solid #e8e8e8;
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
+  /* 當使用 position: fixed 時，這些樣式將被 inline style 覆蓋 */
 }
 
 .input-container {

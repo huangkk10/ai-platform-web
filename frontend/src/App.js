@@ -115,7 +115,7 @@ function AppLayout() {
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/knowledge/know-issue" element={<KnowIssuePage />} />
             <Route path="/knowledge/rvt-log" element={<RvtLogPage />} />
-            <Route path="/know-issue-chat" element={<KnowIssueChatPage />} />
+            <Route path="/know-issue-chat" element={<KnowIssueChatPage collapsed={collapsed} />} />
             <Route path="/log-analyze" element={<LogAnalyzePage />} />
             <Route path="/admin/test-class-management" element={<TestClassManagementPage />} />
           </Routes>
