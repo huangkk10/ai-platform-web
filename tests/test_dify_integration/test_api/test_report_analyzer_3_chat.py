@@ -278,8 +278,8 @@ class ReportAnalyzer3ChatTest:
         print(f"時間: {datetime.now()}")
         
         # 測試 1: 基本聊天
-        print(f"\n🧪 測試 1: 基本聊天功能")
-        basic_result = self.test_basic_chat("你好，請介紹一下你的功能")
+        # print(f"\n🧪 測試 1: 基本聊天功能")
+        # basic_result = self.test_basic_chat("你好，請介紹一下你的功能")
         
         # 測試 2: 文件上傳和聊天（如果提供了文件路徑）
         if test_file_path and os.path.exists(test_file_path):
@@ -338,7 +338,7 @@ def main():
     # 檢查是否有測試文件
     current_dir = os.path.dirname(os.path.abspath(__file__))
     test_files = [
-        os.path.join(current_dir, "2.png"),
+        os.path.join(current_dir, "3.png"),
         os.path.join(current_dir, "test_report.txt"),
         os.path.join(current_dir, "../test_upload/test_image.png"),
         os.path.join(current_dir, "../test_upload/test_document.txt")
