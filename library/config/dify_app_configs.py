@@ -26,6 +26,19 @@ class DifyAppConfigs:
         'response_mode': 'blocking'
     }
     
+    # Report Analyzer 3 工作室配置
+    REPORT_ANALYZER_3 = {
+        'api_url': 'http://10.10.172.5/v1/chat-messages',
+        'api_key': 'app-DmCCl8KwXhhjND0WbEf0ULlR',
+        'base_url': 'http://10.10.172.5',
+        'app_name': 'Report Analyzer 3',
+        'workspace': 'Report_Analyzer_3',
+        'description': 'Dify Chat 應用，用於報告分析和日誌處理',
+        'features': ['報告分析', '日誌處理', '數據分析'],
+        'timeout': 120,
+        'response_mode': 'blocking'
+    }
+    
     # 其他應用配置可以在此添加
     # 例如：
     # OTHER_APP_CONFIG = {
@@ -63,6 +76,51 @@ class DifyAppConfigs:
         return config
     
     @classmethod
+    def get_report_analyzer_3_config(cls) -> Dict[str, str]:
+        """
+        獲取 Report Analyzer 3 配置
+        
+        Returns:
+            Dict: 應用配置
+        """
+        config = cls.REPORT_ANALYZER_3.copy()
+        
+        # 支援環境變數覆蓋
+        env_overrides = {
+            'DIFY_REPORT_ANALYZER_API_URL': 'api_url',
+            'DIFY_REPORT_ANALYZER_API_KEY': 'api_key',
+            'DIFY_REPORT_ANALYZER_BASE_URL': 'base_url',
+            'DIFY_REPORT_ANALYZER_TIMEOUT': 'timeout'
+        }
+        
+        for env_key, config_key in env_overrides.items():
+            env_value = os.getenv(env_key)
+            if env_value:
+                if config_key == 'timeout':
+                    config[config_key] = int(env_value)
+                else:
+                    config[config_key] = env_value
+        
+        return config
+    
+    @classmethod
+    def create_report_analyzer_3_chat_client(cls):
+        """
+        創建 Report Analyzer 3 的 Chat 客戶端
+        
+        Returns:
+            DifyChatClient: 配置好的客戶端
+        """
+        from ..dify_integration.chat_client import create_chat_client
+        
+        config = cls.get_report_analyzer_3_config()
+        return create_chat_client(
+            api_url=config['api_url'],
+            api_key=config['api_key'],
+            base_url=config['base_url']
+        )
+    
+    @classmethod
     def create_protocol_chat_client(cls):
         """
         創建 Protocol Known Issue System 的 Chat 客戶端
@@ -89,6 +147,7 @@ class DifyAppConfigs:
         """
         return {
             'protocol_known_issue_system': cls.get_protocol_known_issue_config(),
+            'report_analyzer_3': cls.get_report_analyzer_3_config(),
             # 其他應用配置
         }
     
@@ -117,7 +176,51 @@ class DifyAppConfigs:
             
             return True
         
+        elif config_name == 'report_analyzer_3':
+            config = cls.get_report_analyzer_3_config()
+            required_keys = ['api_url', 'api_key', 'base_url']
+            
+            for key in required_keys:
+                if not config.get(key):
+                    raise ValueError(f"Missing required config key: {key}")
+            
+            # 驗證 API Key 格式
+            if not config['api_key'].startswith('app-'):
+                raise ValueError("Invalid API key format. Must start with 'app-'")
+            
+            return True
+        
         raise ValueError(f"Unknown config name: {config_name}")
+
+
+def get_report_analyzer_3_config() -> Dict[str, str]:
+    """
+    獲取 Report Analyzer 3 配置的便利函數
+    
+    Returns:
+        Dict: 應用配置
+    """
+    return DifyAppConfigs.get_report_analyzer_3_config()
+
+
+def create_report_analyzer_3_chat_client():
+    """
+    創建 Report Analyzer 3 Chat 客戶端的便利函數
+    
+    Returns:
+        DifyChatClient: 配置好的客戶端
+    """
+    return DifyAppConfigs.create_report_analyzer_3_chat_client()
+
+
+def validate_report_analyzer_3_config() -> bool:
+    """
+    驗證 Report Analyzer 3 配置的便利函數
+    
+    Returns:
+        bool: 配置是否有效
+    """
+    return DifyAppConfigs.validate_config('report_analyzer_3')
 
 
 # 便利函數
@@ -159,12 +262,21 @@ DIFY_PROTOCOL_CONFIG = DifyAppConfigs.PROTOCOL_KNOWN_ISSUE_SYSTEM
 """
 支援的環境變數：
 
+Protocol Known Issue System:
 DIFY_PROTOCOL_API_URL     - Chat API 端點 URL
 DIFY_PROTOCOL_API_KEY     - API Key (app-開頭)
 DIFY_PROTOCOL_BASE_URL    - Dify 基礎 URL
 DIFY_PROTOCOL_TIMEOUT     - 請求超時時間（秒）
 
+Report Analyzer 3:
+DIFY_REPORT_ANALYZER_API_URL     - Chat API 端點 URL
+DIFY_REPORT_ANALYZER_API_KEY     - API Key (app-開頭)
+DIFY_REPORT_ANALYZER_BASE_URL    - Dify 基礎 URL
+DIFY_REPORT_ANALYZER_TIMEOUT     - 請求超時時間（秒）
+
 使用範例：
 export DIFY_PROTOCOL_API_KEY="app-YourNewApiKey"
 export DIFY_PROTOCOL_TIMEOUT=120
+export DIFY_REPORT_ANALYZER_API_KEY="app-DmCCl8KwXhhjND0WbEf0ULlR"
+export DIFY_REPORT_ANALYZER_TIMEOUT=120
 """
