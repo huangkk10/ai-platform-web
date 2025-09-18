@@ -1294,7 +1294,7 @@ def dify_chat(request):
                 api_url,
                 headers=headers,
                 json=payload,
-                timeout=60  # 延長超時時間，因為 AI 回應可能需要較長時間
+                timeout=120  # 延長超時時間到 120 秒，因為 AI 回應可能需要較長時間
             )
         except requests.exceptions.Timeout:
             return Response({

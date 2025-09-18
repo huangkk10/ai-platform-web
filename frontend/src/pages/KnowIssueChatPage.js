@@ -223,12 +223,21 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include',
+        credentials: 'include', // 包含憑證，但不強制要求
         body: JSON.stringify({
           message: userMessage.content,
           conversation_id: conversationId
         })
       });
+
+      // 檢查回應狀態
+      if (!response.ok) {
+        // 對於訪客用戶，403 和 401 錯誤不應該阻止使用
+        if (response.status === 403 || response.status === 401) {
+          throw new Error('guest_auth_issue'); // 特殊標記訪客認證問題
+        }
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
 
       // 檢查回應的 Content-Type
       const contentType = response.headers.get('content-type');
@@ -242,7 +251,7 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
         console.error('API 回應非 JSON 格式:', textResponse);
         
         if (textResponse.includes('<html>')) {
-          throw new Error('API 請求被重定向到 HTML 頁面，可能是認證問題');
+          throw new Error('html_response'); // 特殊標記 HTML 回應
         } else {
           throw new Error(`API 回應格式錯誤: ${textResponse.substring(0, 100)}...`);
         }
@@ -275,16 +284,17 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
       console.error('Error calling Dify Chat API:', error);
       
       let errorText = '未知錯誤';
-      let shouldRedirectToLogin = false;
       
       if (error.name === 'TypeError' && error.message.includes('fetch')) {
         errorText = '網路連接錯誤，請檢查網路連接';
+      } else if (error.message === 'guest_auth_issue') {
+        errorText = '訪客模式可以正常使用聊天功能，請稍後再試';
+      } else if (error.message === 'html_response') {
+        errorText = '服務器回應格式異常，請稍後再試';
       } else if (error.message.includes('Unexpected token') && error.message.includes('html')) {
-        errorText = '用戶會話已過期，3秒後將自動跳轉到登入頁面';
-        shouldRedirectToLogin = true;
+        errorText = '服務器回應格式錯誤，請稍後再試';
       } else if (error.message.includes('認證問題') || error.message.includes('重定向到 HTML')) {
-        errorText = '用戶認證已過期，3秒後將自動跳轉到登入頁面';
-        shouldRedirectToLogin = true;
+        errorText = '用戶會話可能已過期，但可以繼續使用聊天功能';
       } else if (error.message.includes('配置載入失敗')) {
         errorText = '系統配置載入失敗，請聯繫管理員';
       } else if (error.message.includes('504')) {
@@ -295,23 +305,20 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
         errorText = 'AI 分析時間較長，請稍後再試。複雜問題可能需要更多時間分析';
       } else if (error.message.includes('timeout') || error.message.includes('超時')) {
         errorText = 'AI 分析超時，可能是查詢較複雜。建議簡化問題描述後重試';
+      } else if (error.message.includes('403') || error.message.includes('Forbidden')) {
+        errorText = '訪客可以使用聊天功能，無需登入。請稍後再試';
+      } else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+        errorText = '用戶會話可能已過期，但可以繼續使用聊天功能';
       } else {
         errorText = error.message;
       }
       
       message.error(`查詢失敗: ${errorText}`);
       
-      // 如果是認證錯誤，自動跳轉到登入頁面
-      if (shouldRedirectToLogin) {
-        setTimeout(() => {
-          window.location.href = '/';
-        }, 3000);
-      }
-      
       const errorMessage = {
         id: Date.now() + 1,
         type: 'assistant',
-        content: `抱歉，查詢過程中出現錯誤：${errorText}\n\n請檢查網路連接或稍後再試。`,
+        content: `抱歉，查詢過程中出現錯誤：${errorText}\n\n請稍後再試，或嘗試簡化問題描述。`,
         timestamp: new Date()
       };
       
