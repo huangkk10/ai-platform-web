@@ -8,6 +8,92 @@ const { Content } = Layout;
 const { TextArea } = Input;
 const { Text, Title } = Typography;
 
+// localStorage 相關常數
+const STORAGE_KEY = 'know-issue-chat-messages';
+const CONVERSATION_ID_KEY = 'know-issue-chat-conversation-id';
+const MAX_STORAGE_DAYS = 7; // 最多保存 7 天
+const MAX_MESSAGES = 200; // 最多保存 200 條消息
+
+// localStorage 工具函數
+const saveMessagesToStorage = (messages) => {
+  try {
+    const data = {
+      messages: messages.map(msg => ({
+        ...msg,
+        timestamp: msg.timestamp instanceof Date ? msg.timestamp.toISOString() : msg.timestamp
+      })),
+      savedAt: new Date().toISOString()
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (error) {
+    console.warn('保存對話記錄失敗:', error);
+  }
+};
+
+const loadMessagesFromStorage = () => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) return null;
+    
+    const data = JSON.parse(stored);
+    const savedAt = new Date(data.savedAt);
+    const now = new Date();
+    const daysDiff = (now - savedAt) / (1000 * 60 * 60 * 24);
+    
+    // 檢查是否過期
+    if (daysDiff > MAX_STORAGE_DAYS) {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(CONVERSATION_ID_KEY);
+      return null;
+    }
+    
+    // 恢復消息並轉換時間戳
+    const messages = data.messages.map(msg => ({
+      ...msg,
+      timestamp: new Date(msg.timestamp)
+    }));
+    
+    // 如果消息太多，只保留最新的
+    if (messages.length > MAX_MESSAGES) {
+      return messages.slice(-MAX_MESSAGES);
+    }
+    
+    return messages;
+  } catch (error) {
+    console.warn('讀取對話記錄失敗:', error);
+    localStorage.removeItem(STORAGE_KEY);
+    return null;
+  }
+};
+
+const saveConversationId = (conversationId) => {
+  try {
+    if (conversationId) {
+      localStorage.setItem(CONVERSATION_ID_KEY, conversationId);
+    }
+  } catch (error) {
+    console.warn('保存對話ID失敗:', error);
+  }
+};
+
+const loadConversationId = () => {
+  try {
+    return localStorage.getItem(CONVERSATION_ID_KEY) || '';
+  } catch (error) {
+    console.warn('讀取對話ID失敗:', error);
+    return '';
+  }
+};
+
+const clearStoredChat = () => {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(CONVERSATION_ID_KEY);
+  } catch (error) {
+    console.warn('清除對話記錄失敗:', error);
+  }
+};
+
 const KnowIssueChatPage = ({ collapsed = false }) => {
   const { registerClearFunction, clearClearFunction } = useChatContext();
   // ... state variables ...
@@ -43,18 +129,27 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
       </div>
     );
   };
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      type: 'assistant',
-      content: '你好！我是 Protocol Known Issue System 助手。我可以幫你查詢測試相關的問題和解決方案。請告訴我你遇到的問題。\n\n💡 提示：AI 分析知識庫可能需要 10-30 秒，請耐心等待。',
-      timestamp: new Date()
+  const getInitialMessages = () => {
+    const storedMessages = loadMessagesFromStorage();
+    if (storedMessages && storedMessages.length > 0) {
+      return storedMessages;
     }
-  ]);
+    // 預設歡迎消息
+    return [
+      {
+        id: 1,
+        type: 'assistant',
+        content: '你好！我是 Protocol Known Issue System 助手。我可以幫你查詢測試相關的問題和解決方案。請告訴我你遇到的問題。\n\n💡 提示：AI 分析知識庫可能需要 10-30 秒，請耐心等待。',
+        timestamp: new Date()
+      }
+    ];
+  };
+  
+  const [messages, setMessages] = useState(getInitialMessages);
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingStartTime, setLoadingStartTime] = useState(null);
-  const [conversationId, setConversationId] = useState('');
+  const [conversationId, setConversationId] = useState(loadConversationId);
   const [difyConfig, setDifyConfig] = useState(null);
   const messagesEndRef = useRef(null);
 
@@ -65,6 +160,20 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // 自動保存消息到 localStorage
+  useEffect(() => {
+    if (messages.length > 0) {
+      saveMessagesToStorage(messages);
+    }
+  }, [messages]);
+
+  // 保存對話 ID
+  useEffect(() => {
+    if (conversationId) {
+      saveConversationId(conversationId);
+    }
+  }, [conversationId]);
 
   // 載入 Dify 配置資訊
   useEffect(() => {
@@ -221,15 +330,18 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
   };
 
   const clearChat = useCallback(() => {
-    setMessages([
-      {
-        id: 1,
-        type: 'assistant',
-        content: '對話已清空。我是 Protocol Known Issue System 助手，請告訴我你遇到的問題。',
-        timestamp: new Date()
-      }
-    ]);
+    const defaultMessage = {
+      id: 1,
+      type: 'assistant',
+      content: '對話已清空。我是 Protocol Known Issue System 助手，請告訴我你遇到的問題。',
+      timestamp: new Date()
+    };
+    
+    setMessages([defaultMessage]);
     setConversationId(''); // 重置對話 ID
+    
+    // 清除 localStorage 中的記錄
+    clearStoredChat();
   }, []);
 
   // 將 clearChat 函數傳遞給父組件
