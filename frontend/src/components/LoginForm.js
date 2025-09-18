@@ -9,6 +9,14 @@ const LoginForm = ({ visible, onClose, onSuccess, onRegister }) => {
   const [error, setError] = useState('');
   const { login } = useAuth();
 
+  // 調試：當模態框顯示時在控制台輸出
+  React.useEffect(() => {
+    if (visible) {
+      console.log('🔥 LOGIN MODAL IS NOW VISIBLE! 🔥');
+      console.log('Modal width should be 90vw with red border');
+    }
+  }, [visible]);
+
   const handleSubmit = async (values) => {
     setLoading(true);
     setError('');
@@ -40,16 +48,31 @@ const LoginForm = ({ visible, onClose, onSuccess, onRegister }) => {
   return (
     <Modal
       title={
-        <Space>
-          <LoginOutlined />
-          <span>用戶登入</span>
-        </Space>
+        <div style={{ 
+          textAlign: 'center', 
+          fontSize: '18px', 
+          fontWeight: 'bold'
+        }}>
+          <LoginOutlined style={{ marginRight: '8px', fontSize: '18px' }} />
+          用戶登入
+        </div>
       }
       open={visible}
       onCancel={handleCancel}
       footer={null}
-      width={400}
+      width={600}
+      centered
       destroyOnClose
+      styles={{
+        body: { 
+          padding: '24px 32px',
+          backgroundColor: '#fafafa'
+        },
+        header: {
+          backgroundColor: '#f0f8ff',
+          borderBottom: '1px solid #d9d9d9'
+        }
+      }}
     >
       <Form
         form={form}
@@ -57,6 +80,7 @@ const LoginForm = ({ visible, onClose, onSuccess, onRegister }) => {
         onFinish={handleSubmit}
         size="large"
         autoComplete="off"
+        style={{ maxWidth: '400px', margin: '0 auto' }}
       >
         {error && (
           <Alert

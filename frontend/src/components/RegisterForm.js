@@ -7,6 +7,14 @@ const RegisterForm = ({ visible, onClose, onSuccess }) => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
 
+  // 調試：當模態框顯示時在控制台輸出
+  React.useEffect(() => {
+    if (visible) {
+      console.log('🚀 REGISTER MODAL IS NOW VISIBLE! 🚀');
+      console.log('Modal width should be 95vw with cyan border');
+    }
+  }, [visible]);
+
   const handleSubmit = async (values) => {
     try {
       setLoading(true);
@@ -59,16 +67,30 @@ const RegisterForm = ({ visible, onClose, onSuccess }) => {
   return (
     <Modal
       title={
-        <div style={{ textAlign: 'center' }}>
-          <UserAddOutlined style={{ marginRight: '8px', color: '#1890ff' }} />
+        <div style={{ 
+          textAlign: 'center', 
+          fontSize: '18px', 
+          fontWeight: 'bold'
+        }}>
+          <UserAddOutlined style={{ marginRight: '8px', fontSize: '18px' }} />
           用戶註冊
         </div>
       }
       open={visible}
       onCancel={handleCancel}
       footer={null}
-      width={450}
+      width={700}
       centered
+      styles={{
+        body: { 
+          padding: '24px 32px',
+          backgroundColor: '#f6ffed'
+        },
+        header: {
+          backgroundColor: '#f6ffed',
+          borderBottom: '1px solid #d9d9d9'
+        }
+      }}
     >
       <Divider />
       
@@ -78,6 +100,7 @@ const RegisterForm = ({ visible, onClose, onSuccess }) => {
         onFinish={handleSubmit}
         size="large"
         autoComplete="off"
+        style={{ maxWidth: '500px', margin: '0 auto' }}
       >
         <Form.Item
           name="username"
@@ -185,7 +208,7 @@ const RegisterForm = ({ visible, onClose, onSuccess }) => {
             </Button>
           </Space>
         </Form.Item>
-      </Form>
+        </Form>
       
       <Divider />
       

@@ -50,7 +50,16 @@ const TopHeader = ({ collapsed, onToggleSidebar, pageTitle, extraActions }) => {
 
   // 下拉菜單點擊處理
   const handleMenuClick = ({ key }) => {
+    console.log('Menu clicked:', key); // 調試用
     switch (key) {
+      case 'login':
+        console.log('Setting login visible to true');
+        setLoginVisible(true);
+        break;
+      case 'register':
+        console.log('Setting register visible to true');
+        setRegisterVisible(true);
+        break;
       case 'profile':
         message.info('個人資料功能開發中...');
         break;
@@ -94,13 +103,11 @@ const TopHeader = ({ collapsed, onToggleSidebar, pageTitle, extraActions }) => {
       key: 'login',
       icon: <LoginOutlined />,
       label: '登入',
-      onClick: () => setLoginVisible(true),
     },
     {
       key: 'register',
       icon: <UserAddOutlined />,
       label: '註冊',
-      onClick: () => setRegisterVisible(true),
     },
   ];
 
@@ -215,44 +222,30 @@ const TopHeader = ({ collapsed, onToggleSidebar, pageTitle, extraActions }) => {
                 </div>
               </Dropdown>
             ) : (
-              <Dropdown
-                menu={{ items: guestMenuItems }}
-                placement="bottomRight"
-                arrow={false}
-                overlayClassName="user-dropdown"
-                overlayStyle={{ marginTop: '-8px', transform: 'translateY(-8px)' }}
-                getPopupContainer={(triggerNode) => triggerNode.parentNode}
-              >
-                <div style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  cursor: 'pointer',
-                  minWidth: '120px',
-                  padding: '8px 12px',
-                  borderRadius: '6px',
-                  transition: 'background-color 0.2s'
-                }}>
-                  <Avatar icon={<UserOutlined />} />
-                  <div style={{ marginLeft: '8px', textAlign: 'left', flex: 1, paddingTop: '6px' }}>
-                    <Text style={{ 
-                      display: 'block', 
-                      lineHeight: '18px',
-                      whiteSpace: 'nowrap',
-                      marginTop: '6px'
-                    }}>
-                      訪客
-                    </Text>
-                    <Text type="secondary" style={{ 
-                      fontSize: '12px', 
-                      lineHeight: '14px',
-                      whiteSpace: 'nowrap',
-                      marginTop: '2px'
-                    }}>
-                      點擊登入
-                    </Text>
-                  </div>
-                </div>
-              </Dropdown>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <Button 
+                  type="primary"
+                  icon={<LoginOutlined />}
+                  onClick={() => {
+                    console.log('🔥 Direct login button clicked!');
+                    setLoginVisible(true);
+                  }}
+                  size="middle"
+                >
+                  登入
+                </Button>
+                <Button 
+                  type="default"
+                  icon={<UserAddOutlined />}
+                  onClick={() => {
+                    console.log('🚀 Direct register button clicked!');
+                    setRegisterVisible(true);
+                  }}
+                  size="middle"
+                >
+                  註冊
+                </Button>
+              </div>
             )}
           </Space>
         </div>
