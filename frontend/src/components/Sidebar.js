@@ -29,9 +29,9 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       label: 'Know Issue Chat',
     },
     {
-      key: 'log-analyze',
+      key: 'log-analyze-chat',
       icon: <FileTextOutlined />,
-      label: 'Log Analyze',
+      label: 'Log Analyze Chat',
     },
   ];
 
@@ -56,6 +56,9 @@ const Sidebar = ({ collapsed, onCollapse }) => {
         break;
       case 'know-issue-chat':
         navigate('/know-issue-chat');
+        break;
+      case 'log-analyze-chat':
+        navigate('/log-analyze-chat');
         break;
       case 'log-analyze':
         navigate('/log-analyze');

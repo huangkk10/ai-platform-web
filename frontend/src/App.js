@@ -15,6 +15,7 @@ import KnowIssuePage from './pages/KnowIssuePage';
 import RvtLogPage from './pages/RvtLogPage';
 import TestClassManagementPage from './pages/TestClassManagementPage';
 import KnowIssueChatPage from './pages/KnowIssueChatPage';
+import LogAnalyzeChatPage from './pages/LogAnalyzeChatPage';
 import LogAnalyzePage from './pages/LogAnalyzePage';
 
 const { Content } = Layout;
@@ -49,6 +50,8 @@ function AppLayout() {
     switch (pathname) {
       case '/know-issue-chat':
         return 'Know Issue Chat';
+      case '/log-analyze-chat':
+        return 'Log Analyze Chat';
       case '/dashboard':
         return 'Dashboard';
       case '/query':
@@ -69,7 +72,7 @@ function AppLayout() {
   };
 
   const getExtraActions = (pathname) => {
-    if (pathname === '/know-issue-chat' && clearChatFunction) {
+    if ((pathname === '/know-issue-chat' || pathname === '/log-analyze-chat') && clearChatFunction) {
       return (
         <Button 
           icon={<DeleteOutlined />} 
@@ -77,7 +80,7 @@ function AppLayout() {
           type="text"
           style={{ color: '#666' }}
         >
-          清空對話
+          新聊天
         </Button>
       );
     }
@@ -116,6 +119,7 @@ function AppLayout() {
             <Route path="/knowledge/know-issue" element={<KnowIssuePage />} />
             <Route path="/knowledge/rvt-log" element={<RvtLogPage />} />
             <Route path="/know-issue-chat" element={<KnowIssueChatPage collapsed={collapsed} />} />
+            <Route path="/log-analyze-chat" element={<LogAnalyzeChatPage collapsed={collapsed} />} />
             <Route path="/log-analyze" element={<LogAnalyzePage />} />
             <Route path="/admin/test-class-management" element={<TestClassManagementPage />} />
           </Routes>

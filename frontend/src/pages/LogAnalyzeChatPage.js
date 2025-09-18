@@ -2,15 +2,15 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Layout, Input, Button, Card, Avatar, message, Spin, Typography, Tag } from 'antd';
 import { SendOutlined, UserOutlined, RobotOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { useChatContext } from '../contexts/ChatContext';
-import './KnowIssueChatPage.css';
+import './LogAnalyzeChatPage.css';
 
 const { Content } = Layout;
 const { TextArea } = Input;
 const { Text, Title } = Typography;
 
-// localStorage 相關常數
-const STORAGE_KEY = 'know-issue-chat-messages';
-const CONVERSATION_ID_KEY = 'know-issue-chat-conversation-id';
+// localStorage 相關常數 - 使用不同的鍵值以區分不同聊天頁面
+const STORAGE_KEY = 'log-analyze-chat-messages';
+const CONVERSATION_ID_KEY = 'log-analyze-chat-conversation-id';
 const MAX_STORAGE_DAYS = 7; // 最多保存 7 天
 const MAX_MESSAGES = 200; // 最多保存 200 條消息
 
@@ -94,7 +94,7 @@ const clearStoredChat = () => {
   }
 };
 
-const KnowIssueChatPage = ({ collapsed = false }) => {
+const LogAnalyzeChatPage = ({ collapsed = false }) => {
   const { registerClearFunction, clearClearFunction } = useChatContext();
   // ... state variables ...
 
@@ -114,8 +114,8 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
     }, [loading, loadingStartTime]);
 
     const getMessage = () => {
-      if (elapsedSeconds < 5) return 'AI 正在分析知識庫，請稍候...';
-      if (elapsedSeconds < 15) return `AI 正在深度搜索知識庫... (${elapsedSeconds}s)`;
+      if (elapsedSeconds < 5) return 'AI 正在分析日誌，請稍候...';
+      if (elapsedSeconds < 15) return `AI 正在深度分析日誌... (${elapsedSeconds}s)`;
       if (elapsedSeconds < 30) return `AI 正在分析複雜查詢... (${elapsedSeconds}s)`;
       return `AI 仍在處理，請耐心等待... (${elapsedSeconds}s)`;
     };
@@ -129,6 +129,7 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
       </div>
     );
   };
+  
   const getInitialMessages = () => {
     const storedMessages = loadMessagesFromStorage();
     if (storedMessages && storedMessages.length > 0) {
@@ -139,7 +140,7 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
       {
         id: 1,
         type: 'assistant',
-        content: '你好！我是 Protocol Known Issue System 助手。我可以幫你查詢測試相關的問題和解決方案。請告訴我你遇到的問題。\n\n💡 提示：AI 分析知識庫可能需要 10-30 秒，請耐心等待。',
+        content: '你好！我是 Log Analyze System 助手。我可以幫你分析日誌、查找錯誤模式和解決系統問題。請告訴我你遇到的日誌問題。\n\n💡 提示：AI 分析日誌可能需要 10-30 秒，請耐心等待。',
         timestamp: new Date()
       }
     ];
@@ -287,6 +288,10 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
       
       if (error.name === 'TypeError' && error.message.includes('fetch')) {
         errorText = '網路連接錯誤，請檢查網路連接';
+      } else if (error.message === 'guest_auth_issue') {
+        errorText = '訪客模式可以正常使用聊天功能，請稍後再試';
+      } else if (error.message === 'html_response') {
+        errorText = '服務器回應格式異常，請稍後再試';
       } else if (error.message.includes('Unexpected token') && error.message.includes('html')) {
         errorText = '服務器回應格式錯誤，請稍後再試';
       } else if (error.message.includes('認證問題') || error.message.includes('重定向到 HTML')) {
@@ -336,7 +341,7 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
     const defaultMessage = {
       id: 1,
       type: 'assistant',
-      content: '你好！我是 Protocol Known Issue System 助手。我可以幫你查詢測試相關的問題和解決方案。請告訴我你遇到的問題。\n\n💡 提示：AI 分析知識庫可能需要 10-30 秒，請耐心等待。',
+      content: '你好！我是 Log Analyze System 助手。我可以幫你分析日誌、查找錯誤模式和解決系統問題。請告訴我你遇到的日誌問題。\n\n💡 提示：AI 分析日誌可能需要 10-30 秒，請耐心等待。',
       timestamp: new Date()
     };
     
@@ -597,7 +602,7 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder={`請描述你遇到的問題... (按 Enter 發送，Shift + Enter 換行${difyConfig ? ` • 連接到: ${difyConfig.workspace}` : ''})`}
+              placeholder={`請描述你的日誌問題... (按 Enter 發送，Shift + Enter 換行${difyConfig ? ` • 連接到: ${difyConfig.workspace}` : ''})`}
               autoSize={{ minRows: 1, maxRows: 4 }}
               disabled={loading}
               style={{ borderRadius: '20px', resize: 'none' }}
@@ -625,4 +630,4 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
   );
 };
 
-export default KnowIssueChatPage;
+export default LogAnalyzeChatPage;
