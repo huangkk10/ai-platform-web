@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Layout, Input, Button, Card, Avatar, message, Spin, Typography, Tag, Table, Upload, Image, Popover } from 'antd';
-import { SendOutlined, UserOutlined, RobotOutlined, InfoCircleOutlined, PlusOutlined, FileImageOutlined, DeleteOutlined } from '@ant-design/icons';
+import { SendOutlined, UserOutlined, RobotOutlined, InfoCircleOutlined, PlusOutlined, FileImageOutlined, DeleteOutlined, FileTextOutlined } from '@ant-design/icons';
 import { useChatContext } from '../contexts/ChatContext';
 import './LogAnalyzeChatPage.css';
 
@@ -140,7 +140,7 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
       {
         id: 1,
         type: 'assistant',
-        content: '你好！我是 Log Analyze System 助手。我可以幫你分析日誌、查找錯誤模式和解決系統問題。請告訴我你遇到的日誌問題。\n\n💡 提示：AI 分析日誌可能需要 10-30 秒，請耐心等待。',
+        content: '你好！我是 Log Analyze System 助手。我可以幫你分析日誌、查找錯誤模式和解決系統問題。請告訴我你遇到的日誌問題或上傳相關檔案。\n\n💡 提示：AI 分析日誌可能需要 10-30 秒，請耐心等待。\n\n📁 支援檔案：圖片和文字檔案（.txt）',
         timestamp: new Date()
       }
     ];
@@ -385,79 +385,88 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
     }
   };
 
-  // 新增：處理圖片上傳
-  const handleImageUpload = (file) => {
+  // 新增：處理檔案上傳（支援圖片和文字檔案）
+  const handleFileUpload = (file) => {
     // 檢查文件類型
     const isImage = file.type.startsWith('image/');
-    if (!isImage) {
-      message.error('請選擇圖片文件！');
+    const isText = file.type === 'text/plain' || file.name.toLowerCase().endsWith('.txt');
+    
+    if (!isImage && !isText) {
+      message.error('請選擇圖片文件或文字檔案（.txt）！');
       return false;
     }
 
     // 檢查文件大小（限制為10MB）
     const isLt10M = file.size / 1024 / 1024 < 10;
     if (!isLt10M) {
-      message.error('圖片大小不能超過 10MB！');
+      message.error('檔案大小不能超過 10MB！');
       return false;
     }
 
-    console.log('開始上傳圖片:', file.name); // 調試信息
+    console.log('開始上傳檔案:', file.name); // 調試信息
     setUploading(true);
 
     // 創建臨時加載項目
-    const tempImageData = {
+    const tempFileData = {
       uid: `temp-${Date.now()}`,
       name: file.name,
       status: 'uploading',
       file: file,
       url: null, // 暫時沒有預覽URL
-      size: file.size
+      size: file.size,
+      isText: file.type === 'text/plain' || file.name.toLowerCase().endsWith('.txt')
     };
 
-    console.log('添加加載狀態圖片:', tempImageData); // 調試信息
-    // 立即添加加載狀態的圖片
-    setUploadedImages(prev => [...prev, tempImageData]);
+    console.log('添加加載狀態檔案:', tempFileData); // 調試信息
+    // 立即添加加載狀態的檔案
+    setUploadedImages(prev => [...prev, tempFileData]);
 
-    // 立即開始讀取圖片
+    // 立即開始讀取檔案
     const reader = new FileReader();
     reader.onload = (e) => {
-      console.log('圖片讀取完成'); // 調試信息
-      const finalImageData = {
+      console.log('檔案讀取完成'); // 調試信息
+      const finalFileData = {
         uid: Date.now().toString(),
         name: file.name,
         status: 'done',
         file: file,
-        url: e.target.result, // base64 預覽URL
-        size: file.size
+        url: e.target.result, // base64 預覽URL 或文字內容
+        size: file.size,
+        isText: file.type === 'text/plain' || file.name.toLowerCase().endsWith('.txt')
       };
 
       // 移除臨時項目並添加完成的項目
       setUploadedImages(prev => [
-        ...prev.filter(img => img.uid !== tempImageData.uid),
-        finalImageData
+        ...prev.filter(img => img.uid !== tempFileData.uid),
+        finalFileData
       ]);
       setUploading(false);
-      message.success('圖片添加成功！');
+      message.success('檔案添加成功！');
     };
 
     reader.onerror = () => {
-      console.error('圖片讀取失敗'); // 調試信息
+      console.error('檔案讀取失敗'); // 調試信息
       // 移除臨時項目
-      setUploadedImages(prev => prev.filter(img => img.uid !== tempImageData.uid));
+      setUploadedImages(prev => prev.filter(img => img.uid !== tempFileData.uid));
       setUploading(false);
-      message.error('圖片讀取失敗！');
+      message.error('檔案讀取失敗！');
     };
 
-    reader.readAsDataURL(file);
+    // 根據檔案類型選擇讀取方式
+    if (isText) {
+      reader.readAsText(file); // 文字檔案讀取為文字
+    } else {
+      reader.readAsDataURL(file); // 圖片檔案讀取為 base64
+    }
     
     // 阻止默認的上傳行為
     return false;
   };
 
-  // 新增：移除上傳的圖片
+  // 新增：移除上傳的檔案
   const removeUploadedImage = (uid) => {
     setUploadedImages(prev => prev.filter(img => img.uid !== uid));
-    message.success('圖片已移除');
+    message.success('檔案已移除');
   };
 
   // 新增：觸發文件選擇
@@ -469,7 +478,7 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
-      handleImageUpload(file);
+      handleFileUpload(file);
     }
     // 清空 input value，允許重複選擇同一文件
     e.target.value = '';
@@ -757,26 +766,49 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
                   className={`message-card ${msg.type}`}
                   bodyStyle={{ padding: '12px 16px' }}
                 >
-                  {/* 如果用戶消息包含圖片，先顯示圖片 */}
+                  {/* 如果用戶消息包含檔案，先顯示檔案 */}
                   {msg.type === 'user' && msg.images && msg.images.length > 0 && (
                     <div style={{ marginBottom: '12px' }}>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                        {msg.images.map((image) => (
-                          <Image
-                            key={image.uid}
-                            src={image.url}
-                            alt={image.name}
-                            width={100}
-                            height={100}
-                            style={{ 
-                              objectFit: 'cover',
-                              borderRadius: '6px',
-                              border: '1px solid rgba(255, 255, 255, 0.3)'
-                            }}
-                            preview={{
-                              mask: <div style={{ color: 'white', fontSize: '12px' }}>查看</div>
-                            }}
-                          />
+                        {msg.images.map((file) => (
+                          <div key={file.uid}>
+                            {file.isText ? (
+                              // 文字檔案顯示
+                              <div
+                                style={{
+                                  padding: '8px 12px',
+                                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                                  border: '1px solid rgba(255, 255, 255, 0.3)',
+                                  borderRadius: '6px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  color: 'white',
+                                  fontSize: '12px'
+                                }}
+                              >
+                                <FileTextOutlined style={{ color: 'white' }} />
+                                <span>{file.name}</span>
+                                <span style={{ opacity: 0.7 }}>({(file.size / 1024).toFixed(1)} KB)</span>
+                              </div>
+                            ) : (
+                              // 圖片檔案顯示
+                              <Image
+                                src={file.url}
+                                alt={file.name}
+                                width={100}
+                                height={100}
+                                style={{ 
+                                  objectFit: 'cover',
+                                  borderRadius: '6px',
+                                  border: '1px solid rgba(255, 255, 255, 0.3)'
+                                }}
+                                preview={{
+                                  mask: <div style={{ color: 'white', fontSize: '12px' }}>查看</div>
+                                }}
+                              />
+                            )}
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -855,7 +887,7 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept="image/*,.txt"
               onChange={handleFileSelect}
               style={{ display: 'none' }}
             />
@@ -869,42 +901,66 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
                 loading={uploading}
                 disabled={loading}
                 className="image-upload-btn-inside"
-                title="添加圖片"
+                title="添加圖片或文字檔案"
               />
               
-              {/* 圖片預覽區域 - 在輸入框內 */}
+              {/* 檔案預覽區域 - 在輸入框內 */}
               {uploadedImages.length > 0 && (
                 <div className="image-preview-inline">
-                  {uploadedImages.map((image) => (
-                    <div key={image.uid} className="image-preview-item-inline">
-                      {image.status === 'uploading' ? (
+                  {uploadedImages.map((file) => (
+                    <div key={file.uid} className="image-preview-item-inline">
+                      {file.status === 'uploading' ? (
                         // 加載狀態的骨架屏
                         <div className="image-loading-skeleton">
                           <Spin size="small" />
                           <Text style={{ fontSize: '9px', color: '#1890ff', marginTop: '2px', fontWeight: 'bold' }}>處理中...</Text>
                         </div>
                       ) : (
-                        // 正常的圖片預覽
+                        // 正常的檔案預覽
                         <>
-                          <Image
-                            src={image.url}
-                            alt={image.name}
-                            width={32}
-                            height={32}
-                            style={{ 
-                              objectFit: 'cover',
-                              borderRadius: '4px',
-                              border: '1px solid #d9d9d9'
-                            }}
-                            preview={{
-                              mask: <div style={{ fontSize: '10px' }}>預覽</div>
-                            }}
-                          />
+                          {file.isText ? (
+                            // 文字檔案預覽
+                            <div
+                              style={{
+                                width: 32,
+                                height: 32,
+                                backgroundColor: '#f0f8ff',
+                                border: '1px solid #1890ff',
+                                borderRadius: '4px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '12px',
+                                fontWeight: 'bold',
+                                color: '#1890ff',
+                                cursor: 'pointer'
+                              }}
+                              title={`文字檔案: ${file.name}`}
+                            >
+                              <FileTextOutlined />
+                            </div>
+                          ) : (
+                            // 圖片檔案預覽
+                            <Image
+                              src={file.url}
+                              alt={file.name}
+                              width={32}
+                              height={32}
+                              style={{ 
+                                objectFit: 'cover',
+                                borderRadius: '4px',
+                                border: '1px solid #d9d9d9'
+                              }}
+                              preview={{
+                                mask: <div style={{ fontSize: '10px' }}>預覽</div>
+                              }}
+                            />
+                          )}
                           <Button
                             type="text"
                             icon={<DeleteOutlined />}
                             size="small"
-                            onClick={() => removeUploadedImage(image.uid)}
+                            onClick={() => removeUploadedImage(file.uid)}
                             className="image-remove-btn-inline"
                           />
                         </>
@@ -918,7 +974,7 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder={`請描述你的日誌問題... (按 Enter 發送，Shift + Enter 換行${difyConfig ? ` • 連接到: ${difyConfig.workspace}` : ''})`}
+                placeholder={`請描述你的日誌問題或上傳檔案... (按 Enter 發送，Shift + Enter 換行${difyConfig ? ` • 連接到: ${difyConfig.workspace}` : ''})`}
                 autoSize={{ minRows: 1, maxRows: 4 }}
                 disabled={loading}
                 className="textarea-with-button"
