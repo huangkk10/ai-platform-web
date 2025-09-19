@@ -206,56 +206,101 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
   };
 
   const handleSendMessage = async () => {
-    if (!inputMessage.trim()) return;
+    // 檢查是否有消息或圖片
+    if (!inputMessage.trim() && uploadedImages.length === 0) return;
 
     const userMessage = {
       id: Date.now(),
       type: 'user',
-      content: inputMessage.trim(),
-      timestamp: new Date()
+      content: inputMessage.trim() || '請分析這張圖片',
+      timestamp: new Date(),
+      images: uploadedImages.length > 0 ? [...uploadedImages] : undefined
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentMessage = inputMessage.trim();
+    const currentImages = [...uploadedImages];
+    
     setInputMessage('');
+    setUploadedImages([]); // 清除上傳的圖片
     setLoading(true);
     setLoadingStartTime(Date.now());
 
     try {
-      // 使用新的 Dify Chat API
-      const response = await fetch('/api/dify/chat/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // 包含憑證，但不強制要求
-        body: JSON.stringify({
-          message: userMessage.content,
-          conversation_id: conversationId
-        })
-      });
+      let response, data;
+
+      // 如果有圖片，使用文件分析 API
+      if (currentImages.length > 0) {
+        // 對每張圖片進行分析
+        for (let i = 0; i < currentImages.length; i++) {
+          const image = currentImages[i];
+          
+          // 從 base64 數據創建 Blob
+          const base64Data = image.url.split(',')[1];
+          const byteCharacters = atob(base64Data);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let j = 0; j < byteCharacters.length; j++) {
+            byteNumbers[j] = byteCharacters.charCodeAt(j);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: 'image/png' });
+          
+          // 創建 FormData
+          const formData = new FormData();
+          formData.append('file', blob, image.name);
+          if (currentMessage) {
+            formData.append('message', currentMessage);
+          }
+          if (conversationId) {
+            formData.append('conversation_id', conversationId);
+          }
+
+          // 發送到文件分析 API
+          response = await fetch('/api/dify/chat-with-file/', {
+            method: 'POST',
+            credentials: 'include',
+            body: formData
+          });
+
+          // 只處理第一張圖片的響應
+          if (i === 0) {
+            break;
+          }
+        }
+      } else {
+        // 沒有圖片，使用普通聊天 API
+        response = await fetch('/api/dify/chat/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            message: currentMessage,
+            conversation_id: conversationId
+          })
+        });
+      }
 
       // 檢查回應狀態
       if (!response.ok) {
-        // 對於訪客用戶，403 和 401 錯誤不應該阻止使用
         if (response.status === 403 || response.status === 401) {
-          throw new Error('guest_auth_issue'); // 特殊標記訪客認證問題
+          throw new Error('guest_auth_issue');
         }
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      // 檢查回應的 Content-Type
+      // 解析回應
       const contentType = response.headers.get('content-type');
       
-      let data;
       if (contentType && contentType.includes('application/json')) {
         data = await response.json();
       } else {
-        // 如果不是 JSON，獲取文本內容並檢查
         const textResponse = await response.text();
         console.error('API 回應非 JSON 格式:', textResponse);
         
         if (textResponse.includes('<html>')) {
-          throw new Error('html_response'); // 特殊標記 HTML 回應
+          throw new Error('html_response');
         } else {
           throw new Error(`API 回應格式錯誤: ${textResponse.substring(0, 100)}...`);
         }
@@ -274,12 +319,12 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
           timestamp: new Date(),
           metadata: data.metadata,
           usage: data.usage,
-          response_time: data.response_time
+          response_time: data.response_time,
+          file_info: data.file_info // 如果是文件分析，包含文件信息
         };
 
         setMessages(prev => [...prev, assistantMessage]);
       } else {
-        // 處理 API 返回的錯誤
         const errorMessage = data.error || `API 請求失敗: ${response.status}`;
         throw new Error(errorMessage);
       }
@@ -712,9 +757,49 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
                   className={`message-card ${msg.type}`}
                   bodyStyle={{ padding: '12px 16px' }}
                 >
+                  {/* 如果用戶消息包含圖片，先顯示圖片 */}
+                  {msg.type === 'user' && msg.images && msg.images.length > 0 && (
+                    <div style={{ marginBottom: '12px' }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                        {msg.images.map((image) => (
+                          <Image
+                            key={image.uid}
+                            src={image.url}
+                            alt={image.name}
+                            width={100}
+                            height={100}
+                            style={{ 
+                              objectFit: 'cover',
+                              borderRadius: '6px',
+                              border: '1px solid rgba(255, 255, 255, 0.3)'
+                            }}
+                            preview={{
+                              mask: <div style={{ color: 'white', fontSize: '12px' }}>查看</div>
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="message-text">
                     {formatMessage(msg.content)}
                   </div>
+                  
+                  {/* 如果是文件分析結果，顯示文件信息 */}
+                  {msg.file_info && (
+                    <div style={{ 
+                      marginTop: '8px', 
+                      padding: '6px 8px', 
+                      background: 'rgba(0, 0, 0, 0.05)', 
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      color: '#666'
+                    }}>
+                      📁 已分析文件: {msg.file_info.name} ({(msg.file_info.size / 1024).toFixed(1)} KB)
+                    </div>
+                  )}
+                  
                   <div className="message-time">
                     {msg.timestamp.toLocaleTimeString('zh-TW', { 
                       hour: '2-digit', 

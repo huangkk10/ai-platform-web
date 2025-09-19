@@ -1232,6 +1232,140 @@ def user_info(request):
 @csrf_exempt
 @api_view(['POST'])
 @permission_classes([AllowAny])
+def dify_chat_with_file(request):
+    """
+    Dify Chat API with File Support - 支援圖片分析功能
+    類似於 test_single_file_analysis 的流程
+    """
+    try:
+        import time
+        import os
+        import tempfile
+        import requests
+        from library.dify_integration import create_report_analyzer_client
+        from library.config.dify_app_configs import get_report_analyzer_3_config
+        from library.data_processing.file_utils import (
+            get_file_info, 
+            validate_file_for_upload, 
+            get_default_analysis_query
+        )
+        
+        message = request.data.get('message', '').strip()
+        conversation_id = request.data.get('conversation_id', '')
+        uploaded_file = request.FILES.get('file')
+        
+        # 檢查是否有文件或消息
+        if not message and not uploaded_file:
+            return Response({
+                'success': False,
+                'error': '需要提供訊息內容或圖片文件'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # 如果有文件，進行文件分析
+        if uploaded_file:
+            try:
+                # 1. 保存臨時文件
+                temp_dir = tempfile.mkdtemp()
+                temp_file_path = os.path.join(temp_dir, uploaded_file.name)
+                
+                with open(temp_file_path, 'wb+') as temp_file:
+                    for chunk in uploaded_file.chunks():
+                        temp_file.write(chunk)
+                
+                # 2. 驗證文件
+                is_valid, error_msg = validate_file_for_upload(temp_file_path, max_size_mb=10)
+                if not is_valid:
+                    os.remove(temp_file_path)
+                    os.rmdir(temp_dir)
+                    return Response({
+                        'success': False,
+                        'error': f'文件驗證失敗: {error_msg}'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                
+                # 3. 獲取文件信息
+                file_info = get_file_info(temp_file_path)
+                
+                # 4. 生成查詢（如果沒有提供消息，使用默認查詢）
+                query = message if message else get_default_analysis_query(temp_file_path)
+                
+                # 5. 使用 library 進行分析
+                config = get_report_analyzer_3_config()
+                client = create_report_analyzer_client(
+                    config['api_url'],
+                    config['api_key'],
+                    config['base_url']
+                )
+                
+                start_time = time.time()
+                
+                # 6. 執行分析
+                result = client.upload_and_analyze(
+                    temp_file_path, 
+                    query, 
+                    user=f"web_user_{request.user.id if request.user.is_authenticated else 'guest'}",
+                    verbose=True
+                )
+                
+                elapsed = time.time() - start_time
+                
+                # 7. 清理臨時文件
+                os.remove(temp_file_path)
+                os.rmdir(temp_dir)
+                
+                # 8. 返回結果
+                if result['success']:
+                    logger.info(f"File analysis success for user {request.user.username}: {uploaded_file.name}")
+                    
+                    return Response({
+                        'success': True,
+                        'answer': result.get('answer', ''),
+                        'conversation_id': result.get('conversation_id', ''),
+                        'message_id': result.get('message_id', ''),
+                        'response_time': elapsed,
+                        'metadata': result.get('metadata', {}),
+                        'usage': result.get('usage', {}),
+                        'file_info': {
+                            'name': file_info['file_name'],
+                            'size': file_info['file_size'],
+                            'type': 'image' if file_info['is_image'] else 'document'
+                        }
+                    }, status=status.HTTP_200_OK)
+                else:
+                    return Response({
+                        'success': False,
+                        'error': result.get('error', '文件分析失敗'),
+                        'response_time': elapsed
+                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                    
+            except Exception as e:
+                # 清理臨時文件
+                if 'temp_file_path' in locals() and os.path.exists(temp_file_path):
+                    os.remove(temp_file_path)
+                if 'temp_dir' in locals() and os.path.exists(temp_dir):
+                    os.rmdir(temp_dir)
+                
+                logger.error(f"File analysis error: {str(e)}")
+                return Response({
+                    'success': False,
+                    'error': f'文件分析錯誤: {str(e)}'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        # 如果沒有文件，回退到普通聊天模式
+        else:
+            # 使用原有的聊天邏輯（代碼將在下一步添加）
+            pass
+            
+    except Exception as e:
+        logger.error(f"Dify chat with file API error: {str(e)}")
+        return Response({
+            'success': False,
+            'error': f'服務器錯誤: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([AllowAny])
 def dify_chat(request):
     """
     Dify Chat API - 使用 PROTOCOL_KNOWN_ISSUE_SYSTEM 配置

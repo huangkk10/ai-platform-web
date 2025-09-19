@@ -43,5 +43,6 @@ urlpatterns = [
     
     # Dify Chat API
     path('dify/chat/', views.dify_chat, name='dify_chat'),
+    path('dify/chat-with-file/', views.dify_chat_with_file, name='dify_chat_with_file'),
     path('dify/config/', views.dify_config_info, name='dify_config_info'),
 ]
