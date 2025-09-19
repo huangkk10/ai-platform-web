@@ -152,7 +152,7 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
   const [loadingStartTime, setLoadingStartTime] = useState(null);
   const [conversationId, setConversationId] = useState(loadConversationId);
   const [difyConfig, setDifyConfig] = useState(null);
-  const [uploadedImages, setUploadedImages] = useState([]); // 新增：存儲上傳的圖片
+  const [uploadedImages, setUploadedImages] = useState([]); // 新增：存儲上傳的檔案（圖片和文字檔案）
   const [uploading, setUploading] = useState(false); // 新增：上傳狀態
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null); // 新增：文件輸入引用
@@ -212,42 +212,56 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
     const userMessage = {
       id: Date.now(),
       type: 'user',
-      content: inputMessage.trim() || '請分析這張圖片',
+      content: inputMessage.trim() || (
+        uploadedImages.length > 0 && uploadedImages[0].isText 
+          ? '請分析這個文字檔案' 
+          : '請分析這張圖片'
+      ),
       timestamp: new Date(),
       images: uploadedImages.length > 0 ? [...uploadedImages] : undefined
     };
 
     setMessages(prev => [...prev, userMessage]);
     const currentMessage = inputMessage.trim();
-    const currentImages = [...uploadedImages];
+    const currentFiles = [...uploadedImages];
     
     setInputMessage('');
-    setUploadedImages([]); // 清除上傳的圖片
+    setUploadedImages([]); // 清除上傳的檔案
     setLoading(true);
     setLoadingStartTime(Date.now());
 
     try {
       let response, data;
 
-      // 如果有圖片，使用文件分析 API
-      if (currentImages.length > 0) {
-        // 對每張圖片進行分析
-        for (let i = 0; i < currentImages.length; i++) {
-          const image = currentImages[i];
+      // 如果有檔案，使用文件分析 API
+      if (currentFiles.length > 0) {
+        // 對每個檔案進行分析
+        for (let i = 0; i < currentFiles.length; i++) {
+          const file = currentFiles[i];
           
-          // 從 base64 數據創建 Blob
-          const base64Data = image.url.split(',')[1];
-          const byteCharacters = atob(base64Data);
-          const byteNumbers = new Array(byteCharacters.length);
-          for (let j = 0; j < byteCharacters.length; j++) {
-            byteNumbers[j] = byteCharacters.charCodeAt(j);
+          let blob;
+          let mimeType;
+          
+          if (file.isText) {
+            // 文字檔案處理
+            blob = new Blob([file.url], { type: 'text/plain' });
+            mimeType = 'text/plain';
+          } else {
+            // 圖片檔案處理
+            const base64Data = file.url.split(',')[1];
+            const byteCharacters = atob(base64Data);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let j = 0; j < byteCharacters.length; j++) {
+              byteNumbers[j] = byteCharacters.charCodeAt(j);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            blob = new Blob([byteArray], { type: file.file.type || 'image/png' });
+            mimeType = file.file.type || 'image/png';
           }
-          const byteArray = new Uint8Array(byteNumbers);
-          const blob = new Blob([byteArray], { type: 'image/png' });
           
           // 創建 FormData
           const formData = new FormData();
-          formData.append('file', blob, image.name);
+          formData.append('file', blob, file.name);
           if (currentMessage) {
             formData.append('message', currentMessage);
           }
@@ -262,13 +276,13 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
             body: formData
           });
 
-          // 只處理第一張圖片的響應
+          // 只處理第一個檔案的響應
           if (i === 0) {
             break;
           }
         }
       } else {
-        // 沒有圖片，使用普通聊天 API
+        // 沒有檔案，使用普通聊天 API
         response = await fetch('/api/dify/chat/', {
           method: 'POST',
           headers: {
