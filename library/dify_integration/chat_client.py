@@ -10,6 +10,7 @@ import json
 import time
 from typing import Dict, Optional, Any
 from ..config.dify_config import get_chat_config
+from ..data_processing.file_utils import get_file_info, get_content_type_for_dify, get_default_analysis_query
 
 
 class DifyChatClient:
@@ -151,6 +152,118 @@ class DifyChatClient:
                     'error': f"HTTP {response.status_code}: {response.text}",
                     'response_time': elapsed,
                     'status_code': response.status_code
+                }
+                
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e),
+                'response_time': 0
+            }
+    
+    def chat_with_file(self, query: str, file_id: str, file_path: str, 
+                       conversation_id: str = "", user: str = "default_user",
+                       verbose: bool = True) -> Dict[str, Any]:
+        """
+        使用文件進行聊天
+        
+        Args:
+            query: 查詢內容
+            file_id: 文件 ID
+            file_path: 文件路徑（用於獲取文件信息）
+            conversation_id: 對話 ID
+            user: 用戶標識
+            verbose: 是否顯示詳細日誌
+            
+        Returns:
+            Dict: 聊天結果
+        """
+        if verbose:
+            print(f"💬📁 使用文件進行聊天")
+            print(f"文件 ID: {file_id}")
+            print(f"查詢: {query}")
+        
+        try:
+            file_info = get_file_info(file_path)
+            content_type = get_content_type_for_dify(file_info['file_ext'])
+            
+            # 構建聊天數據
+            chat_data = {
+                "inputs": {
+                    "1752737089886": file_id,
+                    "report": {
+                        "transfer_method": "local_file",
+                        "upload_file_id": file_id,
+                        "type": content_type
+                    },
+                    "extension": file_info['file_ext']
+                },
+                "query": query,
+                "response_mode": "blocking",
+                "conversation_id": conversation_id,
+                "user": user
+            }
+            
+            if verbose:
+                print(f"📤 發送文件聊天請求")
+                print(f"文件類型: {content_type}")
+            
+            headers = {
+                "Authorization": f"Bearer {self.config['api_key']}",
+                "Content-Type": "application/json"
+            }
+            
+            start_time = time.time()
+            
+            response = self.session.post(
+                self.config['api_url'],
+                json=chat_data,
+                headers=headers,
+                timeout=self.config.get('timeout', 60)
+            )
+            
+            elapsed = time.time() - start_time
+            
+            if verbose:
+                print(f"📥 響應狀態: {response.status_code}")
+            
+            if response.status_code == 200:
+                response_data = response.json()
+                
+                if 'answer' in response_data:
+                    answer = response_data['answer']
+                    if verbose:
+                        print(f"✅ 文件聊天成功！")
+                    
+                    return {
+                        'success': True,
+                        'answer': answer,
+                        'conversation_id': response_data.get('conversation_id', ''),
+                        'message_id': response_data.get('message_id', ''),
+                        'metadata': response_data.get('metadata', {}),
+                        'usage': response_data.get('usage', {}),
+                        'response_time': elapsed,
+                        'raw_response': response_data
+                    }
+                else:
+                    return {
+                        'success': False,
+                        'error': '響應中沒有 answer 字段',
+                        'response_time': elapsed,
+                        'raw_response': response_data
+                    }
+            else:
+                try:
+                    error_data = response.json()
+                    error_msg = error_data.get('message', f'HTTP {response.status_code}')
+                except:
+                    error_msg = f"HTTP {response.status_code}: {response.text[:200]}..."
+                
+                return {
+                    'success': False,
+                    'error': error_msg,
+                    'status_code': response.status_code,
+                    'response_time': elapsed
                 }
                 
         except Exception as e:
