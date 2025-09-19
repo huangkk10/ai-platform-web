@@ -262,6 +262,46 @@
   box-shadow: 0 2px 4px rgba(24, 144, 255, 0.15);
 }
 
+/* 圖片加載骨架屏 */
+.image-loading-skeleton {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #f0f0f0;
+  border-radius: 4px;
+  border: 1px dashed #d9d9d9;
+  position: relative;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.image-loading-skeleton .ant-spin {
+  margin-bottom: 2px;
+}
+
+.image-loading-skeleton .ant-spin .ant-spin-dot {
+  font-size: 10px;
+}
+
+.image-loading-skeleton .ant-spin .ant-spin-dot-item {
+  width: 4px;
+  height: 4px;
+}
+
 /* 內聯圖片移除按鈕 */
 .image-remove-btn-inline {
   position: absolute !important;
@@ -320,22 +360,107 @@
   box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
 }
 
-/* 圖片上傳按鈕樣式 */
-.image-upload-btn {
-  border: 1px solid #d9d9d9 !important;
-  color: #666 !important;
-  transition: all 0.2s ease;
+/* 內聯圖片預覽容器 */
+.image-preview-inline {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
-.image-upload-btn:hover {
-  border-color: #1890ff !important;
+/* 內聯圖片預覽項目 */
+.image-preview-item-inline {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: #f8f9fa;
+  border-radius: 6px;
+  padding: 2px;
+  border: 1px solid #e8e8e8;
+}
+
+.image-preview-item-inline:hover {
+  border-color: #1890ff;
+  box-shadow: 0 2px 4px rgba(24, 144, 255, 0.15);
+}
+
+/* 圖片加載骨架屏 */
+.image-loading-skeleton {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(90deg, #f0f0f0, #e6f7ff, #f0f0f0);
+  background-size: 200% 100%;
+  border-radius: 4px;
+  border: 1px dashed #1890ff;
+  position: relative;
+  animation: shimmer 2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+    border-color: #d9d9d9;
+  }
+  50% {
+    background-position: 200% 0;
+    border-color: #1890ff;
+  }
+  100% {
+    background-position: -200% 0;
+    border-color: #d9d9d9;
+  }
+}
+
+.image-loading-skeleton .ant-spin {
+  margin-bottom: 2px;
+}
+
+.image-loading-skeleton .ant-spin .ant-spin-dot {
+  font-size: 8px;
+}
+
+.image-loading-skeleton .ant-spin .ant-spin-dot-item {
+  width: 3px;
+  height: 3px;
+  background-color: #1890ff;
+}
+
+.image-loading-skeleton .ant-typography {
+  font-size: 9px !important;
   color: #1890ff !important;
-  transform: scale(1.05);
+  line-height: 1 !important;
+  margin: 0 !important;
+  font-weight: bold !important;
+  text-shadow: 0 0 2px rgba(24, 144, 255, 0.3);
 }
 
-.image-upload-btn:focus {
-  border-color: #1890ff !important;
-  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+/* 內聯圖片移除按鈕 */
+.image-remove-btn-inline {
+  position: absolute !important;
+  top: -6px !important;
+  right: -6px !important;
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px !important;
+  background-color: #ff4d4f !important;
+  color: white !important;
+  border: 1px solid white !important;
+  border-radius: 50% !important;
+  padding: 0 !important;
+  font-size: 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+}
+
+.image-remove-btn-inline:hover {
+  background-color: #ff7875 !important;
+  transform: scale(1.1) !important;
 }
 
 /* 動畫效果 */

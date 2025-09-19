@@ -356,12 +356,28 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
       return false;
     }
 
+    console.log('開始上傳圖片:', file.name); // 調試信息
     setUploading(true);
 
-    // 創建預覽URL
+    // 創建臨時加載項目
+    const tempImageData = {
+      uid: `temp-${Date.now()}`,
+      name: file.name,
+      status: 'uploading',
+      file: file,
+      url: null, // 暫時沒有預覽URL
+      size: file.size
+    };
+
+    console.log('添加加載狀態圖片:', tempImageData); // 調試信息
+    // 立即添加加載狀態的圖片
+    setUploadedImages(prev => [...prev, tempImageData]);
+
+    // 立即開始讀取圖片
     const reader = new FileReader();
     reader.onload = (e) => {
-      const imageData = {
+      console.log('圖片讀取完成'); // 調試信息
+      const finalImageData = {
         uid: Date.now().toString(),
         name: file.name,
         status: 'done',
@@ -370,12 +386,19 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
         size: file.size
       };
 
-      setUploadedImages(prev => [...prev, imageData]);
+      // 移除臨時項目並添加完成的項目
+      setUploadedImages(prev => [
+        ...prev.filter(img => img.uid !== tempImageData.uid),
+        finalImageData
+      ]);
       setUploading(false);
       message.success('圖片添加成功！');
     };
 
     reader.onerror = () => {
+      console.error('圖片讀取失敗'); // 調試信息
+      // 移除臨時項目
+      setUploadedImages(prev => prev.filter(img => img.uid !== tempImageData.uid));
       setUploading(false);
       message.error('圖片讀取失敗！');
     };
@@ -769,27 +792,38 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
                 <div className="image-preview-inline">
                   {uploadedImages.map((image) => (
                     <div key={image.uid} className="image-preview-item-inline">
-                      <Image
-                        src={image.url}
-                        alt={image.name}
-                        width={32}
-                        height={32}
-                        style={{ 
-                          objectFit: 'cover',
-                          borderRadius: '4px',
-                          border: '1px solid #d9d9d9'
-                        }}
-                        preview={{
-                          mask: <div style={{ fontSize: '10px' }}>預覽</div>
-                        }}
-                      />
-                      <Button
-                        type="text"
-                        icon={<DeleteOutlined />}
-                        size="small"
-                        onClick={() => removeUploadedImage(image.uid)}
-                        className="image-remove-btn-inline"
-                      />
+                      {image.status === 'uploading' ? (
+                        // 加載狀態的骨架屏
+                        <div className="image-loading-skeleton">
+                          <Spin size="small" />
+                          <Text style={{ fontSize: '9px', color: '#1890ff', marginTop: '2px', fontWeight: 'bold' }}>處理中...</Text>
+                        </div>
+                      ) : (
+                        // 正常的圖片預覽
+                        <>
+                          <Image
+                            src={image.url}
+                            alt={image.name}
+                            width={32}
+                            height={32}
+                            style={{ 
+                              objectFit: 'cover',
+                              borderRadius: '4px',
+                              border: '1px solid #d9d9d9'
+                            }}
+                            preview={{
+                              mask: <div style={{ fontSize: '10px' }}>預覽</div>
+                            }}
+                          />
+                          <Button
+                            type="text"
+                            icon={<DeleteOutlined />}
+                            size="small"
+                            onClick={() => removeUploadedImage(image.uid)}
+                            className="image-remove-btn-inline"
+                          />
+                        </>
+                      )}
                     </div>
                   ))}
                 </div>
