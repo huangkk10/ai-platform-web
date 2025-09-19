@@ -123,7 +123,7 @@ const TopHeader = ({ collapsed, onToggleSidebar, pageTitle, extraActions }) => {
           position: 'fixed',
           top: 0,
           right: 0,
-          left: collapsed ? 80 : 250,
+          left: collapsed ? 80 : 300,
           zIndex: 999,
           transition: 'left 0.2s',
           display: 'flex',

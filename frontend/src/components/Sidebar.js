@@ -33,6 +33,11 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       icon: <FileTextOutlined />,
       label: 'Log Analyze Chat',
     },
+    {
+      key: 'rvt-log-analyze-chat',
+      icon: <FileTextOutlined />,
+      label: 'RVT Log Analyze Chat',
+    },
   ];
 
   // 處理選單點擊
@@ -59,6 +64,9 @@ const Sidebar = ({ collapsed, onCollapse }) => {
         break;
       case 'log-analyze-chat':
         navigate('/log-analyze-chat');
+        break;
+      case 'rvt-log-analyze-chat':
+        navigate('/rvt-log-analyze-chat');
         break;
       case 'log-analyze':
         navigate('/log-analyze');
@@ -139,7 +147,7 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       trigger={null}
       collapsible 
       collapsed={collapsed}
-      width={250}
+      width={300}
       style={{
         background: '#2c3e50',
         height: '100vh',

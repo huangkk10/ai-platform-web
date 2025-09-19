@@ -176,3 +176,9 @@ CSRF_USE_SESSIONS = False  # 使用獨立的 CSRF cookie
 
 # Whitenoise settings
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# File Upload Settings
+# 設置文件上傳大小限制 (50MB)
+FILE_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50MB
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 1000

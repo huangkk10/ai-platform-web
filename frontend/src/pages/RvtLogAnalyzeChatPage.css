@@ -1,0 +1,431 @@
+/* RVT Log Analyze Chat Page Styles */
+
+.chat-header {
+  background: white;
+  padding: 8px 24px;
+  border-bottom: 1px solid #e8e8e8;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  min-height: 50px;
+}
+
+.messages-container {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  background: #f5f5f5;
+  background-image: 
+    radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.05) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.05) 0%, transparent 50%);
+}
+
+.message-wrapper {
+  margin-bottom: 16px;
+  display: flex;
+  width: 100%;
+}
+
+.message-wrapper.user {
+  justify-content: flex-end;
+}
+
+.message-wrapper.assistant {
+  justify-content: flex-start;
+}
+
+.message-content {
+  display: flex;
+  align-items: flex-start;
+  max-width: 70%;
+  gap: 8px;
+}
+
+.message-wrapper.user .message-content {
+  flex-direction: row-reverse;
+}
+
+.message-card {
+  border-radius: 18px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: none;
+  position: relative;
+}
+
+.message-card.user {
+  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+  color: white;
+}
+
+.message-card.user .ant-card-body {
+  color: white;
+}
+
+.message-card.assistant {
+  background: white;
+  border: 1px solid #e8e8e8;
+}
+
+.message-text {
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.message-card.user .message-text {
+  color: white;
+}
+
+.message-card.user .message-text .ant-typography {
+  color: white !important;
+}
+
+.message-time {
+  font-size: 11px;
+  opacity: 0.7;
+  text-align: right;
+  margin-top: 4px;
+}
+
+.message-card.user .message-time {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.message-card.assistant .message-time {
+  color: #999;
+}
+
+.input-area {
+  background: white;
+  padding: 16px 24px;
+  border-top: 1px solid #e8e8e8;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
+  /* 當使用 position: fixed 時，這些樣式將被 inline style 覆蓋 */
+}
+
+.input-container {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.input-container .ant-input {
+  flex: 1;
+  padding: 12px 16px;
+  font-size: 14px;
+  border: 1px solid #d9d9d9;
+  transition: all 0.3s;
+}
+
+.input-container .ant-input:focus {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+}
+
+.input-hint {
+  text-align: center;
+  margin-top: 8px;
+}
+
+/* 自定義滾動條 */
+.messages-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.messages-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.messages-container::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.messages-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+  .message-content {
+    max-width: 85%;
+  }
+  
+  .chat-header {
+    padding: 6px 16px;
+  }
+  
+  .messages-container {
+    padding: 12px;
+  }
+  
+  .input-area {
+    padding: 12px 16px;
+  }
+  
+  .input-with-buttons {
+    padding: 6px;
+  }
+  
+  .file-preview-inline {
+    gap: 4px;
+  }
+  
+  .file-preview-item-inline .file-icon {
+    width: 28px !important;
+    height: 28px !important;
+  }
+}
+
+/* 輸入容器樣式調整 */
+.input-container {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+/* 包含按鈕的輸入框容器 */
+.input-with-buttons {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  border: 1px solid #d9d9d9;
+  border-radius: 20px;
+  background: white;
+  transition: all 0.3s;
+  padding: 8px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.input-with-buttons:focus-within {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+}
+
+/* 輸入框內部的檔案上傳按鈕 */
+.file-upload-btn-inside {
+  border: 1px solid #1890ff !important;
+  background: #e6f7ff !important;
+  color: #1890ff !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.2s ease !important;
+  flex-shrink: 0 !important;
+  box-shadow: 0 2px 6px rgba(24, 144, 255, 0.25) !important;
+  font-size: 15px !important;
+}
+
+.file-upload-btn-inside:hover {
+  background: #bae7ff !important;
+  color: #096dd9 !important;
+  transform: scale(1.05) !important;
+  box-shadow: 0 3px 8px rgba(24, 144, 255, 0.35) !important;
+  border-color: #096dd9 !important;
+}
+
+.file-upload-btn-inside:focus {
+  background-color: #f0f8ff !important;
+  color: #1890ff !important;
+}
+
+/* 內聯檔案預覽容器 */
+.file-preview-inline {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* 內聯檔案預覽項目 */
+.file-preview-item-inline {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: #f8f9fa;
+  border-radius: 6px;
+  padding: 2px;
+  border: 1px solid #e8e8e8;
+}
+
+.file-preview-item-inline:hover {
+  border-color: #1890ff;
+  box-shadow: 0 2px 4px rgba(24, 144, 255, 0.15);
+}
+
+/* 檔案加載骨架屏 */
+.file-loading-skeleton {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(90deg, #f0f0f0, #e6f7ff, #f0f0f0);
+  background-size: 200% 100%;
+  border-radius: 4px;
+  border: 1px dashed #1890ff;
+  position: relative;
+  animation: shimmer 2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+    border-color: #d9d9d9;
+  }
+  50% {
+    background-position: 200% 0;
+    border-color: #1890ff;
+  }
+  100% {
+    background-position: -200% 0;
+    border-color: #d9d9d9;
+  }
+}
+
+.file-loading-skeleton .ant-spin {
+  margin-bottom: 2px;
+}
+
+.file-loading-skeleton .ant-spin .ant-spin-dot {
+  font-size: 8px;
+}
+
+.file-loading-skeleton .ant-spin .ant-spin-dot-item {
+  width: 3px;
+  height: 3px;
+  background-color: #1890ff;
+}
+
+.file-loading-skeleton .ant-typography {
+  font-size: 9px !important;
+  color: #1890ff !important;
+  line-height: 1 !important;
+  margin: 0 !important;
+  font-weight: bold !important;
+  text-shadow: 0 0 2px rgba(24, 144, 255, 0.3);
+}
+
+/* 內聯檔案移除按鈕 */
+.file-remove-btn-inline {
+  position: absolute !important;
+  top: -6px !important;
+  right: -6px !important;
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px !important;
+  background-color: #ff4d4f !important;
+  color: white !important;
+  border: 1px solid white !important;
+  border-radius: 50% !important;
+  padding: 0 !important;
+  font-size: 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+}
+
+.file-remove-btn-inline:hover {
+  background-color: #ff7875 !important;
+  transform: scale(1.1) !important;
+}
+
+/* 帶按鈕的文本輸入框 */
+.textarea-with-button {
+  flex: 1 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 4px 8px !important;
+  font-size: 14px !important;
+  resize: none !important;
+  background: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+  min-height: 32px !important;
+}
+
+.textarea-with-button:focus {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+/* 動畫效果 */
+.message-wrapper {
+  animation: fadeInUp 0.3s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Loading 動畫 */
+.message-card .ant-spin {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* 高亮效果 */
+.message-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  transition: all 0.2s ease;
+}
+
+.message-card.user:hover {
+  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.3);
+}
+
+/* 分隔線樣式 */
+.message-text hr {
+  border: none;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  margin: 12px 0;
+}
+
+.message-card.user .message-text hr {
+  border-top-color: rgba(255, 255, 255, 0.3);
+}
+
+/* RVT 特殊樣式 - 與一般 Log Analyze 稍作區分 */
+.message-card.assistant {
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  border: 1px solid #e1e4e8;
+}
+
+.message-card.assistant:hover {
+  background: linear-gradient(145deg, #fafbfc 0%, #f6f8fa 100%);
+  border-color: #d1d5da;
+}
+
+/* RVT 日誌專用的檔案類型提示 */
+.rvt-file-indicator {
+  font-size: 10px;
+  color: #666;
+  background: #f0f0f0;
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-left: 4px;
+}

@@ -1,16 +1,16 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Layout, Input, Button, Card, Avatar, message, Spin, Typography, Tag, Table } from 'antd';
-import { SendOutlined, UserOutlined, RobotOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { Layout, Input, Button, Card, Avatar, message, Spin, Typography, Tag, Table, Upload, Image, Popover } from 'antd';
+import { SendOutlined, UserOutlined, RobotOutlined, InfoCircleOutlined, PlusOutlined, FileImageOutlined, DeleteOutlined, FileTextOutlined } from '@ant-design/icons';
 import { useChatContext } from '../contexts/ChatContext';
-import './KnowIssueChatPage.css';
+import './RvtLogAnalyzeChatPage.css';
 
 const { Content } = Layout;
 const { TextArea } = Input;
 const { Text, Title } = Typography;
 
-// localStorage 相關常數
-const STORAGE_KEY = 'know-issue-chat-messages';
-const CONVERSATION_ID_KEY = 'know-issue-chat-conversation-id';
+// localStorage 相關常數 - 使用不同的鍵值以區分不同聊天頁面
+const STORAGE_KEY = 'rvt-log-analyze-chat-messages';
+const CONVERSATION_ID_KEY = 'rvt-log-analyze-chat-conversation-id';
 const MAX_STORAGE_DAYS = 7; // 最多保存 7 天
 const MAX_MESSAGES = 200; // 最多保存 200 條消息
 
@@ -94,7 +94,7 @@ const clearStoredChat = () => {
   }
 };
 
-const KnowIssueChatPage = ({ collapsed = false }) => {
+const RvtLogAnalyzeChatPage = ({ collapsed = false }) => {
   const { registerClearFunction, clearClearFunction } = useChatContext();
   // ... state variables ...
 
@@ -114,10 +114,10 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
     }, [loading, loadingStartTime]);
 
     const getMessage = () => {
-      if (elapsedSeconds < 5) return 'AI 正在分析知識庫，請稍候...';
-      if (elapsedSeconds < 15) return `AI 正在深度搜索知識庫... (${elapsedSeconds}s)`;
-      if (elapsedSeconds < 30) return `AI 正在分析複雜查詢... (${elapsedSeconds}s)`;
-      return `AI 仍在處理，請耐心等待... (${elapsedSeconds}s)`;
+      if (elapsedSeconds < 5) return 'AI 正在分析 RVT 日誌，請稍候...';
+      if (elapsedSeconds < 15) return `AI 正在深度分析 RVT 日誌... (${elapsedSeconds}s)`;
+      if (elapsedSeconds < 30) return `AI 正在分析複雜的 RVT 查詢... (${elapsedSeconds}s)`;
+      return `AI 仍在處理 RVT 日誌，請耐心等待... (${elapsedSeconds}s)`;
     };
 
     return (
@@ -129,6 +129,7 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
       </div>
     );
   };
+  
   const getInitialMessages = () => {
     const storedMessages = loadMessagesFromStorage();
     if (storedMessages && storedMessages.length > 0) {
@@ -139,7 +140,7 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
       {
         id: 1,
         type: 'assistant',
-        content: '你好！我是 Protocol Known Issue System 助手。我可以幫你查詢測試相關的問題和解決方案。請告訴我你遇到的問題。\n\n💡 提示：AI 分析知識庫可能需要 10-30 秒，請耐心等待。',
+        content: '你好！我是 RVT Log Analyze System 助手。我專門協助分析 RVT 日誌文件，查找錯誤模式和解決 RVT 相關問題。請告訴我你遇到的 RVT 日誌問題或上傳相關檔案。\n\n💡 提示：AI 分析 RVT 日誌可能需要 10-30 秒，請耐心等待。\n\n📁 支援檔案：僅支援文字檔案（.txt 和 .log）',
         timestamp: new Date()
       }
     ];
@@ -151,7 +152,10 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
   const [loadingStartTime, setLoadingStartTime] = useState(null);
   const [conversationId, setConversationId] = useState(loadConversationId);
   const [difyConfig, setDifyConfig] = useState(null);
+  const [uploadedFiles, setUploadedFiles] = useState([]); // 修改：只存儲文字檔案
+  const [uploading, setUploading] = useState(false); // 上傳狀態
   const messagesEndRef = useRef(null);
+  const fileInputRef = useRef(null); // 文件輸入引用
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -202,56 +206,98 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
   };
 
   const handleSendMessage = async () => {
-    if (!inputMessage.trim()) return;
+    // 檢查是否有消息或檔案
+    if (!inputMessage.trim() && uploadedFiles.length === 0) return;
 
     const userMessage = {
       id: Date.now(),
       type: 'user',
-      content: inputMessage.trim(),
-      timestamp: new Date()
+      content: inputMessage.trim() || (
+        uploadedFiles.length > 0 
+          ? '請分析這個 RVT 日誌檔案' 
+          : ''
+      ),
+      timestamp: new Date(),
+      files: uploadedFiles.length > 0 ? [...uploadedFiles] : undefined
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentMessage = inputMessage.trim();
+    const currentFiles = [...uploadedFiles];
+    
     setInputMessage('');
+    setUploadedFiles([]); // 清除上傳的檔案
     setLoading(true);
     setLoadingStartTime(Date.now());
 
     try {
-      // 使用新的 Dify Chat API
-      const response = await fetch('/api/dify/chat/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // 包含憑證，但不強制要求
-        body: JSON.stringify({
-          message: userMessage.content,
-          conversation_id: conversationId
-        })
-      });
+      let response, data;
+
+      // 如果有檔案，使用文件分析 API
+      if (currentFiles.length > 0) {
+        // 對每個檔案進行分析
+        for (let i = 0; i < currentFiles.length; i++) {
+          const file = currentFiles[i];
+          
+          // 文字檔案處理
+          const blob = new Blob([file.content], { type: 'text/plain' });
+          
+          // 創建 FormData
+          const formData = new FormData();
+          formData.append('file', blob, file.name);
+          if (currentMessage) {
+            formData.append('message', currentMessage);
+          }
+          if (conversationId) {
+            formData.append('conversation_id', conversationId);
+          }
+
+          // 發送到文件分析 API
+          response = await fetch('/api/dify/chat-with-file/', {
+            method: 'POST',
+            credentials: 'include',
+            body: formData
+          });
+
+          // 只處理第一個檔案的響應
+          if (i === 0) {
+            break;
+          }
+        }
+      } else {
+        // 沒有檔案，使用普通聊天 API
+        response = await fetch('/api/dify/chat/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            message: currentMessage,
+            conversation_id: conversationId
+          })
+        });
+      }
 
       // 檢查回應狀態
       if (!response.ok) {
-        // 對於訪客用戶，403 和 401 錯誤不應該阻止使用
         if (response.status === 403 || response.status === 401) {
-          throw new Error('guest_auth_issue'); // 特殊標記訪客認證問題
+          throw new Error('guest_auth_issue');
         }
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      // 檢查回應的 Content-Type
+      // 解析回應
       const contentType = response.headers.get('content-type');
       
-      let data;
       if (contentType && contentType.includes('application/json')) {
         data = await response.json();
       } else {
-        // 如果不是 JSON，獲取文本內容並檢查
         const textResponse = await response.text();
         console.error('API 回應非 JSON 格式:', textResponse);
         
         if (textResponse.includes('<html>')) {
-          throw new Error('html_response'); // 特殊標記 HTML 回應
+          throw new Error('html_response');
         } else {
           throw new Error(`API 回應格式錯誤: ${textResponse.substring(0, 100)}...`);
         }
@@ -270,12 +316,12 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
           timestamp: new Date(),
           metadata: data.metadata,
           usage: data.usage,
-          response_time: data.response_time
+          response_time: data.response_time,
+          file_info: data.file_info // 如果是文件分析，包含文件信息
         };
 
         setMessages(prev => [...prev, assistantMessage]);
       } else {
-        // 處理 API 返回的錯誤
         const errorMessage = data.error || `API 請求失敗: ${response.status}`;
         throw new Error(errorMessage);
       }
@@ -287,6 +333,10 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
       
       if (error.name === 'TypeError' && error.message.includes('fetch')) {
         errorText = '網路連接錯誤，請檢查網路連接';
+      } else if (error.message === 'guest_auth_issue') {
+        errorText = '訪客模式可以正常使用聊天功能，請稍後再試';
+      } else if (error.message === 'html_response') {
+        errorText = '服務器回應格式異常，請稍後再試';
       } else if (error.message.includes('Unexpected token') && error.message.includes('html')) {
         errorText = '服務器回應格式錯誤，請稍後再試';
       } else if (error.message.includes('認證問題') || error.message.includes('重定向到 HTML')) {
@@ -332,11 +382,105 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
     }
   };
 
+  // 處理檔案上傳（僅支援 .txt 和 .log 檔案）
+  const handleFileUpload = (file) => {
+    // 檢查文件類型 - 只允許 .txt 和 .log 檔案
+    const isValidType = file.name.toLowerCase().endsWith('.txt') || 
+                       file.name.toLowerCase().endsWith('.log') ||
+                       file.type === 'text/plain';
+    
+    if (!isValidType) {
+      message.error('僅支援 .txt 和 .log 檔案！');
+      return false;
+    }
+
+    // 檢查文件大小（限制為10MB）
+    const isLt10M = file.size / 1024 / 1024 < 10;
+    if (!isLt10M) {
+      message.error('檔案大小不能超過 10MB！');
+      return false;
+    }
+
+    console.log('開始上傳 RVT 日誌檔案:', file.name);
+    setUploading(true);
+
+    // 創建臨時加載項目
+    const tempFileData = {
+      uid: `temp-${Date.now()}`,
+      name: file.name,
+      status: 'uploading',
+      file: file,
+      content: null,
+      size: file.size
+    };
+
+    console.log('添加加載狀態檔案:', tempFileData);
+    // 立即添加加載狀態的檔案
+    setUploadedFiles(prev => [...prev, tempFileData]);
+
+    // 讀取文字檔案內容
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      console.log('RVT 日誌檔案讀取完成');
+      const finalFileData = {
+        uid: Date.now().toString(),
+        name: file.name,
+        status: 'done',
+        file: file,
+        content: e.target.result, // 文字內容
+        size: file.size
+      };
+
+      // 移除臨時項目並添加完成的項目
+      setUploadedFiles(prev => [
+        ...prev.filter(f => f.uid !== tempFileData.uid),
+        finalFileData
+      ]);
+      setUploading(false);
+      message.success('RVT 日誌檔案添加成功！');
+    };
+
+    reader.onerror = () => {
+      console.error('檔案讀取失敗');
+      // 移除臨時項目
+      setUploadedFiles(prev => prev.filter(f => f.uid !== tempFileData.uid));
+      setUploading(false);
+      message.error('檔案讀取失敗！');
+    };
+
+    // 讀取為文字
+    reader.readAsText(file);
+    
+    // 阻止默認的上傳行為
+    return false;
+  };
+
+  // 移除上傳的檔案
+  const removeUploadedFile = (uid) => {
+    setUploadedFiles(prev => prev.filter(f => f.uid !== uid));
+    message.success('檔案已移除');
+  };
+
+  // 觸發文件選擇
+  const triggerFileUpload = () => {
+    fileInputRef.current?.click();
+  };
+
+  // 處理文件選擇
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      handleFileUpload(file);
+    }
+    // 清空 input value，允許重複選擇同一文件
+    e.target.value = '';
+  };
+
   const clearChat = useCallback(() => {
     const defaultMessage = {
       id: 1,
       type: 'assistant',
-      content: '你好！我是 Protocol Known Issue System 助手。我可以幫你查詢測試相關的問題和解決方案。請告訴我你遇到的問題。\n\n💡 提示：AI 分析知識庫可能需要 10-30 秒，請耐心等待。',
+      content: '你好！我是 RVT Log Analyze System 助手。我專門協助分析 RVT 日誌文件，查找錯誤模式和解決 RVT 相關問題。請告訴我你遇到的 RVT 日誌問題或上傳相關檔案。\n\n💡 提示：AI 分析 RVT 日誌可能需要 10-30 秒，請耐心等待。\n\n📁 支援檔案：僅支援文字檔案（.txt 和 .log）',
       timestamp: new Date()
     };
     
@@ -593,12 +737,12 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
         <div className="messages-container" style={{ 
           flex: 1, 
           overflowY: 'auto', 
-          padding: '8px 16px 16px 16px',  // 減少頂部 padding
+          padding: '8px 16px 16px 16px',
           display: 'flex',
           flexDirection: 'column',
           gap: '12px',
-          height: 'calc(100vh - 64px - 100px)',  // 為固定的輸入區域預留空間
-          paddingBottom: '100px'  // 為固定輸入框預留空間
+          height: 'calc(100vh - 64px - 100px)',
+          paddingBottom: '100px'
         }}>
           {messages.map((msg) => (
             <div key={msg.id} className={`message-wrapper ${msg.type}`}>
@@ -614,9 +758,54 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
                   className={`message-card ${msg.type}`}
                   bodyStyle={{ padding: '12px 16px' }}
                 >
+                  {/* 如果用戶消息包含檔案，先顯示檔案 */}
+                  {msg.type === 'user' && msg.files && msg.files.length > 0 && (
+                    <div style={{ marginBottom: '12px' }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                        {msg.files.map((file) => (
+                          <div key={file.uid}>
+                            {/* 文字檔案顯示 */}
+                            <div
+                              style={{
+                                padding: '8px 12px',
+                                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                                border: '1px solid rgba(255, 255, 255, 0.3)',
+                                borderRadius: '6px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                color: 'white',
+                                fontSize: '12px'
+                              }}
+                            >
+                              <FileTextOutlined style={{ color: 'white' }} />
+                              <span>{file.name}</span>
+                              <span style={{ opacity: 0.7 }}>({(file.size / 1024).toFixed(1)} KB)</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="message-text">
                     {formatMessage(msg.content)}
                   </div>
+                  
+                  {/* 如果是文件分析結果，顯示文件信息 */}
+                  {msg.file_info && (
+                    <div style={{ 
+                      marginTop: '8px', 
+                      padding: '6px 8px', 
+                      background: 'rgba(0, 0, 0, 0.05)', 
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      color: '#666'
+                    }}>
+                      📁 已分析 RVT 日誌文件: {msg.file_info.name} ({(msg.file_info.size / 1024).toFixed(1)} KB)
+                    </div>
+                  )}
+                  
                   <div className="message-time">
                     {msg.timestamp.toLocaleTimeString('zh-TW', { 
                       hour: '2-digit', 
@@ -668,21 +857,92 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
           zIndex: 10
         }}>
           <div className="input-container">
-            <TextArea
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder={`請描述你遇到的問題... (按 Enter 發送，Shift + Enter 換行${difyConfig ? ` • 連接到: ${difyConfig.workspace}` : ''})`}
-              autoSize={{ minRows: 1, maxRows: 4 }}
-              disabled={loading}
-              style={{ borderRadius: '20px', resize: 'none' }}
+            {/* 隱藏的文件輸入 */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".txt,.log"
+              onChange={handleFileSelect}
+              style={{ display: 'none' }}
             />
+            
+            {/* 包含檔案上傳按鈕和預覽的輸入框 */}
+            <div className="input-with-buttons">
+              <Button
+                type="text"
+                icon={<PlusOutlined />}
+                onClick={triggerFileUpload}
+                loading={uploading}
+                disabled={loading}
+                className="file-upload-btn-inside"
+                title="添加 RVT 日誌檔案 (.txt, .log)"
+              />
+              
+              {/* 檔案預覽區域 - 在輸入框內 */}
+              {uploadedFiles.length > 0 && (
+                <div className="file-preview-inline">
+                  {uploadedFiles.map((file) => (
+                    <div key={file.uid} className="file-preview-item-inline">
+                      {file.status === 'uploading' ? (
+                        // 加載狀態的骨架屏
+                        <div className="file-loading-skeleton">
+                          <Spin size="small" />
+                          <Text style={{ fontSize: '9px', color: '#1890ff', marginTop: '2px', fontWeight: 'bold' }}>處理中...</Text>
+                        </div>
+                      ) : (
+                        // 正常的檔案預覽
+                        <>
+                          {/* 文字檔案預覽 */}
+                          <div
+                            style={{
+                              width: 32,
+                              height: 32,
+                              backgroundColor: '#f0f8ff',
+                              border: '1px solid #1890ff',
+                              borderRadius: '4px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '12px',
+                              fontWeight: 'bold',
+                              color: '#1890ff',
+                              cursor: 'pointer'
+                            }}
+                            title={`RVT 日誌檔案: ${file.name}`}
+                          >
+                            <FileTextOutlined />
+                          </div>
+                          <Button
+                            type="text"
+                            icon={<DeleteOutlined />}
+                            size="small"
+                            onClick={() => removeUploadedFile(file.uid)}
+                            className="file-remove-btn-inline"
+                          />
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              <TextArea
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder={`請描述你的 RVT 日誌問題或上傳日誌檔案... (按 Enter 發送，Shift + Enter 換行${difyConfig ? ` • 連接到: ${difyConfig.workspace}` : ''})`}
+                autoSize={{ minRows: 1, maxRows: 4 }}
+                disabled={loading}
+                className="textarea-with-button"
+              />
+            </div>
+            
             <Button
               type="primary"
               icon={<SendOutlined />}
               onClick={handleSendMessage}
               loading={loading}
-              disabled={!inputMessage.trim()}
+              disabled={!inputMessage.trim() && uploadedFiles.length === 0}
               style={{ 
                 borderRadius: '50%', 
                 width: '40px', 
@@ -700,4 +960,4 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
   );
 };
 
-export default KnowIssueChatPage;
+export default RvtLogAnalyzeChatPage;

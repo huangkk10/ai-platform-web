@@ -891,7 +891,7 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
         <div className="input-area" style={{
           position: 'fixed',
           bottom: 0,
-          left: collapsed ? 80 : 250,
+          left: collapsed ? 80 : 300,
           right: 0,
           transition: 'left 0.2s',
           zIndex: 10
