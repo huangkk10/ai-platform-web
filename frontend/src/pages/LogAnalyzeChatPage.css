@@ -165,6 +165,177 @@
   .input-area {
     padding: 12px 16px;
   }
+  
+  .input-with-buttons {
+    padding: 6px;
+  }
+  
+  .image-preview-inline {
+    gap: 4px;
+  }
+  
+  .image-preview-item-inline .ant-image {
+    width: 28px !important;
+    height: 28px !important;
+  }
+}
+
+/* 輸入容器樣式調整 */
+.input-container {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+/* 包含按鈕的輸入框容器 */
+.input-with-buttons {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  border: 1px solid #d9d9d9;
+  border-radius: 20px;
+  background: white;
+  transition: all 0.3s;
+  padding: 8px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.input-with-buttons:focus-within {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+}
+
+/* 輸入框內部的圖片上傳按鈕 */
+.image-upload-btn-inside {
+  border: none !important;
+  background: transparent !important;
+  color: #666 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.2s ease !important;
+  flex-shrink: 0 !important;
+}
+
+.image-upload-btn-inside:hover {
+  background-color: #f5f5f5 !important;
+  color: #1890ff !important;
+  transform: scale(1.1) !important;
+}
+
+.image-upload-btn-inside:focus {
+  background-color: #f0f8ff !important;
+  color: #1890ff !important;
+}
+
+/* 內聯圖片預覽容器 */
+.image-preview-inline {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* 內聯圖片預覽項目 */
+.image-preview-item-inline {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: #f8f9fa;
+  border-radius: 6px;
+  padding: 2px;
+  border: 1px solid #e8e8e8;
+}
+
+.image-preview-item-inline:hover {
+  border-color: #1890ff;
+  box-shadow: 0 2px 4px rgba(24, 144, 255, 0.15);
+}
+
+/* 內聯圖片移除按鈕 */
+.image-remove-btn-inline {
+  position: absolute !important;
+  top: -6px !important;
+  right: -6px !important;
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px !important;
+  background-color: #ff4d4f !important;
+  color: white !important;
+  border: 1px solid white !important;
+  border-radius: 50% !important;
+  padding: 0 !important;
+  font-size: 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+}
+
+.image-remove-btn-inline:hover {
+  background-color: #ff7875 !important;
+  transform: scale(1.1) !important;
+}
+
+/* 帶按鈕的文本輸入框 */
+.textarea-with-button {
+  flex: 1 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 4px 8px !important;
+  font-size: 14px !important;
+  resize: none !important;
+  background: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+  min-height: 32px !important;
+}
+
+.textarea-with-button:focus {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.input-container .ant-input {
+  flex: 1;
+  padding: 12px 16px;
+  font-size: 14px;
+  border: 1px solid #d9d9d9;
+  transition: all 0.3s;
+}
+
+.input-container .ant-input:focus {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+}
+
+/* 圖片上傳按鈕樣式 */
+.image-upload-btn {
+  border: 1px solid #d9d9d9 !important;
+  color: #666 !important;
+  transition: all 0.2s ease;
+}
+
+.image-upload-btn:hover {
+  border-color: #1890ff !important;
+  color: #1890ff !important;
+  transform: scale(1.05);
+}
+
+.image-upload-btn:focus {
+  border-color: #1890ff !important;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
 }
 
 /* 動畫效果 */

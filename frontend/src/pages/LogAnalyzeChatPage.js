@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Layout, Input, Button, Card, Avatar, message, Spin, Typography, Tag, Table } from 'antd';
-import { SendOutlined, UserOutlined, RobotOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { Layout, Input, Button, Card, Avatar, message, Spin, Typography, Tag, Table, Upload, Image, Popover } from 'antd';
+import { SendOutlined, UserOutlined, RobotOutlined, InfoCircleOutlined, PlusOutlined, FileImageOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useChatContext } from '../contexts/ChatContext';
 import './LogAnalyzeChatPage.css';
 
@@ -152,7 +152,10 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
   const [loadingStartTime, setLoadingStartTime] = useState(null);
   const [conversationId, setConversationId] = useState(loadConversationId);
   const [difyConfig, setDifyConfig] = useState(null);
+  const [uploadedImages, setUploadedImages] = useState([]); // 新增：存儲上傳的圖片
+  const [uploading, setUploading] = useState(false); // 新增：上傳狀態
   const messagesEndRef = useRef(null);
+  const fileInputRef = useRef(null); // 新增：文件輸入引用
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -335,6 +338,73 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
       e.preventDefault();
       handleSendMessage();
     }
+  };
+
+  // 新增：處理圖片上傳
+  const handleImageUpload = (file) => {
+    // 檢查文件類型
+    const isImage = file.type.startsWith('image/');
+    if (!isImage) {
+      message.error('請選擇圖片文件！');
+      return false;
+    }
+
+    // 檢查文件大小（限制為10MB）
+    const isLt10M = file.size / 1024 / 1024 < 10;
+    if (!isLt10M) {
+      message.error('圖片大小不能超過 10MB！');
+      return false;
+    }
+
+    setUploading(true);
+
+    // 創建預覽URL
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const imageData = {
+        uid: Date.now().toString(),
+        name: file.name,
+        status: 'done',
+        file: file,
+        url: e.target.result, // base64 預覽URL
+        size: file.size
+      };
+
+      setUploadedImages(prev => [...prev, imageData]);
+      setUploading(false);
+      message.success('圖片添加成功！');
+    };
+
+    reader.onerror = () => {
+      setUploading(false);
+      message.error('圖片讀取失敗！');
+    };
+
+    reader.readAsDataURL(file);
+    
+    // 阻止默認的上傳行為
+    return false;
+  };
+
+  // 新增：移除上傳的圖片
+  const removeUploadedImage = (uid) => {
+    setUploadedImages(prev => prev.filter(img => img.uid !== uid));
+    message.success('圖片已移除');
+  };
+
+  // 新增：觸發文件選擇
+  const triggerFileUpload = () => {
+    fileInputRef.current?.click();
+  };
+
+  // 新增：處理文件選擇
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      handleImageUpload(file);
+    }
+    // 清空 input value，允許重複選擇同一文件
+    e.target.value = '';
   };
 
   const clearChat = useCallback(() => {
@@ -673,21 +743,75 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
           zIndex: 10
         }}>
           <div className="input-container">
-            <TextArea
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder={`請描述你的日誌問題... (按 Enter 發送，Shift + Enter 換行${difyConfig ? ` • 連接到: ${difyConfig.workspace}` : ''})`}
-              autoSize={{ minRows: 1, maxRows: 4 }}
-              disabled={loading}
-              style={{ borderRadius: '20px', resize: 'none' }}
+            {/* 隱藏的文件輸入 */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileSelect}
+              style={{ display: 'none' }}
             />
+            
+            {/* 包含圖片上傳按鈕和預覽的輸入框 */}
+            <div className="input-with-buttons">
+              <Button
+                type="text"
+                icon={<PlusOutlined />}
+                onClick={triggerFileUpload}
+                loading={uploading}
+                disabled={loading}
+                className="image-upload-btn-inside"
+                title="添加圖片"
+              />
+              
+              {/* 圖片預覽區域 - 在輸入框內 */}
+              {uploadedImages.length > 0 && (
+                <div className="image-preview-inline">
+                  {uploadedImages.map((image) => (
+                    <div key={image.uid} className="image-preview-item-inline">
+                      <Image
+                        src={image.url}
+                        alt={image.name}
+                        width={32}
+                        height={32}
+                        style={{ 
+                          objectFit: 'cover',
+                          borderRadius: '4px',
+                          border: '1px solid #d9d9d9'
+                        }}
+                        preview={{
+                          mask: <div style={{ fontSize: '10px' }}>預覽</div>
+                        }}
+                      />
+                      <Button
+                        type="text"
+                        icon={<DeleteOutlined />}
+                        size="small"
+                        onClick={() => removeUploadedImage(image.uid)}
+                        className="image-remove-btn-inline"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              <TextArea
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder={`請描述你的日誌問題... (按 Enter 發送，Shift + Enter 換行${difyConfig ? ` • 連接到: ${difyConfig.workspace}` : ''})`}
+                autoSize={{ minRows: 1, maxRows: 4 }}
+                disabled={loading}
+                className="textarea-with-button"
+              />
+            </div>
+            
             <Button
               type="primary"
               icon={<SendOutlined />}
               onClick={handleSendMessage}
               loading={loading}
-              disabled={!inputMessage.trim()}
+              disabled={!inputMessage.trim() && uploadedImages.length === 0}
               style={{ 
                 borderRadius: '50%', 
                 width: '40px', 
