@@ -1850,6 +1850,7 @@ def dify_chat_with_file(request):
     """
     Dify Chat API with File Support - 支援圖片分析功能
     類似於 test_single_file_analysis 的流程
+    整合 OCR 分析器自動解析和保存功能
     """
     try:
         import time
@@ -1862,6 +1863,11 @@ def dify_chat_with_file(request):
             get_file_info, 
             validate_file_for_upload, 
             get_default_analysis_query
+        )
+        # 導入 OCR 分析器
+        from library.data_processing.ocr_analyzer import (
+            create_ocr_analyzer,
+            create_ocr_database_manager
         )
         
         message = request.data.get('message', '').strip()
@@ -1922,15 +1928,73 @@ def dify_chat_with_file(request):
                 
                 elapsed = time.time() - start_time
                 
-                # 7. 清理臨時文件
+                # 🆕 7. AI 回覆後自動執行 OCR 解析和保存
+                ocr_analysis_result = None
+                if result['success'] and result.get('answer'):
+                    try:
+                        print(f"\n🔬 開始執行 OCR 分析和資料庫保存...")
+                        
+                        # 創建 OCR 分析器和資料庫管理器
+                        ocr_analyzer = create_ocr_analyzer()
+                        ocr_db_manager = create_ocr_database_manager()
+                        
+                        # 解析 AI 回答中的測試資料
+                        ai_answer = result.get('answer', '')
+                        parsed_data = ocr_analyzer.parse_storage_benchmark_table(ai_answer)
+                        
+                        if parsed_data and len(parsed_data) > 5:
+                            print(f"✅ OCR 解析成功，解析出 {len(parsed_data)} 個欄位")
+                            
+                            # 保存到資料庫
+                            user = request.user if request.user.is_authenticated else None
+                            save_result = ocr_db_manager.save_to_ocr_database(
+                                parsed_data=parsed_data,
+                                file_path=temp_file_path,
+                                ocr_raw_text=ai_answer,
+                                original_result=result,
+                                uploaded_by=user
+                            )
+                            
+                            if save_result['success']:
+                                print(f"💾 資料已成功保存到 OCR 資料庫")
+                                ocr_analysis_result = {
+                                    'parsed': True,
+                                    'fields_count': len(parsed_data),
+                                    'database_saved': True,
+                                    'record_info': save_result.get('performance_summary', {}),
+                                    'parsed_fields': list(parsed_data.keys())
+                                }
+                            else:
+                                print(f"⚠️ 資料庫保存失敗: {save_result.get('error', '未知錯誤')}")
+                                ocr_analysis_result = {
+                                    'parsed': True,
+                                    'fields_count': len(parsed_data),
+                                    'database_saved': False,
+                                    'error': save_result.get('error', '未知錯誤')
+                                }
+                        else:
+                            print(f"ℹ️ AI 回答中未檢測到儲存基準測試表格格式，跳過 OCR 解析")
+                            ocr_analysis_result = {
+                                'parsed': False,
+                                'reason': 'No storage benchmark table detected'
+                            }
+                        
+                    except Exception as ocr_error:
+                        print(f"❌ OCR 分析過程出錯: {str(ocr_error)}")
+                        ocr_analysis_result = {
+                            'parsed': False,
+                            'error': str(ocr_error)
+                        }
+                
+                # 8. 清理臨時文件
                 os.remove(temp_file_path)
                 os.rmdir(temp_dir)
                 
-                # 8. 返回結果
+                # 9. 返回結果（包含 OCR 分析結果）
                 if result['success']:
                     logger.info(f"File analysis success for user {request.user.username}: {uploaded_file.name}")
                     
-                    return Response({
+                    response_data = {
                         'success': True,
                         'answer': result.get('answer', ''),
                         'conversation_id': result.get('conversation_id', ''),
@@ -1943,7 +2007,13 @@ def dify_chat_with_file(request):
                             'size': file_info['file_size'],
                             'type': 'image' if file_info['is_image'] else 'document'
                         }
-                    }, status=status.HTTP_200_OK)
+                    }
+                    
+                    # 如果有 OCR 分析結果，添加到響應中
+                    if ocr_analysis_result:
+                        response_data['ocr_analysis'] = ocr_analysis_result
+                    
+                    return Response(response_data, status=status.HTTP_200_OK)
                 else:
                     return Response({
                         'success': False,
