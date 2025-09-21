@@ -39,6 +39,19 @@ class DifyAppConfigs:
         'response_mode': 'blocking'
     }
     
+    # RVT Guide 工作室配置
+    RVT_GUIDE = {
+        'api_url': 'http://10.10.172.5/v1/chat-messages',
+        'api_key': 'app-Lp4mlfIWHqMWPHTlzF9ywT4F',
+        'base_url': 'http://10.10.172.5',
+        'app_name': 'RVT Guide',
+        'workspace': 'RVT_Guide',
+        'description': 'Dify Chat 應用，用於 RVT 相關指導和協助',
+        'features': ['RVT 指導', '技術支援', 'RVT 流程管理'],
+        'timeout': 60,
+        'response_mode': 'blocking'
+    }
+    
     # 其他應用配置可以在此添加
     # 例如：
     # OTHER_APP_CONFIG = {
@@ -104,6 +117,34 @@ class DifyAppConfigs:
         return config
     
     @classmethod
+    def get_rvt_guide_config(cls) -> Dict[str, str]:
+        """
+        獲取 RVT Guide 配置
+        
+        Returns:
+            Dict: 應用配置
+        """
+        config = cls.RVT_GUIDE.copy()
+        
+        # 支援環境變數覆蓋
+        env_overrides = {
+            'DIFY_RVT_GUIDE_API_URL': 'api_url',
+            'DIFY_RVT_GUIDE_API_KEY': 'api_key',
+            'DIFY_RVT_GUIDE_BASE_URL': 'base_url',
+            'DIFY_RVT_GUIDE_TIMEOUT': 'timeout'
+        }
+        
+        for env_key, config_key in env_overrides.items():
+            env_value = os.getenv(env_key)
+            if env_value:
+                if config_key == 'timeout':
+                    config[config_key] = int(env_value)
+                else:
+                    config[config_key] = env_value
+        
+        return config
+    
+    @classmethod
     def create_report_analyzer_3_chat_client(cls):
         """
         創建 Report Analyzer 3 的 Chat 客戶端
@@ -114,6 +155,23 @@ class DifyAppConfigs:
         from ..dify_integration.chat_client import create_chat_client
         
         config = cls.get_report_analyzer_3_config()
+        return create_chat_client(
+            api_url=config['api_url'],
+            api_key=config['api_key'],
+            base_url=config['base_url']
+        )
+    
+    @classmethod
+    def create_rvt_guide_chat_client(cls):
+        """
+        創建 RVT Guide 的 Chat 客戶端
+        
+        Returns:
+            DifyChatClient: 配置好的客戶端
+        """
+        from ..dify_integration.chat_client import create_chat_client
+        
+        config = cls.get_rvt_guide_config()
         return create_chat_client(
             api_url=config['api_url'],
             api_key=config['api_key'],
@@ -148,6 +206,7 @@ class DifyAppConfigs:
         return {
             'protocol_known_issue_system': cls.get_protocol_known_issue_config(),
             'report_analyzer_3': cls.get_report_analyzer_3_config(),
+            'rvt_guide': cls.get_rvt_guide_config(),
             # 其他應用配置
         }
     
@@ -178,6 +237,20 @@ class DifyAppConfigs:
         
         elif config_name == 'report_analyzer_3':
             config = cls.get_report_analyzer_3_config()
+            required_keys = ['api_url', 'api_key', 'base_url']
+            
+            for key in required_keys:
+                if not config.get(key):
+                    raise ValueError(f"Missing required config key: {key}")
+            
+            # 驗證 API Key 格式
+            if not config['api_key'].startswith('app-'):
+                raise ValueError("Invalid API key format. Must start with 'app-'")
+            
+            return True
+        
+        elif config_name == 'rvt_guide':
+            config = cls.get_rvt_guide_config()
             required_keys = ['api_url', 'api_key', 'base_url']
             
             for key in required_keys:
@@ -254,6 +327,36 @@ def validate_protocol_config() -> bool:
     return DifyAppConfigs.validate_config('protocol_known_issue_system')
 
 
+def get_rvt_guide_config() -> Dict[str, str]:
+    """
+    獲取 RVT Guide 配置的便利函數
+    
+    Returns:
+        Dict: 應用配置
+    """
+    return DifyAppConfigs.get_rvt_guide_config()
+
+
+def create_rvt_guide_chat_client():
+    """
+    創建 RVT Guide Chat 客戶端的便利函數
+    
+    Returns:
+        DifyChatClient: 配置好的客戶端
+    """
+    return DifyAppConfigs.create_rvt_guide_chat_client()
+
+
+def validate_rvt_guide_config() -> bool:
+    """
+    驗證 RVT Guide 配置的便利函數
+    
+    Returns:
+        bool: 配置是否有效
+    """
+    return DifyAppConfigs.validate_config('rvt_guide')
+
+
 # 向後兼容的配置字典（用於現有代碼）
 DIFY_PROTOCOL_CONFIG = DifyAppConfigs.PROTOCOL_KNOWN_ISSUE_SYSTEM
 
@@ -274,9 +377,17 @@ DIFY_REPORT_ANALYZER_API_KEY     - API Key (app-開頭)
 DIFY_REPORT_ANALYZER_BASE_URL    - Dify 基礎 URL
 DIFY_REPORT_ANALYZER_TIMEOUT     - 請求超時時間（秒）
 
+RVT Guide:
+DIFY_RVT_GUIDE_API_URL     - Chat API 端點 URL
+DIFY_RVT_GUIDE_API_KEY     - API Key (app-開頭)
+DIFY_RVT_GUIDE_BASE_URL    - Dify 基礎 URL
+DIFY_RVT_GUIDE_TIMEOUT     - 請求超時時間（秒）
+
 使用範例：
 export DIFY_PROTOCOL_API_KEY="app-YourNewApiKey"
 export DIFY_PROTOCOL_TIMEOUT=120
 export DIFY_REPORT_ANALYZER_API_KEY="app-DmCCl8KwXhhjND0WbEf0ULlR"
 export DIFY_REPORT_ANALYZER_TIMEOUT=120
+export DIFY_RVT_GUIDE_API_KEY="app-Lp4mlfIWHqMWPHTlzF9ywT4F"
+export DIFY_RVT_GUIDE_TIMEOUT=60
 """
