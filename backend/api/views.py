@@ -1917,7 +1917,7 @@ def chat_usage_statistics(request):
         type_display_map = {
             'know_issue_chat': 'Protocol RAG',
             'log_analyze_chat': 'AI OCR', 
-            'rvt_log_analyze_chat': 'RVT Log Analyze Chat'
+            'rvt_log_analyze_chat': 'RVT Assistant'
         }
         
         for stat in chat_type_stats:

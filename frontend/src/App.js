@@ -54,7 +54,7 @@ function AppLayout() {
       case '/log-analyze-chat':
         return 'AI OCR';
       case '/rvt-log-analyze-chat':
-        return 'RVT Log Analyze Chat';
+        return 'RVT Assistant';
       case '/dashboard':
         return 'Dashboard';
       case '/query':

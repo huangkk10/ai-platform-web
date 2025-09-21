@@ -141,7 +141,7 @@ const RvtLogAnalyzeChatPage = ({ collapsed = false }) => {
       {
         id: 1,
         type: 'assistant',
-        content: '你好！我是 RVT Log Analyze System 助手。我專門協助分析 RVT 日誌文件，查找錯誤模式和解決 RVT 相關問題。請告訴我你遇到的 RVT 日誌問題或上傳相關檔案。\n\n💡 提示：AI 分析 RVT 日誌可能需要 10-30 秒，請耐心等待。\n\n📁 支援檔案：僅支援文字檔案（.txt 和 .log）',
+        content: '你好！我是 RVT Assistant 智能助手 🤖\n\n我專門提供以下服務：\n• **RVT 用戶指南諮詢** - 回答 RVT 相關問題和操作指導\n• **RVT 日誌分析** - 分析日誌文件，查找錯誤模式和解決方案\n• **問題診斷與建議** - 提供 RVT 相關的技術支援和最佳實務\n\n您可以：\n📝 直接詢問 RVT 相關問題\n📁 上傳日誌檔案進行深度分析\n🔍 尋求故障排除的協助\n\n💡 提示：AI 分析可能需要 10-30 秒，請耐心等待\n📁 支援檔案：.txt 和 .log 文字檔案（最大 10MB）',
         timestamp: new Date()
       }
     ];
@@ -514,7 +514,7 @@ const RvtLogAnalyzeChatPage = ({ collapsed = false }) => {
     const defaultMessage = {
       id: 1,
       type: 'assistant',
-      content: '你好！我是 RVT Log Analyze System 助手。我專門協助分析 RVT 日誌文件，查找錯誤模式和解決 RVT 相關問題。請告訴我你遇到的 RVT 日誌問題或上傳相關檔案。\n\n💡 提示：AI 分析 RVT 日誌可能需要 10-30 秒，請耐心等待。\n\n📁 支援檔案：僅支援文字檔案（.txt 和 .log）',
+      content: '你好！我是 RVT Assistant 智能助手 🤖\n\n我專門提供以下服務：\n• **RVT 用戶指南諮詢** - 回答 RVT 相關問題和操作指導\n• **RVT 日誌分析** - 分析日誌文件，查找錯誤模式和解決方案\n• **問題診斷與建議** - 提供 RVT 相關的技術支援和最佳實務\n\n您可以：\n📝 直接詢問 RVT 相關問題\n📁 上傳日誌檔案進行深度分析\n🔍 尋求故障排除的協助\n\n💡 提示：AI 分析可能需要 10-30 秒，請耐心等待\n📁 支援檔案：.txt 和 .log 文字檔案（最大 10MB）',
       timestamp: new Date()
     };
     

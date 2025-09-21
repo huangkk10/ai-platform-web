@@ -36,7 +36,7 @@ const Sidebar = ({ collapsed, onCollapse }) => {
     {
       key: 'rvt-log-analyze-chat',
       icon: <FileTextOutlined />,
-      label: 'RVT Log Analyze Chat',
+      label: 'RVT Assistant',
     },
   ];
 

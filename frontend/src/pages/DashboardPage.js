@@ -68,7 +68,7 @@ const DashboardPage = () => {
       date: day.date,
       'Protocol RAG': day.know_issue_chat,
       'AI OCR': day.log_analyze_chat,
-      'RVT Log Analyze Chat': day.rvt_log_analyze_chat,
+      'RVT Assistant': day.rvt_log_analyze_chat,
       total: day.total
     }));
   };
@@ -269,7 +269,7 @@ const DashboardPage = () => {
                     />
                     <Line 
                       type="monotone" 
-                      dataKey="RVT Log Analyze Chat" 
+                      dataKey="RVT Assistant" 
                       stroke="#faad14" 
                       strokeWidth={2}
                       dot={{ r: 4 }}
