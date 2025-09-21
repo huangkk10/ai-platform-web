@@ -38,51 +38,10 @@ class ReportAnalyzerWorkflow:
         print(f"\n🚀 步驟 1: 初始化聊天會話")
         print(f"🎯 模擬：開啟 Dify 工作室聊天界面")
         
-        try:
-            headers = {
-                "Authorization": f"Bearer {self.config['api_key']}",
-                "Content-Type": "application/json"
-            }
-            
-            # 簡單的初始化聊天（可選）
-            init_data = {
-                "inputs": {},
-                "query": "你好",
-                "response_mode": "blocking",
-                "conversation_id": "",
-                "user": "test_user"
-            }
-            
-            response = self.session.post(
-                self.config['api_url'],
-                json=init_data,
-                headers=headers,
-                timeout=30
-            )
-            
-            print(f"初始化響應狀態: {response.status_code}")
-            
-            if response.status_code == 200:
-                response_data = response.json()
-                if 'conversation_id' in response_data:
-                    self.conversation_id = response_data['conversation_id']
-                    print(f"✅ 聊天會話初始化成功，會話 ID: {self.conversation_id}")
-                    
-                    if 'answer' in response_data:
-                        print(f"🤖 AI 回應: {response_data['answer'][:100]}...")
-                    
-                    return True
-                else:
-                    print(f"⚠️ 無法獲取會話 ID，將使用空會話 ID")
-                    return True  # 即使沒有會話 ID 也繼續
-            else:
-                print(f"⚠️ 會話初始化失敗，將嘗試不使用會話 ID: {response.text[:100]}...")
-                return True  # 繼續嘗試，不阻塞流程
-                
-        except Exception as e:
-            print(f"⚠️ 初始化聊天會話時發生錯誤: {str(e)}")
-            print("將繼續嘗試不使用會話 ID")
-            return True  # 不阻塞流程
+        # 這個應用需要特定變數，所以跳過初始化步驟
+        print(f"⚠️ 此應用需要特定的輸入變數，跳過初始化聊天步驟")
+        print(f"直接進行文件上傳和分析流程")
+        return True
     
     def step_2_upload_file(self, file_path):
         """步驟 2: 上傳文件"""
@@ -248,36 +207,47 @@ class ReportAnalyzerWorkflow:
                 print(f"   輸入變數: {list(chat_data.get('inputs', {}).keys())}")
                 print(f"   文件引用: {'是' if 'files' in chat_data else '否'}")
                 
-                response = self.session.post(
-                    self.config['api_url'],
-                    json=chat_data,
-                    headers=headers,
-                    timeout=self.config['timeout']
-                )
+                # 針對格式 5 增加特別的調試信息
+                if i == 5:
+                    print(f"   🎯 格式 5 詳細信息:")
+                    print(f"      report 類型: {type(chat_data['inputs']['report'])}")
+                    print(f"      report 內容: {chat_data['inputs']['report']}")
                 
-                print(f"   響應狀態: {response.status_code}")
-                
-                if response.status_code == 200:
-                    response_data = response.json()
-                    if 'answer' in response_data:
-                        answer = response_data['answer']
-                        print(f"✅ 聊天分析成功！使用格式 {i}")
-                        
-                        # 更新會話 ID
-                        if 'conversation_id' in response_data:
-                            self.conversation_id = response_data['conversation_id']
-                            print(f"🔄 更新會話 ID: {self.conversation_id}")
-                        
-                        return answer
+                try:
+                    response = self.session.post(
+                        self.config['api_url'],
+                        json=chat_data,
+                        headers=headers,
+                        timeout=self.config['timeout']
+                    )
+                    
+                    print(f"   響應狀態: {response.status_code}")
+                    
+                    if response.status_code == 200:
+                        response_data = response.json()
+                        if 'answer' in response_data:
+                            answer = response_data['answer']
+                            print(f"✅ 聊天分析成功！使用格式 {i}")
+                            
+                            # 更新會話 ID
+                            if 'conversation_id' in response_data:
+                                self.conversation_id = response_data['conversation_id']
+                                print(f"🔄 更新會話 ID: {self.conversation_id}")
+                            
+                            return answer
+                        else:
+                            print(f"⚠️ 響應無答案字段: {list(response_data.keys())}")
                     else:
-                        print(f"⚠️ 響應無答案字段: {list(response_data.keys())}")
-                else:
-                    try:
-                        error_data = response.json()
-                        error_text = f"Code: {error_data.get('code', 'unknown')}, Message: {error_data.get('message', 'unknown')}"
-                    except:
-                        error_text = response.text[:200] if response.text else "無錯誤信息"
-                    print(f"   錯誤: {error_text}")
+                        try:
+                            error_data = response.json()
+                            error_text = f"Code: {error_data.get('code', 'unknown')}, Message: {error_data.get('message', 'unknown')}"
+                        except:
+                            error_text = response.text[:200] if response.text else "無錯誤信息"
+                        print(f"   錯誤: {error_text}")
+                        
+                except Exception as req_error:
+                    print(f"   ❌ 請求異常: {str(req_error)}")
+                    continue
             
             print(f"❌ 所有聊天格式都失敗")
             return None
@@ -305,7 +275,7 @@ class ReportAnalyzerWorkflow:
         
         # 設置默認查詢
         if not query:
-            query = f"請分析這個文件，提供詳細的分析結果、發現的問題和改進建議。"
+            query = f""
         
         # 步驟 1: 初始化聊天會話（模擬打開工作室）
         print(f"\n📱 模擬操作：點擊 Dify 工作室「預覽」按鈕")
