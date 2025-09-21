@@ -2282,7 +2282,7 @@ def chat_usage_statistics(request):
         type_display_map = {
             'know_issue_chat': 'Protocol RAG',
             'log_analyze_chat': 'AI OCR', 
-            'rvt_log_analyze_chat': 'RVT Assistant'
+            'rvt_assistant_chat': 'RVT Assistant'
         }
         
         for stat in chat_type_stats:
@@ -2307,7 +2307,7 @@ def chat_usage_statistics(request):
             # 各類型當日使用次數
             know_issue_count = day_usage.filter(chat_type='know_issue_chat').count()
             log_analyze_count = day_usage.filter(chat_type='log_analyze_chat').count()
-            rvt_log_count = day_usage.filter(chat_type='rvt_log_analyze_chat').count()
+            rvt_assistant_count = day_usage.filter(chat_type='rvt_assistant_chat').count()
             total_count = day_usage.count()
             
             daily_stats.append({
@@ -2315,7 +2315,7 @@ def chat_usage_statistics(request):
                 'total': total_count,
                 'know_issue_chat': know_issue_count,
                 'log_analyze_chat': log_analyze_count,
-                'rvt_log_analyze_chat': rvt_log_count
+                'rvt_assistant_chat': rvt_assistant_count
             })
         
         # 3. 總體統計
@@ -2371,7 +2371,7 @@ def record_chat_usage(request):
         session_id = data.get('session_id', '')
         
         # 驗證聊天類型
-        valid_types = ['know_issue_chat', 'log_analyze_chat', 'rvt_log_analyze_chat', 'rvt_assistant_chat']
+        valid_types = ['know_issue_chat', 'log_analyze_chat', 'rvt_assistant_chat']
         if chat_type not in valid_types:
             return Response({
                 'success': False,

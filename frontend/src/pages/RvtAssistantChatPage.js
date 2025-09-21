@@ -331,6 +331,9 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
         errorText = 'RVT Assistant 分析時間較長，請稍後再試';
       } else if (error.message.includes('timeout') || error.message.includes('超時')) {
         errorText = 'RVT Assistant 分析超時，建議簡化問題描述後重試';
+      } else if (error.message.includes('guest_auth_issue')) {
+        errorText = '🔄 檢測到認證狀態問題，但 RVT Assistant 支援訪客使用。系統將自動重試...';
+        // 可以考慮自動重試邏輯
       } else if (error.message.includes('403') || error.message.includes('Forbidden')) {
         errorText = '訪客可以使用 RVT Assistant，無需登入。請稍後再試';
       } else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
