@@ -1,0 +1,308 @@
+/* RVT Assistant Chat Page 樣式 - 仿效 AI OCR 風格 */
+
+.rvt-assistant-chat-page {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f5f5f5;
+}
+
+.messages-container {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  background: #f5f5f5;
+  background-image: 
+    radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.05) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.05) 0%, transparent 50%);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+
+.messages-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.messages-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.messages-container::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.messages-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.message-wrapper {
+  margin-bottom: 16px;
+  display: flex;
+  width: 100%;
+  animation: fadeInUp 0.3s ease-out;
+}
+
+.message-wrapper.user {
+  justify-content: flex-end;
+}
+
+.message-wrapper.assistant {
+  justify-content: flex-start;
+}
+
+.message-content {
+  display: flex;
+  align-items: flex-start;
+  max-width: 70%;
+  gap: 8px;
+}
+
+.message-wrapper.user .message-content {
+  flex-direction: row-reverse;
+}
+
+.message-card {
+  border-radius: 18px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: none;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.message-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.message-card.user {
+  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+  color: white;
+}
+
+.message-card.user:hover {
+  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.3);
+}
+
+.message-card.user .ant-card-body {
+  color: white;
+}
+
+.message-card.user .message-text {
+  color: white;
+}
+
+.message-card.user .message-text .ant-typography {
+  color: white !important;
+}
+
+.message-card.assistant {
+  background: white;
+  border: 1px solid #e8e8e8;
+}
+
+.message-text {
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.message-time {
+  font-size: 11px;
+  opacity: 0.7;
+  text-align: right;
+  margin-top: 4px;
+}
+
+.message-card.user .message-time {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.message-card.assistant .message-time {
+  color: #999;
+}
+
+.input-area {
+  background: white;
+  padding: 16px 24px;
+  border-top: 1px solid #e8e8e8;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.input-container {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.input-container .ant-input {
+  flex: 1;
+  padding: 12px 16px;
+  font-size: 14px;
+  border: 1px solid #d9d9d9;
+  transition: all 0.3s;
+  border-radius: 20px;
+}
+
+.input-container .ant-input:focus {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+}
+
+/* RVT Assistant 特定樣式 */
+.rvt-avatar {
+  background: linear-gradient(135deg, #52c41a 0%, #389e0d 100%) !important;
+}
+
+.rvt-loading-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #666;
+}
+
+.rvt-loading-text {
+  font-size: 13px;
+  color: #666;
+}
+
+/* 表格樣式優化 */
+.message-text .ant-table {
+  font-size: 12px;
+  margin: 8px 0;
+}
+
+.message-text .ant-table-thead > tr > th {
+  background: #fafafa;
+  font-weight: 600;
+  font-size: 12px;
+  padding: 8px 12px;
+}
+
+.message-text .ant-table-tbody > tr > td {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+/* 代碼塊樣式 */
+.message-text code {
+  background: #f6f8fa;
+  border: 1px solid #e1e4e8;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 12px;
+  font-family: 'Monaco', 'Consolas', 'Courier New', monospace;
+}
+
+.message-card.user .message-text code {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
+/* 引用樣式 */
+.message-text blockquote {
+  border-left: 4px solid #1890ff;
+  padding-left: 12px;
+  margin: 8px 0;
+  font-style: italic;
+  color: #666;
+  background: #f8f9ff;
+  padding: 8px 12px;
+  border-radius: 0 4px 4px 0;
+}
+
+.message-card.user .message-text blockquote {
+  border-left-color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* 列表樣式 */
+.message-text ul, .message-text ol {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.message-text li {
+  margin-bottom: 4px;
+  line-height: 1.5;
+}
+
+/* 標題樣式 */
+.message-text h1, .message-text h2, .message-text h3, 
+.message-text h4, .message-text h5, .message-text h6 {
+  color: #333;
+  margin: 12px 0 8px 0;
+  font-weight: 600;
+}
+
+.message-card.user .message-text h1,
+.message-card.user .message-text h2,
+.message-card.user .message-text h3,
+.message-card.user .message-text h4,
+.message-card.user .message-text h5,
+.message-card.user .message-text h6 {
+  color: white !important;
+}
+
+/* 分隔線樣式 */
+.message-text hr {
+  border: none;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  margin: 12px 0;
+}
+
+.message-card.user .message-text hr {
+  border-top-color: rgba(255, 255, 255, 0.3);
+}
+
+/* 動畫效果 */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Loading 動畫 */
+.message-card .ant-spin {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+  .message-content {
+    max-width: 85%;
+  }
+  
+  .messages-container {
+    padding: 12px;
+  }
+  
+  .input-area {
+    padding: 12px 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .message-text {
+    font-size: 13px;
+  }
+  
+  .input-container .ant-input {
+    font-size: 13px;
+  }
+  
+  .input-container button {
+    width: 36px !important;
+    height: 36px !important;
+  }
+}

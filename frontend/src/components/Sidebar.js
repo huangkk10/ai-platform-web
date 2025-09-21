@@ -34,7 +34,7 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       label: 'AI OCR',
     },
     {
-      key: 'rvt-log-analyze-chat',
+      key: 'rvt-assistant-chat',
       icon: <FileTextOutlined />,
       label: 'RVT Assistant',
     },
@@ -65,8 +65,8 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       case 'log-analyze-chat':
         navigate('/log-analyze-chat');
         break;
-      case 'rvt-log-analyze-chat':
-        navigate('/rvt-log-analyze-chat');
+      case 'rvt-assistant-chat':
+        navigate('/rvt-assistant-chat');
         break;
       case 'log-analyze':
         navigate('/log-analyze');

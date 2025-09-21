@@ -2006,7 +2006,7 @@ def record_chat_usage(request):
         session_id = data.get('session_id', '')
         
         # 驗證聊天類型
-        valid_types = ['know_issue_chat', 'log_analyze_chat', 'rvt_log_analyze_chat']
+        valid_types = ['know_issue_chat', 'log_analyze_chat', 'rvt_log_analyze_chat', 'rvt_assistant_chat']
         if chat_type not in valid_types:
             return Response({
                 'success': False,
@@ -2044,4 +2044,203 @@ def record_chat_usage(request):
         return Response({
             'success': False,
             'error': f'記錄使用情況失敗: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def rvt_guide_chat(request):
+    """
+    RVT Guide Chat API - 使用 RVT_GUIDE 配置
+    """
+    try:
+        import requests
+        
+        data = request.data
+        message = data.get('message', '').strip()
+        conversation_id = data.get('conversation_id', '')
+        
+        if not message:
+            return Response({
+                'success': False,
+                'error': '訊息內容不能為空'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # 使用 RVT_GUIDE 配置
+        try:
+            from library.config.dify_app_configs import get_rvt_guide_config
+            rvt_config = get_rvt_guide_config()
+        except Exception as config_error:
+            logger.error(f"Failed to load RVT Guide config: {config_error}")
+            return Response({
+                'success': False,
+                'error': f'RVT Guide 配置載入失敗: {str(config_error)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        # 檢查必要配置
+        api_url = rvt_config.get('api_url')
+        api_key = rvt_config.get('api_key')
+        
+        if not api_url or not api_key:
+            return Response({
+                'success': False,
+                'error': 'RVT Guide API 配置不完整'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        # 記錄請求
+        logger.info(f"RVT Guide chat request from user: {request.user.username if request.user.is_authenticated else 'guest'}")
+        logger.debug(f"RVT Guide message: {message[:100]}...")
+        
+        # 準備請求
+        headers = {
+            'Authorization': f'Bearer {api_key}',
+            'Content-Type': 'application/json'
+        }
+        
+        payload = {
+            'inputs': {},
+            'query': message,
+            'response_mode': 'blocking',
+            'user': f"rvt_user_{request.user.id if request.user.is_authenticated else 'guest'}"
+        }
+        
+        if conversation_id:
+            payload['conversation_id'] = conversation_id
+        
+        start_time = time.time()
+        
+        # 發送請求到 Dify RVT Guide
+        try:
+            response = requests.post(
+                api_url,
+                headers=headers,
+                json=payload,
+                timeout=rvt_config.get('timeout', 60)  # 使用配置中的超時時間
+            )
+        except requests.exceptions.Timeout:
+            return Response({
+                'success': False,
+                'error': 'RVT Guide 分析超時，請稍後再試或簡化問題描述'
+            }, status=status.HTTP_408_REQUEST_TIMEOUT)
+        except requests.exceptions.ConnectionError:
+            return Response({
+                'success': False,
+                'error': 'RVT Guide 連接失敗，請檢查網路連接'
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        except Exception as req_error:
+            return Response({
+                'success': False,
+                'error': f'RVT Guide API 請求錯誤: {str(req_error)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        elapsed = time.time() - start_time
+        
+        if response.status_code == 200:
+            result = response.json()
+            
+            # 記錄成功的聊天
+            logger.info(f"RVT Guide chat success for user {request.user.username if request.user.is_authenticated else 'guest'}: response_time={elapsed:.2f}s")
+            
+            return Response({
+                'success': True,
+                'answer': result.get('answer', ''),
+                'conversation_id': result.get('conversation_id', ''),
+                'message_id': result.get('message_id', ''),
+                'response_time': elapsed,
+                'metadata': result.get('metadata', {}),
+                'usage': result.get('usage', {}),
+                'workspace': rvt_config.get('workspace', 'RVT_Guide'),
+                'app_name': rvt_config.get('app_name', 'RVT Guide')
+            }, status=status.HTTP_200_OK)
+        else:
+            # 特殊處理 404 錯誤（對話不存在）
+            if response.status_code == 404:
+                try:
+                    response_data = response.json()
+                    if 'Conversation Not Exists' in response_data.get('message', ''):
+                        logger.warning(f"RVT Guide conversation {conversation_id} not exists, retrying without conversation_id")
+                        
+                        # 重新發送請求，不帶 conversation_id
+                        retry_payload = {
+                            'inputs': {},
+                            'query': message,
+                            'response_mode': 'blocking',
+                            'user': f"rvt_user_{request.user.id if request.user.is_authenticated else 'guest'}"
+                        }
+                        
+                        retry_response = requests.post(
+                            api_url,
+                            headers=headers,
+                            json=retry_payload,
+                            timeout=rvt_config.get('timeout', 60)
+                        )
+                        
+                        if retry_response.status_code == 200:
+                            retry_result = retry_response.json()
+                            logger.info(f"RVT Guide chat retry success")
+                            
+                            return Response({
+                                'success': True,
+                                'answer': retry_result.get('answer', ''),
+                                'conversation_id': retry_result.get('conversation_id', ''),
+                                'message_id': retry_result.get('message_id', ''),
+                                'response_time': elapsed,
+                                'metadata': retry_result.get('metadata', {}),
+                                'usage': retry_result.get('usage', {}),
+                                'warning': '原對話已過期，已開始新對話',
+                                'workspace': rvt_config.get('workspace', 'RVT_Guide'),
+                                'app_name': rvt_config.get('app_name', 'RVT Guide')
+                            }, status=status.HTTP_200_OK)
+                        
+                except Exception as retry_error:
+                    logger.error(f"RVT Guide retry request failed: {str(retry_error)}")
+            
+            error_msg = f"RVT Guide API 錯誤: {response.status_code} - {response.text}"
+            logger.error(f"RVT Guide chat error: {error_msg}")
+            
+            return Response({
+                'success': False,
+                'error': error_msg
+            }, status=response.status_code)
+        
+    except Exception as e:
+        logger.error(f"RVT Guide chat error: {str(e)}")
+        return Response({
+            'success': False,
+            'error': f'RVT Guide 服務器錯誤: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@csrf_exempt
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def rvt_guide_config(request):
+    """
+    獲取 RVT Guide 配置信息
+    """
+    try:
+        from library.config.dify_app_configs import get_rvt_guide_config
+        config = get_rvt_guide_config()
+        
+        # 返回安全的配置信息（不包含 API key）
+        safe_config = {
+            'app_name': config.get('app_name', 'RVT Guide'),
+            'workspace': config.get('workspace', 'RVT_Guide'),
+            'description': config.get('description', 'RVT 相關指導和協助'),
+            'features': config.get('features', ['RVT 指導', '技術支援', 'RVT 流程管理']),
+            'timeout': config.get('timeout', 60),
+            'response_mode': config.get('response_mode', 'blocking')
+        }
+        
+        return Response({
+            'success': True,
+            'config': safe_config
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Get RVT Guide config error: {str(e)}")
+        return Response({
+            'success': False,
+            'error': f'獲取 RVT Guide 配置失敗: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
