@@ -1,0 +1,356 @@
+"""
+開源向量嵌入服務 - 替代 OpenAI Embedding API
+使用 Sentence Transformers 來生成向量嵌入
+"""
+import logging
+from typing import List, Optional, Union
+import numpy as np
+from sentence_transformers import SentenceTransformer
+import hashlib
+from django.conf import settings
+from django.db import connection
+import json
+
+logger = logging.getLogger(__name__)
+
+class OpenSourceEmbeddingService:
+    """開源嵌入服務 - 使用 Sentence Transformers"""
+    
+    # 預定義模型配置
+    MODEL_CONFIGS = {
+        'lightweight': {
+            'name': 'paraphrase-multilingual-MiniLM-L12-v2',
+            'dimension': 384,
+            'description': '輕量級多語言模型，平衡效能與精準度'
+        },
+        'standard': {
+            'name': 'paraphrase-multilingual-mpnet-base-v2', 
+            'dimension': 768,
+            'description': '標準多語言模型，更高精準度'
+        },
+        'high_precision': {
+            'name': 'sentence-transformers/all-mpnet-base-v2',
+            'dimension': 768,
+            'description': '高精準度模型，主要支援英文'
+        }
+    }
+    
+    def __init__(self, model_type: str = 'standard'):
+        """
+        初始化嵌入服務
+        
+        Args:
+            model_type: 模型類型 ('lightweight', 'standard', 'high_precision')
+        """
+        if model_type not in self.MODEL_CONFIGS:
+            # 如果是舊的模型名稱，回退到輕量級模型
+            if isinstance(model_type, str) and 'MiniLM' in model_type:
+                model_type = 'lightweight'
+            else:
+                model_type = 'standard'  # 默認使用 768 維標準模型
+            
+        config = self.MODEL_CONFIGS[model_type]
+        self.model_name = config['name']
+        self.embedding_dimension = config['dimension']
+        self.model_type = model_type
+        self._model = None
+        
+        logger.info(f"選擇嵌入模型: {config['description']} ({self.embedding_dimension}維)")
+        
+    @property
+    def model(self):
+        """延遲載入模型"""
+        if self._model is None:
+            logger.info(f"載入 Sentence Transformers 模型: {self.model_name}")
+            try:
+                self._model = SentenceTransformer(self.model_name)
+                logger.info("模型載入成功")
+            except Exception as e:
+                logger.error(f"模型載入失敗: {str(e)}")
+                raise
+        return self._model
+    
+    def generate_embedding(self, text: str) -> List[float]:
+        """
+        為單個文本生成向量嵌入
+        
+        Args:
+            text: 要處理的文本
+            
+        Returns:
+            向量嵌入列表
+        """
+        try:
+            if not text or not text.strip():
+                return [0.0] * self.embedding_dimension
+                
+            # 使用模型生成嵌入
+            embedding = self.model.encode(text.strip())
+            
+            # 確保返回 Python 列表格式
+            if isinstance(embedding, np.ndarray):
+                embedding = embedding.tolist()
+                
+            return embedding
+            
+        except Exception as e:
+            logger.error(f"生成嵌入失敗: {str(e)}")
+            # 返回零向量作為備用
+            return [0.0] * self.embedding_dimension
+    
+    def generate_embeddings_batch(self, texts: List[str]) -> List[List[float]]:
+        """
+        批量生成向量嵌入
+        
+        Args:
+            texts: 文本列表
+            
+        Returns:
+            向量嵌入列表的列表
+        """
+        try:
+            if not texts:
+                return []
+                
+            # 過濾空文本
+            valid_texts = [text.strip() for text in texts if text and text.strip()]
+            
+            if not valid_texts:
+                return [[0.0] * self.embedding_dimension] * len(texts)
+            
+            # 批量生成嵌入
+            embeddings = self.model.encode(valid_texts)
+            
+            # 轉換為 Python 列表格式
+            if isinstance(embeddings, np.ndarray):
+                embeddings = embeddings.tolist()
+                
+            return embeddings
+            
+        except Exception as e:
+            logger.error(f"批量生成嵌入失敗: {str(e)}")
+            # 返回零向量作為備用
+            return [[0.0] * self.embedding_dimension] * len(texts)
+    
+    def get_content_hash(self, content: str) -> str:
+        """生成內容哈希值，用於檢查內容是否變更"""
+        return hashlib.md5(content.encode('utf-8')).hexdigest()
+    
+    def store_document_embedding(self, source_table: str, source_id: int, content: str) -> bool:
+        """
+        存儲文檔嵌入到資料庫
+        
+        Args:
+            source_table: 來源表名
+            source_id: 來源記錄ID
+            content: 文檔內容
+            
+        Returns:
+            是否成功存儲
+        """
+        try:
+            # 生成內容哈希
+            content_hash = self.get_content_hash(content)
+            
+            # 檢查是否已存在且內容未變更
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT content_hash FROM document_embeddings 
+                    WHERE source_table = %s AND source_id = %s
+                """, [source_table, source_id])
+                
+                existing = cursor.fetchone()
+                if existing and existing[0] == content_hash:
+                    logger.info(f"文檔 {source_table}:{source_id} 內容未變更，跳過嵌入生成")
+                    return True
+            
+            # 生成嵌入向量
+            embedding = self.generate_embedding(content)
+            
+            # 存儲到資料庫
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    INSERT INTO document_embeddings (source_table, source_id, text_content, content_hash, embedding)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON CONFLICT (source_table, source_id)
+                    DO UPDATE SET 
+                        text_content = EXCLUDED.text_content,
+                        content_hash = EXCLUDED.content_hash,
+                        embedding = EXCLUDED.embedding,
+                        updated_at = CURRENT_TIMESTAMP
+                """, [source_table, source_id, content, content_hash, json.dumps(embedding)])
+                
+            logger.info(f"成功存儲文檔嵌入: {source_table}:{source_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"存儲文檔嵌入失敗: {str(e)}")
+            return False
+    
+    def search_similar_documents(self, query: str, source_table: str = None, limit: int = 5, threshold: float = 0.0) -> List[dict]:
+        """
+        搜索相似文檔
+        
+        Args:
+            query: 查詢文本
+            source_table: 限制搜索的來源表（可選）
+            limit: 返回結果數量限制
+            threshold: 相似度閾值
+            
+        Returns:
+            相似文檔列表
+        """
+        try:
+            # 生成查詢向量
+            query_embedding = self.generate_embedding(query)
+            
+            # 構建 SQL 查詢
+            sql_parts = []
+            params = []
+            
+            if source_table:
+                sql_parts.append("WHERE de.source_table = %s")
+                params.append(source_table)
+            
+            sql = f"""
+                SELECT 
+                    de.source_table,
+                    de.source_id,
+                    1 - (de.embedding <=> %s) as similarity_score,
+                    de.created_at,
+                    de.updated_at
+                FROM document_embeddings de
+                {' '.join(sql_parts)}
+                ORDER BY de.embedding <=> %s
+                LIMIT %s
+            """
+            
+            params = [json.dumps(query_embedding)] + params + [json.dumps(query_embedding), limit]
+            
+            results = []
+            with connection.cursor() as cursor:
+                cursor.execute(sql, params)
+                
+                for row in cursor.fetchall():
+                    source_table_name, source_id, similarity_score, created_at, updated_at = row
+                    
+                    # 過濾低於閾值的結果
+                    if similarity_score >= threshold:
+                        results.append({
+                            'source_table': source_table_name,
+                            'source_id': source_id,
+                            'similarity_score': float(similarity_score),
+                            'created_at': created_at,
+                            'updated_at': updated_at
+                        })
+            
+            logger.info(f"向量搜索完成，返回 {len(results)} 個結果")
+            return results
+            
+        except Exception as e:
+            logger.error(f"向量搜索失敗: {str(e)}")
+            return []
+
+# 全局服務實例
+_embedding_service = None
+
+def get_embedding_service(model_type: str = 'standard') -> OpenSourceEmbeddingService:
+    """
+    獲取全局嵌入服務實例
+    
+    Args:
+        model_type: 模型類型 ('lightweight', 'standard', 'high_precision')
+                   - lightweight: 384維，速度快，適合小規模應用
+                   - standard: 768維，平衡精準度與效能 (默認)
+                   - high_precision: 768維，最高精準度
+    """
+    global _embedding_service
+    if _embedding_service is None or _embedding_service.model_type != model_type:
+        logger.info(f"初始化嵌入服務，模型類型: {model_type}")
+        _embedding_service = OpenSourceEmbeddingService(model_type)
+    return _embedding_service
+
+def search_rvt_guide_with_vectors(query: str, limit: int = 5, threshold: float = 0.3) -> List[dict]:
+    """
+    使用向量搜索 RVT Guide
+    
+    Args:
+        query: 查詢文本
+        limit: 返回結果數量
+        threshold: 相似度閾值
+        
+    Returns:
+        搜索結果列表
+    """
+    service = get_embedding_service()
+    
+    # 搜索相似向量
+    vector_results = service.search_similar_documents(
+        query=query,
+        source_table='rvt_guide',
+        limit=limit,
+        threshold=threshold
+    )
+    
+    if not vector_results:
+        logger.info("向量搜索無結果")
+        return []
+    
+    # 獲取完整的 RVT Guide 資料
+    source_ids = [result['source_id'] for result in vector_results]
+    
+    try:
+        with connection.cursor() as cursor:
+            placeholders = ','.join(['%s'] * len(source_ids))
+            cursor.execute(f"""
+                SELECT 
+                    id, document_name, title, main_category, sub_category,
+                    content, keywords, question_type, target_user, status,
+                    created_at, updated_at
+                FROM rvt_guide
+                WHERE id IN ({placeholders})
+            """, source_ids)
+            
+            columns = [desc[0] for desc in cursor.description]
+            rvt_guides = {}
+            
+            for row in cursor.fetchall():
+                rvt_data = dict(zip(columns, row))
+                rvt_guides[rvt_data['id']] = rvt_data
+        
+        # 組合結果，保持向量搜索的順序
+        final_results = []
+        for vector_result in vector_results:
+            source_id = vector_result['source_id']
+            if source_id in rvt_guides:
+                rvt_data = rvt_guides[source_id]
+                
+                # 格式化內容用於 Dify
+                content = f"文檔標題: {rvt_data['title']}\n"
+                content += f"主分類: {rvt_data['main_category']}\n"
+                content += f"子分類: {rvt_data['sub_category']}\n"
+                content += f"內容: {rvt_data['content']}\n"
+                if rvt_data['keywords']:
+                    content += f"關鍵字: {rvt_data['keywords']}"
+                
+                final_results.append({
+                    'id': str(source_id),
+                    'title': rvt_data['title'],
+                    'content': content,
+                    'score': vector_result['similarity_score'],
+                    'metadata': {
+                        'document_name': rvt_data['document_name'],
+                        'main_category': rvt_data['main_category'],
+                        'sub_category': rvt_data['sub_category'],
+                        'question_type': rvt_data['question_type'],
+                        'target_user': rvt_data['target_user'],
+                        'source': 'rvt_guide_vector_search'
+                    }
+                })
+        
+        logger.info(f"向量搜索返回 {len(final_results)} 個 RVT Guide 結果")
+        return final_results
+        
+    except Exception as e:
+        logger.error(f"獲取 RVT Guide 詳細資料失敗: {str(e)}")
+        return []

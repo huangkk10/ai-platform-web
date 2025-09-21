@@ -18,6 +18,14 @@ import time
 from .models import UserProfile, Project, Task, Employee, DifyEmployee, KnowIssue, TestClass
 from .serializers import UserSerializer, UserProfileSerializer, ProjectSerializer, TaskSerializer, EmployeeSerializer, DifyEmployeeSerializer, DifyEmployeeListSerializer, KnowIssueSerializer, TestClassSerializer
 
+# 導入向量搜索服務
+try:
+    from .services.embedding_service import search_rvt_guide_with_vectors, get_embedding_service
+    VECTOR_SEARCH_AVAILABLE = True
+except ImportError as e:
+    VECTOR_SEARCH_AVAILABLE = False
+    print(f"向量搜索服務不可用: {e}")  # 暫時使用 print，logger 會在後面定義
+
 # 添加 library 路徑
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../'))
 
@@ -35,7 +43,10 @@ logger = logging.getLogger(__name__)
 def preprocess_chinese_query(query):
     """
     預處理中文查詢，提取關鍵字並優化搜索效果
+    支援向量搜索和關鍵字搜索的雙重優化
     """
+    logger.debug(f"預處理原始查詢: '{query}'")
+    
     # 移除問號和其他標點符號
     processed = query.replace('？', '').replace('?', '').replace('。', '').replace('，', ' ').replace(',', ' ')
     
@@ -691,9 +702,10 @@ def dify_knowledge_search(request):
                 'error_msg': 'Query parameter is required'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        # 預處理查詢，提取關鍵字（針對中文問句優化）
-        processed_query = preprocess_chinese_query(query)
-        logger.info(f"Original query: '{query}' -> Processed: '{processed_query}'")
+        # 暫時註釋預處理功能，直接使用原始查詢測試向量搜索效果
+        # processed_query = preprocess_chinese_query(query)
+        processed_query = query  # 直接使用原始查詢
+        logger.info(f"Using original query directly: '{processed_query}'")
         
         # 搜索 PostgreSQL 知識
         logger.info(f"Searching for query: '{processed_query}' with limit: {top_k}")
@@ -703,8 +715,24 @@ def dify_knowledge_search(request):
             search_results = search_know_issue_knowledge(processed_query, limit=top_k)
             logger.info(f"Know Issue search results count: {len(search_results)}")
         elif knowledge_id in ['rvt_guide_db', 'rvt_guide', 'rvt-guide', 'rvt_user_guide']:
-            search_results = search_rvt_guide_knowledge(processed_query, limit=top_k)
-            logger.info(f"RVT Guide search results count: {len(search_results)}")
+            # 優先使用向量搜索，如果不可用則回退到關鍵字搜索
+            if VECTOR_SEARCH_AVAILABLE:
+                try:
+                    search_results = search_rvt_guide_with_vectors(processed_query, limit=top_k, threshold=0.1)
+                    logger.info(f"RVT Guide vector search results count: {len(search_results)}")
+                    
+                    # 如果向量搜索沒有結果，回退到關鍵字搜索
+                    if not search_results:
+                        logger.info("向量搜索無結果，回退到關鍵字搜索")
+                        search_results = search_rvt_guide_knowledge(processed_query, limit=top_k)
+                        logger.info(f"RVT Guide keyword search results count: {len(search_results)}")
+                except Exception as e:
+                    logger.error(f"向量搜索失敗，回退到關鍵字搜索: {e}")
+                    search_results = search_rvt_guide_knowledge(processed_query, limit=top_k)
+                    logger.info(f"RVT Guide fallback search results count: {len(search_results)}")
+            else:
+                search_results = search_rvt_guide_knowledge(processed_query, limit=top_k)
+                logger.info(f"RVT Guide keyword search results count: {len(search_results)}")
         else:
             # 默認搜索員工知識庫
             search_results = search_postgres_knowledge(processed_query, limit=top_k)
