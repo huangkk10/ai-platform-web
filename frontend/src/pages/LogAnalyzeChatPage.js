@@ -325,12 +325,19 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
         // 更新對話 ID
         if (data.conversation_id) {
           setConversationId(data.conversation_id);
+          saveConversationId(data.conversation_id);
+        }
+        
+        // 如果有警告信息（比如對話過期重新開始），顯示給用戶
+        let assistantContent = data.answer;
+        if (data.warning) {
+          assistantContent = `⚠️ ${data.warning}\n\n${assistantContent}`;
         }
 
         const assistantMessage = {
           id: Date.now() + 1,
           type: 'assistant',
-          content: data.answer,
+          content: assistantContent,
           timestamp: new Date(),
           metadata: data.metadata,
           usage: data.usage,
@@ -348,7 +355,23 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
           sessionId: data.conversation_id
         });
       } else {
+        // 處理 API 返回的錯誤
         const errorMessage = data.error || `API 請求失敗: ${response.status}`;
+        
+        // 檢查是否是對話過期錯誤
+        if (errorMessage.includes('Conversation Not Exists') || 
+            errorMessage.includes('對話已過期') || 
+            errorMessage.includes('conversation_id') ||
+            errorMessage.includes('404')) {
+          // 清除無效的對話ID
+          console.log('清除無效的對話ID:', conversationId);
+          setConversationId('');
+          localStorage.removeItem(CONVERSATION_ID_KEY);
+          
+          // 提示用戶重新發送
+          throw new Error('對話已過期，請重新發送您的問題。系統將自動開始新對話。');
+        }
+        
         throw new Error(errorMessage);
       }
 
@@ -381,6 +404,8 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
         errorText = '訪客可以使用聊天功能，無需登入。請稍後再試';
       } else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
         errorText = '用戶會話可能已過期，但可以繼續使用聊天功能';
+      } else if (error.message.includes('對話已過期') || error.message.includes('重新發送您的問題')) {
+        errorText = error.message; // 直接使用上面設定的錯誤消息
       } else {
         errorText = error.message;
       }

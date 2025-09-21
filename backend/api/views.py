@@ -1464,6 +1464,47 @@ def dify_chat(request):
                 'usage': result.get('usage', {})
             }, status=status.HTTP_200_OK)
         else:
+            # 特殊處理 404 錯誤（對話不存在）
+            if response.status_code == 404:
+                # 如果是對話不存在的錯誤，嘗試不帶 conversation_id 重新發送
+                try:
+                    response_data = response.json()
+                    if 'Conversation Not Exists' in response_data.get('message', ''):
+                        logger.warning(f"Conversation {conversation_id} not exists, retrying without conversation_id")
+                        
+                        # 重新發送請求，不帶 conversation_id
+                        retry_payload = {
+                            'inputs': {},
+                            'query': message,
+                            'response_mode': 'blocking',
+                            'user': f"web_user_{request.user.id if request.user.is_authenticated else 'guest'}"
+                        }
+                        
+                        retry_response = requests.post(
+                            api_url,
+                            headers=headers,
+                            json=retry_payload,
+                            timeout=120
+                        )
+                        
+                        if retry_response.status_code == 200:
+                            retry_result = retry_response.json()
+                            logger.info(f"Dify chat retry success for user {request.user.username}")
+                            
+                            return Response({
+                                'success': True,
+                                'answer': retry_result.get('answer', ''),
+                                'conversation_id': retry_result.get('conversation_id', ''),
+                                'message_id': retry_result.get('message_id', ''),
+                                'response_time': elapsed,
+                                'metadata': retry_result.get('metadata', {}),
+                                'usage': retry_result.get('usage', {}),
+                                'warning': '原對話已過期，已開始新對話'
+                            }, status=status.HTTP_200_OK)
+                        
+                except Exception as retry_error:
+                    logger.error(f"Retry request failed: {str(retry_error)}")
+            
             error_msg = f"Dify API 錯誤: {response.status_code} - {response.text}"
             logger.error(f"Dify chat error for user {request.user.username}: {error_msg}")
             
