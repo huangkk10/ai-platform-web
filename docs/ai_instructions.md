@@ -1,5 +1,21 @@
 # 更新後的 AI 指令文件
 
+## 📚 重要文檔索引
+
+### 🔍 向量搜尋系統
+- **完整指南**: `/docs/vector-search-guide.md` - 向量搜尋系統的完整建立和使用方法
+- **快速參考**: `/docs/vector-search-quick-reference.md` - 常用命令和故障排除
+- **AI 專用指南**: `/docs/ai-vector-search-guide.md` - AI 助手的操作指南和最佳實踐
+
+### 🤖 AI 整合
+- **Dify 外部知識庫**: `/docs/guide/dify-external-knowledge-api-guide.md`
+- **API 整合**: `/docs/guide/api-integration.md`
+
+### 💻 開發指南
+- **後端開發**: `/docs/guide/backend-development.md`
+- **前端開發**: `/docs/guide/frontend-development.md`
+- **Docker 安裝**: `/docs/guide/docker-installation.md`
+
 ````markdown
 // filepath: [ai_instructions.md](http://_vscodecontentref_/2)
 ## 給 AI 的遠端主機操作說明文件
