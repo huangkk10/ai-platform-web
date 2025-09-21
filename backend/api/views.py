@@ -1522,3 +1522,165 @@ def dify_config_info(request):
             'success': False,
             'error': f'獲取配置失敗: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def chat_usage_statistics(request):
+    """
+    獲取聊天使用統計數據
+    """
+    try:
+        from django.db.models import Count, Avg
+        from django.utils import timezone
+        from datetime import datetime, timedelta
+        from .models import ChatUsage
+        
+        # 獲取日期範圍參數
+        days = int(request.GET.get('days', 30))  # 默認30天
+        end_date = timezone.now()
+        start_date = end_date - timedelta(days=days)
+        
+        # 基礎查詢集
+        base_queryset = ChatUsage.objects.filter(
+            created_at__gte=start_date,
+            created_at__lte=end_date
+        )
+        
+        # 1. 各聊天類型使用次數統計 (圓餅圖數據)
+        chat_type_stats = base_queryset.values('chat_type').annotate(
+            count=Count('id'),
+            avg_response_time=Avg('response_time')
+        ).order_by('-count')
+        
+        pie_chart_data = []
+        type_display_map = {
+            'know_issue_chat': 'Know Issue Chat',
+            'log_analyze_chat': 'Log Analyze Chat', 
+            'rvt_log_analyze_chat': 'RVT Log Analyze Chat'
+        }
+        
+        for stat in chat_type_stats:
+            pie_chart_data.append({
+                'name': type_display_map.get(stat['chat_type'], stat['chat_type']),
+                'value': stat['count'],
+                'type': stat['chat_type'],
+                'avg_response_time': round(stat['avg_response_time'] or 0, 2)
+            })
+        
+        # 2. 每日使用次數統計 (曲線圖數據)
+        daily_stats = []
+        for i in range(days):
+            current_date = start_date + timedelta(days=i)
+            next_date = current_date + timedelta(days=1)
+            
+            day_usage = base_queryset.filter(
+                created_at__gte=current_date,
+                created_at__lt=next_date
+            )
+            
+            # 各類型當日使用次數
+            know_issue_count = day_usage.filter(chat_type='know_issue_chat').count()
+            log_analyze_count = day_usage.filter(chat_type='log_analyze_chat').count()
+            rvt_log_count = day_usage.filter(chat_type='rvt_log_analyze_chat').count()
+            total_count = day_usage.count()
+            
+            daily_stats.append({
+                'date': current_date.strftime('%Y-%m-%d'),
+                'total': total_count,
+                'know_issue_chat': know_issue_count,
+                'log_analyze_chat': log_analyze_count,
+                'rvt_log_analyze_chat': rvt_log_count
+            })
+        
+        # 3. 總體統計
+        total_usage = base_queryset.count()
+        total_users = base_queryset.values('user').distinct().count()
+        total_files = base_queryset.filter(has_file_upload=True).count()
+        avg_response_time = base_queryset.aggregate(avg=Avg('response_time'))['avg']
+        
+        summary_stats = {
+            'total_chats': total_usage,
+            'total_users': total_users,
+            'total_file_uploads': total_files,
+            'avg_response_time': round(avg_response_time or 0, 2),
+            'date_range': {
+                'start': start_date.strftime('%Y-%m-%d'),
+                'end': end_date.strftime('%Y-%m-%d'),
+                'days': days
+            }
+        }
+        
+        return Response({
+            'success': True,
+            'data': {
+                'pie_chart': pie_chart_data,
+                'daily_chart': daily_stats,
+                'summary': summary_stats
+            }
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Chat usage statistics error: {str(e)}")
+        return Response({
+            'success': False,
+            'error': f'統計數據獲取失敗: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def record_chat_usage(request):
+    """
+    記錄聊天使用情況
+    """
+    try:
+        from .models import ChatUsage
+        
+        data = request.data
+        chat_type = data.get('chat_type')
+        message_count = data.get('message_count', 1)
+        has_file_upload = data.get('has_file_upload', False)
+        response_time = data.get('response_time')
+        session_id = data.get('session_id', '')
+        
+        # 驗證聊天類型
+        valid_types = ['know_issue_chat', 'log_analyze_chat', 'rvt_log_analyze_chat']
+        if chat_type not in valid_types:
+            return Response({
+                'success': False,
+                'error': '無效的聊天類型'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # 獲取客戶端信息
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip_address = x_forwarded_for.split(',')[0]
+        else:
+            ip_address = request.META.get('REMOTE_ADDR')
+        
+        user_agent = request.META.get('HTTP_USER_AGENT', '')
+        
+        # 創建使用記錄
+        usage_record = ChatUsage.objects.create(
+            user=request.user if request.user.is_authenticated else None,
+            session_id=session_id,
+            chat_type=chat_type,
+            message_count=message_count,
+            has_file_upload=has_file_upload,
+            response_time=response_time,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        
+        return Response({
+            'success': True,
+            'record_id': usage_record.id
+        }, status=status.HTTP_201_CREATED)
+        
+    except Exception as e:
+        logger.error(f"Record chat usage error: {str(e)}")
+        return Response({
+            'success': False,
+            'error': f'記錄使用情況失敗: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

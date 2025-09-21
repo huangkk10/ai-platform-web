@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Layout, Input, Button, Card, Avatar, message, Spin, Typography, Tag, Table, Upload, Image, Popover } from 'antd';
 import { SendOutlined, UserOutlined, RobotOutlined, InfoCircleOutlined, PlusOutlined, FileImageOutlined, DeleteOutlined, FileTextOutlined } from '@ant-design/icons';
 import { useChatContext } from '../contexts/ChatContext';
+import { recordChatUsage, CHAT_TYPES } from '../utils/chatUsage';
 import './LogAnalyzeChatPage.css';
 
 const { Content } = Layout;
@@ -338,6 +339,14 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
         };
 
         setMessages(prev => [...prev, assistantMessage]);
+        
+        // 記錄使用情況
+        recordChatUsage(CHAT_TYPES.LOG_ANALYZE, {
+          messageCount: 1,
+          hasFileUpload: currentFiles.length > 0,
+          responseTime: data.response_time,
+          sessionId: data.conversation_id
+        });
       } else {
         const errorMessage = data.error || `API 請求失敗: ${response.status}`;
         throw new Error(errorMessage);

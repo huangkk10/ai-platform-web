@@ -316,3 +316,38 @@ class TestClass(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class ChatUsage(models.Model):
+    """聊天使用記錄模型 - 用於統計分析"""
+    CHAT_TYPE_CHOICES = [
+        ('know_issue_chat', 'Know Issue Chat'),
+        ('log_analyze_chat', 'Log Analyze Chat'),
+        ('rvt_log_analyze_chat', 'RVT Log Analyze Chat'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="用戶")
+    session_id = models.CharField(max_length=255, blank=True, verbose_name="會話ID")
+    chat_type = models.CharField(max_length=50, choices=CHAT_TYPE_CHOICES, verbose_name="聊天類型")
+    message_count = models.PositiveIntegerField(default=1, verbose_name="消息數量")
+    has_file_upload = models.BooleanField(default=False, verbose_name="是否包含文件上傳")
+    response_time = models.FloatField(null=True, blank=True, verbose_name="響應時間(秒)")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="使用時間")
+    
+    # IP 和瀏覽器信息
+    ip_address = models.GenericIPAddressField(null=True, blank=True, verbose_name="IP地址")
+    user_agent = models.TextField(blank=True, verbose_name="用戶代理")
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "聊天使用記錄"
+        verbose_name_plural = "聊天使用記錄"
+        db_table = 'chat_usage'
+        indexes = [
+            models.Index(fields=['chat_type', 'created_at']),
+            models.Index(fields=['user', 'created_at']),
+        ]
+    
+    def __str__(self):
+        user_display = self.user.username if self.user else "匿名用戶"
+        return f"{user_display} - {self.get_chat_type_display()} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"

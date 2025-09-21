@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Layout, Input, Button, Card, Avatar, message, Spin, Typography, Tag, Table } from 'antd';
 import { SendOutlined, UserOutlined, RobotOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { useChatContext } from '../contexts/ChatContext';
+import { recordChatUsage, CHAT_TYPES } from '../utils/chatUsage';
 import './KnowIssueChatPage.css';
 
 const { Content } = Layout;
@@ -274,6 +275,14 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
         };
 
         setMessages(prev => [...prev, assistantMessage]);
+        
+        // 記錄使用情況
+        recordChatUsage(CHAT_TYPES.KNOW_ISSUE, {
+          messageCount: 1,
+          hasFileUpload: false,
+          responseTime: data.response_time,
+          sessionId: data.conversation_id
+        });
       } else {
         // 處理 API 返回的錯誤
         const errorMessage = data.error || `API 請求失敗: ${response.status}`;

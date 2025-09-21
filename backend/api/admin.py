@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import UserProfile, Project, Task, Employee, DifyEmployee, KnowIssue
+from .models import UserProfile, Project, Task, Employee, DifyEmployee, KnowIssue, ChatUsage
 
 
 @admin.register(UserProfile)
@@ -72,3 +72,29 @@ class KnowIssueAdmin(admin.ModelAdmin):
         # 由於 updated_by 現在指向 Employee 而非 User，暫時移除自動設定
         # 管理員需要手動選擇員工
         super().save_model(request, obj, form, change)
+
+
+@admin.register(ChatUsage)
+class ChatUsageAdmin(admin.ModelAdmin):
+    list_display = ('user', 'chat_type', 'message_count', 'has_file_upload', 'response_time', 'created_at')
+    list_filter = ('chat_type', 'has_file_upload', 'created_at', 'user')
+    search_fields = ('user__username', 'session_id', 'ip_address')
+    readonly_fields = ('created_at',)
+    date_hierarchy = 'created_at'
+    
+    fieldsets = (
+        ('基本資訊', {
+            'fields': ('user', 'session_id', 'chat_type', 'message_count')
+        }),
+        ('使用詳情', {
+            'fields': ('has_file_upload', 'response_time')
+        }),
+        ('技術資訊', {
+            'fields': ('ip_address', 'user_agent'),
+            'classes': ('collapse',)
+        }),
+        ('時間資訊', {
+            'fields': ('created_at',),
+            'classes': ('collapse',)
+        }),
+    )

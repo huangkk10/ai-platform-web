@@ -45,4 +45,8 @@ urlpatterns = [
     path('dify/chat/', views.dify_chat, name='dify_chat'),
     path('dify/chat-with-file/', views.dify_chat_with_file, name='dify_chat_with_file'),
     path('dify/config/', views.dify_config_info, name='dify_config_info'),
+    
+    # Chat Usage Statistics API
+    path('chat/statistics/', views.chat_usage_statistics, name='chat_usage_statistics'),
+    path('chat/record-usage/', views.record_chat_usage, name='record_chat_usage'),
 ]
