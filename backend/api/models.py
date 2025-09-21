@@ -351,3 +351,163 @@ class ChatUsage(models.Model):
     def __str__(self):
         user_display = self.user.username if self.user else "匿名用戶"
         return f"{user_display} - {self.get_chat_type_display()} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
+
+
+class RVTGuide(models.Model):
+    """RVT 使用指南知識庫模型"""
+    
+    MAIN_CATEGORY_CHOICES = [
+        ('system_architecture', '系統架構'),
+        ('environment_setup', '環境準備'),
+        ('configuration_management', '配置管理'),
+        ('test_case_management', '測項管理'),
+        ('operation_flow', '操作流程'),
+        ('troubleshooting', '故障排除'),
+        ('contact_support', '聯絡支援'),
+    ]
+    
+    SUB_CATEGORY_CHOICES = [
+        # 系統架構子分類
+        ('jenkins_ansible_concept', 'Jenkins和Ansible概念'),
+        ('system_workflow', '系統工作流程'),
+        
+        # 環境準備子分類
+        ('network_requirements', '網路需求'),
+        ('hardware_requirements', '硬體設備'),
+        ('system_installation', '系統軟體安裝'),
+        ('bios_settings', 'BIOS設定'),
+        
+        # 配置管理子分類
+        ('nas_directory', 'NAS目錄結構'),
+        ('machine_configuration', '機器設定格式'),
+        ('group_variables', '群組變數設定'),
+        ('required_parameters', '必要參數列表'),
+        
+        # 測項管理子分類
+        ('test_parameters', '測項參數說明'),
+        ('test_modes', '測試模式'),
+        ('test_examples', '測試範例'),
+        
+        # 操作流程子分類
+        ('jenkins_stages', 'Jenkins階段'),
+        ('jenkins_operations', 'Jenkins操作'),
+        ('uart_control', 'UART控制'),
+        ('mdt_operations', 'MDT相關操作'),
+        ('ansible_parameters', 'Ansible參數'),
+        
+        # 故障排除子分類
+        ('jenkins_failures', 'Jenkins失敗'),
+        ('ansible_errors', 'Ansible錯誤'),
+        ('mdt_failures', 'MDT部署失敗'),
+        ('script_failures', '腳本執行失敗'),
+        ('log_analysis', '日誌分析'),
+        
+        # 聯絡支援子分類
+        ('team_contacts', '團隊聯絡'),
+        ('support_procedures', '支援流程'),
+    ]
+    
+    # 基本識別欄位
+    document_name = models.CharField(max_length=200, verbose_name="文檔名稱", help_text="文檔的唯一名稱")
+    title = models.CharField(max_length=300, verbose_name="文檔標題", help_text="文檔的顯示標題")
+    version = models.CharField(max_length=50, default="1.0", verbose_name="版本號", help_text="文檔版本")
+    
+    # 分類欄位
+    main_category = models.CharField(
+        max_length=50, 
+        choices=MAIN_CATEGORY_CHOICES, 
+        verbose_name="主分類",
+        help_text="文檔所屬的主要分類"
+    )
+    sub_category = models.CharField(
+        max_length=50, 
+        choices=SUB_CATEGORY_CHOICES, 
+        verbose_name="子分類",
+        help_text="文檔所屬的子分類"
+    )
+    
+    # 內容欄位
+    content = models.TextField(verbose_name="文檔內容", help_text="文檔的主要內容")
+    
+    # 檢索優化欄位
+    keywords = models.CharField(
+        max_length=500, 
+        blank=True, 
+        verbose_name="關鍵字",
+        help_text="用逗號分隔的關鍵字，用於搜索優化"
+    )
+    
+    # 使用情境欄位
+    question_type = models.CharField(
+        max_length=50,
+        choices=[
+            ('operation_guide', '操作指南'),
+            ('parameter_explanation', '參數說明'),
+            ('troubleshooting', '故障排除'),
+            ('concept_explanation', '概念說明'),
+        ],
+        default='operation_guide',
+        verbose_name="問題類型",
+        help_text="這個文檔主要回答什麼類型的問題"
+    )
+    
+    target_user = models.CharField(
+        max_length=50,
+        choices=[
+            ('beginner', '初學者'),
+            ('advanced', '進階使用者'),
+            ('admin', '系統管理員'),
+            ('all', '所有用戶'),
+        ],
+        default='all',
+        verbose_name="目標使用者",
+        help_text="這個文檔的目標使用者群體"
+    )
+    
+    # 狀態管理
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ('draft', '草稿'),
+            ('published', '已發布'),
+            ('archived', '已歸檔'),
+        ],
+        default='published',
+        verbose_name="狀態"
+    )
+    
+    # 時間戳記
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="建立時間")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新時間")
+    
+    class Meta:
+        ordering = ['main_category', 'sub_category', 'document_name']
+        verbose_name = "RVT使用指南"
+        verbose_name_plural = "RVT使用指南"
+        db_table = 'rvt_guide'
+        indexes = [
+            models.Index(fields=['main_category', 'sub_category']),
+            models.Index(fields=['status', 'created_at']),
+        ]
+    
+    def __str__(self):
+        return f"[{self.get_main_category_display()}] {self.title}"
+    
+    def get_full_category_name(self):
+        """獲取完整的分類名稱"""
+        main_name = self.get_main_category_display()
+        sub_name = self.get_sub_category_display()
+        return f"{main_name} > {sub_name}"
+    
+    def get_search_content(self):
+        """獲取用於搜索的完整內容"""
+        search_text = f"{self.title} {self.content}"
+        if self.keywords:
+            search_text += f" {self.keywords}"
+        return search_text
+    
+    def get_keywords_list(self):
+        """獲取關鍵字列表"""
+        if self.keywords:
+            return [keyword.strip() for keyword in self.keywords.split(',') if keyword.strip()]
+        return []

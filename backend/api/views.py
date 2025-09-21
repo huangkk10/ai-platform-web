@@ -424,6 +424,97 @@ def search_know_issue_knowledge(query_text, limit=5):
         return []
 
 
+def search_rvt_guide_knowledge(query_text, limit=5):
+    """
+    在 PostgreSQL 中搜索 RVT Guide 知識庫
+    """
+    try:
+        with connection.cursor() as cursor:
+            sql = """
+            SELECT 
+                id,
+                document_name,
+                title,
+                version,
+                main_category,
+                sub_category,
+                content,
+                keywords,
+                question_type,
+                target_user,
+                status,
+                created_at,
+                updated_at,
+                CASE 
+                    WHEN title ILIKE %s THEN 1.0
+                    WHEN keywords ILIKE %s THEN 0.9
+                    WHEN content ILIKE %s THEN 0.8
+                    WHEN document_name ILIKE %s THEN 0.6
+                    ELSE 0.5
+                END as score
+            FROM rvt_guide
+            WHERE 
+                status = 'published' AND (
+                    title ILIKE %s OR 
+                    keywords ILIKE %s OR 
+                    content ILIKE %s OR 
+                    document_name ILIKE %s
+                )
+            ORDER BY score DESC, created_at DESC
+            LIMIT %s
+            """
+            
+            search_pattern = f'%{query_text}%'
+            cursor.execute(sql, [
+                search_pattern, search_pattern, search_pattern, search_pattern,
+                search_pattern, search_pattern, search_pattern, search_pattern,
+                limit
+            ])
+            
+            rows = cursor.fetchall()
+            columns = [desc[0] for desc in cursor.description]
+            
+            results = []
+            for row in rows:
+                guide_data = dict(zip(columns, row))
+                
+                # 格式化為知識片段
+                content = f"# {guide_data['title']}\n\n"
+                content += f"**分類**: {guide_data['main_category']} > {guide_data['sub_category']}\n\n"
+                content += f"**內容**:\n{guide_data['content']}"
+                
+                # 獲取關鍵字列表
+                keywords_list = []
+                if guide_data['keywords']:
+                    keywords_list = [k.strip() for k in guide_data['keywords'].split(',')]
+                
+                results.append({
+                    'id': str(guide_data['id']),
+                    'title': guide_data['title'],
+                    'content': content,
+                    'score': float(guide_data['score']),
+                    'metadata': {
+                        'source': 'rvt_guide_database',
+                        'document_name': guide_data['document_name'],
+                        'version': guide_data['version'],
+                        'main_category': guide_data['main_category'],
+                        'sub_category': guide_data['sub_category'],
+                        'question_type': guide_data['question_type'],
+                        'target_user': guide_data['target_user'],
+                        'keywords': keywords_list,
+                        'created_at': str(guide_data['created_at']) if guide_data['created_at'] else None,
+                        'updated_at': str(guide_data['updated_at']) if guide_data['updated_at'] else None
+                    }
+                })
+            
+            logger.info(f"RVT Guide search found {len(results)} results for query: '{query_text}'")
+            return results
+            
+    except Exception as e:
+        logger.error(f"RVT Guide database search error: {str(e)}")
+        return []
+
+
 @api_view(['POST'])
 @permission_classes([])  # 公開 API，但會檢查 Authorization header
 @csrf_exempt
@@ -497,6 +588,9 @@ def dify_knowledge_search(request):
         if knowledge_id in ['know_issue_db', 'know_issue', 'know-issue']:
             search_results = search_know_issue_knowledge(query, limit=top_k)
             logger.info(f"Know Issue search results count: {len(search_results)}")
+        elif knowledge_id in ['rvt_guide_db', 'rvt_guide', 'rvt-guide', 'rvt_user_guide']:
+            search_results = search_rvt_guide_knowledge(query, limit=top_k)
+            logger.info(f"RVT Guide search results count: {len(search_results)}")
         else:
             # 默認搜索員工知識庫
             search_results = search_postgres_knowledge(query, limit=top_k)
@@ -622,6 +716,89 @@ def dify_know_issue_search(request):
         }, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         logger.error(f"Dify Know Issue search error: {str(e)}")
+        return Response({
+            'error_code': 2001,
+            'error_msg': 'Internal server error'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([])  # 公開 API，但會檢查 Authorization header
+@csrf_exempt
+def dify_rvt_guide_search(request):
+    """
+    Dify RVT Guide 外部知識庫 API 端點 - 專門針對 RVT 使用指南搜索
+    
+    期望的請求格式:
+    {
+        "knowledge_id": "rvt_guide_db",
+        "query": "搜索字詞",
+        "retrieval_setting": {
+            "top_k": 3,
+            "score_threshold": 0.5
+        }
+    }
+    """
+    try:
+        # 記錄請求來源
+        logger.info(f"Dify RVT Guide API request from: {request.META.get('REMOTE_ADDR')}")
+        
+        # 解析請求數據
+        data = json.loads(request.body) if request.body else {}
+        query = data.get('query', '')
+        knowledge_id = data.get('knowledge_id', 'rvt_guide_db')
+        retrieval_setting = data.get('retrieval_setting', {})
+        
+        top_k = retrieval_setting.get('top_k', 5)
+        score_threshold = retrieval_setting.get('score_threshold', 0.0)
+        
+        logger.info(f"RVT Guide search - Query: {query}, Top K: {top_k}, Score threshold: {score_threshold}")
+        
+        # 驗證必要參數
+        if not query:
+            return Response({
+                'error_code': 2001,
+                'error_msg': 'Query parameter is required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # 搜索 RVT Guide 資料
+        search_results = search_rvt_guide_knowledge(query, limit=top_k)
+        
+        # 過濾分數低於閾值的結果
+        filtered_results = [
+            result for result in search_results 
+            if result['score'] >= score_threshold
+        ]
+        
+        logger.info(f"RVT Guide search found {len(search_results)} results, {len(filtered_results)} after filtering")
+        
+        # 構建符合 Dify 規格的響應
+        records = []
+        for result in filtered_results:
+            record = {
+                'content': result['content'],
+                'score': result['score'],
+                'title': result['title'],
+                'metadata': result['metadata']
+            }
+            records.append(record)
+            logger.info(f"Added RVT Guide record: {record['title']}")
+        
+        response_data = {
+            'records': records
+        }
+        
+        logger.info(f"RVT Guide API response: Found {len(records)} results")
+        
+        return Response(response_data, status=status.HTTP_200_OK)
+        
+    except json.JSONDecodeError:
+        return Response({
+            'error_code': 1001,
+            'error_msg': 'Invalid JSON format'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        logger.error(f"Dify RVT Guide search error: {str(e)}")
         return Response({
             'error_code': 2001,
             'error_msg': 'Internal server error'

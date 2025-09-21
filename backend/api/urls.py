@@ -25,21 +25,18 @@ urlpatterns = [
     # Django REST framework 認證頁面（使用不同路徑）
     path('auth/drf/', include('rest_framework.urls')),
     
-    # Dify 外部知識 API - 同時支援有斜槓和無斜槓的版本
+    # Dify 統一外部知識 API - 通過 knowledge_id 參數區分不同知識庫
+    # 主要端點（Dify 會自動添加 /retrieval）
     path('dify/knowledge/retrieval', views.dify_knowledge_search, name='dify_knowledge_search_no_slash'),
     path('dify/knowledge/retrieval/', views.dify_knowledge_search, name='dify_knowledge_search'),
-    # Dify 自動附加 /retrieval 的基礎路由
     path('dify/knowledge/', views.dify_knowledge_search, name='dify_knowledge_auto_retrieval'),
-    # 相容舊路徑
-    path('dify/knowledge/search/', views.dify_knowledge_search, name='dify_knowledge_search_legacy'),
-    path('dify/knowledge/search/retrieval/', views.dify_knowledge_search, name='dify_knowledge_search_official'),
+    path('dify/knowledge', views.dify_knowledge_search, name='dify_knowledge_base'),
     
-    # Dify Know Issue 外部知識庫 API
-    path('dify/know-issue/retrieval', views.dify_know_issue_search, name='dify_know_issue_search_no_slash'),
-    path('dify/know-issue/retrieval/', views.dify_know_issue_search, name='dify_know_issue_search'),
-    # Dify 自動附加 /retrieval 的路由 (支援有斜槓和無斜槓)
-    path('dify/know-issue/', views.dify_know_issue_search, name='dify_know_issue_auto_retrieval_slash'),
-    path('dify/know-issue', views.dify_know_issue_search, name='dify_know_issue_auto_retrieval_no_slash'),
+    # 相容舊的特定知識庫端點（向後兼容）
+    path('dify/know-issue/retrieval', views.dify_knowledge_search, name='dify_know_issue_compat_no_slash'),
+    path('dify/know-issue/retrieval/', views.dify_knowledge_search, name='dify_know_issue_compat'),
+    path('dify/rvt-guide/retrieval', views.dify_knowledge_search, name='dify_rvt_guide_compat_no_slash'),
+    path('dify/rvt-guide/retrieval/', views.dify_knowledge_search, name='dify_rvt_guide_compat'),
     
     # Dify Chat API
     path('dify/chat/', views.dify_chat, name='dify_chat'),
