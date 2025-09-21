@@ -11,6 +11,7 @@ import {
   UserOutlined,
   MessageOutlined,
   FileTextOutlined,
+  BarChartOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 import smiLogo from '../assets/images/smi.png';
@@ -59,6 +60,9 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       case 'rvt-log':
         navigate('/knowledge/rvt-log');
         break;
+      case 'ocr-storage-benchmark':
+        navigate('/knowledge/ocr-storage-benchmark');
+        break;
       case 'know-issue-chat':
         navigate('/know-issue-chat');
         break;
@@ -94,6 +98,7 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       label: '知識庫',
       children: [
         { key: 'know-issue', icon: <DatabaseOutlined />, label: 'know issue' },
+        { key: 'ocr-storage-benchmark', icon: <BarChartOutlined />, label: 'AI OCR' },
         { key: 'rvt-log', icon: <DatabaseOutlined />, label: 'RVT Log' },
       ],
     };

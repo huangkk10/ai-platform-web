@@ -370,6 +370,7 @@ class OCRStorageBenchmark(models.Model):
     # 測試資訊
     test_datetime = models.DateTimeField(verbose_name="測試時間", help_text="進行測試的具體時間")
     benchmark_version = models.CharField(max_length=50, verbose_name="基準版本", help_text="3DMark 或其他基準測試軟體版本")
+    mark_version_3d = models.CharField(max_length=50, blank=True, verbose_name="3DMark版本", help_text="3DMark 軟體的具體版本號")
     
     # 額外的技術細節
     read_speed = models.FloatField(null=True, blank=True, verbose_name="讀取速度 (MB/s)", help_text="儲存裝置讀取速度")

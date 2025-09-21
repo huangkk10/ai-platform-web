@@ -185,7 +185,7 @@ class OCRStorageBenchmarkSerializer(serializers.ModelSerializer):
         model = OCRStorageBenchmark
         fields = [
             'id', 'project_name', 'benchmark_score', 'average_bandwidth',
-            'device_model', 'firmware_version', 'test_datetime', 'benchmark_version',
+            'device_model', 'firmware_version', 'test_datetime', 'benchmark_version', 'mark_version_3d',
             'read_speed', 'write_speed', 'iops_read', 'iops_write',
             'test_environment', 'test_type', 'ocr_confidence', 'ocr_processing_time',
             'original_image_filename', 'original_image_content_type',
@@ -246,7 +246,7 @@ class OCRStorageBenchmarkListSerializer(serializers.ModelSerializer):
         model = OCRStorageBenchmark
         fields = [
             'id', 'project_name', 'benchmark_score', 'average_bandwidth',
-            'device_model', 'firmware_version', 'test_datetime', 'benchmark_version',
+            'device_model', 'firmware_version', 'test_datetime', 'benchmark_version', 'mark_version_3d',
             'test_environment', 'test_type', 'ocr_confidence', 'processing_status',
             'original_image_filename', 'is_verified', 'uploaded_by_name', 'verified_by_name',
             'created_at', 'updated_at',

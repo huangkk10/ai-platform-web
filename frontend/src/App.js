@@ -13,6 +13,7 @@ import QueryPage from './pages/QueryPage';
 import SettingsPage from './pages/SettingsPage';
 import KnowIssuePage from './pages/KnowIssuePage';
 import RvtLogPage from './pages/RvtLogPage';
+import OcrStorageBenchmarkPage from './pages/OcrStorageBenchmarkPage';
 import TestClassManagementPage from './pages/TestClassManagementPage';
 import KnowIssueChatPage from './pages/KnowIssueChatPage';
 import LogAnalyzeChatPage from './pages/LogAnalyzeChatPage';
@@ -68,6 +69,8 @@ function AppLayout() {
         return 'Know Issue';
       case '/knowledge/rvt-log':
         return 'RVT Log';
+      case '/knowledge/ocr-storage-benchmark':
+        return 'AI OCR';
       case '/log-analyze':
         return 'Log Analyze';
       case '/admin/test-class-management':
@@ -124,6 +127,7 @@ function AppLayout() {
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/knowledge/know-issue" element={<KnowIssuePage />} />
             <Route path="/knowledge/rvt-log" element={<RvtLogPage />} />
+            <Route path="/knowledge/ocr-storage-benchmark" element={<OcrStorageBenchmarkPage />} />
             <Route path="/know-issue-chat" element={<KnowIssueChatPage collapsed={collapsed} />} />
             <Route path="/log-analyze-chat" element={<LogAnalyzeChatPage collapsed={collapsed} />} />
             <Route path="/rvt-log-analyze-chat" element={<RvtLogAnalyzeChatPage collapsed={collapsed} />} />
