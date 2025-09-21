@@ -1669,6 +1669,7 @@ def chat_usage_statistics(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@csrf_exempt
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def record_chat_usage(request):

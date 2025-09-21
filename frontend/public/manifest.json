@@ -1,0 +1,16 @@
+{
+  "short_name": "AI Platform",
+  "name": "AI Platform Web Application",
+  "description": "AI Platform for chat analysis and testing",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#1890ff",
+  "background_color": "#ffffff"
+}

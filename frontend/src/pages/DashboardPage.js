@@ -20,9 +20,12 @@ const DashboardPage = () => {
     try {
       const data = await getChatStatistics(days);
       if (data) {
+        console.log('Dashboard統計數據:', data);
+        console.log('文件上傳次數:', data.summary.total_file_uploads);
         setStatistics(data);
+        setError(null);
       } else {
-        setError('無法獲取統計數據');
+        setError('獲取統計數據失敗');
       }
     } catch (err) {
       setError('載入統計數據失敗: ' + err.message);
