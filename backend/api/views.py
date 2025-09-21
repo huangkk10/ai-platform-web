@@ -1596,8 +1596,8 @@ def chat_usage_statistics(request):
         
         pie_chart_data = []
         type_display_map = {
-            'know_issue_chat': 'Know Issue Chat',
-            'log_analyze_chat': 'Log Analyze Chat', 
+            'know_issue_chat': 'Protocol RAG',
+            'log_analyze_chat': 'AI OCR', 
             'rvt_log_analyze_chat': 'RVT Log Analyze Chat'
         }
         

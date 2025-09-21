@@ -141,7 +141,7 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
       {
         id: 1,
         type: 'assistant',
-        content: '你好！我是 Log Analyze System 助手。我可以幫你分析日誌、查找錯誤模式和解決系統問題。請告訴我你遇到的日誌問題或上傳相關檔案。\n\n💡 提示：AI 分析日誌可能需要 10-30 秒，請耐心等待。\n\n📁 支援檔案：圖片和文字檔案（.txt）',
+        content: '你好！我是 AI OCR 助手。我可以幫你識別和分析圖片中的文字內容、處理文檔和解決文字識別問題。請上傳圖片或文字檔案。\n\n💡 提示：AI 分析圖片可能需要 10-30 秒，請耐心等待。\n\n📁 支援檔案：圖片和文字檔案（.txt）',
         timestamp: new Date()
       }
     ];
@@ -536,7 +536,7 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
     const defaultMessage = {
       id: 1,
       type: 'assistant',
-      content: '你好！我是 Log Analyze System 助手。我可以幫你分析日誌、查找錯誤模式和解決系統問題。請告訴我你遇到的日誌問題。\n\n💡 提示：AI 分析日誌可能需要 10-30 秒，請耐心等待。',
+      content: '你好！我是 AI OCR 助手。我可以幫你識別和分析圖片中的文字內容。請上傳圖片或告訴我你的問題。\n\n💡 提示：AI 分析圖片可能需要 10-30 秒，請耐心等待。',
       timestamp: new Date()
     };
     

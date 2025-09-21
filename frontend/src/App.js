@@ -50,9 +50,9 @@ function AppLayout() {
   const getPageTitle = (pathname) => {
     switch (pathname) {
       case '/know-issue-chat':
-        return 'Know Issue Chat';
+        return 'Protocol RAG';
       case '/log-analyze-chat':
-        return 'Log Analyze Chat';
+        return 'AI OCR';
       case '/rvt-log-analyze-chat':
         return 'RVT Log Analyze Chat';
       case '/dashboard':

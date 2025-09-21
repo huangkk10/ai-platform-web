@@ -140,7 +140,7 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
       {
         id: 1,
         type: 'assistant',
-        content: '你好！我是 Protocol Known Issue System 助手。我可以幫你查詢測試相關的問題和解決方案。請告訴我你遇到的問題。\n\n💡 提示：AI 分析知識庫可能需要 10-30 秒，請耐心等待。',
+        content: '你好！歡迎使用 Protocol RAG 助手\n為了讓回答更精準，建議以下提問方式：\n\n1. 具體明確：避免只輸入「協議問題」，建議例如「Identify CNS3 NSIDFFFFFFFFh ， GET/SET FEATURE」錯誤訊息關鍵字。\n2. 單一問題：一次詢問一個重點，避免長篇複合問題。\n3. 避免模糊詞：像「這個」、「那個」容易導致找不到正確資料。\n4. 多次嘗試：若找不到結果，可以換個關鍵字或加上更多細節。\n\n💡 提示：AI 分析知識庫可能需要 10-30 秒，請耐心等待。',
         timestamp: new Date()
       }
     ];
@@ -369,7 +369,7 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
     const defaultMessage = {
       id: 1,
       type: 'assistant',
-      content: '你好！我是 Protocol Known Issue System 助手。我可以幫你查詢測試相關的問題和解決方案。請告訴我你遇到的問題。\n\n💡 提示：AI 分析知識庫可能需要 10-30 秒，請耐心等待。',
+      content: '你好！歡迎使用 Protocol RAG 助手\n為了讓回答更精準，建議以下提問方式：\n\n1. 具體明確：避免只輸入「協議問題」，建議例如「Identify CNS3 NSIDFFFFFFFFh ， GET/SET FEATURE」錯誤訊息關鍵字。\n2. 單一問題：一次詢問一個重點，避免長篇複合問題。\n3. 避免模糊詞：像「這個」、「那個」容易導致找不到正確資料。\n4. 多次嘗試：若找不到結果，可以換個關鍵字或加上更多細節。\n\n💡 提示：AI 分析知識庫可能需要 10-30 秒，請耐心等待。',
       timestamp: new Date()
     };
     

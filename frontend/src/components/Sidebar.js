@@ -26,12 +26,12 @@ const Sidebar = ({ collapsed, onCollapse }) => {
     {
       key: 'know-issue-chat',
       icon: <MessageOutlined />,
-      label: 'Know Issue Chat',
+      label: 'Protocol RAG',
     },
     {
       key: 'log-analyze-chat',
       icon: <FileTextOutlined />,
-      label: 'Log Analyze Chat',
+      label: 'AI OCR',
     },
     {
       key: 'rvt-log-analyze-chat',
@@ -209,7 +209,7 @@ const Sidebar = ({ collapsed, onCollapse }) => {
         )}
       </div>
 
-      {/* 上方清爽區域 - Know Issue Chat */}
+      {/* 上方清爽區域 - Protocol RAG */}
       <div style={{
         borderBottom: '2px solid #1f1f1f',
         marginBottom: '32px',

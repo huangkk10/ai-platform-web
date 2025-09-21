@@ -66,8 +66,8 @@ const DashboardPage = () => {
     
     return statistics.daily_chart.map(day => ({
       date: day.date,
-      'Know Issue Chat': day.know_issue_chat,
-      'Log Analyze Chat': day.log_analyze_chat,
+      'Protocol RAG': day.know_issue_chat,
+      'AI OCR': day.log_analyze_chat,
       'RVT Log Analyze Chat': day.rvt_log_analyze_chat,
       total: day.total
     }));
@@ -255,14 +255,14 @@ const DashboardPage = () => {
                     <Legend />
                     <Line 
                       type="monotone" 
-                      dataKey="Know Issue Chat" 
+                      dataKey="Protocol RAG" 
                       stroke="#1890ff" 
                       strokeWidth={2}
                       dot={{ r: 4 }}
                     />
                     <Line 
                       type="monotone" 
-                      dataKey="Log Analyze Chat" 
+                      dataKey="AI OCR" 
                       stroke="#52c41a" 
                       strokeWidth={2}
                       dot={{ r: 4 }}
