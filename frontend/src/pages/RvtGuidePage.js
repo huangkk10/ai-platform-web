@@ -15,7 +15,6 @@ import {
   Statistic,
   Row,
   Col,
-  Drawer,
   Rate,
   Divider
 } from 'antd';
@@ -47,7 +46,7 @@ const RvtGuidePage = () => {
   const [guides, setGuides] = useState([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-  const [detailDrawerVisible, setDetailDrawerVisible] = useState(false);
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedGuide, setSelectedGuide] = useState(null);
   const [editingGuide, setEditingGuide] = useState(null);
   const [form] = Form.useForm();
@@ -303,7 +302,7 @@ const RvtGuidePage = () => {
       // 發送單獨的 API 請求獲取完整資料
       const response = await axios.get(`/api/rvt-guides/${record.id}/`);
       setSelectedGuide(response.data);
-      setDetailDrawerVisible(true);
+      setDetailModalVisible(true);
     } catch (error) {
       console.error('獲取詳細資料失敗:', error);
       message.error('獲取詳細資料失敗');
@@ -638,8 +637,8 @@ const RvtGuidePage = () => {
         </Form>
       </Modal>
 
-      {/* 詳細內容 Drawer */}
-      <Drawer
+      {/* 詳細內容 Modal */}
+      <Modal
         title={
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <FileTextOutlined style={{ color: '#1890ff' }} />
@@ -651,28 +650,34 @@ const RvtGuidePage = () => {
             )}
           </div>
         }
-        placement="right"
-        width={800}
-        open={detailDrawerVisible}
-        onClose={() => {
-          setDetailDrawerVisible(false);
+        open={detailModalVisible}
+        onCancel={() => {
+          setDetailModalVisible(false);
           setSelectedGuide(null);
         }}
-        extra={
+        footer={[
+          <Button key="close" onClick={() => {
+            setDetailModalVisible(false);
+            setSelectedGuide(null);
+          }}>
+            關閉
+          </Button>,
           <Button 
+            key="edit" 
             type="primary" 
             icon={<EditOutlined />}
             onClick={() => {
-              setDetailDrawerVisible(false);
+              setDetailModalVisible(false);
               handleEdit(selectedGuide);
             }}
           >
             編輯
           </Button>
-        }
+        ]}
+        width={900}
       >
         {selectedGuide && (
-          <div style={{ maxHeight: '100vh', overflowY: 'auto' }}>
+          <div style={{ maxHeight: '70vh', overflowY: 'auto', padding: '0 4px' }}>
             {/* 基本信息 */}
             <div style={{ 
               marginBottom: '20px',
@@ -827,7 +832,7 @@ const RvtGuidePage = () => {
             )}
           </div>
         )}
-      </Drawer>
+      </Modal>
     </div>
   );
 };
