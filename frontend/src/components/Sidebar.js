@@ -23,23 +23,34 @@ const Sidebar = ({ collapsed, onCollapse }) => {
   const { user, isAuthenticated, loading, initialized } = useAuth();
   const navigate = useNavigate();
 
-  const topMenuItems = [
-    {
-      key: 'know-issue-chat',
-      icon: <MessageOutlined />,
-      label: 'Protocol RAG',
-    },
-    {
-      key: 'log-analyze-chat',
-      icon: <FileTextOutlined />,
-      label: 'AI OCR',
-    },
-    {
-      key: 'rvt-assistant-chat',
-      icon: <FileTextOutlined />,
-      label: 'RVT Assistant',
-    },
-  ];
+  // 動態生成頂部選單項目，根據用戶認證狀態
+  const getTopMenuItems = () => {
+    const baseItems = [
+      {
+        key: 'know-issue-chat',
+        icon: <MessageOutlined />,
+        label: 'Protocol RAG',
+      },
+      {
+        key: 'rvt-assistant-chat',
+        icon: <FileTextOutlined />,
+        label: 'RVT Assistant',
+      },
+    ];
+
+    // 只有登入用戶才能看到 AI OCR
+    if (isAuthenticated && user) {
+      baseItems.splice(1, 0, {
+        key: 'log-analyze-chat',
+        icon: <FileTextOutlined />,
+        label: 'AI OCR',
+      });
+    }
+
+    return baseItems;
+  };
+
+  const topMenuItems = getTopMenuItems();
 
   // 處理選單點擊
   const handleMenuClick = ({ key }) => {
@@ -91,16 +102,30 @@ const Sidebar = ({ collapsed, onCollapse }) => {
     // 基本選單項目（移除查詢結果）
     const basicItems = [];
 
-    // knowledge submenu for authenticated users
+    // knowledge submenu for authenticated users - 動態生成子項目
+    const getKnowledgeChildren = () => {
+      const children = [
+        { key: 'know-issue', icon: <DatabaseOutlined />, label: 'Protocol RAG' },
+        { key: 'rvt-log', icon: <DatabaseOutlined />, label: 'RVT Assistant' },
+      ];
+
+      // 只有登入用戶才能看到 AI OCR
+      if (isAuthenticated && user) {
+        children.splice(1, 0, {
+          key: 'ocr-storage-benchmark', 
+          icon: <BarChartOutlined />, 
+          label: 'AI OCR'
+        });
+      }
+
+      return children;
+    };
+
     const knowledgeSubmenu = {
       key: 'knowledge',
       icon: <DatabaseOutlined />,
       label: '知識庫',
-      children: [
-        { key: 'know-issue', icon: <DatabaseOutlined />, label: 'Protocol RAG' },
-        { key: 'ocr-storage-benchmark', icon: <BarChartOutlined />, label: 'AI OCR' },
-        { key: 'rvt-log', icon: <DatabaseOutlined />, label: 'RVT Assistant' },
-      ],
+      children: getKnowledgeChildren(),
     };
 
     // admin submenu - 只有管理員可見
