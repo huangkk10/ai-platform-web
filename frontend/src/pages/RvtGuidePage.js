@@ -262,16 +262,46 @@ const RvtGuidePage = () => {
   };
 
   // 處理新增/編輯
-  const handleEdit = (record = null) => {
+  const handleEdit = async (record = null) => {
     setEditingGuide(record);
+    
     if (record) {
-      form.setFieldsValue({
-        ...record,
-      });
+      try {
+        // 獲取完整的記錄資料（包括內容）
+        const response = await axios.get(`/api/rvt-guides/${record.id}/`);
+        const fullRecord = response.data;
+        
+        console.log('Full record from API:', fullRecord); // 調試日誌
+        
+        // 等待 Modal 打開後再設置表單值
+        setModalVisible(true);
+        
+        // 使用 setTimeout 確保 Modal 已經渲染
+        setTimeout(() => {
+          form.setFieldsValue({
+            title: fullRecord.title || '',
+            document_name: fullRecord.document_name || '',
+            main_category: fullRecord.main_category || '',
+            question_type: fullRecord.question_type || '',
+            target_user: fullRecord.target_user || '',
+            content: fullRecord.content || '',
+            version: fullRecord.version || '1.0',
+            status: fullRecord.status || '',
+            keywords: fullRecord.keywords || '',
+          });
+          
+          console.log('Form values set:', form.getFieldsValue()); // 調試日誌
+        }, 100);
+        
+      } catch (error) {
+        console.error('獲取編輯資料失敗:', error);
+        message.error('獲取編輯資料失敗');
+        return;
+      }
     } else {
       form.resetFields();
+      setModalVisible(true);
     }
-    setModalVisible(true);
   };
 
   // 處理刪除
@@ -457,6 +487,9 @@ const RvtGuidePage = () => {
           layout="vertical"
           onFinish={handleFormSubmit}
           preserve={false}
+          initialValues={{
+            version: '1.0'
+          }}
         >
           <Row gutter={16}>
             <Col span={12}>
@@ -544,7 +577,7 @@ const RvtGuidePage = () => {
                 name="version"
                 label="版本"
               >
-                <Input placeholder="如：1.0" defaultValue="1.0" />
+                <Input placeholder="如：1.0" />
               </Form.Item>
             </Col>
             <Col span={8}>
