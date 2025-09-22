@@ -106,10 +106,10 @@ const DashboardPage = () => {
 
   return (
     <div style={{ padding: '24px', background: '#f5f5f5', minHeight: '100vh' }}>
-      {/* 統計卡片 */}
+      {/* 總聊天次數 - 單獨一行 */}
       <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
-        <Col xs={24} sm={12} md={6}>
-          <Card>
+        <Col span={24}>
+          <Card style={{ textAlign: 'center' }}>
             <Statistic
               title="總聊天次數"
               value={statistics?.summary.total_chats || 0}
@@ -118,7 +118,11 @@ const DashboardPage = () => {
             />
           </Card>
         </Col>
-        <Col xs={24} sm={12} md={6}>
+      </Row>
+
+      {/* 其他統計卡片 */}
+      <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
+        <Col xs={24} sm={8}>
           <Card>
             <Statistic
               title="活躍用戶數"
@@ -128,7 +132,7 @@ const DashboardPage = () => {
             />
           </Card>
         </Col>
-        <Col xs={24} sm={12} md={6}>
+        <Col xs={24} sm={8}>
           <Card>
             <Statistic
               title="文件上傳次數"
@@ -139,7 +143,7 @@ const DashboardPage = () => {
             />
           </Card>
         </Col>
-        <Col xs={24} sm={12} md={6}>
+        <Col xs={24} sm={8}>
           <Card>
             <Statistic
               title="平均響應時間"
