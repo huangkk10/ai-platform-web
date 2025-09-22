@@ -106,28 +106,6 @@ const DashboardPage = () => {
 
   return (
     <div style={{ padding: '24px', background: '#f5f5f5', minHeight: '100vh' }}>
-      {/* 頁面標題 */}
-      <Card style={{ marginBottom: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <Title level={2} style={{ margin: 0, color: '#1890ff' }}>
-              <BarChartOutlined style={{ marginRight: '12px' }} />
-              IA 系統使用統計儀表板
-            </Title>
-            <Paragraph style={{ margin: '8px 0 0 0', color: '#666' }}>
-              查看聊天功能使用情況和趨勢分析
-            </Paragraph>
-          </div>
-          <Button 
-            type="primary" 
-            icon={<ReloadOutlined />}
-            onClick={() => loadStatistics(dateRange)}
-          >
-            刷新數據
-          </Button>
-        </div>
-      </Card>
-
       {/* 統計卡片 */}
       <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
         <Col xs={24} sm={12} md={6}>
