@@ -141,7 +141,7 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
       {
         id: 1,
         type: 'assistant',
-        content: '你好！我是 AI OCR 助手。我可以幫你識別和分析圖片中的文字內容、處理文檔和解決文字識別問題。請上傳圖片或文字檔案。\n\n💡 提示：AI 分析圖片可能需要 10-30 秒，請耐心等待。\n\n📁 支援檔案：圖片和文字檔案（.txt）',
+        content: '你好！我是 AI OCR 助手。我可以幫你識別和分析圖片中的文字內容、處理文檔和解決文字識別問題。請上傳圖片或文字檔案。\n\n💡 提示：AI 分析圖片可能需要 10-30 秒，請耐心等待。\n\n📁 支援檔案：圖片和文字檔案（.txt）\n\n🏷️ **Project Name 使用方法：**\n在訊息中包含 `project: 專案名稱` 即可自動將專案名稱保存到資料庫記錄中\n範例：「project: Samsung 請分析這個存儲基準測試報告」',
         timestamp: new Date()
       }
     ];
@@ -536,7 +536,7 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
     const defaultMessage = {
       id: 1,
       type: 'assistant',
-      content: '你好！我是 AI OCR 助手。我可以幫你識別和分析圖片中的文字內容。請上傳圖片或告訴我你的問題。\n\n💡 提示：AI 分析圖片可能需要 10-30 秒，請耐心等待。',
+      content: '你好！我是 AI OCR 助手。我可以幫你識別和分析圖片中的文字內容。請上傳圖片或告訴我你的問題。\n\n💡 提示：AI 分析圖片可能需要 10-30 秒，請耐心等待。\n\n🏷️ **Project Name 使用方法：**\n在訊息中包含 `project: 專案名稱` 即可自動將專案名稱保存到資料庫記錄中\n範例：「project: Samsung 請分析這個存儲基準測試報告」',
       timestamp: new Date()
     };
     

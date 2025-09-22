@@ -1975,10 +1975,15 @@ def dify_chat_with_file(request):
             create_ocr_analyzer,
             create_ocr_database_manager
         )
+        # 導入文本處理器
+        from library.data_processing.text_processor import extract_project_name
         
         message = request.data.get('message', '').strip()
         conversation_id = request.data.get('conversation_id', '')
         uploaded_file = request.FILES.get('file')
+        
+        # 從用戶訊息中提取 project name
+        extracted_project_name = extract_project_name(message) if message else None
         
         # 檢查是否有文件或消息
         if not message and not uploaded_file:
@@ -2074,6 +2079,13 @@ def dify_chat_with_file(request):
                             
                             # 保存到資料庫
                             user = request.user if request.user.is_authenticated else None
+                            
+                            # 如果從訊息中提取到 project name，添加到 parsed_data 中
+                            if extracted_project_name:
+                                parsed_data = parsed_data or {}
+                                parsed_data['project_name'] = extracted_project_name
+                                print(f"📝 將 project name '{extracted_project_name}' 添加到解析數據中")
+                            
                             save_result = ocr_db_manager.save_to_ocr_database(
                                 parsed_data=parsed_data,
                                 file_path=temp_file_path,
