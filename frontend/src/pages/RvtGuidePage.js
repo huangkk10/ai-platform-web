@@ -6,15 +6,14 @@ import {
   Space,
   Typography,
   Tag,
-  Statistic,
-  Row,
-  Col,
   Modal,
   message,
   Input,
   Tooltip,
   Select,
-  Form
+  Form,
+  Row,
+  Col
 } from 'antd';
 import { 
   FileTextOutlined, 
@@ -23,11 +22,7 @@ import {
   DeleteOutlined, 
   ReloadOutlined,
   EyeOutlined,
-  CheckCircleOutlined,
-  BarChartOutlined,
-  StarOutlined,
-  ToolOutlined,
-  BookOutlined
+  ToolOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -46,7 +41,6 @@ const RvtGuidePage = () => {
   const [selectedGuide, setSelectedGuide] = useState(null);
   const [editingGuide, setEditingGuide] = useState(null);
   const [form] = Form.useForm();
-  const [statistics, setStatistics] = useState({});
 
   // RVT 分類選項 - 對應資料庫的 main_category
   const mainCategoryOptions = [
@@ -231,22 +225,14 @@ const RvtGuidePage = () => {
 
   // 獲取統計資料
   const fetchStatistics = useCallback(async () => {
-    if (!initialized || !isAuthenticated) return;
-    
-    try {
-      const response = await axios.get('/api/rvt-guides/statistics/');
-      setStatistics(response.data);
-    } catch (error) {
-      console.error('獲取統計資料失敗:', error);
-    }
-  }, [initialized, isAuthenticated]);
+    // 統計功能已移除
+  }, []);
 
   useEffect(() => {
     if (initialized && isAuthenticated) {
       fetchGuides();
-      fetchStatistics();
     }
-  }, [initialized, isAuthenticated, fetchGuides, fetchStatistics]);
+  }, [initialized, isAuthenticated, fetchGuides]);
 
   // 處理查看詳細內容
   const handleViewDetail = async (record) => {
@@ -321,7 +307,6 @@ const RvtGuidePage = () => {
           await axios.delete(`/api/rvt-guides/${record.id}/`);
           message.success('刪除成功');
           fetchGuides();
-          fetchStatistics();
         } catch (error) {
           console.error('刪除失敗:', error);
           message.error('刪除失敗');
@@ -349,7 +334,6 @@ const RvtGuidePage = () => {
       setEditingGuide(null);
       form.resetFields();
       fetchGuides();
-      fetchStatistics();
     } catch (error) {
       console.error('操作失敗:', error);
       message.error('操作失敗');
@@ -371,57 +355,6 @@ const RvtGuidePage = () => {
 
   return (
     <div style={{ padding: '20px' }}>
-      {/* 統計卡片 */}
-      {Object.keys(statistics).length > 0 && (
-        <Row gutter={16} style={{ marginBottom: '20px' }}>
-          <Col span={6}>
-            <Card>
-              <Statistic
-                title="總指導文檔"
-                value={statistics.total_guides}
-                prefix={<BookOutlined />}
-                valueStyle={{ color: '#1890ff' }}
-              />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card>
-              <Statistic
-                title="已發布文檔"
-                value={statistics.published_guides}
-                prefix={<CheckCircleOutlined />}
-                valueStyle={{ color: '#52c41a' }}
-                suffix={`/ ${statistics.total_guides}`}
-              />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card>
-              <Statistic
-                title="精選文檔"
-                value={statistics.featured_guides}
-                prefix={<StarOutlined />}
-                valueStyle={{ color: '#faad14' }}
-              />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card>
-              <Statistic
-                title="發布率"
-                value={statistics.publish_rate}
-                suffix="%"
-                prefix={<BarChartOutlined />}
-                precision={1}
-                valueStyle={{ 
-                  color: statistics.publish_rate > 70 ? '#52c41a' : statistics.publish_rate > 40 ? '#faad14' : '#f5222d'
-                }}
-              />
-            </Card>
-          </Col>
-        </Row>
-      )}
-
       {/* 主要內容 */}
       <Card
         title={
@@ -436,7 +369,6 @@ const RvtGuidePage = () => {
               icon={<ReloadOutlined />}
               onClick={() => {
                 fetchGuides();
-                fetchStatistics();
               }}
               loading={loading}
             >
