@@ -1299,7 +1299,7 @@ class OCRStorageBenchmarkViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         """支援搜尋和篩選"""
-        queryset = OCRStorageBenchmark.objects.all()
+        queryset = OCRStorageBenchmark.objects.select_related('test_class', 'uploaded_by').all()
         
         # 專案名稱搜尋
         project_name = self.request.query_params.get('project_name', None)
@@ -1310,6 +1310,11 @@ class OCRStorageBenchmarkViewSet(viewsets.ModelViewSet):
         device_model = self.request.query_params.get('device_model', None)
         if device_model:
             queryset = queryset.filter(device_model__icontains=device_model)
+        
+        # OCR 測試類別篩選 - 新增功能
+        test_class_id = self.request.query_params.get('test_class', None)
+        if test_class_id:
+            queryset = queryset.filter(test_class_id=test_class_id)
         
         # 處理狀態篩選
         processing_status = self.request.query_params.get('processing_status', None)

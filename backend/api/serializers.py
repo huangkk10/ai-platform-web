@@ -176,6 +176,8 @@ class OCRStorageBenchmarkSerializer(serializers.ModelSerializer):
     performance_grade = serializers.CharField(source='get_performance_grade', read_only=True)
     summary = serializers.CharField(source='get_summary', read_only=True)
     ai_data_summary = serializers.CharField(source='get_ai_data_summary', read_only=True)
+    class_identifier = serializers.CharField(source='get_class_identifier', read_only=True)
+    test_class_name = serializers.SerializerMethodField()
     
     class Meta:
         model = OCRStorageBenchmark
@@ -184,13 +186,15 @@ class OCRStorageBenchmarkSerializer(serializers.ModelSerializer):
             'device_model', 'firmware_version', 'test_datetime', 'benchmark_version', 'mark_version_3d',
             'ocr_confidence', 'ocr_processing_time',
             'ocr_raw_text', 'ai_structured_data',
+            'test_class', 'class_sequence_id', 'test_class_name', 'class_identifier',  # 新增欄位
             'uploaded_by', 'uploaded_by_name', 'created_at', 'updated_at',
             # 計算欄位
             'performance_grade', 'summary', 'ai_data_summary'
         ]
         read_only_fields = [
             'id', 'created_at', 'updated_at', 'uploaded_by_name',
-            'performance_grade', 'summary', 'ai_data_summary'
+            'performance_grade', 'summary', 'ai_data_summary', 'class_identifier',
+            'class_sequence_id'  # 自動生成，不可編輯
         ]
     
     def get_uploaded_by_name(self, obj):
@@ -199,6 +203,10 @@ class OCRStorageBenchmarkSerializer(serializers.ModelSerializer):
             full_name = f"{obj.uploaded_by.first_name} {obj.uploaded_by.last_name}".strip()
             return full_name if full_name else obj.uploaded_by.username
         return None
+    
+    def get_test_class_name(self, obj):
+        """獲取測試類別名稱"""
+        return obj.test_class.name if obj.test_class else None
 
 
 class OCRStorageBenchmarkListSerializer(serializers.ModelSerializer):
@@ -207,6 +215,8 @@ class OCRStorageBenchmarkListSerializer(serializers.ModelSerializer):
     performance_grade = serializers.CharField(source='get_performance_grade', read_only=True)
     summary = serializers.CharField(source='get_summary', read_only=True)
     ai_data_summary = serializers.CharField(source='get_ai_data_summary', read_only=True)
+    class_identifier = serializers.CharField(source='get_class_identifier', read_only=True)
+    test_class_name = serializers.SerializerMethodField()
     
     class Meta:
         model = OCRStorageBenchmark
@@ -214,12 +224,9 @@ class OCRStorageBenchmarkListSerializer(serializers.ModelSerializer):
             'id', 'project_name', 'benchmark_score', 'average_bandwidth',
             'device_model', 'firmware_version', 'test_datetime', 'benchmark_version', 'mark_version_3d',
             'ocr_confidence', 'uploaded_by_name',
+            'test_class', 'class_sequence_id', 'test_class_name', 'class_identifier',  # 新增欄位
             'created_at', 'updated_at',
             # 計算欄位
-            'performance_grade', 'summary', 'ai_data_summary'
-        ]
-        read_only_fields = [
-            'id', 'created_at', 'updated_at', 'uploaded_by_name',
             'performance_grade', 'summary', 'ai_data_summary'
         ]
     
@@ -229,6 +236,10 @@ class OCRStorageBenchmarkListSerializer(serializers.ModelSerializer):
             full_name = f"{obj.uploaded_by.first_name} {obj.uploaded_by.last_name}".strip()
             return full_name if full_name else obj.uploaded_by.username
         return None
+    
+    def get_test_class_name(self, obj):
+        """獲取測試類別名稱"""
+        return obj.test_class.name if obj.test_class else None
 
 
 class TestClassSerializer(serializers.ModelSerializer):

@@ -379,6 +379,10 @@ class OCRStorageBenchmark(models.Model):
     # 基本資訊
     project_name = models.CharField(max_length=200, verbose_name="專案名稱", help_text="測試專案的名稱")
     
+    # 分類資訊 - 仿效 KnowIssue 的實作方式
+    test_class = models.ForeignKey('OCRTestClass', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="OCR測試類別", help_text="基準測試所屬的OCR測試類別")
+    class_sequence_id = models.PositiveIntegerField(null=True, blank=True, verbose_name="類別序號", help_text="在該OCR測試類別內的遞增ID號碼")
+    
     # 測試結果
     benchmark_score = models.IntegerField(verbose_name="存儲基準分數", help_text="Storage Benchmark Score")
     average_bandwidth = models.CharField(max_length=50, verbose_name="平均帶寬", help_text="平均帶寬 (MB/s)")
@@ -423,10 +427,12 @@ class OCRStorageBenchmark(models.Model):
         indexes = [
             models.Index(fields=['test_datetime', 'project_name']),
             models.Index(fields=['device_model', 'firmware_version']),
+            models.Index(fields=['test_class', 'class_sequence_id']),  # 新增索引
         ]
     
     def __str__(self):
-        return f"[{self.project_name}] {self.device_model} - {self.benchmark_score}分 ({self.test_datetime.strftime('%Y-%m-%d')})"
+        class_info = f"[{self.get_class_identifier()}]" if self.get_class_identifier() else ""
+        return f"{class_info}[{self.project_name}] {self.device_model} - {self.benchmark_score}分 ({self.test_datetime.strftime('%Y-%m-%d')})"
     
     def get_summary(self):
         """獲取測試摘要"""
@@ -465,6 +471,26 @@ class OCRStorageBenchmark(models.Model):
             
             return " | ".join(summary) if summary else "結構化資料已存在"
         return "無結構化資料"
+    
+    def save(self, *args, **kwargs):
+        """自動生成類別序號 - 仿效 KnowIssue 的實作方式"""
+        if not self.class_sequence_id and self.test_class:
+            # 獲取該OCR測試類別下一個可用的序號
+            last_benchmark = OCRStorageBenchmark.objects.filter(
+                test_class=self.test_class
+            ).order_by('-class_sequence_id').first()
+            
+            next_id = 1 if not last_benchmark else (last_benchmark.class_sequence_id or 0) + 1
+            self.class_sequence_id = next_id
+        
+        super().save(*args, **kwargs)
+    
+    def get_class_identifier(self):
+        """獲取類別識別碼 - 格式: {test_class_name}-{sequence_id}"""
+        if self.test_class and self.class_sequence_id:
+            test_class_name = self.test_class.name.replace(' ', '_')
+            return f"{test_class_name}-{self.class_sequence_id}"
+        return None
 
 
 class RVTGuide(models.Model):
