@@ -636,6 +636,108 @@ def search_rvt_guide_knowledge(query_text, limit=5):
         return []
 
 
+def search_ocr_storage_benchmark(query_text, limit=5):
+    """PostgreSQL 全文搜索 OCR 存儲基準測試資料"""
+    try:
+        with connection.cursor() as cursor:
+            sql = """
+            SELECT 
+                id, original_image_filename, benchmark_score, average_bandwidth, test_datetime,
+                project_name, device_model, firmware_version, benchmark_version,
+                read_speed, write_speed, iops_read, iops_write,
+                test_environment, test_type, ocr_confidence,
+                created_at, updated_at,
+                CASE 
+                    WHEN original_image_filename ILIKE %s THEN 1.0
+                    WHEN device_model ILIKE %s THEN 0.9
+                    WHEN CAST(benchmark_score AS TEXT) ILIKE %s THEN 0.8
+                    WHEN average_bandwidth ILIKE %s THEN 0.7
+                    WHEN test_environment ILIKE %s THEN 0.6
+                    WHEN test_type ILIKE %s THEN 0.6
+                    ELSE 0.5
+                END as score
+            FROM ocr_storage_benchmark
+            WHERE 
+                original_image_filename ILIKE %s OR 
+                device_model ILIKE %s OR
+                CAST(benchmark_score AS TEXT) ILIKE %s OR
+                average_bandwidth ILIKE %s OR
+                test_environment ILIKE %s OR
+                test_type ILIKE %s OR
+                CAST(read_speed AS TEXT) ILIKE %s OR
+                CAST(write_speed AS TEXT) ILIKE %s OR
+                CAST(iops_read AS TEXT) ILIKE %s OR
+                CAST(iops_write AS TEXT) ILIKE %s
+            ORDER BY score DESC, benchmark_score DESC, created_at DESC
+            LIMIT %s
+            """
+            
+            search_pattern = f'%{query_text}%'
+            cursor.execute(sql, [
+                search_pattern, search_pattern, search_pattern, search_pattern, search_pattern, search_pattern,
+                search_pattern, search_pattern, search_pattern, search_pattern, search_pattern, search_pattern,
+                search_pattern, search_pattern, search_pattern, search_pattern,
+                limit
+            ])
+            
+            rows = cursor.fetchall()
+            columns = [desc[0] for desc in cursor.description]
+            
+            results = []
+            for row in rows:
+                benchmark_data = dict(zip(columns, row))
+                
+                # 格式化為知識片段
+                content = f"# 存儲基準測試報告: {benchmark_data['original_image_filename'] or '未命名'}\n\n"
+                content += f"**基準分數**: {benchmark_data['benchmark_score'] or 'N/A'}\n"
+                content += f"**平均帶寬**: {benchmark_data['average_bandwidth'] or 'N/A'}\n"
+                content += f"**測試時間**: {benchmark_data['test_datetime'] or 'N/A'}\n"
+                content += f"**裝置型號**: {benchmark_data['device_model'] or 'N/A'}\n"
+                content += f"**固件版本**: {benchmark_data['firmware_version'] or 'N/A'}\n"
+                content += f"**基準軟體版本**: {benchmark_data['benchmark_version'] or 'N/A'}\n"
+                content += f"**專案名稱**: {benchmark_data['project_name'] or 'N/A'}\n"
+                content += f"**測試環境**: {benchmark_data['test_environment'] or 'N/A'}\n"
+                content += f"**測試類型**: {benchmark_data['test_type'] or 'N/A'}\n"
+                content += f"**讀取速度**: {benchmark_data['read_speed'] or 'N/A'} MB/s\n"
+                content += f"**寫入速度**: {benchmark_data['write_speed'] or 'N/A'} MB/s\n"
+                content += f"**讀取 IOPS**: {benchmark_data['iops_read'] or 'N/A'}\n"
+                content += f"**寫入 IOPS**: {benchmark_data['iops_write'] or 'N/A'}\n"
+                content += f"**OCR 信心度**: {benchmark_data['ocr_confidence'] or 'N/A'}\n"
+                
+                results.append({
+                    'id': str(benchmark_data['id']),
+                    'title': f"存儲基準測試: {benchmark_data['original_image_filename'] or '未命名'} (分數: {benchmark_data['benchmark_score'] or 'N/A'})",
+                    'content': content,
+                    'score': float(benchmark_data['score']),
+                    'metadata': {
+                        'source': 'ocr_storage_benchmark',
+                        'filename': benchmark_data['original_image_filename'],
+                        'benchmark_score': benchmark_data['benchmark_score'],
+                        'average_bandwidth': benchmark_data['average_bandwidth'],
+                        'test_datetime': str(benchmark_data['test_datetime']) if benchmark_data['test_datetime'] else None,
+                        'device_model': benchmark_data['device_model'],
+                        'firmware_version': benchmark_data['firmware_version'],
+                        'benchmark_version': benchmark_data['benchmark_version'],
+                        'project_name': benchmark_data['project_name'],
+                        'test_environment': benchmark_data['test_environment'],
+                        'test_type': benchmark_data['test_type'],
+                        'read_speed': benchmark_data['read_speed'],
+                        'write_speed': benchmark_data['write_speed'],
+                        'iops_read': benchmark_data['iops_read'],
+                        'iops_write': benchmark_data['iops_write'],
+                        'ocr_confidence': benchmark_data['ocr_confidence'],
+                        'created_at': str(benchmark_data['created_at']) if benchmark_data['created_at'] else None
+                    }
+                })
+            
+            logger.info(f"OCR Storage Benchmark search found {len(results)} results for query: '{query_text}'")
+            return results
+            
+    except Exception as e:
+        logger.error(f"OCR Storage Benchmark database search error: {str(e)}")
+        return []
+
+
 @api_view(['POST'])
 @permission_classes([])  # 公開 API，但會檢查 Authorization header
 @csrf_exempt
@@ -733,6 +835,10 @@ def dify_knowledge_search(request):
             else:
                 search_results = search_rvt_guide_knowledge(processed_query, limit=top_k)
                 logger.info(f"RVT Guide keyword search results count: {len(search_results)}")
+        elif knowledge_id in ['ocr_storage_benchmark', 'ocr_benchmark', 'storage_benchmark', 'benchmark_db']:
+            # 搜索 OCR 存儲基準測試資料
+            search_results = search_ocr_storage_benchmark(processed_query, limit=top_k)
+            logger.info(f"OCR Storage Benchmark search results count: {len(search_results)}")
         else:
             # 默認搜索員工知識庫
             search_results = search_postgres_knowledge(processed_query, limit=top_k)
