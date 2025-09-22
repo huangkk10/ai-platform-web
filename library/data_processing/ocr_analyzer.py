@@ -126,34 +126,140 @@ class OCRAnalyzer:
         }
         
         try:
-            # 定義欄位對映模式
+            # 定義欄位對映模式 - 更新以匹配實際的表格格式
             field_patterns = {
                 'benchmark_score': [
+                    # 🆕 匹配 "存儲基準分數" (簡體中文格式) - 優先匹配
+                    r'\|\s*\*\*存儲基準分數\*\*\s*\|\s*\*\*(\d+)\*\*\s*\|',
+                    r'\|\s*存儲基準分數\s*\|\s*\*\*(\d+)\*\*\s*\|',
+                    r'\|\s*存儲基準分數\s*\|\s*(\d+)\s*\|',
+                    # 🆕 匹配 "存儲基準分數" 的其他格式變體
+                    r'\|\s*\*\*存儲基準分數.*?\*\*\s*\|\s*\*\*(\d+)\*\*\s*\|',
+                    r'\|\s*存儲基準分數.*?\|\s*\*\*(\d+)\*\*\s*\|',
+                    r'\|\s*存儲基準分數.*?\|\s*(\d+)\s*\|',
+                    # 匹配新的 AI 回答格式 | **3DMark 分數** | **6883** |
+                    r'\|\s*\*\*3DMark\s*分數\*\*\s*\|\s*\*\*(\d+)\*\*\s*\|',
+                    r'\|\s*3DMark\s*分數\s*\|\s*\*\*(\d+)\*\*\s*\|',
+                    r'\|\s*3DMark\s*分數\s*\|\s*(\d+)\s*\|',
+                    # 匹配 | **測試分數** | 6883 |
+                    r'\|\s*\*\*測試分數\*\*\s*\|\s*\*\*(\d+)\*\*\s*\|',
+                    r'\|\s*測試分數\s*\|\s*\*\*(\d+)\*\*\s*\|',
+                    r'\|\s*測試分數\s*\|\s*(\d+)\s*\|',
+                    # 匹配 | **測試總分（Storage Benchmark Score）** | **6883** |
+                    r'\|\s*\*\*測試總分[^|]*\*\*\s*\|\s*\*\*(\d+)\*\*\s*\|',
+                    r'\|\s*測試總分[^|]*\|\s*\*\*(\d+)\*\*\s*\|',
+                    r'\|\s*測試總分[^|]*\|\s*(\d+)\s*\|',
+                    # 原有的 Storage Benchmark Score 格式
+                    r'\|\s*Storage Benchmark Score\s*\|\s*(\d+)\s*\|',
+                    r'\|\s*\*\*Storage Benchmark Score\*\*\s*\|\s*\*\*(\d+)\*\*\s*\|',
+                    r'\|\s*\*\*Storage Benchmark Score\*\*\s*\|\s*(\d+)\s*\|',
+                    # 匹配中文格式 (繁體中文)
+                    r'\|\s*\*\*儲存基準分數\*\*\s*\|\s*\*\*(\d+)\*\*\s*\|',
+                    r'\|\s*儲存基準分數\s*\|\s*\*\*(\d+)\*\*\s*\|',
+                    r'\|\s*儲存基準分數\s*\|\s*(\d+)\s*\|',
+                    # 舊的模式保留作為備用
                     r'\*\*儲存基準分數.*?\*\*\s*\|\s*(\d+)',
                     r'Storage Benchmark Score.*?\|\s*(\d+)',
                     r'儲存基準分數.*?\|\s*(\d+)'
                 ],
                 'average_bandwidth': [
+                    # 匹配新的 AI 回答格式 | **平均帶寬** | **1174.89 MB/s** |
+                    r'\|\s*\*\*平均帶寬\*\*\s*\|\s*\*\*([\d\s,.]+\s*MB/s)\*\*\s*\|',
+                    r'\|\s*平均帶寬\s*\|\s*\*\*([\d\s,.]+\s*MB/s)\*\*\s*\|',
+                    r'\|\s*平均帶寬\s*\|\s*([\d\s,.]+\s*MB/s)\s*\|',
+                    # 匹配 | **平均帶寬（Average Bandwidth）** | **1174.89 MB/s** |
+                    r'\|\s*\*\*平均帶寬[^|]*\*\*\s*\|\s*\*\*([\d\s,.]+\s*MB/s)\*\*\s*\|',
+                    r'\|\s*平均帶寬[^|]*\|\s*\*\*([\d\s,.]+\s*MB/s)\*\*\s*\|',
+                    r'\|\s*平均帶寬[^|]*\|\s*([\d\s,.]+\s*MB/s)\s*\|',
+                    # 匹配 | 平均頻寬 | 1174.89 MB/s | (無粗體)
+                    r'\|\s*平均頻寬\s*\|\s*([\d\s,.]+\s*MB/s)\s*\|',
+                    r'\|\s*\*\*平均頻寬\*\*\s*\|\s*([\d\s,.]+\s*MB/s)\s*\|',
+                    r'\|\s*\*\*平均頻寬\*\*\s*\|\s*\*\*([\d\s,.]+\s*MB/s)\*\*\s*\|',
+                    # 匹配 | **平均 Bandwidth** | **1174.89 MB/s** | (新格式)
+                    r'\|\s*\*\*平均\s*Bandwidth\*\*\s*\|\s*\*\*([\d\s,.]+\s*MB/s)\*\*\s*\|',
+                    r'\|\s*平均\s*Bandwidth\s*\|\s*\*\*([\d\s,.]+\s*MB/s)\*\*\s*\|',
+                    r'\|\s*平均\s*Bandwidth\s*\|\s*([\d\s,.]+\s*MB/s)\s*\|',
+                    # 舊的模式保留作為備用
                     r'\*\*平均頻寬.*?\*\*\s*\|\s*([\d\s,.]+\s*MB/s)',
                     r'Average Bandwidth.*?\|\s*([\d\s,.]+\s*MB/s)',
                     r'平均頻寬.*?\|\s*([\d\s,.]+\s*MB/s)'
                 ],
                 'device_model': [
+                    # 匹配新的 AI 回答格式 | **裝置型號** | **KINGSTON SFYR2S1TO** |
+                    r'\|\s*\*\*裝置型號\*\*\s*\|\s*\*\*([^*|]+)\*\*[^|]*\|',
+                    r'\|\s*裝置型號\s*\|\s*\*\*([^*|]+)\*\*[^|]*\|',
+                    r'\|\s*裝置型號\s*\|\s*([^|]+?)\s*(?:\([^)]*\))?\s*\|',
+                    # 匹配 | **SSD 型號** | **KINGSTON SFYR2S1TO** |
+                    r'\|\s*\*\*SSD\s*型號\*\*\s*\|\s*\*\*([^*|]+)\*\*[^|]*\|',
+                    r'\|\s*SSD\s*型號\s*\|\s*\*\*([^*|]+)\*\*[^|]*\|',
+                    r'\|\s*SSD\s*型號\s*\|\s*([^|]+?)\s*(?:\([^)]*\))?\s*\|',
+                    # 匹配純文字格式 Kingston SFYR2S1TO
+                    r'Kingston\s+([A-Z0-9]+)',
+                    r'KINGSTON\s+([A-Z0-9]+)',
+                    # 舊的模式保留作為備用
                     r'\*\*裝置型號\*\*\s*\|\s*([A-Z0-9\s]+)',
                     r'裝置型號.*?\|\s*([A-Z0-9\s]+)',
                     r'Device.*?\|\s*([A-Z0-9\s]+)'
                 ],
                 'firmware_version': [
+                    # 匹配 | **固件版本** | **SGWO904A** |
+                    r'\|\s*\*\*固件版本\*\*\s*\|\s*\*\*([A-Z0-9]+)\*\*\s*\|',
+                    r'\|\s*固件版本\s*\|\s*\*\*([A-Z0-9]+)\*\*\s*\|',
+                    r'\|\s*固件版本\s*\|\s*([A-Z0-9]+)\s*\|',
+                    # 匹配 | **韌體版本** | **SGWO904A** |
+                    r'\|\s*\*\*韌體版本\*\*\s*\|\s*\*\*([A-Z0-9]+)\*\*\s*\|',
+                    r'\|\s*韌體版本\s*\|\s*\*\*([A-Z0-9]+)\*\*\s*\|',
+                    r'\|\s*韌體版本\s*\|\s*([A-Z0-9]+)\s*\|',
+                    # 舊的模式保留作為備用
                     r'\*\*韌體.*?\*\*\s*\|\s*([A-Z0-9]+)',
                     r'Firmware.*?\|\s*([A-Z0-9]+)',
-                    r'韌體.*?\|\s*([A-Z0-9]+)'
+                    r'韌體.*?\|\s*([A-Z0-9]+)',
+                    r'固件.*?\|\s*([A-Z0-9]+)'
                 ],
                 'test_datetime': [
+                    # 匹配新的 AI 回答格式 | **測試日期與時間** | **2025‑09‑06 16:13 +08:00** |
+                    r'\|\s*\*\*測試日期與時間\*\*\s*\|\s*\*\*([\d\-‑]+\s+[\d:]+)(?:\s*\+[\d:]+)?\*\*\s*\|',
+                    r'\|\s*測試日期與時間\s*\|\s*\*\*([\d\-‑]+\s+[\d:]+)(?:\s*\+[\d:]+)?\*\*\s*\|',
+                    r'\|\s*測試日期與時間\s*\|\s*([\d\-‑]+\s+[\d:]+)(?:\s*\+[\d:]+)?\s*\|',
+                    # 匹配 | 測試時間 | 2025‑09‑06 16:13 +08:00 | (無粗體格式)
+                    r'\|\s*測試時間\s*\|\s*([\d\-‑]+\s+[\d:]+)(?:\s*\+[\d:]+)?\s*\|',
+                    r'\|\s*\*\*測試時間\*\*\s*\|\s*([\d\-‑]+\s+[\d:]+)(?:\s*\+[\d:]+)?\s*\|',
+                    r'\|\s*\*\*測試時間\*\*\s*\|\s*\*\*([\d\-‑]+\s+[\d:]+)(?:\s*\+[\d:]+)?\*\*\s*\|',
+                    # 匹配 | **測試日期/時間** | **2025‑09‑06 16:13 +08:00** | (時間也有粗體，精確匹配)
+                    r'\|\s*\*\*測試日期/時間\*\*\s*\|\s*\*\*([\d\-‑]+\s+[\d:]+)(?:\s*\+[\d:]+)?\*\*\s*\|',
+                    r'\|\s*測試日期/時間\s*\|\s*\*\*([\d\-‑]+\s+[\d:]+)(?:\s*\+[\d:]+)?\*\*\s*\|',
+                    # 匹配 | **測試日期 & 時間** | 2025‑09‑06 16:13 +08:00 |
+                    r'\|\s*\*\*測試日期\s*&\s*時間\*\*\s*\|\s*([\d\-‑]+\s+[\d:]+)(?:\s*\+[\d:]+)?\s*\|',
+                    r'\|\s*測試日期\s*&\s*時間\s*\|\s*([\d\-‑]+\s+[\d:]+)(?:\s*\+[\d:]+)?\s*\|',
+                    # 匹配括號在粗體標記內的情況: **2025‑09‑06 16:13 +08:00 (備註說明)**
+                    r'\|\s*\*\*測試日期/時間\*\*\s*\|\s*\*\*([\d\-‑]+\s+[\d:]+)(?:\s*\+[\d:]+)?(?:\s*\([^)]*\))?\*\*\s*\|',
+                    r'\|\s*測試日期/時間\s*\|\s*\*\*([\d\-‑]+\s+[\d:]+)(?:\s*\+[\d:]+)?(?:\s*\([^)]*\))?\*\*\s*\|',
+                    # 匹配 | **測試日期/時間** | 2025‑09‑06 16:13 +08:00 (根據 RawText 時間戳) | (包含描述)
+                    r'\|\s*\*\*測試日期/時間\*\*\s*\|\s*([\d\-‑]+\s+[\d:]+)(?:\s*\+[\d:]+)?(?:\s*\([^)]*\))?\s*\|',
+                    r'\|\s*測試日期/時間\s*\|\s*([\d\-‑]+\s+[\d:]+)(?:\s*\+[\d:]+)?(?:\s*\([^)]*\))?\s*\|',
+                    # 匹配 | **測試時間** | **2025‑09‑06 16:13 (+08:00)** | (舊格式)
+                    r'\|\s*\*\*測試時間\*\*\s*\|\s*\*\*([\d\-‑]+\s+[\d:]+)(?:\s*\([^)]*\))?\*\*\s*\|',
+                    r'\|\s*測試時間\s*\|\s*\*\*([\d\-‑]+\s+[\d:]+)(?:\s*\([^)]*\))?\*\*\s*\|',
+                    # 🆕 處理測試時間不是日期的情況，如 "35 s（主要考慮載入時間）"
+                    # 在這種情況下，我們應該從其他地方獲取測試日期，或者設為 None
+                    # 舊的模式保留作為備用
                     r'\*\*測試時間\*\*\s*\|\s*([\d\-‑\s:+()]+)',
                     r'測試時間.*?\|\s*([\d\-‑\s:+()]+)',
                     r'Test.*?Time.*?\|\s*([\d\-‑\s:+()]+)'
                 ],
                 'benchmark_version': [
+                    # 匹配新的 AI 回答格式 | **3DMark 版本** | **2.28.8228** |
+                    r'\|\s*\*\*3DMark\s*版本\*\*\s*\|\s*\*\*.*?([\d.]+).*?\*\*\s*\|',
+                    r'\|\s*3DMark\s*版本\s*\|\s*\*\*.*?([\d.]+).*?\*\*\s*\|',
+                    r'\|\s*3DMark\s*版本\s*\|\s*.*?([\d.]+).*?\s*\|',
+                    # 匹配 | **軟體版本** | **3DMark Professional Edition 2.28.8228** |
+                    r'\|\s*\*\*軟體版本\*\*\s*\|\s*\*\*.*?3DMark.*?([\d.]+).*?\*\*\s*\|',
+                    r'\|\s*軟體版本\s*\|\s*\*\*.*?3DMark.*?([\d.]+).*?\*\*\s*\|',
+                    r'\|\s*軟體版本\s*\|\s*.*?3DMark.*?([\d.]+).*?\|',
+                    # 更通用的版本匹配
+                    r'3DMark.*?Edition\s+([\d.]+)',
+                    r'3DMark.*?([\d.]+\.\d+\.\d+)',
+                    # 舊的模式保留作為備用
                     r'\*\*3DMark.*?版本\*\*\s*\|\s*([\d.]+[^|]*)',
                     r'3DMark.*?版本.*?\|\s*([\d.]+[^|]*)',
                     r'3DMark.*?\|\s*([\d.]+[^|]*)'
@@ -166,47 +272,57 @@ class OCRAnalyzer:
                     matches = re.findall(pattern, answer_text, re.IGNORECASE | re.MULTILINE)
                     if matches:
                         value = matches[0].strip()
+                        print(f"🔍 找到 {field}: {value}")
                         
                         # 針對不同欄位進行特殊處理
                         if field == 'benchmark_score':
                             try:
-                                parsed_data[field] = int(value)
+                                # 清理數值，移除可能的額外字符
+                                clean_value = re.sub(r'[^\d]', '', value)
+                                if clean_value:
+                                    parsed_data[field] = int(clean_value)
+                                    print(f"✅ 成功解析 {field}: {parsed_data[field]}")
                             except ValueError:
+                                print(f"❌ 解析 {field} 失敗: {value}")
                                 pass
                                 
                         elif field == 'average_bandwidth':
                             # 清理帶寬格式 "1 174.89 MB/s" -> "1174.89 MB/s"
                             cleaned_bandwidth = re.sub(r'(\d)\s+(\d)', r'\1\2', value)
                             parsed_data[field] = cleaned_bandwidth
+                            print(f"✅ 成功解析 {field}: {parsed_data[field]}")
                             
                         elif field == 'device_model':
-                            parsed_data[field] = value.strip()
+                            # 清理裝置型號，移除多餘的格式標記
+                            cleaned_device = value.replace('*', '').strip()
+                            parsed_data[field] = cleaned_device
+                            print(f"✅ 成功解析 {field}: {parsed_data[field]}")
                             
                         elif field == 'firmware_version':
-                            parsed_data[field] = value.strip()
+                            # 清理韌體版本
+                            cleaned_firmware = value.replace('*', '').strip()
+                            parsed_data[field] = cleaned_firmware
+                            print(f"✅ 成功解析 {field}: {parsed_data[field]}")
                             
                         elif field == 'test_datetime':
-                            # 處理日期格式 "2025‑09‑06 16:13 (+08:00)"
+                            # 處理日期格式 "2025‑09‑06 16:13 +08:00" 或 "2025‑09‑06 16:13 (+08:00)"
                             try:
-                                # 移除時區資訊並正規化分隔符
-                                date_str = re.sub(r'\s*\([^)]+\)', '', value)  # 移除 (+08:00)
-                                date_str = date_str.replace('‑', '-').strip()  # 正規化分隔符
+                                # 先移除尾部的時區描述（如 "(根據 RawText 時間戳)"）
+                                date_str = re.sub(r'\s*\([^)]*時間戳[^)]*\)', '', value)
+                                # 移除時區資訊 (+08:00 或 +08:00)
+                                date_str = re.sub(r'\s*[\+\-]\d{2}:\d{2}', '', date_str)
+                                # 移除剩餘的括號
+                                date_str = re.sub(r'\s*\([^)]*\)', '', date_str)
+                                # 正規化分隔符
+                                date_str = date_str.replace('‑', '-').strip()
                                 
-                                # 嘗試解析不同的日期格式
-                                date_formats = [
-                                    '%Y-%m-%d %H:%M',
-                                    '%Y-%m-%d %H:%M:%S',
-                                    '%Y/%m/%d %H:%M',
-                                    '%Y/%m/%d %H:%M:%S'
-                                ]
-                                
-                                for fmt in date_formats:
-                                    try:
-                                        parsed_data[field] = datetime.strptime(date_str, fmt)
-                                        break
-                                    except ValueError:
-                                        continue
-                                        
+                                # 如果解析後的日期格式正確，就保存為字符串（不轉換為 datetime 對象）
+                                if re.match(r'\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}', date_str):
+                                    parsed_data[field] = date_str  # 保存為字符串格式
+                                    print(f"✅ 成功解析 {field}: {parsed_data[field]}")
+                                else:
+                                    print(f"⚠️ 日期格式不符: {date_str}")
+                                    
                             except Exception as e:
                                 print(f"⚠️ 日期解析失敗: {value} -> {e}")
                                 parsed_data[field] = datetime.now()
@@ -216,16 +332,67 @@ class OCRAnalyzer:
                             version_match = re.match(r'([\d.]+)', value)
                             if version_match:
                                 parsed_data[field] = version_match.group(1)
+                                print(f"✅ 成功解析 {field}: {parsed_data[field]}")
                             else:
                                 parsed_data[field] = value
+                                print(f"✅ 成功解析 {field}: {parsed_data[field]}")
                         
                         break  # 找到匹配就跳出內層循環
+            
+            # 打印解析結果進行調試
+            print(f"\n📊 解析結果摘要:")
+            for key, value in parsed_data.items():
+                if value is not None:
+                    print(f"  {key}: {value}")
+            
+            # 特別檢查 test_datetime
+            if 'test_datetime' in parsed_data:
+                if parsed_data['test_datetime'] is not None:
+                    # 驗證解析出的時間是否是有效的日期格式
+                    datetime_str = str(parsed_data['test_datetime'])
+                    if self._is_valid_datetime_string(datetime_str):
+                        print(f"✅ test_datetime 解析成功: {parsed_data['test_datetime']}")
+                    else:
+                        print(f"⚠️ test_datetime 不是有效的日期格式: {datetime_str}")
+                        parsed_data['test_datetime'] = None
+                else:
+                    print(f"⚠️ test_datetime 存在但值為 None")
+            else:
+                print(f"❌ test_datetime 不存在於 parsed_data 中")
+                
+            # 特別檢查 average_bandwidth
+            if 'average_bandwidth' in parsed_data:
+                if parsed_data['average_bandwidth'] is not None:
+                    print(f"✅ average_bandwidth 解析成功: {parsed_data['average_bandwidth']}")
+                else:
+                    print(f"⚠️ average_bandwidth 存在但值為 None")
+                    # 嘗試從 AI 回答中提取帶寬信息，使用更寬鬆的模式
+                    backup_bandwidth = self._extract_bandwidth_fallback(answer_text)
+                    if backup_bandwidth:
+                        parsed_data['average_bandwidth'] = backup_bandwidth
+                        print(f"🔧 備用解析找到 average_bandwidth: {backup_bandwidth}")
+            else:
+                print(f"❌ average_bandwidth 不存在於 parsed_data 中")
+                backup_bandwidth = self._extract_bandwidth_fallback(answer_text)
+                if backup_bandwidth:
+                    parsed_data['average_bandwidth'] = backup_bandwidth
+                    print(f"🔧 備用解析找到 average_bandwidth: {backup_bandwidth}")
             
             # 計算衍生欄位
             self._calculate_derived_fields(parsed_data)
             
-            # 清理無效值
-            cleaned_data = {k: v for k, v in parsed_data.items() if v is not None}
+            # 清理無效值，但保留重要欄位（即使是 None）
+            important_fields = ['test_datetime', 'project_name', 'average_bandwidth']
+            cleaned_data = {}
+            
+            for k, v in parsed_data.items():
+                if v is not None:
+                    cleaned_data[k] = v
+                elif k in important_fields:
+                    # 對於重要欄位，即使是 None 也保留，但給一個明確的指示
+                    cleaned_data[k] = None
+            
+            print(f"\n🎯 最終清理後的數據: {len(cleaned_data)} 個欄位")
             
             return cleaned_data
             
@@ -355,10 +522,67 @@ class OCRAnalyzer:
         # 設置 OCR 信心度
         data['ocr_confidence'] = 0.95  # CDM8 檔案通常結構化良好
     
+    def _is_valid_datetime_string(self, datetime_str: str) -> bool:
+        """檢查字符串是否是有效的日期時間格式"""
+        try:
+            # 常見的無效時間格式
+            invalid_patterns = [
+                r'^\d+\s*s\s*', # 35 s（主要考慮載入時間）
+                r'^\d+\s*秒', # 35 秒
+                r'^\d+\s*ms', # 1000 ms
+                r'^\d+\s*分鐘', # 5 分鐘
+                r'^\d+\s*小時', # 2 小時
+            ]
+            
+            for pattern in invalid_patterns:
+                if re.match(pattern, datetime_str, re.IGNORECASE):
+                    return False
+            
+            # 檢查是否包含年月日的基本格式
+            if re.search(r'\d{4}[\-\‑/]\d{1,2}[\-\‑/]\d{1,2}', datetime_str):
+                return True
+            
+            return False
+        except:
+            return False
+    
+    def _extract_bandwidth_fallback(self, text: str) -> str:
+        """使用備用模式提取帶寬信息"""
+        try:
+            # 更寬鬆的帶寬提取模式
+            bandwidth_patterns = [
+                # 在任何地方查找 "數字 MB/s" 模式
+                r'(\d+\.?\d*)\s*MB/s',
+                r'(\d+\.?\d*)\s*mb/s',
+                r'(\d+\.?\d*)\s*Mb/s',
+                # 查找表格中的速度信息
+                r'速度[：:]\s*(\d+\.?\d*)\s*MB/s',
+                r'頻寬[：:]\s*(\d+\.?\d*)\s*MB/s',
+                r'帶寬[：:]\s*(\d+\.?\d*)\s*MB/s',
+                r'bandwidth[：:]\s*(\d+\.?\d*)\s*MB/s',
+                # 從描述中提取
+                r'平均.*?(\d+\.?\d*)\s*MB/s',
+                r'average.*?(\d+\.?\d*)\s*MB/s',
+            ]
+            
+            for pattern in bandwidth_patterns:
+                matches = re.findall(pattern, text, re.IGNORECASE)
+                if matches:
+                    # 取第一個匹配的值
+                    bandwidth_value = matches[0]
+                    return f"{bandwidth_value} MB/s"
+            
+            return None
+        except Exception as e:
+            print(f"⚠️ 備用帶寬提取失敗: {e}")
+            return None
+    
     def _calculate_derived_fields(self, data: Dict[str, Any]) -> None:
         """計算衍生欄位"""
-        # 基於平均頻寬推算讀寫速度
-        if data.get('average_bandwidth'):
+        print(f"\n🔧 開始計算衍生欄位...")
+        
+        # 只有在沒有解析到讀寫速度時才基於平均頻寬推算
+        if not data.get('read_speed') and not data.get('write_speed') and data.get('average_bandwidth'):
             try:
                 # 提取數值 "1174.89 MB/s" -> 1174.89
                 bandwidth_match = re.search(r'([\d.]+)', data['average_bandwidth'])
@@ -367,35 +591,40 @@ class OCRAnalyzer:
                     # 假設讀取速度稍高於平均值，寫入速度稍低
                     data['read_speed'] = round(avg_speed * 1.1, 2)
                     data['write_speed'] = round(avg_speed * 0.9, 2)
+                    print(f"📊 基於平均頻寬計算讀寫速度: read={data['read_speed']}, write={data['write_speed']}")
             except ValueError:
                 pass
         
-        # 基於基準分數推算 IOPS（簡化計算）
-        if data.get('benchmark_score'):
+        # 🚨 修正：只有在完全沒有解析到基準分數時才推算，絕不覆蓋已解析的值
+        if not data.get('benchmark_score'):
+            print(f"⚠️ 未解析到 benchmark_score，嘗試計算估算值")
+            if data.get('average_bandwidth'):
+                # 如果沒有 benchmark_score，嘗試從平均頻寬推算
+                try:
+                    bandwidth_match = re.search(r'([\d.]+)', data['average_bandwidth'])
+                    if bandwidth_match:
+                        avg_speed = float(bandwidth_match.group(1))
+                        # 基於平均頻寬估算基準分數 (簡化公式)
+                        estimated_score = int(avg_speed * 5)  # 1000 MB/s ≈ 5000 分
+                        data['benchmark_score'] = estimated_score
+                        print(f"📊 基於平均頻寬估算基準分數: {data['benchmark_score']}")
+                except ValueError:
+                    pass
+            
+            # 如果還是沒有 benchmark_score，提供預設值
+            if not data.get('benchmark_score'):
+                data['benchmark_score'] = 5000  # 預設基準分數
+                print(f"⚠️ 未找到 benchmark_score，使用預設值: {data['benchmark_score']}")
+        else:
+            print(f"✅ 已解析到正確的 benchmark_score: {data['benchmark_score']}，跳過計算")
+        
+        # 只有在沒有 IOPS 數據時才基於基準分數推算
+        if not data.get('iops_read') and not data.get('iops_write') and data.get('benchmark_score'):
             # 簡化的 IOPS 估算公式
             estimated_iops = data['benchmark_score'] * 100
             data['iops_read'] = int(estimated_iops * 1.2)
             data['iops_write'] = int(estimated_iops * 0.8)
-        elif data.get('average_bandwidth'):
-            # 如果沒有 benchmark_score，嘗試從平均頻寬推算
-            try:
-                bandwidth_match = re.search(r'([\d.]+)', data['average_bandwidth'])
-                if bandwidth_match:
-                    avg_speed = float(bandwidth_match.group(1))
-                    # 基於平均頻寬估算基準分數 (簡化公式)
-                    estimated_score = int(avg_speed * 5)  # 1000 MB/s ≈ 5000 分
-                    data['benchmark_score'] = estimated_score
-                    # 然後推算 IOPS
-                    estimated_iops = estimated_score * 100
-                    data['iops_read'] = int(estimated_iops * 1.2)
-                    data['iops_write'] = int(estimated_iops * 0.8)
-            except ValueError:
-                pass
-        
-        # 如果還是沒有 benchmark_score，提供預設值
-        if not data.get('benchmark_score'):
-            data['benchmark_score'] = 5000  # 預設基準分數
-            print(f"⚠️ 未找到 benchmark_score，使用預設值: {data['benchmark_score']}")
+            print(f"📊 基於基準分數估算IOPS: read={data['iops_read']}, write={data['iops_write']}")
         
         # 設置項目名稱（暫時保留空值，不自動生成）
         # if data.get('device_model'):
@@ -438,12 +667,14 @@ class OCRDatabaseManager:
                 'average_bandwidth': parsed_data.get('average_bandwidth'),
                 'device_model': parsed_data.get('device_model'),
                 'firmware_version': parsed_data.get('firmware_version'),
-                'benchmark_version': 'CDM8',  # CDM8 專用
+                'test_datetime': parsed_data.get('test_datetime'),  # 修復：加入 test_datetime
+                'benchmark_version': parsed_data.get('benchmark_version', 'CDM8'),  # 使用解析出的版本
+                'mark_version_3d': parsed_data.get('benchmark_version'),  # 新欄位：3DMark版本
                 'read_speed': parsed_data.get('read_speed'),
                 'write_speed': parsed_data.get('write_speed'),
                 'iops_read': parsed_data.get('iops_read'),
                 'iops_write': parsed_data.get('iops_write'),
-                'test_environment': parsed_data.get('test_environment', 'testing'),
+                'test_environment': parsed_data.get('test_environment', 'benchmark'),
                 'test_type': parsed_data.get('test_type', 'comprehensive'),
                 'ocr_raw_text': ocr_raw_text,
                 'ai_structured_data': json_safe_data,  # JSON 安全的結構化資料
@@ -455,15 +686,41 @@ class OCRDatabaseManager:
             # 處理測試時間
             if parsed_data.get('test_datetime'):
                 if isinstance(parsed_data['test_datetime'], datetime):
+                    # 如果已經是 datetime 對象，直接使用
                     save_data['test_datetime'] = parsed_data['test_datetime']
                 else:
                     try:
-                        # 嘗試解析日期格式 "2025/07/21 13:36:57"
-                        test_date_str = str(parsed_data['test_datetime']).replace('/', '-')
-                        save_data['test_datetime'] = datetime.strptime(test_date_str, '%Y-%m-%d %H:%M:%S')
-                    except ValueError:
-                        # 如果解析失敗，使用當前時間
-                        save_data['test_datetime'] = datetime.now()
+                        # 處理 "2025-09-06 16:13" 格式（可能沒有秒數）
+                        test_date_str = str(parsed_data['test_datetime']).replace('/', '-').replace('‑', '-').strip()
+                        
+                        # 嘗試不同的日期格式
+                        date_formats = [
+                            '%Y-%m-%d %H:%M:%S',  # 2025-09-06 16:13:00
+                            '%Y-%m-%d %H:%M',     # 2025-09-06 16:13
+                            '%Y/%m/%d %H:%M:%S',  # 2025/09/06 16:13:00
+                            '%Y/%m/%d %H:%M'      # 2025/09/06 16:13
+                        ]
+                        
+                        parsed_datetime = None
+                        for fmt in date_formats:
+                            try:
+                                parsed_datetime = datetime.strptime(test_date_str, fmt)
+                                break
+                            except ValueError:
+                                continue
+                        
+                        if parsed_datetime:
+                            save_data['test_datetime'] = parsed_datetime
+                            print(f"✅ 成功解析測試時間: {save_data['test_datetime']}")
+                        else:
+                            # 如果所有格式都失敗，保持原始字符串
+                            save_data['test_datetime'] = test_date_str
+                            print(f"⚠️ 無法解析為 datetime，保存為字符串: {test_date_str}")
+                        
+                    except Exception as e:
+                        print(f"⚠️ 日期解析失敗: {parsed_data['test_datetime']} -> {e}")
+                        # 如果解析失敗，保存原始字符串
+                        save_data['test_datetime'] = str(parsed_data['test_datetime'])
             else:
                 save_data['test_datetime'] = datetime.now()
             

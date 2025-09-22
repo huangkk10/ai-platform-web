@@ -1940,7 +1940,28 @@ def dify_chat_with_file(request):
                         
                         # 解析 AI 回答中的測試資料
                         ai_answer = result.get('answer', '')
+                        
+                        # 🆕 添加 AI 回答的詳細調試輸出
+                        print(f"\n📄 AI 回答內容分析:")
+                        print(f"回答長度: {len(ai_answer)} 字符")
+                        print(f"前 500 字符預覽:")
+                        print("=" * 80)
+                        print(ai_answer[:500] if ai_answer else "AI 回答為空")
+                        print("=" * 80)
+                        print(f"完整 AI 回答:")
+                        print(repr(ai_answer)[:1000])  # 使用 repr 顯示原始格式
+                        print("=" * 80)
+                        
                         parsed_data = ocr_analyzer.parse_storage_benchmark_table(ai_answer)
+                        
+                        # 🆕 添加解析結果的詳細調試輸出
+                        print(f"\n🔍 解析結果分析:")
+                        print(f"解析數據: {parsed_data}")
+                        print(f"解析欄位數量: {len(parsed_data) if parsed_data else 0}")
+                        if parsed_data:
+                            for key, value in parsed_data.items():
+                                print(f"  {key}: {repr(value)}")
+                        print("=" * 80)
                         
                         if parsed_data and len(parsed_data) > 5:
                             print(f"✅ OCR 解析成功，解析出 {len(parsed_data)} 個欄位")
