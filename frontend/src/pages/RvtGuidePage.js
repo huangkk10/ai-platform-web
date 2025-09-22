@@ -1,22 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Card, 
-  Table, 
-  Button, 
-  Modal, 
-  Form, 
-  Input, 
-  Select, 
-  Tag, 
-  Space, 
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Card,
+  Table,
+  Button,
+  Space,
   Typography,
-  message,
-  Tooltip,
+  Tag,
   Statistic,
   Row,
   Col,
-  Rate,
-  Divider
+  Modal,
+  message,
+  Input,
+  Tooltip,
+  Select,
+  Form
 } from 'antd';
 import { 
   FileTextOutlined, 
@@ -26,10 +24,8 @@ import {
   ReloadOutlined,
   EyeOutlined,
   CheckCircleOutlined,
-  ClockCircleOutlined,
   BarChartOutlined,
   StarOutlined,
-  LikeOutlined,
   ToolOutlined,
   BookOutlined
 } from '@ant-design/icons';
@@ -37,7 +33,7 @@ import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import dayjs from 'dayjs';
 
-const { Title, Paragraph, Text } = Typography;
+const { Title, Text } = Typography;
 const { Option } = Select;
 const { TextArea } = Input;
 
@@ -86,7 +82,7 @@ const RvtGuidePage = () => {
     { value: 'all', label: '所有用戶', color: 'purple' }
   ];
 
-  // 表格欄位定義
+  // 表格欄位定義 - 根據用戶需求調整：查看欄位在最左邊，文檔名稱第二，顯示問題類型，移除狀態和目標用戶
   const columns = [
     {
       title: '查看',
@@ -105,11 +101,23 @@ const RvtGuidePage = () => {
       ),
     },
     {
+      title: '文檔名稱',
+      dataIndex: 'document_name',
+      key: 'document_name',
+      width: 180,
+      fixed: 'left',
+      ellipsis: true,
+      render: (text) => (
+        <Tooltip title={text || '未命名文檔'}>
+          <Text strong>{text || '未命名文檔'}</Text>
+        </Tooltip>
+      ),
+    },
+    {
       title: '標題',
       dataIndex: 'title',
       key: 'title',
       width: 250,
-      fixed: 'left',
       ellipsis: {
         showTitle: true,
       },
@@ -135,18 +143,21 @@ const RvtGuidePage = () => {
       sorter: (a, b) => a.title.localeCompare(b.title),
     },
     {
-      title: '分類',
-      dataIndex: 'main_category',
-      key: 'main_category',
+      title: '問題類型',
+      dataIndex: 'question_type',
+      key: 'question_type',
       width: 120,
       align: 'center',
-      render: (category, record) => (
-        <Tag color={mainCategoryOptions.find(opt => opt.value === category)?.color || 'default'}>
-          {record.main_category_display}
-        </Tag>
-      ),
-      filters: mainCategoryOptions.map(opt => ({ text: opt.label, value: opt.value })),
-      onFilter: (value, record) => record.main_category === value,
+      render: (questionType, record) => {
+        const typeOpt = questionTypeOptions.find(opt => opt.value === questionType);
+        return (
+          <Tag color={typeOpt?.color || 'default'}>
+            {record.question_type_display || typeOpt?.label || questionType}
+          </Tag>
+        );
+      },
+      filters: questionTypeOptions.map(opt => ({ text: opt.label, value: opt.value })),
+      onFilter: (value, record) => record.question_type === value,
     },
     {
       title: '子分類',
@@ -157,71 +168,12 @@ const RvtGuidePage = () => {
       render: (text) => text || '-',
     },
     {
-      title: '狀態',
-      dataIndex: 'status',
-      key: 'status',
-      width: 100,
-      align: 'center',
-      render: (status, record) => {
-        const statusOpt = statusOptions.find(opt => opt.value === status);
-        return (
-          <Tag color={statusOpt?.color || 'default'}>
-            {record.status_display}
-          </Tag>
-        );
-      },
-      filters: statusOptions.map(opt => ({ text: opt.label, value: opt.value })),
-      onFilter: (value, record) => record.status === value,
-    },
-    {
-      title: '問題類型',
-      dataIndex: 'question_type',
-      key: 'question_type',
-      width: 120,
-      align: 'center',
-      render: (questionType, record) => {
-        const typeOpt = questionTypeOptions.find(opt => opt.value === questionType);
-        return (
-          <Tag color={typeOpt?.color || 'default'}>
-            {record.question_type_display}
-          </Tag>
-        );
-      },
-      filters: questionTypeOptions.map(opt => ({ text: opt.label, value: opt.value })),
-      onFilter: (value, record) => record.question_type === value,
-    },
-    {
-      title: '目標用戶',
-      dataIndex: 'target_user',
-      key: 'target_user',
-      width: 120,
-      align: 'center',
-      render: (targetUser, record) => {
-        const userOpt = targetUserOptions.find(opt => opt.value === targetUser);
-        return (
-          <Tag color={userOpt?.color || 'default'}>
-            {record.target_user_display}
-          </Tag>
-        );
-      },
-      filters: targetUserOptions.map(opt => ({ text: opt.label, value: opt.value })),
-      onFilter: (value, record) => record.target_user === value,
-    },
-    {
       title: '版本',
       dataIndex: 'version',
       key: 'version',
       width: 80,
       align: 'center',
       render: (text) => text || '1.0',
-    },
-    {
-      title: '文檔名稱',
-      dataIndex: 'document_name',
-      key: 'document_name',
-      width: 150,
-      ellipsis: true,
-      render: (text) => text || '-',
     },
     {
       title: '建立時間',
@@ -262,7 +214,7 @@ const RvtGuidePage = () => {
   ];
 
   // 獲取指導文檔列表
-  const fetchGuides = async () => {
+  const fetchGuides = useCallback(async () => {
     if (!initialized || !isAuthenticated) return;
     
     setLoading(true);
@@ -275,10 +227,10 @@ const RvtGuidePage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [initialized, isAuthenticated]);
 
   // 獲取統計資料
-  const fetchStatistics = async () => {
+  const fetchStatistics = useCallback(async () => {
     if (!initialized || !isAuthenticated) return;
     
     try {
@@ -287,14 +239,14 @@ const RvtGuidePage = () => {
     } catch (error) {
       console.error('獲取統計資料失敗:', error);
     }
-  };
+  }, [initialized, isAuthenticated]);
 
   useEffect(() => {
     if (initialized && isAuthenticated) {
       fetchGuides();
       fetchStatistics();
     }
-  }, [initialized, isAuthenticated]);
+  }, [initialized, isAuthenticated, fetchGuides, fetchStatistics]);
 
   // 處理查看詳細內容
   const handleViewDetail = async (record) => {

@@ -340,6 +340,7 @@ class RVTGuideListSerializer(serializers.ModelSerializer):
     """RVT Guide 列表序列化器 - 用於列表視圖，包含較少字段以提升性能"""
     main_category_display = serializers.CharField(source='get_main_category_display', read_only=True)
     sub_category_display = serializers.CharField(source='get_sub_category_display', read_only=True)
+    question_type_display = serializers.CharField(source='get_question_type_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     target_user_display = serializers.CharField(source='get_target_user_display', read_only=True)
     
@@ -350,13 +351,16 @@ class RVTGuideListSerializer(serializers.ModelSerializer):
         model = RVTGuide
         fields = [
             'id', 'document_name', 'title', 'version',
-            'main_category_display', 'sub_category_display',
+            'main_category', 'main_category_display', 
+            'sub_category_display',
+            'question_type', 'question_type_display',
             'target_user_display', 'status', 'status_display',
             'keywords_list', 'full_category_name', 'created_at', 'updated_at'
         ]
         read_only_fields = [
             'id', 'created_at', 'updated_at', 'main_category_display',
-            'sub_category_display', 'target_user_display', 'status_display',
+            'sub_category_display', 'question_type_display', 
+            'target_user_display', 'status_display',
             'keywords_list', 'full_category_name'
         ]
     
