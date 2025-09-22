@@ -156,6 +156,7 @@ CSRF_EXEMPT_URLS = [
     '/api/auth/login/',
     '/api/auth/logout/',
     '/api/dify/',
+    '/api/rvt-guide/',
 ]
 
 # Session settings for authentication

@@ -11,6 +11,7 @@ class DisableCSRFMiddleware(MiddlewareMixin):
         '/api/auth/login/',
         '/api/auth/logout/',
         '/api/dify/',
+        '/api/rvt-guide/',
     ]
     
     def process_request(self, request):
