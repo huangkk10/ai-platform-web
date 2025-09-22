@@ -1,250 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Card,
-  Table,
-  Button,
-  Modal,
-  Form,
-  Input,
-  Switch,
   Space,
-  message,
-  Popconfirm,
-  Tag,
   Typography,
-  Divider
+  Tabs,
+  Badge
 } from 'antd';
 import {
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  SearchOutlined,
-  ReloadOutlined,
-  ExperimentOutlined
+  ExperimentOutlined,
+  MessageOutlined,
+  FileTextOutlined,
+  BarChartOutlined
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
+import TestClassTable from '../components/TestClassTable';
+import '../styles/EnhancedTabs.css';
 
-const { TextArea } = Input;
 const { Title, Text } = Typography;
 
 const TestClassManagementPage = () => {
   const { user } = useAuth();
-  const [testClasses, setTestClasses] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [editingClass, setEditingClass] = useState(null);
-  const [form] = Form.useForm();
-  const [searchText, setSearchText] = useState('');
-
-  // 獲取 CSRF token 的 helper 函數
-  const getCsrfToken = () => {
-    const name = 'csrftoken';
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-      const cookies = document.cookie.split(';');
-      for (let i = 0; i < cookies.length; i++) {
-        const cookie = cookies[i].trim();
-        if (cookie.substring(0, name.length + 1) === (name + '=')) {
-          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-          break;
-        }
-      }
-    }
-    return cookieValue;
-  };
-
-  // 檢查權限 - 只有 admin 可以訪問
-  useEffect(() => {
-    if (!user?.is_staff && !user?.is_superuser) {
-      message.error('您沒有權限訪問此頁面');
-      return;
-    }
-    fetchTestClasses();
-  }, [user]);
-
-  const fetchTestClasses = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('/api/test-classes/', {
-        credentials: 'include',
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setTestClasses(data.results || data);
-      } else if (response.status === 403) {
-        message.error('權限不足，無法訪問 TestClass 資料');
-      } else {
-        message.error('載入 TestClass 資料失敗');
-      }
-    } catch (error) {
-      console.error('Fetch error:', error);
-      message.error('網路錯誤，無法載入資料');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCreate = () => {
-    setEditingClass(null);
-    form.resetFields();
-    form.setFieldsValue({ is_active: true }); // 預設啟用
-    setModalVisible(true);
-  };
-
-  const handleEdit = (record) => {
-    setEditingClass(record);
-    form.setFieldsValue(record);
-    setModalVisible(true);
-  };
-
-  const handleDelete = async (id) => {
-    try {
-      const csrfToken = getCsrfToken();
-      const response = await fetch(`/api/test-classes/${id}/`, {
-        method: 'DELETE',
-        headers: {
-          'X-CSRFToken': csrfToken,
-        },
-        credentials: 'include',
-      });
-      
-      if (response.ok) {
-        message.success('刪除成功');
-        fetchTestClasses();
-      } else {
-        message.error('刪除失敗');
-      }
-    } catch (error) {
-      console.error('Delete error:', error);
-      message.error('刪除失敗');
-    }
-  };
-
-  const handleSubmit = async (values) => {
-    try {
-      const url = editingClass 
-        ? `/api/test-classes/${editingClass.id}/`
-        : '/api/test-classes/';
-      
-      const method = editingClass ? 'PUT' : 'POST';
-      const csrfToken = getCsrfToken();
-      
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': csrfToken,
-        },
-        credentials: 'include',
-        body: JSON.stringify(values),
-      });
-
-      if (response.ok) {
-        message.success(editingClass ? '更新成功' : '新增成功');
-        setModalVisible(false);
-        fetchTestClasses();
-      } else {
-        const errorData = await response.json();
-        message.error(errorData.detail || (editingClass ? '更新失敗' : '新增失敗'));
-      }
-    } catch (error) {
-      console.error('Submit error:', error);
-      message.error(editingClass ? '更新失敗' : '新增失敗');
-    }
-  };
-
-  // 過濾資料
-  const filteredClasses = testClasses.filter(item => 
-    item.name.toLowerCase().includes(searchText.toLowerCase()) ||
-    (item.description && item.description.toLowerCase().includes(searchText.toLowerCase()))
-  );
-
-  const columns = [
-    {
-      title: 'ID',
-      dataIndex: 'id',
-      key: 'id',
-      width: 80,
-      sorter: (a, b) => a.id - b.id,
-    },
-    {
-      title: 'Class 名稱',
-      dataIndex: 'name',
-      key: 'name',
-      sorter: (a, b) => a.name.localeCompare(b.name),
-      render: (text) => (
-        <Text strong style={{ color: '#1890ff' }}>
-          {text}
-        </Text>
-      ),
-    },
-    {
-      title: '描述',
-      dataIndex: 'description',
-      key: 'description',
-      ellipsis: true,
-      render: (text) => text || <Text type="secondary">無描述</Text>,
-    },
-    {
-      title: '狀態',
-      dataIndex: 'is_active',
-      key: 'is_active',
-      width: 100,
-      render: (isActive) => (
-        <Tag color={isActive ? 'success' : 'error'}>
-          {isActive ? '啟用' : '停用'}
-        </Tag>
-      ),
-      sorter: (a, b) => a.is_active - b.is_active,
-    },
-    {
-      title: '建立者',
-      dataIndex: 'created_by_name',
-      key: 'created_by_name',
-      width: 100,
-    },
-    {
-      title: '建立時間',
-      dataIndex: 'created_at',
-      key: 'created_at',
-      width: 180,
-      render: (date) => new Date(date).toLocaleString('zh-TW'),
-      sorter: (a, b) => new Date(a.created_at) - new Date(b.created_at),
-    },
-    {
-      title: '操作',
-      key: 'actions',
-      width: 120,
-      render: (_, record) => (
-        <Space>
-          <Button
-            icon={<EditOutlined />}
-            size="small"
-            type="primary"
-            ghost
-            onClick={() => handleEdit(record)}
-            title="編輯"
-          />
-          <Popconfirm
-            title="確定要刪除這個 TestClass 嗎？"
-            description="此操作無法復原"
-            onConfirm={() => handleDelete(record.id)}
-            okText="確定"
-            cancelText="取消"
-            okType="danger"
-          >
-            <Button
-              icon={<DeleteOutlined />}
-              size="small"
-              danger
-              title="刪除"
-            />
-          </Popconfirm>
-        </Space>
-      ),
-    },
-  ];
+  const [activeTab, setActiveTab] = useState('protocol-rag');
 
   // 如果不是管理員，顯示權限錯誤
   if (!user?.is_staff && !user?.is_superuser) {
@@ -263,148 +39,260 @@ const TestClassManagementPage = () => {
     );
   }
 
+  // 定義標籤頁配置 - 增強視覺效果
+  const tabItems = [
+    {
+      key: 'protocol-rag',
+      label: (
+        <Space size={12}>
+          <Badge 
+            status={activeTab === 'protocol-rag' ? 'processing' : 'default'} 
+            style={{ marginRight: 4 }}
+          />
+          <MessageOutlined style={{ 
+            color: activeTab === 'protocol-rag' ? '#1890ff' : '#8c8c8c',
+            fontSize: '16px',
+            transition: 'all 0.3s ease'
+          }} />
+          <span style={{ 
+            fontWeight: activeTab === 'protocol-rag' ? '600' : 'normal',
+            color: activeTab === 'protocol-rag' ? '#1890ff' : '#595959',
+            fontSize: '15px',
+            transition: 'all 0.3s ease'
+          }}>
+            Protocol RAG TestClass
+          </span>
+          {activeTab === 'protocol-rag' && (
+            <span style={{
+              background: '#1890ff',
+              color: 'white',
+              padding: '2px 8px',
+              borderRadius: '12px',
+              fontSize: '11px',
+              fontWeight: 'bold',
+              marginLeft: '8px'
+            }}>
+              ACTIVE
+            </span>
+          )}
+        </Space>
+      ),
+      children: (
+        <TestClassTable 
+          apiEndpoint="/api/test-classes/"
+          title="Protocol RAG TestClass 管理"
+          entityName="Protocol RAG TestClass"
+          className="Protocol TestClass"
+        />
+      ),
+    },
+    {
+      key: 'ocr',
+      label: (
+        <Space size={12}>
+          <Badge 
+            status={activeTab === 'ocr' ? 'success' : 'default'} 
+            style={{ marginRight: 4 }}
+          />
+          <BarChartOutlined style={{ 
+            color: activeTab === 'ocr' ? '#52c41a' : '#8c8c8c',
+            fontSize: '16px',
+            transition: 'all 0.3s ease'
+          }} />
+          <span style={{ 
+            fontWeight: activeTab === 'ocr' ? '600' : 'normal',
+            color: activeTab === 'ocr' ? '#52c41a' : '#595959',
+            fontSize: '15px',
+            transition: 'all 0.3s ease'
+          }}>
+            AI OCR TestClass
+          </span>
+          {activeTab === 'ocr' && (
+            <span style={{
+              background: '#52c41a',
+              color: 'white',
+              padding: '2px 8px',
+              borderRadius: '12px',
+              fontSize: '11px',
+              fontWeight: 'bold',
+              marginLeft: '8px'
+            }}>
+              ACTIVE
+            </span>
+          )}
+        </Space>
+      ),
+      children: (
+        <TestClassTable 
+          apiEndpoint="/api/ocr-test-classes/"
+          title="AI OCR TestClass 管理"
+          entityName="AI OCR TestClass"
+          className="OCR TestClass"
+        />
+      ),
+    },
+    {
+      key: 'rvt',
+      label: (
+        <Space size={12}>
+          <Badge 
+            status={activeTab === 'rvt' ? 'warning' : 'default'} 
+            style={{ marginRight: 4 }}
+          />
+          <FileTextOutlined style={{ 
+            color: activeTab === 'rvt' ? '#722ed1' : '#8c8c8c',
+            fontSize: '16px',
+            transition: 'all 0.3s ease'
+          }} />
+          <span style={{ 
+            fontWeight: activeTab === 'rvt' ? '600' : 'normal',
+            color: activeTab === 'rvt' ? '#722ed1' : '#595959',
+            fontSize: '15px',
+            transition: 'all 0.3s ease'
+          }}>
+            RVT TestClass
+          </span>
+          {activeTab === 'rvt' && (
+            <span style={{
+              background: '#722ed1',
+              color: 'white',
+              padding: '2px 8px',
+              borderRadius: '12px',
+              fontSize: '11px',
+              fontWeight: 'bold',
+              marginLeft: '8px'
+            }}>
+              COMING SOON
+            </span>
+          )}
+        </Space>
+      ),
+      children: (
+        <div style={{ 
+          textAlign: 'center', 
+          padding: '60px 20px',
+          background: 'linear-gradient(135deg, #f9f0ff 0%, #fafafa 100%)',
+          borderRadius: '8px',
+          border: '2px dashed #722ed1',
+          position: 'relative'
+        }}>
+          <div style={{
+            position: 'absolute',
+            top: '20px',
+            right: '20px',
+            background: '#722ed1',
+            color: 'white',
+            padding: '4px 12px',
+            borderRadius: '12px',
+            fontSize: '12px',
+            fontWeight: 'bold'
+          }}>
+            開發中
+          </div>
+          <FileTextOutlined style={{ 
+            fontSize: '48px', 
+            color: '#722ed1', 
+            marginBottom: '16px',
+            opacity: 0.7
+          }} />
+          <Title level={4} style={{ color: '#722ed1' }}>RVT TestClass 管理</Title>
+          <Text type="secondary">此功能正在開發中，敬請期待...</Text>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div style={{ padding: '24px' }}>
       <Card
         title={
           <Space>
             <ExperimentOutlined style={{ color: '#1890ff' }} />
-            <span>TestClass 管理</span>
+            <span>TestClass 統一管理平台</span>
           </Space>
         }
-        extra={
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={handleCreate}
-          >
-            新增 TestClass
-          </Button>
-        }
+        bodyStyle={{ padding: '0' }}
       >
-        {/* 搜尋和操作區域 */}
-        <div style={{ 
-          marginBottom: 16, 
-          display: 'flex', 
-          gap: 16, 
-          flexWrap: 'wrap',
-          alignItems: 'center'
-        }}>
-          <Input
-            placeholder="搜尋 TestClass 名稱或描述"
-            prefix={<SearchOutlined />}
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            style={{ width: 300 }}
-            allowClear
-          />
-          <Button
-            icon={<ReloadOutlined />}
-            onClick={fetchTestClasses}
-            loading={loading}
-          >
-            重新載入
-          </Button>
-          <div style={{ marginLeft: 'auto' }}>
-            <Text type="secondary">
-              總計: {filteredClasses.length} 個 TestClass
-            </Text>
-          </div>
-        </div>
-
-        <Divider style={{ margin: '16px 0' }} />
-
-        <Table
-          columns={columns}
-          dataSource={filteredClasses}
-          rowKey="id"
-          loading={loading}
-          pagination={{
-            total: filteredClasses.length,
-            pageSize: 10,
-            showSizeChanger: true,
-            showQuickJumper: true,
-            showTotal: (total, range) => 
-              `顯示 ${range[0]}-${range[1]} 筆，共 ${total} 筆資料`,
+        <Tabs
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          type="card"
+          size="large"
+          items={tabItems}
+          style={{ 
+            minHeight: '500px',
+            padding: '16px' 
           }}
-          scroll={{ x: 800 }}
+          tabBarStyle={{
+            margin: '0',
+            paddingLeft: '16px',
+            paddingRight: '16px',
+            background: 'linear-gradient(135deg, #f6f8fa 0%, #ffffff 100%)',
+            borderBottom: '2px solid #e8e8e8',
+            borderRadius: '8px 8px 0 0'
+          }}
+          tabBarGutter={8}
+          // 自定義 Tab 樣式
+          tabBarExtraContent={{
+            right: (
+              <div style={{ 
+                padding: '8px 16px',
+                color: '#8c8c8c',
+                fontSize: '14px'
+              }}>
+                <Text type="secondary">
+                  當前標籤: <Text strong style={{ color: '#1890ff' }}>
+                    {tabItems.find(item => item.key === activeTab)?.label.props.children[1] || activeTab}
+                  </Text>
+                </Text>
+              </div>
+            )
+          }}
+          // 添加自定義 CSS 類名以進一步自定義樣式
+          className="enhanced-tabs"
         />
       </Card>
 
-      {/* 新增/編輯 Modal */}
-      <Modal
-        title={
-          <Space>
-            {editingClass ? <EditOutlined /> : <PlusOutlined />}
-            {editingClass ? '編輯 TestClass' : '新增 TestClass'}
-          </Space>
+      {/* 添加自定義 CSS 樣式 */}
+      <style jsx>{`
+        .enhanced-tabs .ant-tabs-tab {
+          border-radius: 8px 8px 0 0 !important;
+          border: 2px solid transparent !important;
+          margin-right: 4px !important;
+          padding: 12px 20px !important;
+          transition: all 0.3s ease !important;
+          background: #ffffff !important;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
         }
-        open={modalVisible}
-        onCancel={() => setModalVisible(false)}
-        footer={null}
-        width={600}
-        destroyOnClose
-      >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleSubmit}
-          style={{ marginTop: 24 }}
-        >
-          <Form.Item
-            label="TestClass 名稱"
-            name="name"
-            rules={[
-              { required: true, message: '請輸入 TestClass 名稱' },
-              { max: 200, message: '名稱不能超過 200 個字元' },
-              { min: 2, message: '名稱至少需要 2 個字元' }
-            ]}
-          >
-            <Input 
-              placeholder="請輸入 TestClass 名稱" 
-              autoFocus
-            />
-          </Form.Item>
-
-          <Form.Item
-            label="描述"
-            name="description"
-            rules={[
-              { max: 1000, message: '描述不能超過 1000 個字元' }
-            ]}
-          >
-            <TextArea
-              rows={4}
-              placeholder="請輸入 TestClass 描述（可選）"
-              showCount
-              maxLength={1000}
-            />
-          </Form.Item>
-
-          <Form.Item
-            label="狀態"
-            name="is_active"
-            valuePropName="checked"
-            extra="啟用後此 TestClass 將可供使用"
-          >
-            <Switch 
-              checkedChildren="啟用" 
-              unCheckedChildren="停用"
-            />
-          </Form.Item>
-
-          <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
-            <Space>
-              <Button onClick={() => setModalVisible(false)}>
-                取消
-              </Button>
-              <Button type="primary" htmlType="submit">
-                {editingClass ? '更新' : '新增'}
-              </Button>
-            </Space>
-          </Form.Item>
-        </Form>
-      </Modal>
+        
+        .enhanced-tabs .ant-tabs-tab:hover {
+          border-color: #d9d9d9 !important;
+          transform: translateY(-1px) !important;
+          box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
+        }
+        
+        .enhanced-tabs .ant-tabs-tab-active {
+          border-color: #1890ff !important;
+          background: linear-gradient(135deg, #e6f7ff 0%, #ffffff 100%) !important;
+          transform: translateY(-2px) !important;
+          box-shadow: 0 6px 12px rgba(24,144,255,0.2) !important;
+        }
+        
+        .enhanced-tabs .ant-tabs-tab-active .ant-tabs-tab-btn {
+          color: #1890ff !important;
+          font-weight: bold !important;
+        }
+        
+        .enhanced-tabs .ant-tabs-content-holder {
+          background: #ffffff !important;
+          border-radius: 0 0 8px 8px !important;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+        }
+        
+        .enhanced-tabs .ant-tabs-tabpane {
+          padding: 24px !important;
+        }
+      `}</style>
     </div>
   );
 };
