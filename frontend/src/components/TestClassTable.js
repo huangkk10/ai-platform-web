@@ -268,11 +268,16 @@ const TestClassTable = ({
           重新載入
         </Button>
         <Button
-          type="primary"
           icon={<PlusOutlined />}
           onClick={handleCreate}
+          style={{
+            background: '#ffffff',
+            color: '#262626',
+            border: '1px solid #d9d9d9',
+            fontWeight: 'normal'
+          }}
         >
-          新增 {className}
+          新增 TestClass
         </Button>
         <div style={{ marginLeft: 'auto' }}>
           <Text type="secondary">

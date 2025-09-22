@@ -4,17 +4,17 @@ import {
   Space,
   Typography,
   Tabs,
-  Badge
+  ConfigProvider,
+  Alert
 } from 'antd';
 import {
   ExperimentOutlined,
-  MessageOutlined,
-  FileTextOutlined,
-  BarChartOutlined
+  DatabaseOutlined,
+  ScanOutlined,
+  RobotOutlined
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 import TestClassTable from '../components/TestClassTable';
-import '../styles/EnhancedTabs.css';
 
 const { Title, Text } = Typography;
 
@@ -39,42 +39,14 @@ const TestClassManagementPage = () => {
     );
   }
 
-  // 定義標籤頁配置 - 增強視覺效果
+  // 定義標籤頁配置 - 使用反白效果
   const tabItems = [
     {
       key: 'protocol-rag',
       label: (
-        <Space size={12}>
-          <Badge 
-            status={activeTab === 'protocol-rag' ? 'processing' : 'default'} 
-            style={{ marginRight: 4 }}
-          />
-          <MessageOutlined style={{ 
-            color: activeTab === 'protocol-rag' ? '#1890ff' : '#8c8c8c',
-            fontSize: '16px',
-            transition: 'all 0.3s ease'
-          }} />
-          <span style={{ 
-            fontWeight: activeTab === 'protocol-rag' ? '600' : 'normal',
-            color: activeTab === 'protocol-rag' ? '#1890ff' : '#595959',
-            fontSize: '15px',
-            transition: 'all 0.3s ease'
-          }}>
-            Protocol RAG TestClass
-          </span>
-          {activeTab === 'protocol-rag' && (
-            <span style={{
-              background: '#1890ff',
-              color: 'white',
-              padding: '2px 8px',
-              borderRadius: '12px',
-              fontSize: '11px',
-              fontWeight: 'bold',
-              marginLeft: '8px'
-            }}>
-              ACTIVE
-            </span>
-          )}
+        <Space size={8}>
+          <DatabaseOutlined style={{ fontSize: '16px' }} />
+          <span>Protocol RAG TestClass</span>
         </Space>
       ),
       children: (
@@ -82,44 +54,16 @@ const TestClassManagementPage = () => {
           apiEndpoint="/api/test-classes/"
           title="Protocol RAG TestClass 管理"
           entityName="Protocol RAG TestClass"
-          className="Protocol TestClass"
+          className="TestClass"
         />
       ),
     },
     {
       key: 'ocr',
       label: (
-        <Space size={12}>
-          <Badge 
-            status={activeTab === 'ocr' ? 'success' : 'default'} 
-            style={{ marginRight: 4 }}
-          />
-          <BarChartOutlined style={{ 
-            color: activeTab === 'ocr' ? '#52c41a' : '#8c8c8c',
-            fontSize: '16px',
-            transition: 'all 0.3s ease'
-          }} />
-          <span style={{ 
-            fontWeight: activeTab === 'ocr' ? '600' : 'normal',
-            color: activeTab === 'ocr' ? '#52c41a' : '#595959',
-            fontSize: '15px',
-            transition: 'all 0.3s ease'
-          }}>
-            AI OCR TestClass
-          </span>
-          {activeTab === 'ocr' && (
-            <span style={{
-              background: '#52c41a',
-              color: 'white',
-              padding: '2px 8px',
-              borderRadius: '12px',
-              fontSize: '11px',
-              fontWeight: 'bold',
-              marginLeft: '8px'
-            }}>
-              ACTIVE
-            </span>
-          )}
+        <Space size={8}>
+          <ScanOutlined style={{ fontSize: '16px' }} />
+          <span>AI OCR TestClass</span>
         </Space>
       ),
       children: (
@@ -127,77 +71,8 @@ const TestClassManagementPage = () => {
           apiEndpoint="/api/ocr-test-classes/"
           title="AI OCR TestClass 管理"
           entityName="AI OCR TestClass"
-          className="OCR TestClass"
+          className="TestClass"
         />
-      ),
-    },
-    {
-      key: 'rvt',
-      label: (
-        <Space size={12}>
-          <Badge 
-            status={activeTab === 'rvt' ? 'warning' : 'default'} 
-            style={{ marginRight: 4 }}
-          />
-          <FileTextOutlined style={{ 
-            color: activeTab === 'rvt' ? '#722ed1' : '#8c8c8c',
-            fontSize: '16px',
-            transition: 'all 0.3s ease'
-          }} />
-          <span style={{ 
-            fontWeight: activeTab === 'rvt' ? '600' : 'normal',
-            color: activeTab === 'rvt' ? '#722ed1' : '#595959',
-            fontSize: '15px',
-            transition: 'all 0.3s ease'
-          }}>
-            RVT TestClass
-          </span>
-          {activeTab === 'rvt' && (
-            <span style={{
-              background: '#722ed1',
-              color: 'white',
-              padding: '2px 8px',
-              borderRadius: '12px',
-              fontSize: '11px',
-              fontWeight: 'bold',
-              marginLeft: '8px'
-            }}>
-              COMING SOON
-            </span>
-          )}
-        </Space>
-      ),
-      children: (
-        <div style={{ 
-          textAlign: 'center', 
-          padding: '60px 20px',
-          background: 'linear-gradient(135deg, #f9f0ff 0%, #fafafa 100%)',
-          borderRadius: '8px',
-          border: '2px dashed #722ed1',
-          position: 'relative'
-        }}>
-          <div style={{
-            position: 'absolute',
-            top: '20px',
-            right: '20px',
-            background: '#722ed1',
-            color: 'white',
-            padding: '4px 12px',
-            borderRadius: '12px',
-            fontSize: '12px',
-            fontWeight: 'bold'
-          }}>
-            開發中
-          </div>
-          <FileTextOutlined style={{ 
-            fontSize: '48px', 
-            color: '#722ed1', 
-            marginBottom: '16px',
-            opacity: 0.7
-          }} />
-          <Title level={4} style={{ color: '#722ed1' }}>RVT TestClass 管理</Title>
-          <Text type="secondary">此功能正在開發中，敬請期待...</Text>
-        </div>
       ),
     },
   ];
@@ -206,12 +81,21 @@ const TestClassManagementPage = () => {
     <div style={{ padding: '24px' }}>
       <Card
         title={
-          <Space>
-            <ExperimentOutlined style={{ color: '#1890ff' }} />
-            <span>TestClass 統一管理平台</span>
+          <Space size={16}>
+            <ExperimentOutlined style={{ 
+              color: '#1890ff', 
+              fontSize: '20px' 
+            }} />
+            <Title level={4} style={{ margin: 0 }}>
+              TestClass 統一管理平台
+            </Title>
           </Space>
         }
-        bodyStyle={{ padding: '0' }}
+        bodyStyle={{ padding: '16px' }}
+        style={{
+          borderRadius: '12px',
+          overflow: 'hidden'
+        }}
       >
         <Tabs
           activeKey={activeTab}
@@ -221,76 +105,94 @@ const TestClassManagementPage = () => {
           items={tabItems}
           style={{ 
             minHeight: '500px',
-            padding: '16px' 
           }}
           tabBarStyle={{
-            margin: '0',
-            paddingLeft: '16px',
-            paddingRight: '16px',
-            background: 'linear-gradient(135deg, #f6f8fa 0%, #ffffff 100%)',
-            borderBottom: '2px solid #e8e8e8',
-            borderRadius: '8px 8px 0 0'
+            margin: '0 0 20px 0',
+            background: 'transparent'
           }}
           tabBarGutter={8}
-          // 自定義 Tab 樣式
-          tabBarExtraContent={{
-            right: (
-              <div style={{ 
-                padding: '8px 16px',
-                color: '#8c8c8c',
-                fontSize: '14px'
-              }}>
-                <Text type="secondary">
-                  當前標籤: <Text strong style={{ color: '#1890ff' }}>
-                    {tabItems.find(item => item.key === activeTab)?.label.props.children[1] || activeTab}
-                  </Text>
-                </Text>
-              </div>
-            )
-          }}
-          // 添加自定義 CSS 類名以進一步自定義樣式
-          className="enhanced-tabs"
         />
       </Card>
-
-      {/* 添加自定義 CSS 樣式 */}
-      <style jsx>{`
-        .enhanced-tabs .ant-tabs-tab {
-          border-radius: 8px 8px 0 0 !important;
-          border: 2px solid transparent !important;
-          margin-right: 4px !important;
-          padding: 12px 20px !important;
-          transition: all 0.3s ease !important;
-          background: #ffffff !important;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+      
+      {/* 強化反白效果的自定義樣式 */}
+      <style>{`
+        /* 選中的標籤：強制藍底白字 */
+        .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab-active {
+          background: #1890ff !important;
+          color: #ffffff !important;
+          border: 2px solid #1890ff !important;
+          box-shadow: 0 4px 12px rgba(24, 144, 255, 0.4) !important;
         }
         
-        .enhanced-tabs .ant-tabs-tab:hover {
-          border-color: #d9d9d9 !important;
-          transform: translateY(-1px) !important;
-          box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
-        }
-        
-        .enhanced-tabs .ant-tabs-tab-active {
-          border-color: #1890ff !important;
-          background: linear-gradient(135deg, #e6f7ff 0%, #ffffff 100%) !important;
-          transform: translateY(-2px) !important;
-          box-shadow: 0 6px 12px rgba(24,144,255,0.2) !important;
-        }
-        
-        .enhanced-tabs .ant-tabs-tab-active .ant-tabs-tab-btn {
-          color: #1890ff !important;
+        .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab-active .ant-tabs-tab-btn {
+          color: #ffffff !important;
           font-weight: bold !important;
         }
         
-        .enhanced-tabs .ant-tabs-content-holder {
-          background: #ffffff !important;
-          border-radius: 0 0 8px 8px !important;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+        .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab-active .anticon {
+          color: #ffffff !important;
         }
         
-        .enhanced-tabs .ant-tabs-tabpane {
-          padding: 24px !important;
+        .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab-active span {
+          color: #ffffff !important;
+        }
+        
+        /* 未選中的標籤：白底深色字 */
+        .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab:not(.ant-tabs-tab-active) {
+          background: #ffffff !important;
+          color: #595959 !important;
+          border: 1px solid #d9d9d9 !important;
+        }
+        
+        .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab:not(.ant-tabs-tab-active) .ant-tabs-tab-btn {
+          color: #595959 !important;
+        }
+        
+        .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab:not(.ant-tabs-tab-active) .anticon {
+          color: #8c8c8c !important;
+        }
+        
+        .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab:not(.ant-tabs-tab-active) span {
+          color: #595959 !important;
+        }
+        
+        /* 懸停效果：淺藍底 */
+        .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab:hover:not(.ant-tabs-tab-active) {
+          background: #e6f7ff !important;
+          border-color: #91d5ff !important;
+        }
+        
+        .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab:hover:not(.ant-tabs-tab-active) .ant-tabs-tab-btn {
+          color: #1890ff !important;
+        }
+        
+        .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab:hover:not(.ant-tabs-tab-active) .anticon {
+          color: #1890ff !important;
+        }
+        
+        .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab:hover:not(.ant-tabs-tab-active) span {
+          color: #1890ff !important;
+        }
+        
+        /* Tab 的基本樣式 */
+        .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab {
+          padding: 14px 24px !important;
+          border-radius: 8px 8px 0 0 !important;
+          margin-right: 6px !important;
+          font-size: 15px !important;
+          transition: all 0.3s ease !important;
+          min-height: 48px !important;
+          display: flex !important;
+          align-items: center !important;
+        }
+        
+        /* 確保所有子元素都繼承顏色 */
+        .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab-active * {
+          color: #ffffff !important;
+        }
+        
+        .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab:not(.ant-tabs-tab-active) * {
+          color: inherit !important;
         }
       `}</style>
     </div>
