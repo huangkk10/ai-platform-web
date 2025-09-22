@@ -553,37 +553,6 @@ const OcrStorageBenchmarkPage = () => {
                 <Input placeholder="例如: 2.28.8228" />
               </Form.Item>
             </Col>
-            <Col span={12}>
-              <Form.Item
-                name="test_environment"
-                label="測試環境"
-              >
-                <Select placeholder="選擇測試環境">
-                  <Option value="production">生產環境</Option>
-                  <Option value="testing">測試環境</Option>
-                  <Option value="development">開發環境</Option>
-                  <Option value="benchmark">基準測試環境</Option>
-                </Select>
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="test_type"
-                label="測試類型"
-              >
-                <Select placeholder="選擇測試類型">
-                  <Option value="sequential_read">循序讀取</Option>
-                  <Option value="sequential_write">循序寫入</Option>
-                  <Option value="random_read">隨機讀取</Option>
-                  <Option value="random_write">隨機寫入</Option>
-                  <Option value="mixed_workload">混合負載</Option>
-                  <Option value="comprehensive">綜合測試</Option>
-                </Select>
-              </Form.Item>
-            </Col>
           </Row>
         </Form>
       </Modal>

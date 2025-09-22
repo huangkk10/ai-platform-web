@@ -373,48 +373,13 @@ class OCRStorageBenchmark(models.Model):
     benchmark_version = models.CharField(max_length=50, verbose_name="基準版本", help_text="3DMark 或其他基準測試軟體版本")
     mark_version_3d = models.CharField(max_length=50, blank=True, verbose_name="3DMark版本", help_text="3DMark 軟體的具體版本號")
     
-    # 額外的技術細節
-    read_speed = models.FloatField(null=True, blank=True, verbose_name="讀取速度 (MB/s)", help_text="儲存裝置讀取速度")
-    write_speed = models.FloatField(null=True, blank=True, verbose_name="寫入速度 (MB/s)", help_text="儲存裝置寫入速度")
-    iops_read = models.IntegerField(null=True, blank=True, verbose_name="讀取IOPS", help_text="每秒讀取 I/O 操作數")
-    iops_write = models.IntegerField(null=True, blank=True, verbose_name="寫入IOPS", help_text="每秒寫入 I/O 操作數")
-    
-    # 測試環境
-    test_environment = models.CharField(
-        max_length=50,
-        choices=[
-            ('production', '生產環境'),
-            ('testing', '測試環境'),
-            ('development', '開發環境'),
-            ('benchmark', '基準測試環境'),
-        ],
-        default='benchmark',
-        verbose_name="測試環境"
-    )
-    
-    # 測試類型
-    test_type = models.CharField(
-        max_length=50,
-        choices=[
-            ('sequential_read', '循序讀取'),
-            ('sequential_write', '循序寫入'),
-            ('random_read', '隨機讀取'),
-            ('random_write', '隨機寫入'),
-            ('mixed_workload', '混合負載'),
-            ('comprehensive', '綜合測試'),
-        ],
-        default='comprehensive',
-        verbose_name="測試類型"
-    )
+
     
     # OCR 處理相關欄位
     ocr_confidence = models.FloatField(null=True, blank=True, verbose_name="OCR 信心度", help_text="OCR 識別的信心度分數 (0-1)")
     ocr_processing_time = models.FloatField(null=True, blank=True, verbose_name="OCR 處理時間 (秒)", help_text="OCR 處理所需的時間")
     
-    # 原始圖像和OCR結果存儲
-    original_image_data = models.BinaryField(blank=True, null=True, verbose_name="原始圖像數據", help_text="OCR 來源圖像的二進制數據")
-    original_image_filename = models.CharField(max_length=255, blank=True, verbose_name="原始圖像檔名")
-    original_image_content_type = models.CharField(max_length=100, blank=True, verbose_name="原始圖像類型")
+
     
     # OCR 提取的原始文本
     ocr_raw_text = models.TextField(blank=True, verbose_name="OCR 原始文本", help_text="OCR 直接提取的原始文本內容")
@@ -422,24 +387,9 @@ class OCRStorageBenchmark(models.Model):
     # AI 處理後的結構化資料 (JSON格式)
     ai_structured_data = models.JSONField(blank=True, null=True, verbose_name="AI 結構化資料", help_text="AI 處理後的結構化 JSON 資料")
     
-    # 處理狀態
-    processing_status = models.CharField(
-        max_length=30,
-        choices=[
-            ('pending', '待處理'),
-            ('processing', '處理中'),
-            ('completed', '已完成'),
-            ('failed', '處理失敗'),
-            ('manual_review', '需人工審核'),
-        ],
-        default='pending',
-        verbose_name="處理狀態"
-    )
+
     
-    # 驗證和審核
-    verified_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="驗證人員", related_name="verified_ocr_records")
-    verification_notes = models.TextField(blank=True, verbose_name="驗證備註", help_text="人工驗證時的備註說明")
-    is_verified = models.BooleanField(default=False, verbose_name="已驗證", help_text="是否經過人工驗證")
+
     
     # 時間戳記
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="建立時間")
@@ -453,9 +403,7 @@ class OCRStorageBenchmark(models.Model):
         db_table = 'ocr_storage_benchmark'
         indexes = [
             models.Index(fields=['test_datetime', 'project_name']),
-            models.Index(fields=['processing_status', 'created_at']),
             models.Index(fields=['device_model', 'firmware_version']),
-            models.Index(fields=['is_verified', 'test_datetime']),
         ]
     
     def __str__(self):
@@ -478,36 +426,7 @@ class OCRStorageBenchmark(models.Model):
         else:
             return "需優化"
     
-    def get_image_data_url(self):
-        """獲取原始圖像的 data URL"""
-        if self.original_image_data:
-            import base64
-            encoded = base64.b64encode(self.original_image_data).decode('utf-8')
-            content_type = self.original_image_content_type or 'image/jpeg'
-            return f"data:{content_type};base64,{encoded}"
-        return None
-    
-    def set_image_from_file(self, file_path):
-        """從檔案路徑設置圖像"""
-        try:
-            with open(file_path, 'rb') as f:
-                self.original_image_data = f.read()
-                self.original_image_filename = file_path.split('/')[-1]
-                
-                # 根據副檔名判斷類型
-                if file_path.lower().endswith(('.jpg', '.jpeg')):
-                    self.original_image_content_type = 'image/jpeg'
-                elif file_path.lower().endswith('.png'):
-                    self.original_image_content_type = 'image/png'
-                elif file_path.lower().endswith('.gif'):
-                    self.original_image_content_type = 'image/gif'
-                else:
-                    self.original_image_content_type = 'image/jpeg'  # 預設
-                    
-                return True
-        except Exception as e:
-            print(f"設置圖像失敗: {e}")
-            return False
+
     
     def get_ai_data_summary(self):
         """獲取 AI 結構化資料摘要"""

@@ -173,33 +173,24 @@ class KnowIssueSerializer(serializers.ModelSerializer):
 class OCRStorageBenchmarkSerializer(serializers.ModelSerializer):
     """AI OCR 存儲基準測試序列化器"""
     uploaded_by_name = serializers.SerializerMethodField()
-    verified_by_name = serializers.SerializerMethodField()
     performance_grade = serializers.CharField(source='get_performance_grade', read_only=True)
     summary = serializers.CharField(source='get_summary', read_only=True)
-    image_data_url = serializers.SerializerMethodField()
     ai_data_summary = serializers.CharField(source='get_ai_data_summary', read_only=True)
-    has_image = serializers.SerializerMethodField()
-    image_size_kb = serializers.SerializerMethodField()
     
     class Meta:
         model = OCRStorageBenchmark
         fields = [
             'id', 'project_name', 'benchmark_score', 'average_bandwidth',
             'device_model', 'firmware_version', 'test_datetime', 'benchmark_version', 'mark_version_3d',
-            'read_speed', 'write_speed', 'iops_read', 'iops_write',
-            'test_environment', 'test_type', 'ocr_confidence', 'ocr_processing_time',
-            'original_image_filename', 'original_image_content_type',
-            'ocr_raw_text', 'ai_structured_data', 'processing_status',
-            'verified_by', 'verified_by_name', 'verification_notes', 'is_verified',
+            'ocr_confidence', 'ocr_processing_time',
+            'ocr_raw_text', 'ai_structured_data',
             'uploaded_by', 'uploaded_by_name', 'created_at', 'updated_at',
             # 計算欄位
-            'performance_grade', 'summary', 'image_data_url', 'ai_data_summary',
-            'has_image', 'image_size_kb'
+            'performance_grade', 'summary', 'ai_data_summary'
         ]
         read_only_fields = [
-            'id', 'created_at', 'updated_at', 'uploaded_by_name', 'verified_by_name',
-            'performance_grade', 'summary', 'image_data_url', 'ai_data_summary',
-            'has_image', 'image_size_kb'
+            'id', 'created_at', 'updated_at', 'uploaded_by_name',
+            'performance_grade', 'summary', 'ai_data_summary'
         ]
     
     def get_uploaded_by_name(self, obj):
@@ -208,54 +199,28 @@ class OCRStorageBenchmarkSerializer(serializers.ModelSerializer):
             full_name = f"{obj.uploaded_by.first_name} {obj.uploaded_by.last_name}".strip()
             return full_name if full_name else obj.uploaded_by.username
         return None
-    
-    def get_verified_by_name(self, obj):
-        """獲取驗證者的友好名稱"""
-        if obj.verified_by:
-            full_name = f"{obj.verified_by.first_name} {obj.verified_by.last_name}".strip()
-            return full_name if full_name else obj.verified_by.username
-        return None
-    
-    def get_image_data_url(self, obj):
-        """獲取原始圖像的 Base64 Data URL"""
-        return obj.get_image_data_url()
-    
-    def get_has_image(self, obj):
-        """是否有原始圖像"""
-        return bool(obj.original_image_data)
-    
-    def get_image_size_kb(self, obj):
-        """獲取圖像大小（KB）"""
-        if obj.original_image_data:
-            import math
-            return math.ceil(len(obj.original_image_data) / 1024)
-        return 0
 
 
 class OCRStorageBenchmarkListSerializer(serializers.ModelSerializer):
     """AI OCR 存儲基準測試列表序列化器 - 不包含圖像資料以提升效能"""
     uploaded_by_name = serializers.SerializerMethodField()
-    verified_by_name = serializers.SerializerMethodField()
     performance_grade = serializers.CharField(source='get_performance_grade', read_only=True)
     summary = serializers.CharField(source='get_summary', read_only=True)
     ai_data_summary = serializers.CharField(source='get_ai_data_summary', read_only=True)
-    has_image = serializers.SerializerMethodField()
-    image_size_kb = serializers.SerializerMethodField()
     
     class Meta:
         model = OCRStorageBenchmark
         fields = [
             'id', 'project_name', 'benchmark_score', 'average_bandwidth',
             'device_model', 'firmware_version', 'test_datetime', 'benchmark_version', 'mark_version_3d',
-            'test_environment', 'test_type', 'ocr_confidence', 'processing_status',
-            'original_image_filename', 'is_verified', 'uploaded_by_name', 'verified_by_name',
+            'ocr_confidence', 'uploaded_by_name',
             'created_at', 'updated_at',
             # 計算欄位
-            'performance_grade', 'summary', 'ai_data_summary', 'has_image', 'image_size_kb'
+            'performance_grade', 'summary', 'ai_data_summary'
         ]
         read_only_fields = [
-            'id', 'created_at', 'updated_at', 'uploaded_by_name', 'verified_by_name',
-            'performance_grade', 'summary', 'ai_data_summary', 'has_image', 'image_size_kb'
+            'id', 'created_at', 'updated_at', 'uploaded_by_name',
+            'performance_grade', 'summary', 'ai_data_summary'
         ]
     
     def get_uploaded_by_name(self, obj):
@@ -264,24 +229,6 @@ class OCRStorageBenchmarkListSerializer(serializers.ModelSerializer):
             full_name = f"{obj.uploaded_by.first_name} {obj.uploaded_by.last_name}".strip()
             return full_name if full_name else obj.uploaded_by.username
         return None
-    
-    def get_verified_by_name(self, obj):
-        """獲取驗證者的友好名稱"""
-        if obj.verified_by:
-            full_name = f"{obj.verified_by.first_name} {obj.verified_by.last_name}".strip()
-            return full_name if full_name else obj.verified_by.username
-        return None
-    
-    def get_has_image(self, obj):
-        """是否有原始圖像"""
-        return bool(obj.original_image_data)
-    
-    def get_image_size_kb(self, obj):
-        """獲取圖像大小（KB）"""
-        if obj.original_image_data:
-            import math
-            return math.ceil(len(obj.original_image_data) / 1024)
-        return 0
 
 
 class TestClassSerializer(serializers.ModelSerializer):

@@ -40,21 +40,10 @@ class OCRAnalyzer:
             'test_datetime': None,
             'benchmark_version': None,
             
-            # 詳細效能數據
-            'read_speed': None,
-            'write_speed': None,
-            'iops_read': None,
-            'iops_write': None,
-            
-            # 測試環境和類型
-            'test_environment': None,
-            'test_type': None,
-            
             # OCR 相關
             'ocr_confidence': None,
-            'processing_status': 'completed',
             
-            # 額外的結構化資料
+            # 額外的結構化資料（保留用於除錯和分析）
             'sequential_read_data': {},
             'sequential_write_data': {},
             'random_read_data': {},
@@ -72,8 +61,8 @@ class OCRAnalyzer:
             # 2. 解析基本資訊（來自表格標題和環境資訊）
             self._parse_basic_info(answer_text, parsed_data)
             
-            # 3. 解析效能數據（來自測試結果表格）
-            self._parse_performance_data(answer_text, parsed_data)
+            # 3. 解析效能數據（已移除，不再需要儲存到資料庫）
+            # self._parse_performance_data(answer_text, parsed_data)
             
             # 4. 解析系統環境資訊
             self._parse_system_info(answer_text, parsed_data)
@@ -119,9 +108,6 @@ class OCRAnalyzer:
             'firmware_version': None,
             'test_datetime': None,
             'benchmark_version': None,
-            'test_environment': 'benchmark',
-            'test_type': 'comprehensive',
-            'processing_status': 'completed',
             'ocr_confidence': 0.98
         }
         
@@ -405,7 +391,6 @@ class OCRAnalyzer:
         # 從測試環境資訊表格中提取
         basic_patterns = {
             # 'project_name': [r'Profile[：:]\s*([^\n\|]+)', r'測試名稱[：:]\s*([^\n\|]+)'],
-            'test_environment': [r'Mode[：:]\s*\[([^\]]+)\]', r'模式[：:]\s*\[([^\]]+)\]'],
             'test_datetime': [r'Date[：:]\s*([\d/\s:]+)', r'日期[：:]\s*([\d/\s:]+)'],
             'device_model': [r'裝置[：:]\s*([^\n\|]+)', r'Device[：:]\s*([^\n\|]+)'],
             'firmware_version': [r'韌體[：:]\s*([^\n\|]+)', r'Firmware[：:]\s*([^\n\|]+)'],
@@ -418,56 +403,6 @@ class OCRAnalyzer:
                     data[field] = matches[0].strip()
                     break
     
-    def _parse_performance_data(self, text: str, data: Dict[str, Any]) -> None:
-        """解析效能測試數據"""
-        # 解析循序讀取數據
-        seq_read_pattern = r'SEQ-1MiB.*?\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)'
-        seq_read_matches = re.findall(seq_read_pattern, text)
-        if seq_read_matches:
-            mb_s, iops, latency = seq_read_matches[0]
-            data['read_speed'] = float(mb_s)
-            data['iops_read'] = int(float(iops))
-            data['sequential_read_data'] = {
-                'speed_mb_s': float(mb_s),
-                'iops': float(iops),
-                'latency_us': float(latency)
-            }
-        
-        # 解析循序寫入數據
-        seq_write_pattern = r'(?:循序寫入|Sequential Write).*?SEQ-1MiB.*?\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)'
-        seq_write_matches = re.findall(seq_write_pattern, text, re.DOTALL)
-        if seq_write_matches:
-            mb_s, iops, latency = seq_write_matches[0]
-            data['write_speed'] = float(mb_s)
-            data['iops_write'] = int(float(iops))
-            data['sequential_write_data'] = {
-                'speed_mb_s': float(mb_s),
-                'iops': float(iops),
-                'latency_us': float(latency)
-            }
-        
-        # 解析隨機讀取數據（Q32T16 高性能模式）
-        rnd_read_pattern = r'(?:隨機讀取|Random Read).*?RND-4KiB \(Q32T16\).*?\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)'
-        rnd_read_matches = re.findall(rnd_read_pattern, text, re.DOTALL)
-        if rnd_read_matches:
-            mb_s, iops, latency = rnd_read_matches[0]
-            data['random_read_data'] = {
-                'speed_mb_s': float(mb_s),
-                'iops': float(iops),
-                'latency_us': float(latency)
-            }
-        
-        # 解析隨機寫入數據（Q32T16 高性能模式）
-        rnd_write_pattern = r'(?:隨機寫入|Random Write).*?RND-4KiB \(Q32T16\).*?\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)'
-        rnd_write_matches = re.findall(rnd_write_pattern, text, re.DOTALL)
-        if rnd_write_matches:
-            mb_s, iops, latency = rnd_write_matches[0]
-            data['random_write_data'] = {
-                'speed_mb_s': float(mb_s),
-                'iops': float(iops),
-                'latency_us': float(latency)
-            }
-    
     def _parse_system_info(self, text: str, data: Dict[str, Any]) -> None:
         """解析系統環境資訊"""
         # 解析操作系統資訊
@@ -475,12 +410,6 @@ class OCRAnalyzer:
         os_matches = re.findall(os_pattern, text)
         if os_matches:
             data['system_info']['os'] = os_matches[0].strip()
-        
-        # 解析測試模式
-        mode_pattern = r'Mode[：:]\s*\[([^\]]+)\]'
-        mode_matches = re.findall(mode_pattern, text)
-        if mode_matches:
-            data['test_environment'] = mode_matches[0].lower()
         
         # 解析測試配置
         test_pattern = r'Test[：:]\s*([^\n\|]+)'
@@ -490,31 +419,6 @@ class OCRAnalyzer:
     
     def _calculate_summary_metrics(self, data: Dict[str, Any]) -> None:
         """計算綜合指標"""
-        # 如果有讀寫速度，計算平均帶寬
-        if data['read_speed'] and data['write_speed']:
-            avg_bandwidth = (data['read_speed'] + data['write_speed']) / 2
-            data['average_bandwidth'] = f"{avg_bandwidth:.2f} MB/s"
-        elif data['read_speed']:
-            data['average_bandwidth'] = f"{data['read_speed']:.2f} MB/s"
-        elif data['write_speed']:
-            data['average_bandwidth'] = f"{data['write_speed']:.2f} MB/s"
-        
-        # 計算綜合基準分數（基於 IOPS 和速度）
-        if data['iops_read'] and data['iops_write']:
-            # 簡化的分數計算：(讀取IOPS + 寫入IOPS) / 1000
-            benchmark_score = int((data['iops_read'] + data['iops_write']) / 1000)
-            data['benchmark_score'] = benchmark_score
-        
-        # 設置測試類型
-        if 'sequential_read_data' in data and 'random_read_data' in data:
-            data['test_type'] = 'comprehensive'
-        elif 'sequential_read_data' in data:
-            data['test_type'] = 'sequential_read'
-        elif 'random_read_data' in data:
-            data['test_type'] = 'random_read'
-        else:
-            data['test_type'] = 'mixed_workload'
-        
         # 設置項目名稱（如果沒有的話）
         if not data['project_name']:
             data['project_name'] = 'CDM8 Storage Analysis'
@@ -581,20 +485,6 @@ class OCRAnalyzer:
         """計算衍生欄位"""
         print(f"\n🔧 開始計算衍生欄位...")
         
-        # 只有在沒有解析到讀寫速度時才基於平均頻寬推算
-        if not data.get('read_speed') and not data.get('write_speed') and data.get('average_bandwidth'):
-            try:
-                # 提取數值 "1174.89 MB/s" -> 1174.89
-                bandwidth_match = re.search(r'([\d.]+)', data['average_bandwidth'])
-                if bandwidth_match:
-                    avg_speed = float(bandwidth_match.group(1))
-                    # 假設讀取速度稍高於平均值，寫入速度稍低
-                    data['read_speed'] = round(avg_speed * 1.1, 2)
-                    data['write_speed'] = round(avg_speed * 0.9, 2)
-                    print(f"📊 基於平均頻寬計算讀寫速度: read={data['read_speed']}, write={data['write_speed']}")
-            except ValueError:
-                pass
-        
         # 🚨 修正：只有在完全沒有解析到基準分數時才推算，絕不覆蓋已解析的值
         if not data.get('benchmark_score'):
             print(f"⚠️ 未解析到 benchmark_score，嘗試計算估算值")
@@ -617,18 +507,6 @@ class OCRAnalyzer:
                 print(f"⚠️ 未找到 benchmark_score，使用預設值: {data['benchmark_score']}")
         else:
             print(f"✅ 已解析到正確的 benchmark_score: {data['benchmark_score']}，跳過計算")
-        
-        # 只有在沒有 IOPS 數據時才基於基準分數推算
-        if not data.get('iops_read') and not data.get('iops_write') and data.get('benchmark_score'):
-            # 簡化的 IOPS 估算公式
-            estimated_iops = data['benchmark_score'] * 100
-            data['iops_read'] = int(estimated_iops * 1.2)
-            data['iops_write'] = int(estimated_iops * 0.8)
-            print(f"📊 基於基準分數估算IOPS: read={data['iops_read']}, write={data['iops_write']}")
-        
-        # 設置項目名稱（暫時保留空值，不自動生成）
-        # if data.get('device_model'):
-        #     data['project_name'] = f"Storage Benchmark - {data['device_model']}"
 
 
 class OCRDatabaseManager:
@@ -670,15 +548,8 @@ class OCRDatabaseManager:
                 'test_datetime': parsed_data.get('test_datetime'),  # 修復：加入 test_datetime
                 'benchmark_version': parsed_data.get('benchmark_version', 'CDM8'),  # 使用解析出的版本
                 'mark_version_3d': parsed_data.get('benchmark_version'),  # 新欄位：3DMark版本
-                'read_speed': parsed_data.get('read_speed'),
-                'write_speed': parsed_data.get('write_speed'),
-                'iops_read': parsed_data.get('iops_read'),
-                'iops_write': parsed_data.get('iops_write'),
-                'test_environment': parsed_data.get('test_environment', 'benchmark'),
-                'test_type': parsed_data.get('test_type', 'comprehensive'),
                 'ocr_raw_text': ocr_raw_text,
                 'ai_structured_data': json_safe_data,  # JSON 安全的結構化資料
-                'processing_status': parsed_data.get('processing_status', 'completed'),
                 'ocr_confidence': parsed_data.get('ocr_confidence', 0.95),
                 'ocr_processing_time': original_result.get('response_time', 0)
             }
@@ -724,10 +595,6 @@ class OCRDatabaseManager:
             else:
                 save_data['test_datetime'] = datetime.now()
             
-            # 添加上傳者
-            if uploaded_by:
-                save_data['uploaded_by'] = uploaded_by
-            
             # 清理無效值
             save_data = {k: v for k, v in save_data.items() if v is not None}
             
@@ -736,14 +603,6 @@ class OCRDatabaseManager:
             print(f"    專案名稱: {save_data.get('project_name')}")
             print(f"    基準分數: {save_data.get('benchmark_score')}")
             print(f"    平均帶寬: {save_data.get('average_bandwidth')}")
-            print(f"    測試類型: {save_data.get('test_type')}")
-            
-            if save_data.get('read_speed') or save_data.get('write_speed'):
-                print(f"  🚀 效能數據:")
-                print(f"    讀取速度: {save_data.get('read_speed')} MB/s")
-                print(f"    寫入速度: {save_data.get('write_speed')} MB/s")
-                print(f"    讀取IOPS: {save_data.get('iops_read'):,}" if save_data.get('iops_read') else "")
-                print(f"    寫入IOPS: {save_data.get('iops_write'):,}" if save_data.get('iops_write') else "")
             
             if parsed_data.get('system_info'):
                 print(f"  🖥️  系統資訊:")
@@ -782,9 +641,9 @@ class OCRDatabaseManager:
                     'data': save_data,
                     'structured_fields': list(save_data.keys()),
                     'performance_summary': {
-                        'read_speed': save_data.get('read_speed'),
-                        'write_speed': save_data.get('write_speed'),
-                        'total_iops': (save_data.get('iops_read', 0) or 0) + (save_data.get('iops_write', 0) or 0)
+                        'benchmark_score': save_data.get('benchmark_score'),
+                        'average_bandwidth': save_data.get('average_bandwidth'),
+                        'device_model': save_data.get('device_model')
                     }
                 }
             
@@ -799,9 +658,9 @@ class OCRDatabaseManager:
                 'record_id': ocr_record.id,
                 'data': save_data,
                 'performance_summary': {
-                    'read_speed': save_data.get('read_speed'),
-                    'write_speed': save_data.get('write_speed'),
-                    'total_iops': (save_data.get('iops_read', 0) or 0) + (save_data.get('iops_write', 0) or 0)
+                    'benchmark_score': save_data.get('benchmark_score'),
+                    'average_bandwidth': save_data.get('average_bandwidth'),
+                    'device_model': save_data.get('device_model')
                 }
             }
             
