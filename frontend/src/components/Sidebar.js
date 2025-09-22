@@ -97,7 +97,7 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       icon: <DatabaseOutlined />,
       label: '知識庫',
       children: [
-        { key: 'know-issue', icon: <DatabaseOutlined />, label: 'know issue' },
+        { key: 'know-issue', icon: <DatabaseOutlined />, label: 'Protocol RAG' },
         { key: 'ocr-storage-benchmark', icon: <BarChartOutlined />, label: 'AI OCR' },
         { key: 'rvt-log', icon: <DatabaseOutlined />, label: 'RVT Log' },
       ],

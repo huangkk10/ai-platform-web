@@ -66,7 +66,7 @@ function AppLayout() {
       case '/settings':
         return 'Settings';
       case '/knowledge/know-issue':
-        return 'Know Issue';
+        return 'Protocol RAG';
       case '/knowledge/rvt-log':
         return 'RVT Log';
       case '/knowledge/ocr-storage-benchmark':

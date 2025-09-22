@@ -656,7 +656,7 @@ const KnowIssuePage = () => {
         <Card>
           <div style={{ textAlign: 'center', padding: '50px 0' }}>
             <Title level={3}>需要登入</Title>
-            <p>請登入後才能查看 Know Issue 資料</p>
+            <p>請登入後才能查看 Protocol RAG 資料</p>
           </div>
         </Card>
       </div>
@@ -673,7 +673,7 @@ const KnowIssuePage = () => {
       }}>
         <Title level={2} style={{ margin: 0 }}>
           <DatabaseOutlined style={{ marginRight: '8px', color: '#1890ff' }} />
-          Know Issue 管理
+          Protocol RAG 管理
         </Title>
         
         {/* 測試類別過濾器 */}
