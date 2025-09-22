@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import UserProfile, Project, Task, Employee, DifyEmployee, KnowIssue, ChatUsage
+from .models import UserProfile, Project, Task, Employee, DifyEmployee, KnowIssue, TestClass, OCRTestClass, ChatUsage
 
 
 @admin.register(UserProfile)
@@ -72,6 +72,26 @@ class KnowIssueAdmin(admin.ModelAdmin):
         # 由於 updated_by 現在指向 Employee 而非 User，暫時移除自動設定
         # 管理員需要手動選擇員工
         super().save_model(request, obj, form, change)
+
+
+@admin.register(TestClass)
+class TestClassAdmin(admin.ModelAdmin):
+    """測試類別管理 - Admin 專用"""
+    list_display = ('name', 'description', 'is_active', 'created_by', 'created_at', 'updated_at')
+    list_filter = ('is_active', 'created_at', 'updated_at')
+    search_fields = ('name', 'description')
+    readonly_fields = ('created_at', 'updated_at')
+    date_hierarchy = 'created_at'
+
+
+@admin.register(OCRTestClass)
+class OCRTestClassAdmin(admin.ModelAdmin):
+    """OCR測試類別管理 - Admin 專用"""
+    list_display = ('name', 'description', 'is_active', 'created_by', 'created_at', 'updated_at')
+    list_filter = ('is_active', 'created_at', 'updated_at')
+    search_fields = ('name', 'description')
+    readonly_fields = ('created_at', 'updated_at')
+    date_hierarchy = 'created_at'
 
 
 @admin.register(ChatUsage)

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import UserProfile, Project, Task, Employee, DifyEmployee, KnowIssue, TestClass, OCRStorageBenchmark, RVTGuide
+from .models import UserProfile, Project, Task, Employee, DifyEmployee, KnowIssue, TestClass, OCRTestClass, OCRStorageBenchmark, RVTGuide
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -237,6 +237,19 @@ class TestClassSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = TestClass
+        fields = [
+            'id', 'name', 'description', 'is_active', 
+            'created_by', 'created_by_name', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_by', 'created_by_name', 'created_at', 'updated_at']
+
+
+class OCRTestClassSerializer(serializers.ModelSerializer):
+    """OCR測試類別序列化器 - Admin 專用"""
+    created_by_name = serializers.CharField(source='created_by.username', read_only=True)
+    
+    class Meta:
+        model = OCRTestClass
         fields = [
             'id', 'name', 'description', 'is_active', 
             'created_by', 'created_by_name', 'created_at', 'updated_at'

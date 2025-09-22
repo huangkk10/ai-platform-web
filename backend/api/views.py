@@ -15,8 +15,8 @@ import logging
 import sys
 import os
 import time
-from .models import UserProfile, Project, Task, Employee, DifyEmployee, KnowIssue, TestClass, OCRStorageBenchmark, RVTGuide
-from .serializers import UserSerializer, UserProfileSerializer, ProjectSerializer, TaskSerializer, EmployeeSerializer, DifyEmployeeSerializer, DifyEmployeeListSerializer, KnowIssueSerializer, TestClassSerializer, OCRStorageBenchmarkSerializer, OCRStorageBenchmarkListSerializer, RVTGuideSerializer, RVTGuideListSerializer
+from .models import UserProfile, Project, Task, Employee, DifyEmployee, KnowIssue, TestClass, OCRTestClass, OCRStorageBenchmark, RVTGuide
+from .serializers import UserSerializer, UserProfileSerializer, ProjectSerializer, TaskSerializer, EmployeeSerializer, DifyEmployeeSerializer, DifyEmployeeListSerializer, KnowIssueSerializer, TestClassSerializer, OCRTestClassSerializer, OCRStorageBenchmarkSerializer, OCRStorageBenchmarkListSerializer, RVTGuideSerializer, RVTGuideListSerializer
 
 # 導入向量搜索服務
 try:
@@ -1214,6 +1214,54 @@ class TestClassViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """支援搜尋和篩選"""
         queryset = TestClass.objects.all()
+        
+        # 搜尋功能
+        search = self.request.query_params.get('search', None)
+        if search:
+            queryset = queryset.filter(name__icontains=search)
+        
+        # 狀態篩選
+        is_active = self.request.query_params.get('is_active', None)
+        if is_active is not None:
+            if is_active.lower() in ['true', '1']:
+                queryset = queryset.filter(is_active=True)
+            elif is_active.lower() in ['false', '0']:
+                queryset = queryset.filter(is_active=False)
+        
+        return queryset.order_by('-created_at')
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class OCRTestClassViewSet(viewsets.ModelViewSet):
+    """OCR測試類別 ViewSet - 讀取開放給所有用戶，但只有 admin 可以修改"""
+    queryset = OCRTestClass.objects.all()
+    serializer_class = OCRTestClassSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_permissions(self):
+        """
+        讀取操作(list, retrieve)開放給所有認證用戶
+        修改操作(create, update, partial_update, destroy)只允許管理員
+        """
+        if self.action in ['list', 'retrieve']:
+            # 讀取操作：所有認證用戶都可以訪問
+            return [permissions.IsAuthenticated()]
+        else:
+            # 修改操作：只有管理員可以訪問
+            if not (self.request.user.is_staff or self.request.user.is_superuser):
+                self.permission_denied(
+                    self.request,
+                    message='只有管理員才能管理OCR測試類別'
+                )
+            return [permissions.IsAuthenticated()]
+    
+    def perform_create(self, serializer):
+        """建立時設定建立者為當前用戶"""
+        serializer.save(created_by=self.request.user)
+    
+    def get_queryset(self):
+        """支援搜尋和篩選"""
+        queryset = OCRTestClass.objects.all()
         
         # 搜尋功能
         search = self.request.query_params.get('search', None)

@@ -11,6 +11,7 @@ router.register(r'employees', views.EmployeeViewSet)
 router.register(r'dify-employees', views.DifyEmployeeViewSet)
 router.register(r'know-issues', views.KnowIssueViewSet)
 router.register(r'test-classes', views.TestClassViewSet)
+router.register(r'ocr-test-classes', views.OCRTestClassViewSet)
 router.register(r'ocr-storage-benchmarks', views.OCRStorageBenchmarkViewSet)
 router.register(r'rvt-guides', views.RVTGuideViewSet)
 
