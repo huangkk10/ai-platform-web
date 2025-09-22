@@ -304,8 +304,8 @@ def search_rvt_guide_with_vectors(query: str, limit: int = 5, threshold: float =
             placeholders = ','.join(['%s'] * len(source_ids))
             cursor.execute(f"""
                 SELECT 
-                    id, document_name, title, main_category, sub_category,
-                    content, keywords, question_type, target_user, status,
+                    id, title, main_category, sub_category,
+                    content, question_type, target_user, status,
                     created_at, updated_at
                 FROM rvt_guide
                 WHERE id IN ({placeholders})
@@ -330,8 +330,6 @@ def search_rvt_guide_with_vectors(query: str, limit: int = 5, threshold: float =
                 content += f"主分類: {rvt_data['main_category']}\n"
                 content += f"子分類: {rvt_data['sub_category']}\n"
                 content += f"內容: {rvt_data['content']}\n"
-                if rvt_data['keywords']:
-                    content += f"關鍵字: {rvt_data['keywords']}"
                 
                 final_results.append({
                     'id': str(source_id),
@@ -339,7 +337,6 @@ def search_rvt_guide_with_vectors(query: str, limit: int = 5, threshold: float =
                     'content': content,
                     'score': vector_result['similarity_score'],
                     'metadata': {
-                        'document_name': rvt_data['document_name'],
                         'main_category': rvt_data['main_category'],
                         'sub_category': rvt_data['sub_category'],
                         'question_type': rvt_data['question_type'],

@@ -584,7 +584,6 @@ class RVTGuide(models.Model):
     ]
     
     # 基本識別欄位
-    document_name = models.CharField(max_length=200, verbose_name="文檔名稱", help_text="文檔的唯一名稱")
     title = models.CharField(max_length=300, verbose_name="文檔標題", help_text="文檔的顯示標題")
     version = models.CharField(max_length=50, default="1.0", verbose_name="版本號", help_text="文檔版本")
     
@@ -604,14 +603,6 @@ class RVTGuide(models.Model):
     
     # 內容欄位
     content = models.TextField(verbose_name="文檔內容", help_text="文檔的主要內容")
-    
-    # 檢索優化欄位
-    keywords = models.CharField(
-        max_length=500, 
-        blank=True, 
-        verbose_name="關鍵字",
-        help_text="用逗號分隔的關鍵字，用於搜索優化"
-    )
     
     # 使用情境欄位
     question_type = models.CharField(
@@ -657,7 +648,7 @@ class RVTGuide(models.Model):
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新時間")
     
     class Meta:
-        ordering = ['main_category', 'sub_category', 'document_name']
+        ordering = ['main_category', 'sub_category', 'title']
         verbose_name = "RVT使用指南"
         verbose_name_plural = "RVT使用指南"
         db_table = 'rvt_guide'
@@ -678,12 +669,4 @@ class RVTGuide(models.Model):
     def get_search_content(self):
         """獲取用於搜索的完整內容"""
         search_text = f"{self.title} {self.content}"
-        if self.keywords:
-            search_text += f" {self.keywords}"
         return search_text
-    
-    def get_keywords_list(self):
-        """獲取關鍵字列表"""
-        if self.keywords:
-            return [keyword.strip() for keyword in self.keywords.split(',') if keyword.strip()]
-        return []

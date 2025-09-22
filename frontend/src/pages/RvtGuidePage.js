@@ -76,7 +76,7 @@ const RvtGuidePage = () => {
     { value: 'all', label: '所有用戶', color: 'purple' }
   ];
 
-  // 表格欄位定義 - 根據用戶需求調整：查看欄位在最左邊，文檔名稱第二，顯示問題類型，移除狀態和目標用戶
+  // 表格欄位定義 - 根據用戶需求調整：查看欄位在最左邊，顯示問題類型，移除 document_name
   const columns = [
     {
       title: '查看',
@@ -95,23 +95,11 @@ const RvtGuidePage = () => {
       ),
     },
     {
-      title: '文檔名稱',
-      dataIndex: 'document_name',
-      key: 'document_name',
-      width: 180,
-      fixed: 'left',
-      ellipsis: true,
-      render: (text) => (
-        <Tooltip title={text || '未命名文檔'}>
-          <Text strong>{text || '未命名文檔'}</Text>
-        </Tooltip>
-      ),
-    },
-    {
       title: '標題',
       dataIndex: 'title',
       key: 'title',
-      width: 250,
+      width: 300,
+      fixed: 'left',
       ellipsis: {
         showTitle: true,
       },
@@ -119,7 +107,7 @@ const RvtGuidePage = () => {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Tooltip title={text}>
-              <Text strong style={{ cursor: 'help', maxWidth: '200px' }} ellipsis>
+              <Text strong style={{ cursor: 'help', maxWidth: '250px' }} ellipsis>
                 {text}
               </Text>
             </Tooltip>
@@ -223,11 +211,6 @@ const RvtGuidePage = () => {
     }
   }, [initialized, isAuthenticated]);
 
-  // 獲取統計資料
-  const fetchStatistics = useCallback(async () => {
-    // 統計功能已移除
-  }, []);
-
   useEffect(() => {
     if (initialized && isAuthenticated) {
       fetchGuides();
@@ -264,19 +247,16 @@ const RvtGuidePage = () => {
         
         // 使用 setTimeout 確保 Modal 已經渲染
         setTimeout(() => {
-          form.setFieldsValue({
-            title: fullRecord.title || '',
-            document_name: fullRecord.document_name || '',
-            main_category: fullRecord.main_category || '',
-            question_type: fullRecord.question_type || '',
-            target_user: fullRecord.target_user || '',
-            content: fullRecord.content || '',
-            version: fullRecord.version || '1.0',
-            status: fullRecord.status || '',
-            keywords: fullRecord.keywords || '',
-          });
-          
-          console.log('Form values set:', form.getFieldsValue()); // 調試日誌
+        // 設置表單值
+        form.setFieldsValue({
+          title: fullRecord.title || '',
+          main_category: fullRecord.main_category || '',
+          question_type: fullRecord.question_type || '',
+          target_user: fullRecord.target_user || '',
+          content: fullRecord.content || '',
+          version: fullRecord.version || '1.0',
+          status: fullRecord.status || '',
+        });          console.log('Form values set:', form.getFieldsValue()); // 調試日誌
         }, 100);
         
       } catch (error) {
@@ -424,22 +404,13 @@ const RvtGuidePage = () => {
           }}
         >
           <Row gutter={16}>
-            <Col span={12}>
+            <Col span={24}>
               <Form.Item
                 name="title"
                 label="標題"
                 rules={[{ required: true, message: '請輸入標題' }]}
               >
                 <Input placeholder="請輸入指導文檔標題" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="document_name"
-                label="文檔名稱"
-                rules={[{ required: true, message: '請輸入文檔名稱' }]}
-              >
-                <Input placeholder="請輸入文檔的唯一名稱" />
               </Form.Item>
             </Col>
           </Row>
@@ -504,7 +475,7 @@ const RvtGuidePage = () => {
           </Form.Item>
 
           <Row gutter={16}>
-            <Col span={8}>
+            <Col span={12}>
               <Form.Item
                 name="version"
                 label="版本"
@@ -512,7 +483,7 @@ const RvtGuidePage = () => {
                 <Input placeholder="如：1.0" />
               </Form.Item>
             </Col>
-            <Col span={8}>
+            <Col span={12}>
               <Form.Item
                 name="status"
                 label="狀態"
@@ -525,14 +496,6 @@ const RvtGuidePage = () => {
                     </Option>
                   ))}
                 </Select>
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item
-                name="keywords"
-                label="關鍵字"
-              >
-                <Input placeholder="用逗號分隔的關鍵字" />
               </Form.Item>
             </Col>
           </Row>
@@ -562,7 +525,7 @@ const RvtGuidePage = () => {
             <span>資料預覽</span>
             {selectedGuide && (
               <Tag color="blue" style={{ marginLeft: '8px' }}>
-                {selectedGuide.document_name}
+                {selectedGuide.title}
               </Tag>
             )}
           </div>
@@ -610,10 +573,6 @@ const RvtGuidePage = () => {
                 <div>
                   <strong>📂 標題：</strong>
                   <span style={{ marginLeft: '8px' }}>{selectedGuide.title}</span>
-                </div>
-                <div>
-                  <strong>📁 文檔名稱：</strong>
-                  <span style={{ marginLeft: '8px' }}>{selectedGuide.document_name}</span>
                 </div>
                 <div>
                   <strong>🏷️ 主分類：</strong>
@@ -673,28 +632,6 @@ const RvtGuidePage = () => {
                 </div>
               </div>
             </div>
-
-            {/* 關鍵字 */}
-            {selectedGuide.keywords_list && selectedGuide.keywords_list.length > 0 && (
-              <div style={{ 
-                marginBottom: '20px',
-                padding: '16px',
-                backgroundColor: '#f9f0ff',
-                borderRadius: '8px',
-                border: '1px solid #d3adf7'
-              }}>
-                <Title level={4} style={{ margin: '0 0 12px 0', color: '#722ed1' }}>
-                  🏷️ 關鍵字
-                </Title>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {selectedGuide.keywords_list.map((keyword, index) => (
-                    <Tag key={index} color="purple">
-                      {keyword}
-                    </Tag>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* 文檔內容 */}
             <div style={{ 

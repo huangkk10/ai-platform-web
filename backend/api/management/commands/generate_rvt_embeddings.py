@@ -174,10 +174,6 @@ class Command(BaseCommand):
         # 添加主要內容
         content_parts.append(f"內容: {rvt_guide.content}")
         
-        # 添加關鍵字
-        if rvt_guide.keywords:
-            content_parts.append(f"關鍵字: {rvt_guide.keywords}")
-        
         # 添加使用情境資訊
         content_parts.append(f"問題類型: {rvt_guide.get_question_type_display()}")
         content_parts.append(f"目標使用者: {rvt_guide.get_target_user_display()}")

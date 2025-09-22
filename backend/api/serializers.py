@@ -305,16 +305,15 @@ class RVTGuideSerializer(serializers.ModelSerializer):
     target_user_display = serializers.CharField(source='get_target_user_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     
-    keywords_list = serializers.SerializerMethodField()
     full_category_name = serializers.SerializerMethodField()
     
     class Meta:
         model = RVTGuide
         fields = [
-            'id', 'document_name', 'title', 'version',
+            'id', 'title', 'version',
             'main_category', 'main_category_display',
             'sub_category', 'sub_category_display',
-            'content', 'keywords', 'keywords_list',
+            'content',
             'question_type', 'question_type_display',
             'target_user', 'target_user_display',
             'status', 'status_display',
@@ -324,12 +323,8 @@ class RVTGuideSerializer(serializers.ModelSerializer):
             'id', 'created_at', 'updated_at', 'main_category_display',
             'sub_category_display', 'question_type_display', 
             'target_user_display', 'status_display',
-            'keywords_list', 'full_category_name'
+            'full_category_name'
         ]
-    
-    def get_keywords_list(self, obj):
-        """獲取關鍵字列表"""
-        return obj.get_keywords_list()
     
     def get_full_category_name(self, obj):
         """獲取完整分類名稱"""
@@ -344,29 +339,24 @@ class RVTGuideListSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     target_user_display = serializers.CharField(source='get_target_user_display', read_only=True)
     
-    keywords_list = serializers.SerializerMethodField()
     full_category_name = serializers.SerializerMethodField()
     
     class Meta:
         model = RVTGuide
         fields = [
-            'id', 'document_name', 'title', 'version',
+            'id', 'title', 'version',
             'main_category', 'main_category_display', 
             'sub_category_display',
             'question_type', 'question_type_display',
             'target_user_display', 'status', 'status_display',
-            'keywords_list', 'full_category_name', 'created_at', 'updated_at'
+            'full_category_name', 'created_at', 'updated_at'
         ]
         read_only_fields = [
             'id', 'created_at', 'updated_at', 'main_category_display',
             'sub_category_display', 'question_type_display', 
             'target_user_display', 'status_display',
-            'keywords_list', 'full_category_name'
+            'full_category_name'
         ]
-    
-    def get_keywords_list(self, obj):
-        """獲取關鍵字列表"""
-        return obj.get_keywords_list()
     
     def get_full_category_name(self, obj):
         """獲取完整分類名稱"""
