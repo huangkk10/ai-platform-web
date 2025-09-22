@@ -298,9 +298,16 @@ const RvtGuidePage = () => {
   }, [initialized, isAuthenticated]);
 
   // 處理查看詳細內容
-  const handleViewDetail = (record) => {
-    setSelectedGuide(record);
-    setDetailDrawerVisible(true);
+  const handleViewDetail = async (record) => {
+    try {
+      // 發送單獨的 API 請求獲取完整資料
+      const response = await axios.get(`/api/rvt-guides/${record.id}/`);
+      setSelectedGuide(response.data);
+      setDetailDrawerVisible(true);
+    } catch (error) {
+      console.error('獲取詳細資料失敗:', error);
+      message.error('獲取詳細資料失敗');
+    }
   };
 
   // 處理新增/編輯
@@ -635,85 +642,131 @@ const RvtGuidePage = () => {
       <Drawer
         title={
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <FileTextOutlined />
-            <span>{selectedGuide?.title}</span>
-            {selectedGuide?.is_featured && <StarOutlined style={{ color: '#faad14' }} />}
+            <FileTextOutlined style={{ color: '#1890ff' }} />
+            <span>資料預覽</span>
+            {selectedGuide && (
+              <Tag color="blue" style={{ marginLeft: '8px' }}>
+                {selectedGuide.document_name}
+              </Tag>
+            )}
           </div>
         }
         placement="right"
-        width={600}
+        width={800}
         open={detailDrawerVisible}
         onClose={() => {
           setDetailDrawerVisible(false);
           setSelectedGuide(null);
         }}
+        extra={
+          <Button 
+            type="primary" 
+            icon={<EditOutlined />}
+            onClick={() => {
+              setDetailDrawerVisible(false);
+              handleEdit(selectedGuide);
+            }}
+          >
+            編輯
+          </Button>
+        }
       >
         {selectedGuide && (
-          <div>
-            {/* 基本資訊 */}
-            <Row gutter={16} style={{ marginBottom: '16px' }}>
-              <Col span={8}>
+          <div style={{ maxHeight: '100vh', overflowY: 'auto' }}>
+            {/* 基本信息 */}
+            <div style={{ 
+              marginBottom: '20px',
+              padding: '16px',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '8px',
+              border: '1px solid #e9ecef'
+            }}>
+              <Title level={4} style={{ margin: '0 0 12px 0', color: '#1890ff' }}>
+                📝 基本信息
+              </Title>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <Text type="secondary">主分類</Text>
-                  <div>
-                    <Tag color={mainCategoryOptions.find(opt => opt.value === selectedGuide.main_category)?.color}>
-                      {selectedGuide.main_category_display}
-                    </Tag>
-                  </div>
+                  <strong>📂 標題：</strong>
+                  <span style={{ marginLeft: '8px' }}>{selectedGuide.title}</span>
                 </div>
-              </Col>
-              <Col span={8}>
                 <div>
-                  <Text type="secondary">問題類型</Text>
-                  <div>
-                    <Tag color={questionTypeOptions.find(opt => opt.value === selectedGuide.question_type)?.color}>
-                      {selectedGuide.question_type_display}
-                    </Tag>
-                  </div>
+                  <strong>📁 文檔名稱：</strong>
+                  <span style={{ marginLeft: '8px' }}>{selectedGuide.document_name}</span>
                 </div>
-              </Col>
-              <Col span={8}>
                 <div>
-                  <Text type="secondary">目標用戶</Text>
-                  <div>
-                    <Tag color={targetUserOptions.find(opt => opt.value === selectedGuide.target_user)?.color}>
-                      {selectedGuide.target_user_display}
-                    </Tag>
-                  </div>
+                  <strong>🏷️ 主分類：</strong>
+                  <Tag 
+                    color={mainCategoryOptions.find(opt => opt.value === selectedGuide.main_category)?.color || 'blue'}
+                    style={{ marginLeft: '8px' }}
+                  >
+                    {selectedGuide.main_category_display}
+                  </Tag>
                 </div>
-              </Col>
-            </Row>
-
-            {/* 文檔資訊 */}
-            {selectedGuide.document_name && (
-              <div style={{ marginBottom: '16px' }}>
-                <Text type="secondary">文檔名稱：</Text>
-                <Text>{selectedGuide.document_name}</Text>
+                <div>
+                  <strong>📋 子分類：</strong>
+                  <span style={{ marginLeft: '8px' }}>{selectedGuide.sub_category_display || '-'}</span>
+                </div>
+                <div>
+                  <strong>🔄 問題類型：</strong>
+                  <Tag 
+                    color={questionTypeOptions.find(opt => opt.value === selectedGuide.question_type)?.color || 'green'}
+                    style={{ marginLeft: '8px' }}
+                  >
+                    {selectedGuide.question_type_display}
+                  </Tag>
+                </div>
+                <div>
+                  <strong>👥 目標用戶：</strong>
+                  <Tag 
+                    color={targetUserOptions.find(opt => opt.value === selectedGuide.target_user)?.color || 'purple'}
+                    style={{ marginLeft: '8px' }}
+                  >
+                    {selectedGuide.target_user_display}
+                  </Tag>
+                </div>
+                <div>
+                  <strong>📊 狀態：</strong>
+                  <Tag 
+                    color={statusOptions.find(opt => opt.value === selectedGuide.status)?.color || 'default'}
+                    style={{ marginLeft: '8px' }}
+                  >
+                    {selectedGuide.status_display}
+                  </Tag>
+                </div>
+                <div>
+                  <strong>🔖 版本：</strong>
+                  <span style={{ marginLeft: '8px' }}>{selectedGuide.version || '1.0'}</span>
+                </div>
+                <div>
+                  <strong>📅 建立時間：</strong>
+                  <span style={{ marginLeft: '8px' }}>
+                    {dayjs(selectedGuide.created_at).format('YYYY-MM-DD HH:mm:ss')}
+                  </span>
+                </div>
+                <div>
+                  <strong>🔄 更新時間：</strong>
+                  <span style={{ marginLeft: '8px' }}>
+                    {dayjs(selectedGuide.updated_at).format('YYYY-MM-DD HH:mm:ss')}
+                  </span>
+                </div>
               </div>
-            )}
-
-            {selectedGuide.version && (
-              <div style={{ marginBottom: '16px' }}>
-                <Text type="secondary">版本：</Text>
-                <Text>{selectedGuide.version}</Text>
-              </div>
-            )}
-
-            {/* 子分類 */}
-            {selectedGuide.sub_category_display && (
-              <div style={{ marginBottom: '16px' }}>
-                <Text type="secondary">子分類：</Text>
-                <Text>{selectedGuide.sub_category_display}</Text>
-              </div>
-            )}
+            </div>
 
             {/* 關鍵字 */}
             {selectedGuide.keywords_list && selectedGuide.keywords_list.length > 0 && (
-              <div style={{ marginBottom: '16px' }}>
-                <Text type="secondary">關鍵字：</Text>
-                <div style={{ marginTop: '4px' }}>
+              <div style={{ 
+                marginBottom: '20px',
+                padding: '16px',
+                backgroundColor: '#f9f0ff',
+                borderRadius: '8px',
+                border: '1px solid #d3adf7'
+              }}>
+                <Title level={4} style={{ margin: '0 0 12px 0', color: '#722ed1' }}>
+                  🏷️ 關鍵字
+                </Title>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                   {selectedGuide.keywords_list.map((keyword, index) => (
-                    <Tag key={index} color="blue">
+                    <Tag key={index} color="purple">
                       {keyword}
                     </Tag>
                   ))}
@@ -721,29 +774,57 @@ const RvtGuidePage = () => {
               </div>
             )}
 
-            <Divider />
-
-            {/* 內容 */}
-            <div style={{ marginBottom: '16px' }}>
-              <Title level={5}>內容</Title>
-              <Paragraph style={{ whiteSpace: 'pre-wrap' }}>
-                {selectedGuide.content}
-              </Paragraph>
+            {/* 文檔內容 */}
+            <div style={{ 
+              marginBottom: '20px',
+              padding: '16px',
+              backgroundColor: '#e6f7ff',
+              borderRadius: '8px',
+              border: '1px solid #91d5ff'
+            }}>
+              <Title level={4} style={{ margin: '0 0 12px 0', color: '#1890ff' }}>
+                📄 文檔內容
+              </Title>
+              <div style={{ 
+                backgroundColor: 'white',
+                padding: '16px',
+                borderRadius: '6px',
+                border: '1px solid #f5f5f5',
+                whiteSpace: 'pre-wrap',
+                wordWrap: 'break-word',
+                fontSize: '14px',
+                lineHeight: '1.8',
+                minHeight: '200px',
+                maxHeight: '400px',
+                overflowY: 'auto'
+              }}>
+                {selectedGuide.content || '無內容'}
+              </div>
             </div>
 
-            <Divider />
-
-            {/* 元數據 */}
-            <div>
-              <div style={{ marginBottom: '8px' }}>
-                <Text type="secondary">建立時間：</Text>
-                <Text>{dayjs(selectedGuide.created_at).format('YYYY-MM-DD HH:mm:ss')}</Text>
+            {/* 完整分類路徑 */}
+            {selectedGuide.full_category_name && (
+              <div style={{ 
+                marginBottom: '20px',
+                padding: '16px',
+                backgroundColor: '#f6ffed',
+                borderRadius: '8px',
+                border: '1px solid #b7eb8f'
+              }}>
+                <Title level={4} style={{ margin: '0 0 12px 0', color: '#52c41a' }}>
+                  📍 分類路徑
+                </Title>
+                <div style={{ 
+                  backgroundColor: 'white',
+                  padding: '12px',
+                  borderRadius: '6px',
+                  border: '1px solid #f5f5f5',
+                  fontSize: '14px'
+                }}>
+                  {selectedGuide.full_category_name}
+                </div>
               </div>
-              <div>
-                <Text type="secondary">更新時間：</Text>
-                <Text>{dayjs(selectedGuide.updated_at).format('YYYY-MM-DD HH:mm:ss')}</Text>
-              </div>
-            </div>
+            )}
           </div>
         )}
       </Drawer>
