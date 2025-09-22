@@ -15,8 +15,8 @@ import logging
 import sys
 import os
 import time
-from .models import UserProfile, Project, Task, Employee, DifyEmployee, KnowIssue, TestClass, OCRStorageBenchmark
-from .serializers import UserSerializer, UserProfileSerializer, ProjectSerializer, TaskSerializer, EmployeeSerializer, DifyEmployeeSerializer, DifyEmployeeListSerializer, KnowIssueSerializer, TestClassSerializer, OCRStorageBenchmarkSerializer, OCRStorageBenchmarkListSerializer
+from .models import UserProfile, Project, Task, Employee, DifyEmployee, KnowIssue, TestClass, OCRStorageBenchmark, RVTGuide
+from .serializers import UserSerializer, UserProfileSerializer, ProjectSerializer, TaskSerializer, EmployeeSerializer, DifyEmployeeSerializer, DifyEmployeeListSerializer, KnowIssueSerializer, TestClassSerializer, OCRStorageBenchmarkSerializer, OCRStorageBenchmarkListSerializer, RVTGuideSerializer, RVTGuideListSerializer
 
 # 導入向量搜索服務
 try:
@@ -2748,3 +2748,125 @@ def rvt_guide_config(request):
             'success': False,
             'error': f'獲取 RVT Guide 配置失敗: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class RVTGuideViewSet(viewsets.ModelViewSet):
+    """RVT Guide ViewSet - 用於 RVT Assistant 知識庫管理"""
+    queryset = RVTGuide.objects.all()
+    serializer_class = RVTGuideSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_serializer_class(self):
+        """根據操作類型選擇合適的序列化器"""
+        if self.action == 'list':
+            # 列表視圖使用輕量級序列化器以提升性能
+            return RVTGuideListSerializer
+        return RVTGuideSerializer
+    
+    def perform_create(self, serializer):
+        """建立時設定建立者為當前用戶"""
+        serializer.save(created_by=self.request.user, updated_by=self.request.user)
+    
+    def perform_update(self, serializer):
+        """更新時設定更新者為當前用戶"""
+        serializer.save(updated_by=self.request.user)
+    
+    def get_queryset(self):
+        """支援搜尋和篩選"""
+        queryset = RVTGuide.objects.all()
+        
+        # 標題搜尋
+        title = self.request.query_params.get('title', None)
+        if title:
+            queryset = queryset.filter(title__icontains=title)
+        
+        # 主分類篩選
+        main_category = self.request.query_params.get('main_category', None)
+        if main_category:
+            queryset = queryset.filter(main_category=main_category)
+        
+        # 子分類篩選
+        sub_category = self.request.query_params.get('sub_category', None)
+        if sub_category:
+            queryset = queryset.filter(sub_category=sub_category)
+        
+        # 狀態篩選
+        status_filter = self.request.query_params.get('status', None)
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+        
+        # 問題類型篩選
+        question_type = self.request.query_params.get('question_type', None)
+        if question_type:
+            queryset = queryset.filter(question_type=question_type)
+        
+        # 目標用戶篩選
+        target_user = self.request.query_params.get('target_user', None)
+        if target_user:
+            queryset = queryset.filter(target_user=target_user)
+        
+        # 關鍵字搜尋
+        keywords = self.request.query_params.get('keywords', None)
+        if keywords:
+            queryset = queryset.filter(keywords__icontains=keywords)
+        
+        # 一般關鍵字搜尋
+        search = self.request.query_params.get('search', None)
+        if search:
+            queryset = queryset.filter(
+                models.Q(title__icontains=search) |
+                models.Q(content__icontains=search) |
+                models.Q(keywords__icontains=search) |
+                models.Q(document_name__icontains=search)
+            )
+        
+        return queryset.order_by('-created_at')
+    
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def statistics(self, request):
+        """獲取統計資料"""
+        try:
+            from django.db.models import Count
+            
+            queryset = self.get_queryset()
+            
+            # 基本統計
+            total_guides = queryset.count()
+            published_guides = queryset.filter(status='published').count()
+            
+            # 按主分類統計
+            main_category_stats = queryset.values('main_category').annotate(count=Count('id'))
+            
+            # 按子分類統計
+            sub_category_stats = queryset.values('sub_category').annotate(count=Count('id'))
+            
+            # 按狀態統計
+            status_stats = queryset.values('status').annotate(count=Count('id'))
+            
+            # 按問題類型統計
+            question_type_stats = queryset.values('question_type').annotate(count=Count('id'))
+            
+            # 按目標用戶統計
+            target_user_stats = queryset.values('target_user').annotate(count=Count('id'))
+            
+            # 最新文檔 (前5名)
+            recent_guides = queryset.order_by('-updated_at')[:5]
+            recent_guides_data = RVTGuideListSerializer(recent_guides, many=True).data
+            
+            return Response({
+                'total_guides': total_guides,
+                'published_guides': published_guides,
+                'publish_rate': round(published_guides / total_guides * 100, 2) if total_guides > 0 else 0,
+                'main_category_distribution': list(main_category_stats),
+                'sub_category_distribution': list(sub_category_stats),
+                'status_distribution': list(status_stats),
+                'question_type_distribution': list(question_type_stats),
+                'target_user_distribution': list(target_user_stats),
+                'recent_guides': recent_guides_data
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"統計資料獲取失敗: {str(e)}")
+            return Response({
+                'error': f'統計資料獲取失敗: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

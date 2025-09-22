@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import UserProfile, Project, Task, Employee, DifyEmployee, KnowIssue, TestClass, OCRStorageBenchmark
+from .models import UserProfile, Project, Task, Employee, DifyEmployee, KnowIssue, TestClass, OCRStorageBenchmark, RVTGuide
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -295,3 +295,75 @@ class TestClassSerializer(serializers.ModelSerializer):
             'created_by', 'created_by_name', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_by', 'created_by_name', 'created_at', 'updated_at']
+
+
+class RVTGuideSerializer(serializers.ModelSerializer):
+    """RVT Guide 完整序列化器"""
+    main_category_display = serializers.CharField(source='get_main_category_display', read_only=True)
+    sub_category_display = serializers.CharField(source='get_sub_category_display', read_only=True)
+    question_type_display = serializers.CharField(source='get_question_type_display', read_only=True)
+    target_user_display = serializers.CharField(source='get_target_user_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    
+    keywords_list = serializers.SerializerMethodField()
+    full_category_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = RVTGuide
+        fields = [
+            'id', 'document_name', 'title', 'version',
+            'main_category', 'main_category_display',
+            'sub_category', 'sub_category_display',
+            'content', 'keywords', 'keywords_list',
+            'question_type', 'question_type_display',
+            'target_user', 'target_user_display',
+            'status', 'status_display',
+            'full_category_name', 'created_at', 'updated_at'
+        ]
+        read_only_fields = [
+            'id', 'created_at', 'updated_at', 'main_category_display',
+            'sub_category_display', 'question_type_display', 
+            'target_user_display', 'status_display',
+            'keywords_list', 'full_category_name'
+        ]
+    
+    def get_keywords_list(self, obj):
+        """獲取關鍵字列表"""
+        return obj.get_keywords_list()
+    
+    def get_full_category_name(self, obj):
+        """獲取完整分類名稱"""
+        return obj.get_full_category_name()
+
+
+class RVTGuideListSerializer(serializers.ModelSerializer):
+    """RVT Guide 列表序列化器 - 用於列表視圖，包含較少字段以提升性能"""
+    main_category_display = serializers.CharField(source='get_main_category_display', read_only=True)
+    sub_category_display = serializers.CharField(source='get_sub_category_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    target_user_display = serializers.CharField(source='get_target_user_display', read_only=True)
+    
+    keywords_list = serializers.SerializerMethodField()
+    full_category_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = RVTGuide
+        fields = [
+            'id', 'document_name', 'title', 'version',
+            'main_category_display', 'sub_category_display',
+            'target_user_display', 'status', 'status_display',
+            'keywords_list', 'full_category_name', 'created_at', 'updated_at'
+        ]
+        read_only_fields = [
+            'id', 'created_at', 'updated_at', 'main_category_display',
+            'sub_category_display', 'target_user_display', 'status_display',
+            'keywords_list', 'full_category_name'
+        ]
+    
+    def get_keywords_list(self, obj):
+        """獲取關鍵字列表"""
+        return obj.get_keywords_list()
+    
+    def get_full_category_name(self, obj):
+        """獲取完整分類名稱"""
+        return obj.get_full_category_name()

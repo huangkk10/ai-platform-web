@@ -12,7 +12,7 @@ import DashboardPage from './pages/DashboardPage';
 import QueryPage from './pages/QueryPage';
 import SettingsPage from './pages/SettingsPage';
 import KnowIssuePage from './pages/KnowIssuePage';
-import RvtLogPage from './pages/RvtLogPage';
+import RvtGuidePage from './pages/RvtGuidePage';
 import OcrStorageBenchmarkPage from './pages/OcrStorageBenchmarkPage';
 import TestClassManagementPage from './pages/TestClassManagementPage';
 import KnowIssueChatPage from './pages/KnowIssueChatPage';
@@ -68,7 +68,7 @@ function AppLayout() {
       case '/knowledge/know-issue':
         return 'Protocol RAG';
       case '/knowledge/rvt-log':
-        return 'RVT Log';
+        return 'RVT Assistant';
       case '/knowledge/ocr-storage-benchmark':
         return 'AI OCR';
       case '/log-analyze':
@@ -126,7 +126,7 @@ function AppLayout() {
             <Route path="/query" element={<QueryPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/knowledge/know-issue" element={<KnowIssuePage />} />
-            <Route path="/knowledge/rvt-log" element={<RvtLogPage />} />
+            <Route path="/knowledge/rvt-log" element={<RvtGuidePage />} />
             <Route path="/knowledge/ocr-storage-benchmark" element={<OcrStorageBenchmarkPage />} />
             <Route path="/know-issue-chat" element={<KnowIssueChatPage collapsed={collapsed} />} />
             <Route path="/log-analyze-chat" element={<LogAnalyzeChatPage collapsed={collapsed} />} />

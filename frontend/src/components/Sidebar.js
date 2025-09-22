@@ -99,7 +99,7 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       children: [
         { key: 'know-issue', icon: <DatabaseOutlined />, label: 'Protocol RAG' },
         { key: 'ocr-storage-benchmark', icon: <BarChartOutlined />, label: 'AI OCR' },
-        { key: 'rvt-log', icon: <DatabaseOutlined />, label: 'RVT Log' },
+        { key: 'rvt-log', icon: <DatabaseOutlined />, label: 'RVT Assistant' },
       ],
     };
 
