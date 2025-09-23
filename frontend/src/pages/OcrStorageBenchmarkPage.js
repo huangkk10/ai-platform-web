@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Card, 
   Table, 
@@ -25,8 +25,6 @@ import {
   DeleteOutlined, 
   ReloadOutlined,
   EyeOutlined,
-  CheckCircleOutlined,
-  ClockCircleOutlined,
   BarChartOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
@@ -34,7 +32,6 @@ import { useAuth } from '../contexts/AuthContext';
 import dayjs from 'dayjs';
 
 const { Title } = Typography;
-const { Option } = Select;
 
 const OcrStorageBenchmarkPage = () => {
   const { user, isAuthenticated, loading: authLoading, initialized } = useAuth();
@@ -46,6 +43,11 @@ const OcrStorageBenchmarkPage = () => {
   const [editingRecord, setEditingRecord] = useState(null);
   const [form] = Form.useForm();
   const [statistics, setStatistics] = useState({});
+
+  // OCR 測試類別相關狀態
+  const [ocrTestClasses, setOcrTestClasses] = useState([]);
+  const [selectedOcrTestClass, setSelectedOcrTestClass] = useState(null);
+  const [testClassLoading, setTestClassLoading] = useState(false);
 
   // 表格欄位定義 - 根據用戶需求顯示指定欄位
   const columns = [
@@ -198,7 +200,7 @@ const OcrStorageBenchmarkPage = () => {
   ];
 
   // 載入資料
-  const fetchRecords = async () => {
+  const fetchRecords = useCallback(async () => {
     try {
       setLoading(true);
       console.log('Fetching OCR storage benchmark records, authenticated:', isAuthenticated, 'user:', user);
@@ -213,7 +215,16 @@ const OcrStorageBenchmarkPage = () => {
         return;
       }
       
+      const params = {};
+      
+      // 如果有選擇測試類別，添加過濾參數
+      if (selectedOcrTestClass) {
+        params.test_class = selectedOcrTestClass;
+        console.log('添加測試類別過濾參數:', selectedOcrTestClass);
+      }
+      
       const response = await axios.get('/api/ocr-storage-benchmarks/', {
+        params: params,
         withCredentials: true,
         headers: {
           'Content-Type': 'application/json',
@@ -241,17 +252,90 @@ const OcrStorageBenchmarkPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAuthenticated, user, selectedOcrTestClass]);
 
   // 載入統計資料
-  const fetchStatistics = async () => {
+  const fetchStatistics = useCallback(async () => {
     try {
+      const params = {};
+      
+      // 如果有選擇測試類別，添加過濾參數
+      if (selectedOcrTestClass) {
+        params.test_class = selectedOcrTestClass;
+      }
+      
       const response = await axios.get('/api/ocr-storage-benchmarks/statistics/', {
+        params: params,
         withCredentials: true,
       });
       setStatistics(response.data);
     } catch (error) {
       console.error('載入統計資料失敗:', error);
+    }
+  }, [selectedOcrTestClass]);
+
+  // 載入 OCR 測試類別
+  const fetchOcrTestClasses = async () => {
+    setTestClassLoading(true);
+    try {
+      console.log('🔄 開始載入 OCR 測試類別...');
+      const response = await axios.get('/api/ocr-test-classes/', {
+        withCredentials: true,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        }
+      });
+      
+      console.log('📡 API 響應狀態:', response.status);
+      console.log('📊 API 響應資料:', response.data);
+      console.log('📊 資料類型:', typeof response.data, Array.isArray(response.data));
+      
+      // 處理分頁格式的 API 響應
+      let testClasses = [];
+      if (response.data && response.data.results && Array.isArray(response.data.results)) {
+        testClasses = response.data.results;
+        console.log('✅ 從分頁響應設置 OCR 測試類別:', testClasses);
+      } else if (response.data && Array.isArray(response.data)) {
+        testClasses = response.data;
+        console.log('✅ 從數組響應設置 OCR 測試類別:', testClasses);
+      } else {
+        console.warn('⚠️ API 響應格式不正確:', response.data);
+        testClasses = [];
+      }
+      
+      setOcrTestClasses(testClasses);
+      console.log('📋 載入 OCR 測試類別成功:', testClasses.length, '個類別');
+    } catch (error) {
+      console.error('❌ 載入 OCR 測試類別失敗:', error);
+      if (error.response?.status === 403) {
+        console.warn('🚫 權限不足：無法載入 OCR 測試類別列表，請聯繫管理員');
+      } else if (error.response?.status === 401) {
+        console.warn('🔐 未授權：請重新登入');
+      } else {
+        console.error('💥 載入 OCR 測試類別時發生未知錯誤:', error.message);
+      }
+      // 設置空的測試類別列表，避免程式崩潰
+      setOcrTestClasses([]);
+    } finally {
+      setTestClassLoading(false);
+      console.log('🏁 OCR 測試類別載入完成');
+    }
+  };
+
+  // 處理 OCR 測試類別選擇
+  const handleOcrTestClassFilter = (testClassId) => {
+    console.log('OCR 測試類別選擇變更:', testClassId);
+    setSelectedOcrTestClass(testClassId);
+    
+    if (testClassId) {
+      // 保存選擇到 localStorage
+      localStorage.setItem('selected-ocr-test-class-id', testClassId.toString());
+      console.log('保存 OCR 測試類別選擇到 localStorage:', testClassId);
+    } else {
+      // 移除 localStorage 中的選擇
+      localStorage.removeItem('selected-ocr-test-class-id');
+      console.log('從 localStorage 移除 OCR 測試類別選擇');
     }
   };
 
@@ -265,7 +349,41 @@ const OcrStorageBenchmarkPage = () => {
       console.log('User not authenticated');
       message.warning('請先登入以查看OCR Storage Benchmark資料');
     }
-  }, [isAuthenticated, user, initialized]);
+  }, [isAuthenticated, user, initialized, fetchRecords]);
+
+  // 載入 OCR 測試類別
+  useEffect(() => {
+    fetchOcrTestClasses();
+  }, []);
+
+  // 載入統計資料 - 當測試類別選擇變更時同步更新
+  useEffect(() => {
+    if (isAuthenticated && user && initialized) {
+      fetchStatistics();
+    }
+  }, [isAuthenticated, user, initialized, fetchStatistics]);
+
+  // 恢復 OCR 測試類別選擇
+  useEffect(() => {
+    if (ocrTestClasses.length > 0) {
+      try {
+        const savedId = localStorage.getItem('selected-ocr-test-class-id');
+        if (savedId) {
+          const parsedId = parseInt(savedId, 10);
+          const validClass = ocrTestClasses.find(cls => cls.id === parsedId);
+          if (validClass) {
+            setSelectedOcrTestClass(parsedId);
+            console.log('恢復 OCR 測試類別選擇:', validClass.name, validClass.id);
+          } else {
+            console.warn('保存的 OCR 測試類別ID無效:', savedId);
+            localStorage.removeItem('selected-ocr-test-class-id');
+          }
+        }
+      } catch (error) {
+        console.warn('恢復 OCR 測試類別選擇失敗:', error);
+      }
+    }
+  }, [ocrTestClasses]);
 
   // 預覽處理
   const handlePreview = (record) => {
@@ -371,6 +489,54 @@ const OcrStorageBenchmarkPage = () => {
 
   return (
     <div style={{ padding: '24px' }}>
+      {/* AI OCR 標題和測試類別下拉選單 */}
+      <div style={{
+        marginBottom: '16px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
+      }}>
+        <Title level={2} style={{ margin: 0 }}>
+          <DatabaseOutlined style={{ marginRight: '8px', color: '#1890ff' }} />
+          AI OCR 存儲基準測試
+        </Title>
+        
+        {/* OCR 測試類別過濾器 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ fontSize: '16px', color: '#666', fontWeight: '500' }}>測試類別：</span>
+          <Select
+            allowClear
+            style={{ minWidth: 280, fontSize: '16px' }}
+            value={selectedOcrTestClass}
+            placeholder="請選擇測試類別"
+            onChange={(value) => {
+              handleOcrTestClassFilter(value);
+            }}
+            showSearch
+            size="large"
+            disabled={ocrTestClasses.length === 0}
+            notFoundContent={
+              ocrTestClasses.length === 0 
+                ? "無測試類別數據，請聯繫管理員" 
+                : "無匹配結果"
+            }
+            filterOption={(input, option) =>
+              (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+            }
+            loading={testClassLoading}
+            options={[
+              { key: 'all', value: null, label: '全部' },
+              ...ocrTestClasses.map(testClass => ({
+                key: testClass.id,
+                value: testClass.id,
+                label: testClass.name
+              }))
+            ]}
+          />
+        </div>
+      </div>
+
+      {/* 操作按鈕區域 */}
       <div style={{ 
         marginBottom: '16px', 
         display: 'flex', 
@@ -383,6 +549,7 @@ const OcrStorageBenchmarkPage = () => {
             onClick={() => {
               fetchRecords();
               fetchStatistics();
+              fetchOcrTestClasses();
             }}
             loading={loading}
           >

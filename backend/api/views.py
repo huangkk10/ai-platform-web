@@ -1458,13 +1458,13 @@ class OCRStorageBenchmarkViewSet(viewsets.ModelViewSet):
         if test_type:
             queryset = queryset.filter(test_type=test_type)
         
-        # 驗證狀態篩選
-        is_verified = self.request.query_params.get('is_verified', None)
-        if is_verified is not None:
-            if is_verified.lower() in ['true', '1']:
-                queryset = queryset.filter(is_verified=True)
-            elif is_verified.lower() in ['false', '0']:
-                queryset = queryset.filter(is_verified=False)
+        # OCRStorageBenchmark 沒有 is_verified 字段，移除驗證狀態篩選
+        # is_verified = self.request.query_params.get('is_verified', None)
+        # if is_verified is not None:
+        #     if is_verified.lower() in ['true', '1']:
+        #         queryset = queryset.filter(is_verified=True)
+        #     elif is_verified.lower() in ['false', '0']:
+        #         queryset = queryset.filter(is_verified=False)
         
         # 上傳者篩選
         uploaded_by = self.request.query_params.get('uploaded_by', None)
@@ -1669,8 +1669,11 @@ class OCRStorageBenchmarkViewSet(viewsets.ModelViewSet):
             
             # 基本統計
             total_records = queryset.count()
-            verified_records = queryset.filter(is_verified=True).count()
-            processing_status_stats = queryset.values('processing_status').annotate(count=Count('id'))
+            # OCRStorageBenchmark 沒有 is_verified 字段，移除這個統計
+            # verified_records = queryset.filter(is_verified=True).count()
+            
+            # OCRStorageBenchmark 沒有 processing_status 字段，改為按測試類別統計
+            test_class_stats = queryset.values('test_class__name').annotate(count=Count('id'))
             
             # 分數統計
             score_stats = queryset.aggregate(
@@ -1679,23 +1682,22 @@ class OCRStorageBenchmarkViewSet(viewsets.ModelViewSet):
                 min_score=Min('benchmark_score')
             )
             
-            # 按測試環境統計
-            environment_stats = queryset.values('test_environment').annotate(count=Count('id'))
+            # OCRStorageBenchmark 沒有 test_environment 字段，改為按韌體版本統計
+            firmware_stats = queryset.values('firmware_version').annotate(count=Count('id'))
             
-            # 按測試類型統計
-            test_type_stats = queryset.values('test_type').annotate(count=Count('id'))
+            # OCRStorageBenchmark 沒有 test_type 字段，改為按專案名稱統計
+            project_stats = queryset.values('project_name').annotate(count=Count('id'))
             
             # 按裝置型號統計 (前10名)
             device_stats = queryset.values('device_model').annotate(count=Count('id')).order_by('-count')[:10]
             
             return Response({
                 'total_records': total_records,
-                'verified_records': verified_records,
-                'verification_rate': round(verified_records / total_records * 100, 2) if total_records > 0 else 0,
-                'processing_status': list(processing_status_stats),
+                # 移除 verified_records 相關統計
+                'test_class_distribution': list(test_class_stats),
                 'score_statistics': score_stats,
-                'environment_distribution': list(environment_stats),
-                'test_type_distribution': list(test_type_stats),
+                'firmware_distribution': list(firmware_stats),
+                'project_distribution': list(project_stats),
                 'top_devices': list(device_stats)
             }, status=status.HTTP_200_OK)
             
