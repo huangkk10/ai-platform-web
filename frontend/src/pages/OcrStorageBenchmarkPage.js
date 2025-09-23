@@ -489,20 +489,28 @@ const OcrStorageBenchmarkPage = () => {
 
   return (
     <div style={{ padding: '24px' }}>
-      {/* AI OCR 標題和測試類別下拉選單 */}
+      {/* 水平排列的標題、測試類別和操作按鈕 */}
       <div style={{
         marginBottom: '16px',
         display: 'flex',
         justifyContent: 'space-between',
-        alignItems: 'center'
+        alignItems: 'center',
+        gap: '24px'
       }}>
-        <Title level={2} style={{ margin: 0 }}>
+        {/* 左側標題 */}
+        <Title level={2} style={{ margin: 0, flex: '0 0 auto' }}>
           <DatabaseOutlined style={{ marginRight: '8px', color: '#1890ff' }} />
           AI OCR 存儲基準測試
         </Title>
         
-        {/* OCR 測試類別過濾器 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* 中間測試類別過濾器 */}
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '12px',
+          flex: '1 1 auto',
+          justifyContent: 'center'
+        }}>
           <span style={{ fontSize: '16px', color: '#666', fontWeight: '500' }}>測試類別：</span>
           <Select
             allowClear
@@ -534,39 +542,34 @@ const OcrStorageBenchmarkPage = () => {
             ]}
           />
         </div>
-      </div>
 
-      {/* 操作按鈕區域 */}
-      <div style={{ 
-        marginBottom: '16px', 
-        display: 'flex', 
-        justifyContent: 'flex-end', 
-        alignItems: 'center' 
-      }}>
-        <Space>
-          <Button 
-            icon={<ReloadOutlined />}
-            onClick={() => {
-              fetchRecords();
-              fetchStatistics();
-              fetchOcrTestClasses();
-            }}
-            loading={loading}
-          >
-            重新載入
-          </Button>
-          <Button 
-            type="primary" 
-            icon={<PlusOutlined />}
-            onClick={() => {
-              setEditingRecord(null);
-              form.resetFields();
-              setModalVisible(true);
-            }}
-          >
-            新增測試記錄
-          </Button>
-        </Space>
+        {/* 右側操作按鈕 */}
+        <div style={{ flex: '0 0 auto' }}>
+          <Space>
+            <Button 
+              icon={<ReloadOutlined />}
+              onClick={() => {
+                fetchRecords();
+                fetchStatistics();
+                fetchOcrTestClasses();
+              }}
+              loading={loading}
+            >
+              重新載入
+            </Button>
+            <Button 
+              type="primary" 
+              icon={<PlusOutlined />}
+              onClick={() => {
+                setEditingRecord(null);
+                form.resetFields();
+                setModalVisible(true);
+              }}
+            >
+              新增測試記錄
+            </Button>
+          </Space>
+        </div>
       </div>
 
       {/* 統計卡片 */}
