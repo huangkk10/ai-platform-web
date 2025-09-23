@@ -164,8 +164,11 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       items.push(adminSubmenu);
     }
     
-    // 系統設定放在最後
-    items.push(settingsItem);
+    // 系統設定 - 只有管理員可見
+    if ((initialized && isAuthenticated && user && (user.is_staff || user.is_superuser)) ||
+        (!initialized && currentPath === '/settings')) {
+      items.push(settingsItem);
+    }
     
     return items;
   };
