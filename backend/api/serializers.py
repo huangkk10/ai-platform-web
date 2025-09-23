@@ -305,27 +305,22 @@ class RVTGuideSerializer(serializers.ModelSerializer):
     main_category_display = serializers.CharField(source='get_main_category_display', read_only=True)
     sub_category_display = serializers.CharField(source='get_sub_category_display', read_only=True)
     question_type_display = serializers.CharField(source='get_question_type_display', read_only=True)
-    target_user_display = serializers.CharField(source='get_target_user_display', read_only=True)
-    status_display = serializers.CharField(source='get_status_display', read_only=True)
     
     full_category_name = serializers.SerializerMethodField()
     
     class Meta:
         model = RVTGuide
         fields = [
-            'id', 'title', 'version',
+            'id', 'title',
             'main_category', 'main_category_display',
             'sub_category', 'sub_category_display',
             'content',
             'question_type', 'question_type_display',
-            'target_user', 'target_user_display',
-            'status', 'status_display',
             'full_category_name', 'created_at', 'updated_at'
         ]
         read_only_fields = [
             'id', 'created_at', 'updated_at', 'main_category_display',
-            'sub_category_display', 'question_type_display', 
-            'target_user_display', 'status_display',
+            'sub_category_display', 'question_type_display',
             'full_category_name'
         ]
     
@@ -339,25 +334,21 @@ class RVTGuideListSerializer(serializers.ModelSerializer):
     main_category_display = serializers.CharField(source='get_main_category_display', read_only=True)
     sub_category_display = serializers.CharField(source='get_sub_category_display', read_only=True)
     question_type_display = serializers.CharField(source='get_question_type_display', read_only=True)
-    status_display = serializers.CharField(source='get_status_display', read_only=True)
-    target_user_display = serializers.CharField(source='get_target_user_display', read_only=True)
     
     full_category_name = serializers.SerializerMethodField()
     
     class Meta:
         model = RVTGuide
         fields = [
-            'id', 'title', 'version',
+            'id', 'title',
             'main_category', 'main_category_display', 
             'sub_category_display',
             'question_type', 'question_type_display',
-            'target_user_display', 'status', 'status_display',
             'full_category_name', 'created_at', 'updated_at'
         ]
         read_only_fields = [
             'id', 'created_at', 'updated_at', 'main_category_display',
-            'sub_category_display', 'question_type_display', 
-            'target_user_display', 'status_display',
+            'sub_category_display', 'question_type_display',
             'full_category_name'
         ]
     

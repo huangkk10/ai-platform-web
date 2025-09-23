@@ -62,20 +62,9 @@ const RvtGuidePage = () => {
     { value: 'concept_explanation', label: '概念說明', color: 'purple' }
   ];
 
-  // 狀態選項
-  const statusOptions = [
-    { value: 'draft', label: '草稿', color: 'default' },
-    { value: 'published', label: '已發布', color: 'green' },
-    { value: 'archived', label: '已歸檔', color: 'gray' }
-  ];
 
-  // 目標用戶選項
-  const targetUserOptions = [
-    { value: 'beginner', label: '初學者', color: 'green' },
-    { value: 'advanced', label: '進階使用者', color: 'blue' },
-    { value: 'admin', label: '系統管理員', color: 'orange' },
-    { value: 'all', label: '所有用戶', color: 'purple' }
-  ];
+
+
 
   // 子分類選項 - 對應後端模型的 SUB_CATEGORY_CHOICES
   const subCategoryOptions = {
@@ -193,14 +182,7 @@ const RvtGuidePage = () => {
       ellipsis: true,
       render: (text) => text || '-',
     },
-    {
-      title: '版本',
-      dataIndex: 'version',
-      key: 'version',
-      width: 80,
-      align: 'center',
-      render: (text) => text || '1.0',
-    },
+
     {
       title: '建立時間',
       dataIndex: 'created_at',
@@ -300,10 +282,7 @@ const RvtGuidePage = () => {
             main_category: fullRecord.main_category || '',
             sub_category: fullRecord.sub_category || '',
             question_type: fullRecord.question_type || '',
-            target_user: fullRecord.target_user || '',
             content: fullRecord.content || '',
-            version: fullRecord.version || '1.0',
-            status: fullRecord.status || '',
           });
           console.log('Form values set:', form.getFieldsValue()); // 調試日誌
         }, 100);
@@ -464,9 +443,7 @@ const RvtGuidePage = () => {
           layout="vertical"
           onFinish={handleFormSubmit}
           preserve={false}
-          initialValues={{
-            version: '1.0'
-          }}
+
         >
           <Row gutter={16}>
             <Col span={24}>
@@ -535,36 +512,7 @@ const RvtGuidePage = () => {
                 </Select>
               </Form.Item>
             </Col>
-            <Col span={8}>
-              <Form.Item
-                name="target_user"
-                label="目標用戶"
-                rules={[{ required: true, message: '請選擇目標用戶' }]}
-              >
-                <Select placeholder="請選擇目標用戶">
-                  {targetUserOptions.map(option => (
-                    <Option key={option.value} value={option.value}>
-                      {option.label}
-                    </Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item
-                name="status"
-                label="狀態"
-                rules={[{ required: true, message: '請選擇狀態' }]}
-              >
-                <Select placeholder="請選擇狀態">
-                  {statusOptions.map(option => (
-                    <Option key={option.value} value={option.value}>
-                      {option.label}
-                    </Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
+
           </Row>
 
           <Form.Item
@@ -578,12 +526,7 @@ const RvtGuidePage = () => {
             />
           </Form.Item>
 
-          <Form.Item
-            name="version"
-            label="版本"
-          >
-            <Input placeholder="如：1.0" />
-          </Form.Item>
+
 
           <Form.Item>
             <Space>
@@ -682,28 +625,9 @@ const RvtGuidePage = () => {
                     {selectedGuide.question_type_display}
                   </Tag>
                 </div>
-                <div>
-                  <strong>👥 目標用戶：</strong>
-                  <Tag 
-                    color={targetUserOptions.find(opt => opt.value === selectedGuide.target_user)?.color || 'purple'}
-                    style={{ marginLeft: '8px' }}
-                  >
-                    {selectedGuide.target_user_display}
-                  </Tag>
-                </div>
-                <div>
-                  <strong>📊 狀態：</strong>
-                  <Tag 
-                    color={statusOptions.find(opt => opt.value === selectedGuide.status)?.color || 'default'}
-                    style={{ marginLeft: '8px' }}
-                  >
-                    {selectedGuide.status_display}
-                  </Tag>
-                </div>
-                <div>
-                  <strong>🔖 版本：</strong>
-                  <span style={{ marginLeft: '8px' }}>{selectedGuide.version || '1.0'}</span>
-                </div>
+
+
+
                 <div>
                   <strong>📅 建立時間：</strong>
                   <span style={{ marginLeft: '8px' }}>

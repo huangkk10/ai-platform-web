@@ -549,7 +549,6 @@ class RVTGuide(models.Model):
     
     # 基本識別欄位
     title = models.CharField(max_length=300, verbose_name="文檔標題", help_text="文檔的顯示標題")
-    version = models.CharField(max_length=50, default="1.0", verbose_name="版本號", help_text="文檔版本")
     
     # 分類欄位
     main_category = models.CharField(
@@ -582,30 +581,9 @@ class RVTGuide(models.Model):
         help_text="這個文檔主要回答什麼類型的問題"
     )
     
-    target_user = models.CharField(
-        max_length=50,
-        choices=[
-            ('beginner', '初學者'),
-            ('advanced', '進階使用者'),
-            ('admin', '系統管理員'),
-            ('all', '所有用戶'),
-        ],
-        default='all',
-        verbose_name="目標使用者",
-        help_text="這個文檔的目標使用者群體"
-    )
+
     
-    # 狀態管理
-    status = models.CharField(
-        max_length=20,
-        choices=[
-            ('draft', '草稿'),
-            ('published', '已發布'),
-            ('archived', '已歸檔'),
-        ],
-        default='published',
-        verbose_name="狀態"
-    )
+
     
     # 時間戳記
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="建立時間")
@@ -618,7 +596,6 @@ class RVTGuide(models.Model):
         db_table = 'rvt_guide'
         indexes = [
             models.Index(fields=['main_category', 'sub_category']),
-            models.Index(fields=['status', 'created_at']),
         ]
     
     def __str__(self):
