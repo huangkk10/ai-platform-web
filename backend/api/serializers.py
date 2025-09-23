@@ -4,10 +4,42 @@ from .models import UserProfile, Project, Task, Employee, DifyEmployee, KnowIssu
 
 
 class UserSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, required=False, style={'input_type': 'password'})
+    
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'date_joined']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'date_joined', 
+                 'is_staff', 'is_superuser', 'is_active', 'password']
         read_only_fields = ['id', 'date_joined']
+        extra_kwargs = {
+            'password': {'write_only': True, 'required': False}
+        }
+    
+    def create(self, validated_data):
+        """創建用戶時處理密碼加密"""
+        password = validated_data.pop('password', None)
+        user = User.objects.create(**validated_data)
+        
+        if password:
+            user.set_password(password)
+            user.save()
+        
+        return user
+    
+    def update(self, instance, validated_data):
+        """更新用戶時處理密碼加密"""
+        password = validated_data.pop('password', None)
+        
+        # 更新其他欄位
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        
+        # 如果提供了新密碼，則更新密碼
+        if password:
+            instance.set_password(password)
+        
+        instance.save()
+        return instance
 
 
 class UserProfileSerializer(serializers.ModelSerializer):

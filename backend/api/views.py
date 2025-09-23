@@ -153,11 +153,54 @@ def preprocess_chinese_query(query):
     return processed.strip() if processed.strip() else query
 
 
-class UserViewSet(viewsets.ReadOnlyModelViewSet):
-    """使用者 ViewSet (只讀)"""
+class UserViewSet(viewsets.ModelViewSet):
+    """使用者 ViewSet - 完整 CRUD，僅管理員可修改"""
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
+    
+    def get_permissions(self):
+        """根據動作決定權限"""
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            # 只有管理員可以進行寫操作
+            return [permissions.IsAuthenticated(), permissions.IsAdminUser()]
+        # 讀取操作只需要登入
+        return [permissions.IsAuthenticated()]
+    
+    def get_queryset(self):
+        """根據用戶權限返回不同的查詢集"""
+        if self.request.user.is_staff:
+            # 管理員可以看到所有用戶
+            return User.objects.all()
+        else:
+            # 一般用戶只能看到自己
+            return User.objects.filter(id=self.request.user.id)
+    
+    def perform_create(self, serializer):
+        """創建用戶時的額外處理"""
+        user = serializer.save()
+        # 為新用戶創建 UserProfile
+        UserProfile.objects.get_or_create(
+            user=user,
+            defaults={'bio': f'歡迎 {user.username} 加入！'}
+        )
+    
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    def change_password(self, request, pk=None):
+        """管理員重設用戶密碼"""
+        user = self.get_object()
+        new_password = request.data.get('new_password')
+        
+        if not new_password:
+            return Response(
+                {'error': 'new_password is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        user.set_password(new_password)
+        user.save()
+        
+        return Response({'message': f'Password changed for user {user.username}'})
 
 
 class UserProfileViewSet(viewsets.ModelViewSet):

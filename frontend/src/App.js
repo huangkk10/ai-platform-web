@@ -15,6 +15,7 @@ import KnowIssuePage from './pages/KnowIssuePage';
 import RvtGuidePage from './pages/RvtGuidePage';
 import OcrStorageBenchmarkPage from './pages/OcrStorageBenchmarkPage';
 import TestClassManagementPage from './pages/TestClassManagementPage';
+import UserManagementPage from './pages/UserManagementPage';
 import KnowIssueChatPage from './pages/KnowIssueChatPage';
 import LogAnalyzeChatPage from './pages/LogAnalyzeChatPage';
 import RvtAssistantChatPage from './pages/RvtAssistantChatPage';
@@ -72,6 +73,8 @@ function AppLayout() {
         return 'Log Analyze';
       case '/admin/test-class-management':
         return 'Test Class Management';
+      case '/admin/user-management':
+        return 'User Management';
       default:
         return '';
     }
@@ -130,6 +133,7 @@ function AppLayout() {
             <Route path="/rvt-assistant-chat" element={<RvtAssistantChatPage collapsed={collapsed} />} />
             <Route path="/log-analyze" element={<LogAnalyzePage />} />
             <Route path="/admin/test-class-management" element={<TestClassManagementPage />} />
+            <Route path="/admin/user-management" element={<UserManagementPage />} />
           </Routes>
         </Content>
       </Layout>
