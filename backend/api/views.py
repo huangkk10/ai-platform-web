@@ -500,7 +500,7 @@ def search_know_issue_knowledge(query_text, limit=5):
                     ELSE 0.3
                 END as score
             FROM know_issue ki
-            LEFT JOIN test_class tc ON ki.test_class_id = tc.id
+            LEFT JOIN protocol_test_class tc ON ki.test_class_id = tc.id
             LEFT JOIN auth_user u ON ki.updated_by_id = u.id
             WHERE 
                 ki.issue_id ILIKE %s OR 
@@ -816,8 +816,8 @@ def dify_knowledge_search(request):
             score_threshold = 0.0
             logger.warning(f"Score threshold was too high, reset to 0.0")
         
-        print(f"[DEBUG] Dify request - Query: '{query}', top_k: {top_k}, score_threshold: {score_threshold}")
-        logger.info(f"Dify knowledge search - Knowledge ID: {knowledge_id}, Query: '{query}', top_k: {top_k}, score_threshold: {score_threshold}")
+        print(f"[DEBUG] Dify request - Query: '{query}', top_k: {top_k}, score_threshold: {score_threshold}, knowledge_id: '{knowledge_id}'")
+        logger.info(f"Dify knowledge search - Knowledge ID: '{knowledge_id}', Query: '{query}', top_k: {top_k}, score_threshold: {score_threshold}")
         
         if not query:
             logger.warning("Query parameter is missing")
@@ -986,6 +986,90 @@ def dify_know_issue_search(request):
         }, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         logger.error(f"Dify Know Issue search error: {str(e)}")
+        return Response({
+            'error_code': 2001,
+            'error_msg': 'Internal server error'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([])  # 公開 API，但會檢查 Authorization header
+@csrf_exempt
+def dify_ocr_storage_benchmark_search(request):
+    """
+    Dify OCR Storage Benchmark 外部知識庫 API 端點 - 專門針對 OCR 存儲基準測試搜索
+    
+    期望的請求格式:
+    {
+        "knowledge_id": "ocr_storage_benchmark",
+        "query": "搜索字詞",
+        "retrieval_setting": {
+            "top_k": 3,
+            "score_threshold": 0.5
+        }
+    }
+    """
+    try:
+        # 記錄請求來源
+        logger.info(f"Dify OCR Storage Benchmark API request from: {request.META.get('REMOTE_ADDR')}")
+        
+        # 解析請求數據
+        data = json.loads(request.body) if request.body else {}
+        query = data.get('query', '')
+        knowledge_id = data.get('knowledge_id', 'ocr_storage_benchmark')
+        retrieval_setting = data.get('retrieval_setting', {})
+        
+        top_k = retrieval_setting.get('top_k', 5)
+        score_threshold = retrieval_setting.get('score_threshold', 0.0)
+        
+        logger.info(f"OCR Storage Benchmark search - Query: '{query}', Top K: {top_k}, Score threshold: {score_threshold}")
+        print(f"[DEBUG] OCR Benchmark API - Query: '{query}', top_k: {top_k}, score_threshold: {score_threshold}, knowledge_id: '{knowledge_id}'")
+        
+        # 驗證必要參數
+        if not query:
+            return Response({
+                'error_code': 2001,
+                'error_msg': 'Query parameter is required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # 專門搜索 OCR Storage Benchmark 資料
+        search_results = search_ocr_storage_benchmark(query, limit=top_k)
+        logger.info(f"OCR Storage Benchmark search found {len(search_results)} results")
+        
+        # 過濾分數低於閾值的結果
+        filtered_results = [
+            result for result in search_results 
+            if result['score'] >= score_threshold
+        ]
+        logger.info(f"OCR Storage Benchmark filtered results: {len(filtered_results)} (threshold: {score_threshold})")
+        
+        # 構建符合 Dify 規格的響應
+        records = []
+        for result in filtered_results:
+            record = {
+                'content': result['content'],
+                'score': result['score'],
+                'title': result['title'],
+                'metadata': result['metadata']
+            }
+            records.append(record)
+            logger.info(f"Added OCR Benchmark record: {record['title']}")
+        
+        response_data = {
+            'records': records
+        }
+        
+        logger.info(f"OCR Storage Benchmark API response: Found {len(records)} results")
+        
+        return Response(response_data, status=status.HTTP_200_OK)
+        
+    except json.JSONDecodeError:
+        return Response({
+            'error_code': 1001,
+            'error_msg': 'Invalid JSON format'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        logger.error(f"Dify OCR Storage Benchmark search error: {str(e)}")
         return Response({
             'error_code': 2001,
             'error_msg': 'Internal server error'
@@ -2266,7 +2350,7 @@ def dify_chat_with_file(request):
 @permission_classes([AllowAny])
 def dify_chat(request):
     """
-    Dify Chat API - 使用 PROTOCOL_KNOWN_ISSUE_SYSTEM 配置
+    Dify Chat API - 使用 Protocol Known Issue 配置（用於 Protocol RAG）
     """
     try:
         import requests
@@ -2281,12 +2365,12 @@ def dify_chat(request):
                 'error': '訊息內容不能為空'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        # 使用 library/config 模組的配置
+        # 使用 Protocol Known Issue 配置（用於 Protocol RAG）
         try:
             from library.config.dify_app_configs import get_protocol_known_issue_config
             dify_config = get_protocol_known_issue_config()
         except Exception as config_error:
-            logger.error(f"Failed to load Dify config: {config_error}")
+            logger.error(f"Failed to load Protocol Known Issue config: {config_error}")
             return Response({
                 'success': False,
                 'error': f'配置載入失敗: {str(config_error)}'
@@ -2424,22 +2508,17 @@ def dify_chat(request):
 @permission_classes([AllowAny])
 def dify_config_info(request):
     """
-    獲取 Dify 配置資訊 - 用於前端顯示
+    獲取 Dify 配置資訊 - 用於前端顯示（使用 Protocol Known Issue 配置）
     """
     try:
-        if get_protocol_known_issue_config is None:
-            return Response({
-                'success': False,
-                'error': 'Dify 配置模組載入失敗'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-        # 獲取配置
+        # 使用 Protocol Known Issue 配置
+        from library.config.dify_app_configs import get_protocol_known_issue_config
         config = get_protocol_known_issue_config()
         
         # 只返回安全的配置資訊
         safe_config = {
-            'app_name': config.get('app_name', 'Unknown App'),
-            'workspace': config.get('workspace', 'Unknown Workspace'),
+            'app_name': config.get('app_name', 'Protocol Known Issue System'),
+            'workspace': config.get('workspace', 'Protocol_Known_Issue'),
             'description': config.get('description', ''),
             'features': config.get('features', []),
             'api_url': config.get('api_url', ''),
@@ -2460,6 +2539,219 @@ def dify_config_info(request):
         return Response({
             'success': False,
             'error': f'獲取配置失敗: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def dify_ocr_chat(request):
+    """
+    Dify OCR Chat API - 專門用於 AI OCR 系統，使用 Report Analyzer 3 配置
+    """
+    try:
+        import requests
+        
+        # 記錄請求來源
+        logger.info(f"Dify OCR chat request from: {request.META.get('REMOTE_ADDR')}")
+        
+        data = request.data
+        message = data.get('message', '').strip()
+        conversation_id = data.get('conversation_id', '')
+        
+        if not message:
+            return Response({
+                'success': False,
+                'error': '訊息內容不能為空'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # 使用 Report Analyzer 3 配置（專門用於 AI OCR）
+        try:
+            from library.config.dify_app_configs import get_report_analyzer_3_config
+            dify_config = get_report_analyzer_3_config()
+        except Exception as config_error:
+            logger.error(f"Failed to load Report Analyzer 3 config: {config_error}")
+            return Response({
+                'success': False,
+                'error': f'AI OCR 配置載入失敗: {str(config_error)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        # 檢查必要配置
+        api_url = dify_config.get('api_url')
+        api_key = dify_config.get('api_key')
+        
+        if not api_url or not api_key:
+            return Response({
+                'success': False,
+                'error': 'AI OCR API 配置不完整'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        # 準備請求
+        headers = {
+            'Authorization': f'Bearer {api_key}',
+            'Content-Type': 'application/json'
+        }
+        
+        payload = {
+            'inputs': {},
+            'query': message,
+            'response_mode': 'blocking',
+            'user': f"ocr_user_{request.user.id if request.user.is_authenticated else 'guest'}"
+        }
+        
+        if conversation_id:
+            payload['conversation_id'] = conversation_id
+        
+        start_time = time.time()
+        
+        # 發送請求到 Dify Report Analyzer 3
+        try:
+            response = requests.post(
+                api_url,
+                headers=headers,
+                json=payload,
+                timeout=120  # AI OCR 分析可能需要較長時間
+            )
+        except requests.exceptions.Timeout:
+            return Response({
+                'success': False,
+                'error': 'AI OCR 分析超時，請稍後再試'
+            }, status=status.HTTP_408_REQUEST_TIMEOUT)
+        except requests.exceptions.ConnectionError:
+            return Response({
+                'success': False,
+                'error': 'AI OCR 連接失敗，請檢查網路連接'
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        except Exception as req_error:
+            return Response({
+                'success': False,
+                'error': f'AI OCR API 請求錯誤: {str(req_error)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        elapsed = time.time() - start_time
+        
+        if response.status_code == 200:
+            result = response.json()
+            
+            # 記錄成功的聊天
+            logger.info(f"AI OCR chat success for user {request.user.username if request.user.is_authenticated else 'guest'}: {message[:50]}...")
+            
+            # 🆕 增強 AI 回答，如果 AI 回答太通用且有檢索資料，則補充具體資料
+            enhanced_answer = result.get('answer', '')
+            metadata = result.get('metadata', {})
+            
+            # 檢查是否有檢索到的知識庫資料
+            retriever_resources = metadata.get('retriever_resources', [])
+            if retriever_resources and len(retriever_resources) > 0:
+                # 檢查 AI 回答是否太通用（包含常見的通用回答詞彙）
+                generic_phrases = ['嗨呀', '👋', '有什麼我可以幫忙', '隨便聊聊', '😊', '你好', 'hello', '什麼問題']
+                is_generic_answer = any(phrase in enhanced_answer.lower() for phrase in generic_phrases)
+                
+                if is_generic_answer or len(enhanced_answer.strip()) < 50:
+                    logger.info(f"Detected generic AI answer, enhancing with retrieval data")
+                    
+                    # 構建基於檢索資料的回答
+                    enhanced_parts = [
+                        f"✅ **已找到相關的 OCR 存儲測試資料**\n"
+                    ]
+                    
+                    for i, resource in enumerate(retriever_resources[:2], 1):
+                        doc_metadata = resource.get('doc_metadata', {})
+                        enhanced_parts.append(f"**📊 測試記錄 {i}**")
+                        
+                        if doc_metadata.get('firmware_version'):
+                            enhanced_parts.append(f"• **固件版本**: {doc_metadata['firmware_version']}")
+                        if doc_metadata.get('benchmark_score'):
+                            enhanced_parts.append(f"• **基準分數**: {doc_metadata['benchmark_score']}")
+                        if doc_metadata.get('device_model'):
+                            enhanced_parts.append(f"• **裝置型號**: {doc_metadata['device_model']}")
+                        if doc_metadata.get('average_bandwidth'):
+                            enhanced_parts.append(f"• **平均帶寬**: {doc_metadata['average_bandwidth']}")
+                        if doc_metadata.get('test_datetime'):
+                            test_time = doc_metadata['test_datetime']
+                            enhanced_parts.append(f"• **測試時間**: {test_time}")
+                        if doc_metadata.get('ocr_confidence'):
+                            confidence = float(doc_metadata['ocr_confidence']) * 100
+                            enhanced_parts.append(f"• **OCR 信心度**: {confidence:.0f}%")
+                        if doc_metadata.get('project_name'):
+                            enhanced_parts.append(f"• **專案名稱**: {doc_metadata['project_name']}")
+                        
+                        enhanced_parts.append("")  # 空行分隔
+                    
+                    if len(retriever_resources) > 2:
+                        enhanced_parts.append(f"*(還有 {len(retriever_resources) - 2} 筆相關測試記錄)*")
+                    
+                    enhanced_parts.append("\n💡 **建議**: 這些是系統在知識庫中找到的相關測試資料，您可以詢問更具體的問題來獲得詳細分析。")
+                    
+                    # 替換原本的通用回答
+                    enhanced_answer = "\n".join(enhanced_parts)
+                    
+                    logger.info(f"Enhanced answer length: {len(enhanced_answer)} characters")
+            
+            return Response({
+                'success': True,
+                'answer': enhanced_answer,
+                'conversation_id': result.get('conversation_id', ''),
+                'message_id': result.get('message_id', ''),
+                'response_time': elapsed,
+                'metadata': metadata,
+                'usage': result.get('usage', {})
+            }, status=status.HTTP_200_OK)
+        else:
+            # 特殊處理 404 錯誤（對話不存在）
+            if response.status_code == 404:
+                try:
+                    response_data = response.json()
+                    if 'Conversation Not Exists' in response_data.get('message', ''):
+                        logger.warning(f"AI OCR conversation {conversation_id} not exists, retrying without conversation_id")
+                        
+                        # 重新發送請求，不帶 conversation_id
+                        retry_payload = {
+                            'inputs': {},
+                            'query': message,
+                            'response_mode': 'blocking',
+                            'user': f"ocr_user_{request.user.id if request.user.is_authenticated else 'guest'}"
+                        }
+                        
+                        retry_response = requests.post(
+                            api_url,
+                            headers=headers,
+                            json=retry_payload,
+                            timeout=120
+                        )
+                        
+                        if retry_response.status_code == 200:
+                            retry_result = retry_response.json()
+                            logger.info(f"AI OCR chat retry success for user {request.user.username if request.user.is_authenticated else 'guest'}")
+                            
+                            return Response({
+                                'success': True,
+                                'answer': retry_result.get('answer', ''),
+                                'conversation_id': retry_result.get('conversation_id', ''),
+                                'message_id': retry_result.get('message_id', ''),
+                                'response_time': elapsed,
+                                'metadata': retry_result.get('metadata', {}),
+                                'usage': retry_result.get('usage', {}),
+                                'warning': '原對話已過期，已開始新對話'
+                            }, status=status.HTTP_200_OK)
+                        
+                except Exception as retry_error:
+                    logger.error(f"AI OCR retry request failed: {str(retry_error)}")
+            
+            error_msg = f"AI OCR API 錯誤: {response.status_code} - {response.text}"
+            logger.error(f"AI OCR chat error for user {request.user.username if request.user.is_authenticated else 'guest'}: {error_msg}")
+            
+            return Response({
+                'success': False,
+                'error': error_msg,
+                'response_time': elapsed
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+    except Exception as e:
+        logger.error(f"AI OCR chat API error: {str(e)}")
+        return Response({
+            'success': False,
+            'error': f'AI OCR 服務器錯誤: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

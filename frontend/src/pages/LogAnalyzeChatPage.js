@@ -283,8 +283,8 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
           }
         }
       } else {
-        // 沒有檔案，使用普通聊天 API
-        response = await fetch('/api/dify/chat/', {
+        // 沒有檔案，使用 AI OCR 專用聊天 API
+        response = await fetch('/api/dify/ocr/chat/', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -865,6 +865,105 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
                   <div className="message-text">
                     {formatMessage(msg.content)}
                   </div>
+                  
+                  {/* 如果是 AI 回應且包含知識庫檢索結果，顯示檢索資料 */}
+                  {msg.type === 'assistant' && msg.metadata && msg.metadata.retriever_resources && msg.metadata.retriever_resources.length > 0 && (
+                    <div style={{ 
+                      marginTop: '12px', 
+                      padding: '12px', 
+                      background: 'rgba(24, 144, 255, 0.05)', 
+                      border: '1px solid rgba(24, 144, 255, 0.15)',
+                      borderRadius: '6px',
+                      fontSize: '12px'
+                    }}>
+                      <div style={{ 
+                        fontWeight: 'bold', 
+                        marginBottom: '8px',
+                        color: '#1890ff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}>
+                        <InfoCircleOutlined />
+                        知識庫檢索結果 ({msg.metadata.retriever_resources.length} 筆)
+                      </div>
+                      
+                      {msg.metadata.retriever_resources.slice(0, 3).map((resource, index) => (
+                        <div key={index} style={{ 
+                          marginBottom: index < Math.min(msg.metadata.retriever_resources.length, 3) - 1 ? '8px' : '0',
+                          padding: '8px',
+                          background: 'rgba(255, 255, 255, 0.8)',
+                          borderRadius: '4px',
+                          border: '1px solid rgba(24, 144, 255, 0.1)'
+                        }}>
+                          <div style={{ 
+                            fontWeight: 'bold', 
+                            color: '#333',
+                            marginBottom: '4px'
+                          }}>
+                            📄 {resource.document_name} 
+                            <Tag color="blue" style={{ marginLeft: '6px', fontSize: '10px' }}>
+                              相似度: {(resource.score * 100).toFixed(0)}%
+                            </Tag>
+                          </div>
+                          
+                          {/* 顯示關鍵資訊 */}
+                          {resource.doc_metadata && (
+                            <div style={{ color: '#666', lineHeight: '1.4' }}>
+                              {resource.doc_metadata.firmware_version && (
+                                <div>🔧 <strong>固件版本:</strong> {resource.doc_metadata.firmware_version}</div>
+                              )}
+                              {resource.doc_metadata.benchmark_score && (
+                                <div>📊 <strong>基準分數:</strong> {resource.doc_metadata.benchmark_score}</div>
+                              )}
+                              {resource.doc_metadata.device_model && (
+                                <div>💻 <strong>裝置型號:</strong> {resource.doc_metadata.device_model}</div>
+                              )}
+                              {resource.doc_metadata.average_bandwidth && (
+                                <div>⚡ <strong>平均帶寬:</strong> {resource.doc_metadata.average_bandwidth}</div>
+                              )}
+                              {resource.doc_metadata.test_datetime && (
+                                <div>🕐 <strong>測試時間:</strong> {new Date(resource.doc_metadata.test_datetime).toLocaleString('zh-TW')}</div>
+                              )}
+                              {resource.doc_metadata.ocr_confidence && (
+                                <div>🎯 <strong>OCR 信心度:</strong> {(resource.doc_metadata.ocr_confidence * 100).toFixed(0)}%</div>
+                              )}
+                            </div>
+                          )}
+                          
+                          {/* 顯示部分內容 */}
+                          {resource.content && (
+                            <div style={{ 
+                              marginTop: '6px',
+                              padding: '6px 8px',
+                              background: 'rgba(0, 0, 0, 0.03)',
+                              borderRadius: '3px',
+                              fontSize: '11px',
+                              color: '#666',
+                              fontFamily: 'monospace',
+                              maxHeight: '60px',
+                              overflow: 'hidden',
+                              position: 'relative'
+                            }}>
+                              {resource.content.substring(0, 150)}
+                              {resource.content.length > 150 && '...'}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      
+                      {msg.metadata.retriever_resources.length > 3 && (
+                        <div style={{ 
+                          textAlign: 'center', 
+                          color: '#666', 
+                          marginTop: '6px',
+                          fontSize: '11px'
+                        }}>
+                          還有 {msg.metadata.retriever_resources.length - 3} 筆檢索結果...
+                        </div>
+                      )}
+                    </div>
+                  )}
                   
                   {/* 如果是文件分析結果，顯示文件信息 */}
                   {msg.file_info && (
