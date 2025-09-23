@@ -273,15 +273,16 @@ class OpenSourceEmbeddingService:
 # 全局服務實例
 _embedding_service = None
 
-def get_embedding_service(model_type: str = 'standard') -> OpenSourceEmbeddingService:
+def get_embedding_service(model_type: str = 'ultra_high') -> OpenSourceEmbeddingService:
     """
     獲取全局嵌入服務實例
     
     Args:
-        model_type: 模型類型 ('lightweight', 'standard', 'high_precision')
+        model_type: 模型類型 ('lightweight', 'standard', 'high_precision', 'ultra_high')
                    - lightweight: 384維，速度快，適合小規模應用
-                   - standard: 768維，平衡精準度與效能 (默認)
+                   - standard: 768維，平衡精準度與效能
                    - high_precision: 768維，最高精準度
+                   - ultra_high: 1024維，最佳精準度 (默認)
     """
     global _embedding_service
     if _embedding_service is None or _embedding_service.model_type != model_type:
@@ -291,7 +292,7 @@ def get_embedding_service(model_type: str = 'standard') -> OpenSourceEmbeddingSe
 
 def search_rvt_guide_with_vectors(query: str, limit: int = 5, threshold: float = 0.3) -> List[dict]:
     """
-    使用向量搜索 RVT Guide (768維)
+    使用向量搜索 RVT Guide (1024維 - 預設)
     
     Args:
         query: 查詢文本
@@ -301,7 +302,36 @@ def search_rvt_guide_with_vectors(query: str, limit: int = 5, threshold: float =
     Returns:
         搜索結果列表
     """
-    service = get_embedding_service()
+    service = get_embedding_service()  # 現在預設使用 1024 維
+    
+    # 搜索相似向量
+    vector_results = service.search_similar_documents(
+        query=query,
+        source_table='rvt_guide',
+        limit=limit,
+        threshold=threshold,
+        use_1024_table=True  # 使用新的 1024 維表格
+    )
+    
+    if not vector_results:
+        logger.info("向量搜索無結果")
+        return []
+    
+    return _get_rvt_guide_results(vector_results, "1024維")
+
+def search_rvt_guide_with_vectors_768_legacy(query: str, limit: int = 5, threshold: float = 0.3) -> List[dict]:
+    """
+    使用向量搜索 RVT Guide (768維 - 舊版本)
+    
+    Args:
+        query: 查詢文本
+        limit: 返回結果數量
+        threshold: 相似度閾值
+        
+    Returns:
+        搜索結果列表
+    """
+    service = get_embedding_service('standard')  # 使用768維模型
     
     # 搜索相似向量
     vector_results = service.search_similar_documents(
@@ -313,39 +343,10 @@ def search_rvt_guide_with_vectors(query: str, limit: int = 5, threshold: float =
     )
     
     if not vector_results:
-        logger.info("向量搜索無結果")
+        logger.info("768維向量搜索無結果")
         return []
     
     return _get_rvt_guide_results(vector_results, "768維")
-
-def search_rvt_guide_with_vectors_1024(query: str, limit: int = 5, threshold: float = 0.3) -> List[dict]:
-    """
-    使用向量搜索 RVT Guide (1024維)
-    
-    Args:
-        query: 查詢文本
-        limit: 返回結果數量
-        threshold: 相似度閾值
-        
-    Returns:
-        搜索結果列表
-    """
-    service = get_embedding_service('ultra_high')  # 使用1024維模型
-    
-    # 搜索相似向量
-    vector_results = service.search_similar_documents(
-        query=query,
-        source_table='rvt_guide',
-        limit=limit,
-        threshold=threshold,
-        use_1024_table=True  # 使用新的1024維表格
-    )
-    
-    if not vector_results:
-        logger.info("1024維向量搜索無結果")
-        return []
-    
-    return _get_rvt_guide_results(vector_results, "1024維")
 
 def _get_rvt_guide_results(vector_results: List[dict], version_info: str) -> List[dict]:
     """

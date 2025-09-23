@@ -11,7 +11,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 class Command(BaseCommand):
-    help = '為 RVT Guide 資料生成向量嵌入（使用開源模型）'
+    help = '為 RVT Guide 資料生成向量嵌入（預設使用 1024 維模型）'
     
     def add_arguments(self, parser):
         parser.add_argument(
@@ -26,29 +26,29 @@ class Command(BaseCommand):
             help='批量處理大小（預設: 10）',
         )
         parser.add_argument(
-            '--model-name',
+            '--model-type',
             type=str,
-            default='paraphrase-multilingual-MiniLM-L12-v2',
-            help='使用的 Sentence Transformers 模型名稱',
+            default='ultra_high',
+            help='模型類型 (ultra_high: 1024維, standard: 768維)',
         )
     
     def handle(self, *args, **options):
         force_regenerate = options['force']
         batch_size = options['batch_size']
-        model_name = options['model_name']
+        model_type = options['model_type']
         
         self.stdout.write(
             self.style.HTTP_INFO(f"🚀 開始為 RVT Guide 生成向量嵌入")
         )
         self.stdout.write(f"📊 參數配置:")
-        self.stdout.write(f"   - 模型: {model_name}")
+        self.stdout.write(f"   - 模型類型: {model_type}")
         self.stdout.write(f"   - 批量大小: {batch_size}")
         self.stdout.write(f"   - 強制重新生成: {force_regenerate}")
         
         try:
             # 初始化嵌入服務
             self.stdout.write("🔧 初始化嵌入服務...")
-            embedding_service = get_embedding_service()
+            embedding_service = get_embedding_service(model_type)
             
             # 測試模型載入
             self.stdout.write("🧠 載入 Sentence Transformers 模型...")
@@ -91,11 +91,13 @@ class Command(BaseCommand):
                             # 這裡可以檢查現有的向量是否存在且內容未變更
                             # 為了簡化，我們總是生成新的向量
                         
-                        # 生成並存儲向量
+                        # 生成並存儲向量（使用適當的表格）
+                        use_1024_table = model_type == 'ultra_high'
                         success = embedding_service.store_document_embedding(
                             source_table='rvt_guide',
                             source_id=rvt_guide.id,
-                            content=content
+                            content=content,
+                            use_1024_table=use_1024_table
                         )
                         
                         if success:

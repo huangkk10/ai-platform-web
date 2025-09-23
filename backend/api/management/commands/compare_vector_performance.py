@@ -4,8 +4,8 @@ Django 管理命令：比較 768 維 vs 1024 維向量搜索效能
 from django.core.management.base import BaseCommand
 from api.services.embedding_service import (
     get_embedding_service, 
-    search_rvt_guide_with_vectors,
-    search_rvt_guide_with_vectors_1024
+    search_rvt_guide_with_vectors,  # 現在預設使用 1024 維
+    search_rvt_guide_with_vectors_768_legacy  # 768 維舊版本
 )
 from django.db import connection
 import time
@@ -65,13 +65,13 @@ class Command(BaseCommand):
             
             # 測試 768 維搜索
             times_768, accuracy_768 = self._test_search_performance(
-                query, search_rvt_guide_with_vectors, "768維", iterations
+                query, search_rvt_guide_with_vectors_768_legacy, "768維", iterations
             )
             results_768.extend(times_768)
             
             # 測試 1024 維搜索
             times_1024, accuracy_1024 = self._test_search_performance(
-                query, search_rvt_guide_with_vectors_1024, "1024維", iterations
+                query, search_rvt_guide_with_vectors, "1024維", iterations
             )
             results_1024.extend(times_1024)
             
