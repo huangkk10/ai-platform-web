@@ -353,48 +353,93 @@ const SettingsPage = () => {
               </Space>
             }
           >
-            <Row gutter={[16, 16]}>
+            <Row gutter={[24, 24]} justify="center" align="middle">
               <Col span={8}>
-                <Card size="small" style={{ textAlign: 'center' }}>
-                  <Progress
-                    type="circle"
-                    percent={systemStatus.system.cpu_percent || 0}
-                    format={(percent) => `${percent}%`}
-                    strokeColor={percent => percent > 80 ? '#ff4d4f' : percent > 60 ? '#faad14' : '#52c41a'}
-                  />
-                  <Text strong style={{ display: 'block', marginTop: '8px' }}>
+                <Card 
+                  size="small" 
+                  style={{ 
+                    textAlign: 'center', 
+                    padding: '20px',
+                    minHeight: '200px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    alignItems: 'center'
+                  }}
+                >
+                  <div style={{ marginBottom: '16px' }}>
+                    <Progress
+                      type="circle"
+                      percent={Math.round(systemStatus.system.cpu_percent || 0)}
+                      format={(percent) => `${percent}%`}
+                      strokeColor={percent => percent > 80 ? '#ff4d4f' : percent > 60 ? '#faad14' : '#52c41a'}
+                      size={120}
+                      strokeWidth={6}
+                    />
+                  </div>
+                  <Text strong style={{ fontSize: '14px', lineHeight: '20px' }}>
                     CPU 使用率
                   </Text>
                 </Card>
               </Col>
               <Col span={8}>
-                <Card size="small" style={{ textAlign: 'center' }}>
-                  <Progress
-                    type="circle"
-                    percent={systemStatus.system.memory?.percent || 0}
-                    format={() => `${systemStatus.system.memory?.used || 0}GB`}
-                    strokeColor={percent => percent > 80 ? '#ff4d4f' : percent > 60 ? '#faad14' : '#52c41a'}
-                  />
-                  <Text strong style={{ display: 'block', marginTop: '8px' }}>
+                <Card 
+                  size="small" 
+                  style={{ 
+                    textAlign: 'center', 
+                    padding: '20px',
+                    minHeight: '200px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    alignItems: 'center'
+                  }}
+                >
+                  <div style={{ marginBottom: '16px' }}>
+                    <Progress
+                      type="circle"
+                      percent={Math.round(systemStatus.system.memory?.percent || 0)}
+                      format={() => `${systemStatus.system.memory?.used || 0}GB`}
+                      strokeColor={percent => percent > 80 ? '#ff4d4f' : percent > 60 ? '#faad14' : '#52c41a'}
+                      size={120}
+                      strokeWidth={6}
+                    />
+                  </div>
+                  <Text strong style={{ fontSize: '14px', lineHeight: '20px' }}>
                     記憶體使用
                   </Text>
-                  <Text type="secondary" style={{ fontSize: '12px' }}>
+                  <Text type="secondary" style={{ fontSize: '12px', marginTop: '4px' }}>
                     {systemStatus.system.memory?.total || 0}GB 總計
                   </Text>
                 </Card>
               </Col>
               <Col span={8}>
-                <Card size="small" style={{ textAlign: 'center' }}>
-                  <Progress
-                    type="circle"
-                    percent={systemStatus.system.disk?.percent || 0}
-                    format={() => `${systemStatus.system.disk?.used || 0}GB`}
-                    strokeColor={percent => percent > 80 ? '#ff4d4f' : percent > 60 ? '#faad14' : '#52c41a'}
-                  />
-                  <Text strong style={{ display: 'block', marginTop: '8px' }}>
+                <Card 
+                  size="small" 
+                  style={{ 
+                    textAlign: 'center', 
+                    padding: '20px',
+                    minHeight: '200px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    alignItems: 'center'
+                  }}
+                >
+                  <div style={{ marginBottom: '16px' }}>
+                    <Progress
+                      type="circle"
+                      percent={Math.round(systemStatus.system.disk?.percent || 0)}
+                      format={() => `${systemStatus.system.disk?.used || 0}GB`}
+                      strokeColor={percent => percent > 80 ? '#ff4d4f' : percent > 60 ? '#faad14' : '#52c41a'}
+                      size={120}
+                      strokeWidth={6}
+                    />
+                  </div>
+                  <Text strong style={{ fontSize: '14px', lineHeight: '20px' }}>
                     磁碟使用
                   </Text>
-                  <Text type="secondary" style={{ fontSize: '12px' }}>
+                  <Text type="secondary" style={{ fontSize: '12px', marginTop: '4px' }}>
                     {systemStatus.system.disk?.total || 0}GB 總計
                   </Text>
                 </Card>
