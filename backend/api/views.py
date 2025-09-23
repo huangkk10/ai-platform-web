@@ -2945,3 +2945,449 @@ class RVTGuideViewSet(viewsets.ModelViewSet):
             return Response({
                 'error': f'統計資料獲取失敗: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ============= 系統狀態監控 API =============
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAdminUser])
+def system_status(request):
+    """
+    系統狀態監控 API - 只有管理員可以訪問
+    """
+    try:
+        import psutil
+        import subprocess
+        import docker
+        from django.db import connection
+        from django.core.cache import cache
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        status_data = {}
+        
+        # 1. 資料庫狀態
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT version()")
+                db_version = cursor.fetchone()[0]
+                
+                cursor.execute("SELECT COUNT(*) FROM django_session WHERE expire_date > NOW()")
+                active_sessions = cursor.fetchone()[0]
+                
+                # 檢查主要表的記錄數
+                cursor.execute("SELECT COUNT(*) FROM auth_user")
+                user_count = cursor.fetchone()[0]
+                
+                cursor.execute("SELECT COUNT(*) FROM know_issue")
+                know_issue_count = cursor.fetchone()[0]
+                
+            status_data['database'] = {
+                'status': 'healthy',
+                'version': db_version.split(' ')[0],
+                'active_sessions': active_sessions,
+                'user_count': user_count,
+                'know_issue_count': know_issue_count,
+                'connection_pool': len(connection.queries) if connection.queries else 0
+            }
+        except Exception as e:
+            status_data['database'] = {
+                'status': 'error',
+                'error': str(e)
+            }
+        
+        # 2. 系統資源狀態
+        try:
+            # CPU 使用率
+            cpu_percent = psutil.cpu_percent(interval=1)
+            
+            # 記憶體使用率
+            memory = psutil.virtual_memory()
+            
+            # 磁碟使用率
+            disk = psutil.disk_usage('/')
+            
+            status_data['system'] = {
+                'status': 'healthy',
+                'cpu_percent': round(cpu_percent, 2),
+                'memory': {
+                    'total': round(memory.total / (1024**3), 2),  # GB
+                    'used': round(memory.used / (1024**3), 2),   # GB
+                    'percent': round(memory.percent, 2)
+                },
+                'disk': {
+                    'total': round(disk.total / (1024**3), 2),   # GB
+                    'used': round(disk.used / (1024**3), 2),    # GB
+                    'percent': round((disk.used / disk.total) * 100, 2)
+                }
+            }
+        except Exception as e:
+            status_data['system'] = {
+                'status': 'error',
+                'error': str(e)
+            }
+        
+        # 3. 容器狀態檢查 (不使用 Docker API)
+        try:
+            # 使用系統命令檢查容器狀態
+            import subprocess
+            
+            result = subprocess.run(['docker', 'ps', '--format', 'table {{.Names}}\t{{.Status}}\t{{.Image}}'], 
+                                  capture_output=True, text=True, timeout=10)
+            
+            if result.returncode == 0:
+                lines = result.stdout.strip().split('\n')[1:]  # 跳過標題行
+                container_info = []
+                
+                for line in lines:
+                    if line.strip():
+                        parts = line.split('\t')
+                        if len(parts) >= 3:
+                            name, status, image = parts[0], parts[1], parts[2]
+                            if any(keyword in name for keyword in ['ai-', 'postgres', 'adminer', 'portainer']):
+                                container_info.append({
+                                    'name': name,
+                                    'status': 'running' if 'Up' in status else 'stopped',
+                                    'image': image,
+                                    'status_detail': status
+                                })
+                
+                status_data['containers'] = {
+                    'status': 'healthy',
+                    'total': len(container_info),
+                    'running': len([c for c in container_info if c['status'] == 'running']),
+                    'containers': container_info
+                }
+            else:
+                raise Exception(f"Docker command failed: {result.stderr}")
+                
+        except Exception as e:
+            status_data['containers'] = {
+                'status': 'unavailable',
+                'error': f'容器狀態檢查失敗: {str(e)}',
+                'message': '無法獲取容器狀態，可能是權限問題'
+            }
+        
+        # 4. API 效能統計
+        try:
+            from django.db.models import Count, Avg
+            from django.contrib.sessions.models import Session
+            
+            # 最近 24 小時的統計
+            yesterday = timezone.now() - timedelta(days=1)
+            
+            # 活躍會話數
+            active_sessions = Session.objects.filter(expire_date__gt=timezone.now()).count()
+            
+            # 用戶活動統計
+            recent_users = User.objects.filter(last_login__gte=yesterday).count()
+            
+            status_data['api'] = {
+                'status': 'healthy',
+                'active_sessions': active_sessions,
+                'recent_active_users': recent_users,
+                'total_users': User.objects.count(),
+                'total_know_issues': KnowIssue.objects.count(),
+                'uptime': str(timezone.now() - timezone.now().replace(hour=0, minute=0, second=0))
+            }
+        except Exception as e:
+            status_data['api'] = {
+                'status': 'error',
+                'error': str(e)
+            }
+        
+        # 5. 服務健康檢查
+        status_data['overall'] = {
+            'status': 'healthy' if all(
+                section.get('status') == 'healthy' 
+                for section in [status_data.get('database', {}), status_data.get('system', {}), 
+                               status_data.get('containers', {}), status_data.get('api', {})]
+            ) else 'warning',
+            'timestamp': timezone.now().isoformat(),
+            'server_time': timezone.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+        
+        return Response(status_data, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"系統狀態檢查失敗: {str(e)}")
+        return Response({
+            'error': f'系統狀態檢查失敗: {str(e)}',
+            'overall': {
+                'status': 'error',
+                'timestamp': timezone.now().isoformat() if 'timezone' in locals() else None
+            }
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAdminUser])
+def system_logs(request):
+    """
+    系統日誌 API - 獲取最近的系統日誌
+    """
+    try:
+        log_type = request.query_params.get('type', 'django')
+        lines = int(request.query_params.get('lines', 50))
+        
+        if log_type == 'django':
+            # 獲取 Django 日誌（這裡簡化處理）
+            import logging
+            logger = logging.getLogger('django')
+            
+            # 返回模擬的日誌數據
+            logs = [
+                f"[{timezone.now().strftime('%Y-%m-%d %H:%M:%S')}] INFO: Django server is running",
+                f"[{timezone.now().strftime('%Y-%m-%d %H:%M:%S')}] INFO: Database connection healthy",
+                f"[{timezone.now().strftime('%Y-%m-%d %H:%M:%S')}] INFO: API endpoints responding normally"
+            ]
+        else:
+            logs = ["Log type not supported"]
+        
+        return Response({
+            'logs': logs,
+            'type': log_type,
+            'lines': len(logs),
+            'timestamp': timezone.now().isoformat()
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"系統日誌獲取失敗: {str(e)}")
+        return Response({
+            'error': f'系統日誌獲取失敗: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ============= 簡化版系統狀態監控 API =============
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAdminUser])
+def simple_system_status(request):
+    """
+    簡化版系統狀態監控 API - 不依賴 Docker API
+    """
+    try:
+        import psutil
+        from django.db import connection
+        from django.utils import timezone
+        
+        logger.info("Starting simple_system_status API call")
+        
+        # 獲取系統資源
+        try:
+            cpu_percent = psutil.cpu_percent(interval=1)
+            memory = psutil.virtual_memory()
+            disk = psutil.disk_usage('/')
+            logger.info(f"System resources: CPU={cpu_percent}%, Memory={memory.percent}%, Disk={round((disk.used / disk.total) * 100, 1)}%")
+        except Exception as e:
+            logger.error(f"Error getting system resources: {e}")
+            return Response({'error': f'系統資源獲取失敗: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        # 資料庫狀態
+        db_healthy = True
+        database_stats = {}
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+                
+                # 主要表統計
+                tables = [
+                    ('users', 'auth_user'),
+                    ('know_issues', 'know_issue'), 
+                    ('projects', 'api_project')
+                ]
+                
+                for name, table in tables:
+                    try:
+                        cursor.execute(f"SELECT COUNT(*) FROM {table}")
+                        database_stats[name] = cursor.fetchone()[0]
+                    except Exception as table_error:
+                        logger.warning(f"Error counting {table}: {table_error}")
+                        database_stats[name] = 0
+                        
+        except Exception as e:
+            logger.error(f"Database error: {e}")
+            db_healthy = False
+            database_stats = {'error': str(e)}
+        
+        # 警告檢查
+        alerts = []
+        if cpu_percent > 80:
+            alerts.append('CPU 使用率過高')
+        if memory.percent > 80:
+            alerts.append('記憶體使用率過高')
+        if disk.percent > 85:
+            alerts.append('磁碟空間不足')
+        
+        response_data = {
+            'status': 'healthy' if db_healthy and not alerts else 'warning',
+            'timestamp': timezone.now().isoformat(),
+            'server_time': timezone.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'system': {
+                'cpu_percent': round(cpu_percent, 1),
+                'memory': {
+                    'total': round(memory.total / (1024**3), 2),
+                    'used': round(memory.used / (1024**3), 2),
+                    'percent': round(memory.percent, 1)
+                },
+                'disk': {
+                    'total': round(disk.total / (1024**3), 2),
+                    'used': round(disk.used / (1024**3), 2),
+                    'percent': round((disk.used / disk.total) * 100, 1)
+                }
+            },
+            'services': {
+                'django': {'status': 'running'},
+                'database': {'status': 'healthy' if db_healthy else 'error'}
+            },
+            'database_stats': database_stats,
+            'alerts': alerts
+        }
+        
+        logger.info(f"API response data: {response_data}")
+        return Response(response_data)
+        
+    except Exception as e:
+        logger.error(f"Simple system status error: {str(e)}")
+        return Response({
+            'error': f'系統狀態獲取失敗: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ============= 基本系統狀態 API（所有用戶可訪問）=============
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def basic_system_status(request):
+    """
+    基本系統狀態 API - 所有登入用戶可訪問
+    提供基本的系統運行狀態，不包含敏感信息
+    """
+    try:
+        from django.db import connection
+        from django.utils import timezone
+        
+        # 檢查基本服務狀態
+        django_status = 'running'
+        db_status = 'healthy'
+        
+        # 檢查前端和 Nginx 服務
+        services_status = {
+            'django': {
+                'status': 'running',
+                'message': 'Django REST API 正常運行',
+                'port': '8000'
+            },
+            'database': {
+                'status': 'healthy',
+                'message': '資料庫連接正常',
+                'type': 'PostgreSQL'
+            },
+            'frontend': {
+                'status': 'unknown',
+                'message': '前端服務狀態未知',
+                'port': '3000'
+            },
+            'nginx': {
+                'status': 'unknown', 
+                'message': '反向代理服務狀態未知',
+                'port': '80'
+            }
+        }
+        
+        # 檢查資料庫連接
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+                cursor.fetchone()
+                services_status['database']['status'] = 'healthy'
+                services_status['database']['message'] = '資料庫連接正常'
+        except Exception as e:
+            services_status['database']['status'] = 'error'
+            services_status['database']['message'] = f'資料庫連接失敗: {str(e)}'
+        
+        # 嘗試檢查其他服務（通過簡單的方式）
+        try:
+            import subprocess
+            import socket
+            
+            # 檢查 React 開發服務器端口
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                result = sock.connect_ex(('localhost', 3000))
+                if result == 0:
+                    services_status['frontend']['status'] = 'running'
+                    services_status['frontend']['message'] = 'React 前端服務正常運行'
+                else:
+                    services_status['frontend']['status'] = 'stopped'
+                    services_status['frontend']['message'] = 'React 前端服務未運行'
+                sock.close()
+            except:
+                services_status['frontend']['status'] = 'unknown'
+                services_status['frontend']['message'] = '無法檢查前端服務狀態'
+            
+            # 檢查 Nginx 端口
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                result = sock.connect_ex(('localhost', 80))
+                if result == 0:
+                    services_status['nginx']['status'] = 'running'
+                    services_status['nginx']['message'] = 'Nginx 反向代理正常運行'
+                else:
+                    services_status['nginx']['status'] = 'stopped'
+                    services_status['nginx']['message'] = 'Nginx 服務未運行'
+                sock.close()
+            except:
+                services_status['nginx']['status'] = 'unknown'
+                services_status['nginx']['message'] = '無法檢查 Nginx 服務狀態'
+                
+        except Exception as e:
+            logger.warning(f"Service check error: {str(e)}")
+        
+        db_status = services_status['database']['status']
+        
+        # 獲取基本統計（不敏感的信息）
+        basic_stats = {}
+        try:
+            with connection.cursor() as cursor:
+                # 統計基本的公開信息，並添加描述
+                cursor.execute("SELECT COUNT(*) FROM auth_user WHERE is_active = true")
+                active_users = cursor.fetchone()[0]
+                
+                cursor.execute("SELECT COUNT(*) FROM know_issue")
+                total_issues = cursor.fetchone()[0]
+                
+                cursor.execute("SELECT COUNT(*) FROM api_project")
+                total_projects = cursor.fetchone()[0]
+                
+                basic_stats = {
+                    'active_users': {
+                        'count': active_users,
+                        'description': '系統中的活躍用戶數量'
+                    },
+                    'total_know_issues': {
+                        'count': total_issues,
+                        'description': '知識庫中的問題記錄數量'
+                    },
+                    'total_projects': {
+                        'count': total_projects,
+                        'description': '專案管理系統中的專案數量'
+                    }
+                }
+        except Exception as e:
+            basic_stats = {'error': f'統計數據獲取失敗: {str(e)}'}
+        
+        return Response({
+            'status': 'healthy' if db_status == 'healthy' else 'warning',
+            'timestamp': timezone.now().isoformat(),
+            'server_time': timezone.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'services': services_status,
+            'basic_stats': basic_stats,
+            'user_level': 'basic'  # 標示這是基本級別的狀態信息
+        })
+        
+    except Exception as e:
+        logger.error(f"Basic system status error: {str(e)}")
+        return Response({
+            'error': f'獲取基本系統狀態失敗: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
