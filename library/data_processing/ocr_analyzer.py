@@ -108,6 +108,7 @@ class OCRAnalyzer:
             'firmware_version': None,
             'test_datetime': None,
             'benchmark_version': None,
+            'test_item': None,  # 新增測試項目欄位，用於匹配 OCRTestClass
             'ocr_confidence': 0.98
         }
         
@@ -249,6 +250,23 @@ class OCRAnalyzer:
                     r'\*\*3DMark.*?版本\*\*\s*\|\s*([\d.]+[^|]*)',
                     r'3DMark.*?版本.*?\|\s*([\d.]+[^|]*)',
                     r'3DMark.*?\|\s*([\d.]+[^|]*)'
+                ],
+                'test_item': [
+                    # 🆕 匹配 Test_Item 格式 - 根據用戶需求添加
+                    # 匹配 "Test_Item : 3D_MARK" 格式
+                    r'Test_Item\s*[:：]\s*([A-Z0-9_\-]+)',
+                    # 匹配 "測試項目 : 3D_MARK" 格式
+                    r'測試項目\s*[:：]\s*([A-Z0-9_\-]+)',
+                    # 匹配 | **Test_Item** | **3D_MARK** |
+                    r'\|\s*\*\*Test_Item\*\*\s*\|\s*\*\*([A-Z0-9_\-]+)\*\*\s*\|',
+                    r'\|\s*Test_Item\s*\|\s*\*\*([A-Z0-9_\-]+)\*\*\s*\|',
+                    r'\|\s*Test_Item\s*\|\s*([A-Z0-9_\-]+)\s*\|',
+                    # 匹配 | **測試項目** | **3D_MARK** |
+                    r'\|\s*\*\*測試項目\*\*\s*\|\s*\*\*([A-Z0-9_\-]+)\*\*\s*\|',
+                    r'\|\s*測試項目\s*\|\s*\*\*([A-Z0-9_\-]+)\*\*\s*\|',
+                    r'\|\s*測試項目\s*\|\s*([A-Z0-9_\-]+)\s*\|',
+                    # 匹配純文字格式，當作為標題或摘要時
+                    r'(?:^|\n)\s*([A-Z0-9_\-]+)(?:\s*測試|\s*Test)'
                 ]
             }
             
@@ -322,6 +340,12 @@ class OCRAnalyzer:
                             else:
                                 parsed_data[field] = value
                                 print(f"✅ 成功解析 {field}: {parsed_data[field]}")
+                        
+                        elif field == 'test_item':
+                            # 清理測試項目名稱，移除多餘的格式標記
+                            cleaned_test_item = value.replace('*', '').strip().upper()
+                            parsed_data[field] = cleaned_test_item
+                            print(f"✅ 成功解析 {field}: {parsed_data[field]}")
                         
                         break  # 找到匹配就跳出內層循環
             
@@ -538,6 +562,53 @@ class OCRDatabaseManager:
             if isinstance(json_safe_data.get('test_datetime'), datetime):
                 json_safe_data['test_datetime'] = json_safe_data['test_datetime'].isoformat()
             
+            # 處理 test_item，根據解析出的值查找對應的 OCRTestClass
+            test_class_id = None
+            if parsed_data.get('test_item'):
+                test_item_name = parsed_data['test_item']
+                print(f"🔍 查找測試項目: {test_item_name}")
+                
+                try:
+                    # 嘗試導入 OCRTestClass 模型
+                    from api.models import OCRTestClass
+                    
+                    # 根據名稱查找對應的 OCRTestClass
+                    # 支援多種匹配方式：完全匹配、部分匹配、忽略大小寫
+                    test_class = None
+                    
+                    # 1. 完全匹配（忽略大小寫）
+                    test_class = OCRTestClass.objects.filter(
+                        name__iexact=test_item_name, 
+                        is_active=True
+                    ).first()
+                    
+                    # 2. 如果沒找到，嘗試部分匹配
+                    if not test_class:
+                        test_class = OCRTestClass.objects.filter(
+                            name__icontains=test_item_name,
+                            is_active=True
+                        ).first()
+                    
+                    # 3. 如果還沒找到，嘗試反向匹配（test_item 包含在 class name 中）
+                    if not test_class:
+                        for cls in OCRTestClass.objects.filter(is_active=True):
+                            if test_item_name.upper() in cls.name.upper() or cls.name.upper() in test_item_name.upper():
+                                test_class = cls
+                                break
+                    
+                    if test_class:
+                        test_class_id = test_class.id
+                        print(f"✅ 找到匹配的測試類別: {test_class.name} (ID: {test_class_id})")
+                    else:
+                        print(f"⚠️ 未找到匹配的測試類別: {test_item_name}")
+                        # 可選：自動創建新的測試類別（需要管理員權限）
+                        # 這裡暫時不自動創建，只記錄警告
+                        
+                except ImportError:
+                    print("⚠️ 無法導入 OCRTestClass 模型，跳過測試類別關聯")
+                except Exception as e:
+                    print(f"⚠️ 查找測試類別時發生錯誤: {e}")
+            
             # 直接使用解析出的結構化資料
             save_data = {
                 'project_name': parsed_data.get('project_name'),  # 保留空值，不使用預設值
@@ -548,6 +619,7 @@ class OCRDatabaseManager:
                 'test_datetime': parsed_data.get('test_datetime'),  # 修復：加入 test_datetime
                 'benchmark_version': parsed_data.get('benchmark_version', 'CDM8'),  # 使用解析出的版本
                 'mark_version_3d': parsed_data.get('benchmark_version'),  # 新欄位：3DMark版本
+                'test_class_id': test_class_id,  # 🆕 添加測試類別ID
                 'ocr_raw_text': ocr_raw_text,
                 'ai_structured_data': json_safe_data,  # JSON 安全的結構化資料
                 'ocr_confidence': parsed_data.get('ocr_confidence', 0.95),
