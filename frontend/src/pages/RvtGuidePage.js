@@ -40,6 +40,7 @@ const RvtGuidePage = () => {
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedGuide, setSelectedGuide] = useState(null);
   const [editingGuide, setEditingGuide] = useState(null);
+  const [selectedMainCategory, setSelectedMainCategory] = useState('');
   const [form] = Form.useForm();
 
   // RVT 分類選項 - 對應資料庫的 main_category
@@ -75,6 +76,49 @@ const RvtGuidePage = () => {
     { value: 'admin', label: '系統管理員', color: 'orange' },
     { value: 'all', label: '所有用戶', color: 'purple' }
   ];
+
+  // 子分類選項 - 對應後端模型的 SUB_CATEGORY_CHOICES
+  const subCategoryOptions = {
+    'system_architecture': [
+      { value: 'jenkins_ansible_concept', label: 'Jenkins和Ansible概念' },
+      { value: 'system_workflow', label: '系統工作流程' }
+    ],
+    'environment_setup': [
+      { value: 'network_requirements', label: '網路需求' },
+      { value: 'hardware_requirements', label: '硬體設備' },
+      { value: 'system_installation', label: '系統軟體安裝' },
+      { value: 'bios_settings', label: 'BIOS設定' }
+    ],
+    'configuration_management': [
+      { value: 'nas_directory', label: 'NAS目錄結構' },
+      { value: 'machine_configuration', label: '機器設定格式' },
+      { value: 'group_variables', label: '群組變數設定' },
+      { value: 'required_parameters', label: '必要參數列表' }
+    ],
+    'test_case_management': [
+      { value: 'test_parameters', label: '測項參數說明' },
+      { value: 'test_modes', label: '測試模式' },
+      { value: 'test_examples', label: '測試範例' }
+    ],
+    'operation_flow': [
+      { value: 'jenkins_stages', label: 'Jenkins階段' },
+      { value: 'jenkins_operations', label: 'Jenkins操作' },
+      { value: 'uart_control', label: 'UART控制' },
+      { value: 'mdt_operations', label: 'MDT相關操作' },
+      { value: 'ansible_parameters', label: 'Ansible參數' }
+    ],
+    'troubleshooting': [
+      { value: 'jenkins_failures', label: 'Jenkins失敗' },
+      { value: 'ansible_errors', label: 'Ansible錯誤' },
+      { value: 'mdt_failures', label: 'MDT部署失敗' },
+      { value: 'script_failures', label: '腳本執行失敗' },
+      { value: 'log_analysis', label: '日誌分析' }
+    ],
+    'contact_support': [
+      { value: 'team_contacts', label: '團隊聯絡' },
+      { value: 'support_procedures', label: '支援流程' }
+    ]
+  };
 
   // 表格欄位定義 - 根據用戶需求調整：查看欄位在最左邊，顯示問題類型，移除 document_name
   const columns = [
@@ -242,21 +286,26 @@ const RvtGuidePage = () => {
         
         console.log('Full record from API:', fullRecord); // 調試日誌
         
+        // 先設置主分類狀態，這樣子分類選項才會正確顯示
+        setSelectedMainCategory(fullRecord.main_category || '');
+        
         // 等待 Modal 打開後再設置表單值
         setModalVisible(true);
         
-        // 使用 setTimeout 確保 Modal 已經渲染
+        // 使用 setTimeout 確保 Modal 已經渲染且狀態已更新
         setTimeout(() => {
-        // 設置表單值
-        form.setFieldsValue({
-          title: fullRecord.title || '',
-          main_category: fullRecord.main_category || '',
-          question_type: fullRecord.question_type || '',
-          target_user: fullRecord.target_user || '',
-          content: fullRecord.content || '',
-          version: fullRecord.version || '1.0',
-          status: fullRecord.status || '',
-        });          console.log('Form values set:', form.getFieldsValue()); // 調試日誌
+          // 設置表單值，包括 sub_category
+          form.setFieldsValue({
+            title: fullRecord.title || '',
+            main_category: fullRecord.main_category || '',
+            sub_category: fullRecord.sub_category || '',
+            question_type: fullRecord.question_type || '',
+            target_user: fullRecord.target_user || '',
+            content: fullRecord.content || '',
+            version: fullRecord.version || '1.0',
+            status: fullRecord.status || '',
+          });
+          console.log('Form values set:', form.getFieldsValue()); // 調試日誌
         }, 100);
         
       } catch (error) {
@@ -265,9 +314,23 @@ const RvtGuidePage = () => {
         return;
       }
     } else {
+      // 新增模式：清空狀態和表單
+      setSelectedMainCategory('');
       form.resetFields();
       setModalVisible(true);
     }
+  };
+
+  // 處理主分類變更
+  const handleMainCategoryChange = (value) => {
+    setSelectedMainCategory(value);
+    // 清除子分類選擇
+    form.setFieldsValue({ sub_category: undefined });
+  };
+
+  // 獲取當前主分類對應的子分類選項
+  const getCurrentSubCategoryOptions = () => {
+    return subCategoryOptions[selectedMainCategory] || [];
   };
 
   // 處理刪除
@@ -312,6 +375,7 @@ const RvtGuidePage = () => {
 
       setModalVisible(false);
       setEditingGuide(null);
+      setSelectedMainCategory('');
       form.resetFields();
       fetchGuides();
     } catch (error) {
@@ -388,6 +452,7 @@ const RvtGuidePage = () => {
         onCancel={() => {
           setModalVisible(false);
           setEditingGuide(null);
+          setSelectedMainCategory('');
           form.resetFields();
         }}
         footer={null}
@@ -416,13 +481,16 @@ const RvtGuidePage = () => {
           </Row>
 
           <Row gutter={16}>
-            <Col span={8}>
+            <Col span={12}>
               <Form.Item
                 name="main_category"
                 label="主分類"
                 rules={[{ required: true, message: '請選擇主分類' }]}
               >
-                <Select placeholder="請選擇主分類">
+                <Select 
+                  placeholder="請選擇主分類"
+                  onChange={handleMainCategoryChange}
+                >
                   {mainCategoryOptions.map(option => (
                     <Option key={option.value} value={option.value}>
                       {option.label}
@@ -431,6 +499,27 @@ const RvtGuidePage = () => {
                 </Select>
               </Form.Item>
             </Col>
+            <Col span={12}>
+              <Form.Item
+                name="sub_category"
+                label="子分類"
+                rules={[{ required: true, message: '請選擇子分類' }]}
+              >
+                <Select 
+                  placeholder="請先選擇主分類"
+                  disabled={!selectedMainCategory}
+                >
+                  {getCurrentSubCategoryOptions().map(option => (
+                    <Option key={option.value} value={option.value}>
+                      {option.label}
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
             <Col span={8}>
               <Form.Item
                 name="question_type"
@@ -461,29 +550,7 @@ const RvtGuidePage = () => {
                 </Select>
               </Form.Item>
             </Col>
-          </Row>
-
-          <Form.Item
-            name="content"
-            label="內容"
-            rules={[{ required: true, message: '請輸入內容' }]}
-          >
-            <TextArea 
-              rows={8} 
-              placeholder="請輸入指導文檔內容" 
-            />
-          </Form.Item>
-
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="version"
-                label="版本"
-              >
-                <Input placeholder="如：1.0" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
+            <Col span={8}>
               <Form.Item
                 name="status"
                 label="狀態"
@@ -500,6 +567,24 @@ const RvtGuidePage = () => {
             </Col>
           </Row>
 
+          <Form.Item
+            name="content"
+            label="內容"
+            rules={[{ required: true, message: '請輸入內容' }]}
+          >
+            <TextArea 
+              rows={8} 
+              placeholder="請輸入指導文檔內容" 
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="version"
+            label="版本"
+          >
+            <Input placeholder="如：1.0" />
+          </Form.Item>
+
           <Form.Item>
             <Space>
               <Button type="primary" htmlType="submit">
@@ -508,6 +593,7 @@ const RvtGuidePage = () => {
               <Button onClick={() => {
                 setModalVisible(false);
                 setEditingGuide(null);
+                setSelectedMainCategory('');
                 form.resetFields();
               }}>
                 取消
