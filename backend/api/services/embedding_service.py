@@ -32,6 +32,16 @@ class OpenSourceEmbeddingService:
             'name': 'sentence-transformers/all-mpnet-base-v2',
             'dimension': 768,
             'description': '高精準度模型，主要支援英文'
+        },
+        'ultra_high': {
+            'name': 'intfloat/multilingual-e5-large',
+            'dimension': 1024,
+            'description': '超高精準度多語言模型，1024維向量'
+        },
+        'maximum': {
+            'name': 'sentence-transformers/all-MiniLM-L6-v2',
+            'dimension': 384,
+            'description': '測試用 - 可擴展到1536維'
         }
     }
     
@@ -136,7 +146,7 @@ class OpenSourceEmbeddingService:
         """生成內容哈希值，用於檢查內容是否變更"""
         return hashlib.md5(content.encode('utf-8')).hexdigest()
     
-    def store_document_embedding(self, source_table: str, source_id: int, content: str) -> bool:
+    def store_document_embedding(self, source_table: str, source_id: int, content: str, use_1024_table: bool = False) -> bool:
         """
         存儲文檔嵌入到資料庫
         
@@ -144,6 +154,7 @@ class OpenSourceEmbeddingService:
             source_table: 來源表名
             source_id: 來源記錄ID
             content: 文檔內容
+            use_1024_table: 是否使用 1024 維表格
             
         Returns:
             是否成功存儲
@@ -152,10 +163,13 @@ class OpenSourceEmbeddingService:
             # 生成內容哈希
             content_hash = self.get_content_hash(content)
             
+            # 選擇目標表格
+            target_table = 'document_embeddings_1024' if use_1024_table else 'document_embeddings'
+            
             # 檢查是否已存在且內容未變更
             with connection.cursor() as cursor:
-                cursor.execute("""
-                    SELECT content_hash FROM document_embeddings 
+                cursor.execute(f"""
+                    SELECT content_hash FROM {target_table}
                     WHERE source_table = %s AND source_id = %s
                 """, [source_table, source_id])
                 
@@ -169,8 +183,8 @@ class OpenSourceEmbeddingService:
             
             # 存儲到資料庫
             with connection.cursor() as cursor:
-                cursor.execute("""
-                    INSERT INTO document_embeddings (source_table, source_id, text_content, content_hash, embedding)
+                cursor.execute(f"""
+                    INSERT INTO {target_table} (source_table, source_id, text_content, content_hash, embedding)
                     VALUES (%s, %s, %s, %s, %s)
                     ON CONFLICT (source_table, source_id)
                     DO UPDATE SET 
@@ -180,14 +194,14 @@ class OpenSourceEmbeddingService:
                         updated_at = CURRENT_TIMESTAMP
                 """, [source_table, source_id, content, content_hash, json.dumps(embedding)])
                 
-            logger.info(f"成功存儲文檔嵌入: {source_table}:{source_id}")
+            logger.info(f"成功存儲文檔嵌入到 {target_table}: {source_table}:{source_id}")
             return True
             
         except Exception as e:
             logger.error(f"存儲文檔嵌入失敗: {str(e)}")
             return False
     
-    def search_similar_documents(self, query: str, source_table: str = None, limit: int = 5, threshold: float = 0.0) -> List[dict]:
+    def search_similar_documents(self, query: str, source_table: str = None, limit: int = 5, threshold: float = 0.0, use_1024_table: bool = False) -> List[dict]:
         """
         搜索相似文檔
         
@@ -196,6 +210,7 @@ class OpenSourceEmbeddingService:
             source_table: 限制搜索的來源表（可選）
             limit: 返回結果數量限制
             threshold: 相似度閾值
+            use_1024_table: 是否使用 1024 維表格
             
         Returns:
             相似文檔列表
@@ -203,6 +218,9 @@ class OpenSourceEmbeddingService:
         try:
             # 生成查詢向量
             query_embedding = self.generate_embedding(query)
+            
+            # 選擇目標表格
+            target_table = 'document_embeddings_1024' if use_1024_table else 'document_embeddings'
             
             # 構建 SQL 查詢
             sql_parts = []
@@ -219,7 +237,7 @@ class OpenSourceEmbeddingService:
                     1 - (de.embedding <=> %s) as similarity_score,
                     de.created_at,
                     de.updated_at
-                FROM document_embeddings de
+                FROM {target_table} de
                 {' '.join(sql_parts)}
                 ORDER BY de.embedding <=> %s
                 LIMIT %s
@@ -244,7 +262,8 @@ class OpenSourceEmbeddingService:
                             'updated_at': updated_at
                         })
             
-            logger.info(f"向量搜索完成，返回 {len(results)} 個結果")
+            table_name = "1024維" if use_1024_table else "768維"
+            logger.info(f"向量搜索完成 ({table_name})，返回 {len(results)} 個結果")
             return results
             
         except Exception as e:
@@ -272,7 +291,7 @@ def get_embedding_service(model_type: str = 'standard') -> OpenSourceEmbeddingSe
 
 def search_rvt_guide_with_vectors(query: str, limit: int = 5, threshold: float = 0.3) -> List[dict]:
     """
-    使用向量搜索 RVT Guide
+    使用向量搜索 RVT Guide (768維)
     
     Args:
         query: 查詢文本
@@ -289,13 +308,56 @@ def search_rvt_guide_with_vectors(query: str, limit: int = 5, threshold: float =
         query=query,
         source_table='rvt_guide',
         limit=limit,
-        threshold=threshold
+        threshold=threshold,
+        use_1024_table=False  # 使用舊的768維表格
     )
     
     if not vector_results:
         logger.info("向量搜索無結果")
         return []
     
+    return _get_rvt_guide_results(vector_results, "768維")
+
+def search_rvt_guide_with_vectors_1024(query: str, limit: int = 5, threshold: float = 0.3) -> List[dict]:
+    """
+    使用向量搜索 RVT Guide (1024維)
+    
+    Args:
+        query: 查詢文本
+        limit: 返回結果數量
+        threshold: 相似度閾值
+        
+    Returns:
+        搜索結果列表
+    """
+    service = get_embedding_service('ultra_high')  # 使用1024維模型
+    
+    # 搜索相似向量
+    vector_results = service.search_similar_documents(
+        query=query,
+        source_table='rvt_guide',
+        limit=limit,
+        threshold=threshold,
+        use_1024_table=True  # 使用新的1024維表格
+    )
+    
+    if not vector_results:
+        logger.info("1024維向量搜索無結果")
+        return []
+    
+    return _get_rvt_guide_results(vector_results, "1024維")
+
+def _get_rvt_guide_results(vector_results: List[dict], version_info: str) -> List[dict]:
+    """
+    獲取 RVT Guide 的完整結果資料
+    
+    Args:
+        vector_results: 向量搜索結果
+        version_info: 版本資訊 (用於日誌)
+        
+    Returns:
+        完整的 RVT Guide 結果列表
+    """
     # 獲取完整的 RVT Guide 資料
     source_ids = [result['source_id'] for result in vector_results]
     
@@ -341,11 +403,11 @@ def search_rvt_guide_with_vectors(query: str, limit: int = 5, threshold: float =
                         'sub_category': rvt_data['sub_category'],
                         'question_type': rvt_data['question_type'],
                         'target_user': rvt_data['target_user'],
-                        'source': 'rvt_guide_vector_search'
+                        'source': f'rvt_guide_vector_search_{version_info}'
                     }
                 })
         
-        logger.info(f"向量搜索返回 {len(final_results)} 個 RVT Guide 結果")
+        logger.info(f"向量搜索返回 {len(final_results)} 個 RVT Guide 結果 ({version_info})")
         return final_results
         
     except Exception as e:
