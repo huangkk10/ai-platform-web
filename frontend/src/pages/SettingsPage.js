@@ -273,18 +273,11 @@ const SettingsPage = () => {
                         prefix={<UserOutlined />}
                       />
                     </Col>
-                    <Col span={8}>
+                    <Col span={12}>
                       <Statistic
                         title="知識庫條目"
                         value={systemStatus.database_stats?.know_issues || 0}
                         prefix={<DatabaseOutlined />}
-                      />
-                    </Col>
-                    <Col span={8}>
-                      <Statistic
-                        title="專案數量"
-                        value={systemStatus.database_stats?.projects || 0}
-                        prefix={<FolderOutlined />}
                       />
                     </Col>
                   </>
@@ -302,7 +295,7 @@ const SettingsPage = () => {
                         prefix={<UserOutlined />}
                       />
                     </Col>
-                    <Col span={8}>
+                    <Col span={12}>
                       <Statistic
                         title={
                           <Tooltip title={systemStatus.basic_stats.total_know_issues?.description}>
@@ -311,17 +304,6 @@ const SettingsPage = () => {
                         }
                         value={systemStatus.basic_stats.total_know_issues?.count || systemStatus.basic_stats.total_know_issues || 0}
                         prefix={<DatabaseOutlined />}
-                      />
-                    </Col>
-                    <Col span={8}>
-                      <Statistic
-                        title={
-                          <Tooltip title={systemStatus.basic_stats.total_projects?.description}>
-                            <span>專案數量 <QuestionCircleOutlined style={{ color: '#1890ff' }} /></span>
-                          </Tooltip>
-                        }
-                        value={systemStatus.basic_stats.total_projects?.count || 0}
-                        prefix={<FolderOutlined />}
                       />
                     </Col>
                   </>

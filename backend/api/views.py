@@ -3651,9 +3651,6 @@ def basic_system_status(request):
                 cursor.execute("SELECT COUNT(*) FROM know_issue")
                 total_issues = cursor.fetchone()[0]
                 
-                cursor.execute("SELECT COUNT(*) FROM api_project")
-                total_projects = cursor.fetchone()[0]
-                
                 basic_stats = {
                     'active_users': {
                         'count': active_users,
@@ -3662,10 +3659,6 @@ def basic_system_status(request):
                     'total_know_issues': {
                         'count': total_issues,
                         'description': '知識庫中的問題記錄數量'
-                    },
-                    'total_projects': {
-                        'count': total_projects,
-                        'description': '專案管理系統中的專案數量'
                     }
                 }
         except Exception as e:
