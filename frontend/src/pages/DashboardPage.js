@@ -68,7 +68,7 @@ const DashboardPage = () => {
       date: day.date,
       'Protocol RAG': day.know_issue_chat,
       'AI OCR': day.log_analyze_chat,
-      'RVT Assistant': day.rvt_assistant_chat,
+      'RVT Assistant': day.rvt_assistant_chat || 0,
       total: day.total
     }));
   };

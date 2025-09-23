@@ -10,6 +10,7 @@ class DisableCSRFMiddleware(MiddlewareMixin):
     EXEMPT_URLS = [
         '/api/auth/login/',
         '/api/auth/logout/',
+        '/api/chat/',  # 聊天相關 API
         '/api/dify/',
         '/api/rvt-guide/',
     ]

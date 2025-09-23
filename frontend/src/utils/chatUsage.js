@@ -73,6 +73,5 @@ const generateSessionId = () => {
 export const CHAT_TYPES = {
   KNOW_ISSUE: 'know_issue_chat',
   LOG_ANALYZE: 'log_analyze_chat',
-  RVT_LOG_ANALYZE: 'rvt_log_analyze_chat',
   RVT_ASSISTANT: 'rvt_assistant_chat'
 };
