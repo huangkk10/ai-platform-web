@@ -111,124 +111,136 @@ const RvtGuideEditPage = () => {
   }
 
   return (
-    <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
-      {/* 返回按鈕 */}
-      <div style={{ marginBottom: '24px' }}>
-        <Button 
-          icon={<ArrowLeftOutlined />}
-          onClick={handleBack}
-        >
-          返回列表
-        </Button>
+    <div style={{ 
+      position: 'relative',
+      minHeight: 'calc(100vh - 64px)', // 減去 TopHeader 高度
+      paddingBottom: '80px', // 為 fixed footer 留空間
+      overflow: 'hidden' // 限制 fixed 元素在此容器內
+    }}>
+      {/* 內容區域 */}
+      <div style={{ 
+        padding: '24px',
+        height: 'calc(100vh - 144px)', // TopHeader 64px + Footer 80px
+        overflowY: 'auto'
+      }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+          {/* 編輯表單 */}
+          <Card>
+            <Form
+              form={form}
+              layout="vertical"
+              onFinish={handleSubmit}
+              size="large"
+            >
+              <Row gutter={24}>
+                <Col span={24}>
+                  <Form.Item
+                    name="title"
+                    label="標題"
+                    rules={[{ required: true, message: '請輸入標題' }]}
+                  >
+                    <Input 
+                      placeholder="請輸入指導文檔標題" 
+                      style={{ fontSize: '16px' }}
+                    />
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              <Row gutter={24}>
+                <Col span={12}>
+                  <Form.Item
+                    name="main_category"
+                    label="主分類"
+                    rules={[{ required: true, message: '請選擇主分類' }]}
+                  >
+                    <Select placeholder="請選擇主分類">
+                      {mainCategoryOptions.map(option => (
+                        <Option key={option.value} value={option.value}>
+                          {option.label}
+                        </Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item
+                    name="question_type"
+                    label="問題類型"
+                    rules={[{ required: true, message: '請選擇問題類型' }]}
+                  >
+                    <Select placeholder="請選擇問題類型">
+                      {questionTypeOptions.map(option => (
+                        <Option key={option.value} value={option.value}>
+                          {option.label}
+                        </Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              <Row gutter={24}>
+                <Col span={24}>
+                  <Form.Item
+                    name="content"
+                    label="內容"
+                    rules={[{ required: true, message: '請輸入內容' }]}
+                  >
+                    <TextArea 
+                      rows={20}
+                      placeholder="請輸入指導文檔內容&#10;&#10;支援 Markdown 格式：&#10;# 標題&#10;## 副標題&#10;- 項目列表&#10;**粗體文字**&#10;*斜體文字*&#10;`程式碼`&#10;```&#10;程式碼區塊&#10;```"
+                      showCount
+                      style={{ 
+                        fontSize: '14px',
+                        lineHeight: '1.6',
+                        fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace'
+                      }}
+                    />
+                  </Form.Item>
+                </Col>
+              </Row>
+            </Form>
+          </Card>
+        </div>
       </div>
 
-      {/* 編輯表單 */}
-      <Card>
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleSubmit}
-          size="large"
-        >
-          <Row gutter={24}>
-            <Col span={24}>
-              <Form.Item
-                name="title"
-                label="標題"
-                rules={[{ required: true, message: '請輸入標題' }]}
-              >
-                <Input 
-                  placeholder="請輸入指導文檔標題" 
-                  style={{ fontSize: '16px' }}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={24}>
-            <Col span={12}>
-              <Form.Item
-                name="main_category"
-                label="主分類"
-                rules={[{ required: true, message: '請選擇主分類' }]}
-              >
-                <Select placeholder="請選擇主分類">
-                  {mainCategoryOptions.map(option => (
-                    <Option key={option.value} value={option.value}>
-                      {option.label}
-                    </Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="question_type"
-                label="問題類型"
-                rules={[{ required: true, message: '請選擇問題類型' }]}
-              >
-                <Select placeholder="請選擇問題類型">
-                  {questionTypeOptions.map(option => (
-                    <Option key={option.value} value={option.value}>
-                      {option.label}
-                    </Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={24}>
-            <Col span={24}>
-              <Form.Item
-                name="content"
-                label="內容"
-                rules={[{ required: true, message: '請輸入內容' }]}
-              >
-                <TextArea 
-                  rows={20}
-                  placeholder="請輸入指導文檔內容&#10;&#10;支援 Markdown 格式：&#10;# 標題&#10;## 副標題&#10;- 項目列表&#10;**粗體文字**&#10;*斜體文字*&#10;`程式碼`&#10;```&#10;程式碼區塊&#10;```"
-                  showCount
-                  style={{ 
-                    fontSize: '14px',
-                    lineHeight: '1.6',
-                    fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace'
-                  }}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          {/* 操作按鈕 */}
-          <Row>
-            <Col span={24}>
-              <div style={{ 
-                padding: '16px 0', 
-                borderTop: '1px solid #f0f0f0',
-                textAlign: 'right'
-              }}>
-                <Space size="middle">
-                  <Button 
-                    onClick={handleBack}
-                    size="large"
-                  >
-                    取消
-                  </Button>
-                  <Button 
-                    type="primary" 
-                    htmlType="submit"
-                    icon={<SaveOutlined />}
-                    loading={loading}
-                    size="large"
-                  >
-                    {isEdit ? '更新' : '新增'}
-                  </Button>
-                </Space>
-              </div>
-            </Col>
-          </Row>
-        </Form>
-      </Card>
+      {/* Fixed Footer - 相對於父容器固定 */}
+      <div style={{
+        position: 'absolute',
+        bottom: '0',
+        left: '0',
+        right: '0',
+        height: '80px',
+        backgroundColor: 'white',
+        borderTop: '1px solid #f0f0f0',
+        zIndex: 100,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '0 24px',
+        boxShadow: '0 -2px 4px rgba(0,0,0,0.1)'
+      }}>
+        <Space size="large">
+          <Button 
+            onClick={handleBack}
+            size="large"
+            style={{ minWidth: '100px' }}
+          >
+            取消
+          </Button>
+          <Button 
+            type="primary" 
+            onClick={() => form.submit()}
+            icon={<SaveOutlined />}
+            loading={loading}
+            size="large"
+            style={{ minWidth: '120px' }}
+          >
+            {isEdit ? '更新' : '新增'}
+          </Button>
+        </Space>
+      </div>
     </div>
   );
 };

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import axios from 'axios';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Layout, Button } from 'antd';
-import { DeleteOutlined } from '@ant-design/icons';
+import { DeleteOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import Sidebar from './components/Sidebar';
 import TopHeader from './components/TopHeader';
 import { AuthProvider } from './contexts/AuthContext';
@@ -45,6 +45,7 @@ function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const { clearChatFunction } = useChatContext();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const toggleSidebar = () => {
     setCollapsed(!collapsed);
@@ -79,7 +80,7 @@ function AppLayout() {
     }
   };
 
-  const getExtraActions = (pathname) => {
+  const getExtraActions = (pathname, navigate) => {
     if ((pathname === '/know-issue-chat' || pathname === '/log-analyze-chat' || pathname === '/rvt-assistant-chat') && clearChatFunction) {
       return (
         <Button 
@@ -92,11 +93,26 @@ function AppLayout() {
         </Button>
       );
     }
+    
+    // RVT Guide 編輯頁面的返回按鈕
+    if (pathname === '/knowledge/rvt-guide/create' || pathname.startsWith('/knowledge/rvt-guide/edit/')) {
+      return (
+        <Button 
+          icon={<ArrowLeftOutlined />} 
+          onClick={() => navigate('/knowledge/rvt-log')}
+          type="text"
+          style={{ color: '#666' }}
+        >
+          返回列表
+        </Button>
+      );
+    }
+    
     return null;
   };
 
   const currentPageTitle = getPageTitle(location.pathname);
-  const currentExtraActions = getExtraActions(location.pathname);
+  const currentExtraActions = getExtraActions(location.pathname, navigate);
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
