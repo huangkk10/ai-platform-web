@@ -58,7 +58,7 @@ class Command(BaseCommand):
             )
             
             # 查詢 RVT Guide 資料
-            rvt_guides = RVTGuide.objects.filter(status='published').order_by('id')
+            rvt_guides = RVTGuide.objects.all().order_by('id')
             total_count = rvt_guides.count()
             
             if total_count == 0:
@@ -171,13 +171,11 @@ class Command(BaseCommand):
         
         # 添加分類資訊
         content_parts.append(f"主分類: {rvt_guide.get_main_category_display()}")
-        content_parts.append(f"子分類: {rvt_guide.get_sub_category_display()}")
         
         # 添加主要內容
         content_parts.append(f"內容: {rvt_guide.content}")
         
         # 添加使用情境資訊
         content_parts.append(f"問題類型: {rvt_guide.get_question_type_display()}")
-        content_parts.append(f"目標使用者: {rvt_guide.get_target_user_display()}")
         
         return "\n".join(content_parts)

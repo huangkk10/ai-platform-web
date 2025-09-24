@@ -506,46 +506,7 @@ class RVTGuide(models.Model):
         ('contact_support', '聯絡支援'),
     ]
     
-    SUB_CATEGORY_CHOICES = [
-        # 系統架構子分類
-        ('jenkins_ansible_concept', 'Jenkins和Ansible概念'),
-        ('system_workflow', '系統工作流程'),
-        
-        # 環境準備子分類
-        ('network_requirements', '網路需求'),
-        ('hardware_requirements', '硬體設備'),
-        ('system_installation', '系統軟體安裝'),
-        ('bios_settings', 'BIOS設定'),
-        
-        # 配置管理子分類
-        ('nas_directory', 'NAS目錄結構'),
-        ('machine_configuration', '機器設定格式'),
-        ('group_variables', '群組變數設定'),
-        ('required_parameters', '必要參數列表'),
-        
-        # 測項管理子分類
-        ('test_parameters', '測項參數說明'),
-        ('test_modes', '測試模式'),
-        ('test_examples', '測試範例'),
-        
-        # 操作流程子分類
-        ('jenkins_stages', 'Jenkins階段'),
-        ('jenkins_operations', 'Jenkins操作'),
-        ('uart_control', 'UART控制'),
-        ('mdt_operations', 'MDT相關操作'),
-        ('ansible_parameters', 'Ansible參數'),
-        
-        # 故障排除子分類
-        ('jenkins_failures', 'Jenkins失敗'),
-        ('ansible_errors', 'Ansible錯誤'),
-        ('mdt_failures', 'MDT部署失敗'),
-        ('script_failures', '腳本執行失敗'),
-        ('log_analysis', '日誌分析'),
-        
-        # 聯絡支援子分類
-        ('team_contacts', '團隊聯絡'),
-        ('support_procedures', '支援流程'),
-    ]
+
     
     # 基本識別欄位
     title = models.CharField(max_length=300, verbose_name="文檔標題", help_text="文檔的顯示標題")
@@ -556,12 +517,6 @@ class RVTGuide(models.Model):
         choices=MAIN_CATEGORY_CHOICES, 
         verbose_name="主分類",
         help_text="文檔所屬的主要分類"
-    )
-    sub_category = models.CharField(
-        max_length=50, 
-        choices=SUB_CATEGORY_CHOICES, 
-        verbose_name="子分類",
-        help_text="文檔所屬的子分類"
     )
     
     # 內容欄位
@@ -590,12 +545,12 @@ class RVTGuide(models.Model):
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新時間")
     
     class Meta:
-        ordering = ['main_category', 'sub_category', 'title']
+        ordering = ['main_category', 'title']
         verbose_name = "RVT使用指南"
         verbose_name_plural = "RVT使用指南"
         db_table = 'rvt_guide'
         indexes = [
-            models.Index(fields=['main_category', 'sub_category']),
+            models.Index(fields=['main_category']),
         ]
     
     def __str__(self):
@@ -604,8 +559,7 @@ class RVTGuide(models.Model):
     def get_full_category_name(self):
         """獲取完整的分類名稱"""
         main_name = self.get_main_category_display()
-        sub_name = self.get_sub_category_display()
-        return f"{main_name} > {sub_name}"
+        return main_name
     
     def get_search_content(self):
         """獲取用於搜索的完整內容"""

@@ -6,14 +6,14 @@ import {
   Space,
   Typography,
   Tag,
-  Modal,
   message,
   Input,
   Tooltip,
   Select,
-  Form,
   Row,
-  Col
+  Col,
+  Modal,
+  Form
 } from 'antd';
 import { 
   FileTextOutlined, 
@@ -66,48 +66,8 @@ const RvtGuidePage = () => {
 
 
 
-  // 子分類選項 - 對應後端模型的 SUB_CATEGORY_CHOICES
-  const subCategoryOptions = {
-    'system_architecture': [
-      { value: 'jenkins_ansible_concept', label: 'Jenkins和Ansible概念' },
-      { value: 'system_workflow', label: '系統工作流程' }
-    ],
-    'environment_setup': [
-      { value: 'network_requirements', label: '網路需求' },
-      { value: 'hardware_requirements', label: '硬體設備' },
-      { value: 'system_installation', label: '系統軟體安裝' },
-      { value: 'bios_settings', label: 'BIOS設定' }
-    ],
-    'configuration_management': [
-      { value: 'nas_directory', label: 'NAS目錄結構' },
-      { value: 'machine_configuration', label: '機器設定格式' },
-      { value: 'group_variables', label: '群組變數設定' },
-      { value: 'required_parameters', label: '必要參數列表' }
-    ],
-    'test_case_management': [
-      { value: 'test_parameters', label: '測項參數說明' },
-      { value: 'test_modes', label: '測試模式' },
-      { value: 'test_examples', label: '測試範例' }
-    ],
-    'operation_flow': [
-      { value: 'jenkins_stages', label: 'Jenkins階段' },
-      { value: 'jenkins_operations', label: 'Jenkins操作' },
-      { value: 'uart_control', label: 'UART控制' },
-      { value: 'mdt_operations', label: 'MDT相關操作' },
-      { value: 'ansible_parameters', label: 'Ansible參數' }
-    ],
-    'troubleshooting': [
-      { value: 'jenkins_failures', label: 'Jenkins失敗' },
-      { value: 'ansible_errors', label: 'Ansible錯誤' },
-      { value: 'mdt_failures', label: 'MDT部署失敗' },
-      { value: 'script_failures', label: '腳本執行失敗' },
-      { value: 'log_analysis', label: '日誌分析' }
-    ],
-    'contact_support': [
-      { value: 'team_contacts', label: '團隊聯絡' },
-      { value: 'support_procedures', label: '支援流程' }
-    ]
-  };
+
+
 
   // 表格欄位定義 - 根據用戶需求調整：查看欄位在最左邊，顯示問題類型，移除 document_name
   const columns = [
@@ -276,11 +236,10 @@ const RvtGuidePage = () => {
         
         // 使用 setTimeout 確保 Modal 已經渲染且狀態已更新
         setTimeout(() => {
-          // 設置表單值，包括 sub_category
+          // 設置表單值
           form.setFieldsValue({
             title: fullRecord.title || '',
             main_category: fullRecord.main_category || '',
-            sub_category: fullRecord.sub_category || '',
             question_type: fullRecord.question_type || '',
             content: fullRecord.content || '',
           });
@@ -304,13 +263,11 @@ const RvtGuidePage = () => {
   const handleMainCategoryChange = (value) => {
     setSelectedMainCategory(value);
     // 清除子分類選擇
-    form.setFieldsValue({ sub_category: undefined });
+
   };
 
   // 獲取當前主分類對應的子分類選項
-  const getCurrentSubCategoryOptions = () => {
-    return subCategoryOptions[selectedMainCategory] || [];
-  };
+
 
   // 處理刪除
   const handleDelete = async (record) => {
@@ -476,24 +433,7 @@ const RvtGuidePage = () => {
                 </Select>
               </Form.Item>
             </Col>
-            <Col span={12}>
-              <Form.Item
-                name="sub_category"
-                label="子分類"
-                rules={[{ required: true, message: '請選擇子分類' }]}
-              >
-                <Select 
-                  placeholder="請先選擇主分類"
-                  disabled={!selectedMainCategory}
-                >
-                  {getCurrentSubCategoryOptions().map(option => (
-                    <Option key={option.value} value={option.value}>
-                      {option.label}
-                    </Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
+
           </Row>
 
           <Row gutter={16}>

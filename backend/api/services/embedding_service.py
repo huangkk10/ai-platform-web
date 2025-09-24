@@ -367,8 +367,8 @@ def _get_rvt_guide_results(vector_results: List[dict], version_info: str) -> Lis
             placeholders = ','.join(['%s'] * len(source_ids))
             cursor.execute(f"""
                 SELECT 
-                    id, title, main_category, sub_category,
-                    content, question_type, target_user, status,
+                    id, title, main_category,
+                    content, question_type,
                     created_at, updated_at
                 FROM rvt_guide
                 WHERE id IN ({placeholders})
@@ -391,7 +391,6 @@ def _get_rvt_guide_results(vector_results: List[dict], version_info: str) -> Lis
                 # 格式化內容用於 Dify
                 content = f"文檔標題: {rvt_data['title']}\n"
                 content += f"主分類: {rvt_data['main_category']}\n"
-                content += f"子分類: {rvt_data['sub_category']}\n"
                 content += f"內容: {rvt_data['content']}\n"
                 
                 final_results.append({
@@ -401,7 +400,6 @@ def _get_rvt_guide_results(vector_results: List[dict], version_info: str) -> Lis
                     'score': vector_result['similarity_score'],
                     'metadata': {
                         'main_category': rvt_data['main_category'],
-                        'sub_category': rvt_data['sub_category'],
                         'question_type': rvt_data['question_type'],
                         'target_user': rvt_data['target_user'],
                         'source': f'rvt_guide_vector_search_{version_info}'

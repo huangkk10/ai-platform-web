@@ -597,41 +597,29 @@ def search_rvt_guide_knowledge(query_text, limit=5):
             sql = """
             SELECT 
                 id,
-                document_name,
                 title,
-                version,
                 main_category,
-                sub_category,
                 content,
-                keywords,
                 question_type,
-                target_user,
-                status,
                 created_at,
                 updated_at,
                 CASE 
                     WHEN title ILIKE %s THEN 1.0
-                    WHEN keywords ILIKE %s THEN 0.9
                     WHEN content ILIKE %s THEN 0.8
-                    WHEN document_name ILIKE %s THEN 0.6
                     ELSE 0.5
                 END as score
             FROM rvt_guide
             WHERE 
-                status = 'published' AND (
-                    title ILIKE %s OR 
-                    keywords ILIKE %s OR 
-                    content ILIKE %s OR 
-                    document_name ILIKE %s
-                )
+                title ILIKE %s OR 
+                content ILIKE %s
             ORDER BY score DESC, created_at DESC
             LIMIT %s
             """
             
             search_pattern = f'%{query_text}%'
             cursor.execute(sql, [
-                search_pattern, search_pattern, search_pattern, search_pattern,
-                search_pattern, search_pattern, search_pattern, search_pattern,
+                search_pattern, search_pattern, 
+                search_pattern, search_pattern,
                 limit
             ])
             
@@ -664,7 +652,7 @@ def search_rvt_guide_knowledge(query_text, limit=5):
                         'main_category': guide_data['main_category'],
                         'sub_category': guide_data['sub_category'],
                         'question_type': guide_data['question_type'],
-                        'target_user': guide_data['target_user'],
+
                         'keywords': keywords_list,
                         'created_at': str(guide_data['created_at']) if guide_data['created_at'] else None,
                         'updated_at': str(guide_data['updated_at']) if guide_data['updated_at'] else None
@@ -3133,12 +3121,12 @@ class RVTGuideViewSet(viewsets.ModelViewSet):
         return RVTGuideSerializer
     
     def perform_create(self, serializer):
-        """建立時設定建立者為當前用戶"""
-        serializer.save(created_by=self.request.user, updated_by=self.request.user)
+        """建立新的 RVT Guide"""
+        serializer.save()
     
     def perform_update(self, serializer):
-        """更新時設定更新者為當前用戶"""
-        serializer.save(updated_by=self.request.user)
+        """更新現有的 RVT Guide"""
+        serializer.save()
     
     def get_queryset(self):
         """支援搜尋和篩選"""
@@ -3170,9 +3158,7 @@ class RVTGuideViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(question_type=question_type)
         
         # 目標用戶篩選
-        target_user = self.request.query_params.get('target_user', None)
-        if target_user:
-            queryset = queryset.filter(target_user=target_user)
+
         
         # 關鍵字搜尋
         keywords = self.request.query_params.get('keywords', None)
@@ -3216,7 +3202,7 @@ class RVTGuideViewSet(viewsets.ModelViewSet):
             question_type_stats = queryset.values('question_type').annotate(count=Count('id'))
             
             # 按目標用戶統計
-            target_user_stats = queryset.values('target_user').annotate(count=Count('id'))
+
             
             # 最新文檔 (前5名)
             recent_guides = queryset.order_by('-updated_at')[:5]
@@ -3230,7 +3216,7 @@ class RVTGuideViewSet(viewsets.ModelViewSet):
                 'sub_category_distribution': list(sub_category_stats),
                 'status_distribution': list(status_stats),
                 'question_type_distribution': list(question_type_stats),
-                'target_user_distribution': list(target_user_stats),
+
                 'recent_guides': recent_guides_data
             }, status=status.HTTP_200_OK)
             
