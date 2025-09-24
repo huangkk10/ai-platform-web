@@ -91,37 +91,42 @@ const RvtGuidePage = () => {
       title: '標題',
       dataIndex: 'title',
       key: 'title',
-      width: 300,
+      width: 250,
       fixed: 'left',
       ellipsis: {
         showTitle: true,
       },
-      render: (text, record) => (
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Tooltip title={text}>
-              <Text strong style={{ cursor: 'help', maxWidth: '250px' }} ellipsis>
-                {text}
-              </Text>
-            </Tooltip>
-          </div>
-          <div style={{ marginTop: '4px' }}>
-            <Tag 
-              color={mainCategoryOptions.find(opt => opt.value === record.main_category)?.color || 'default'} 
-              size="small"
-            >
-              {record.main_category_display}
-            </Tag>
-          </div>
-        </div>
+      render: (text) => (
+        <Tooltip title={text}>
+          <Text strong style={{ cursor: 'help' }} ellipsis>
+            {text}
+          </Text>
+        </Tooltip>
       ),
       sorter: (a, b) => a.title.localeCompare(b.title),
+    },
+    {
+      title: '主分類',
+      dataIndex: 'main_category',
+      key: 'main_category',
+      width: 120,
+      align: 'center',
+      render: (mainCategory, record) => {
+        const categoryOpt = mainCategoryOptions.find(opt => opt.value === mainCategory);
+        return (
+          <Tag color={categoryOpt?.color || 'default'}>
+            {record.main_category_display || categoryOpt?.label || mainCategory}
+          </Tag>
+        );
+      },
+      filters: mainCategoryOptions.map(opt => ({ text: opt.label, value: opt.value })),
+      onFilter: (value, record) => record.main_category === value,
     },
     {
       title: '問題類型',
       dataIndex: 'question_type',
       key: 'question_type',
-      width: 120,
+      width: 110,
       align: 'center',
       render: (questionType, record) => {
         const typeOpt = questionTypeOptions.find(opt => opt.value === questionType);
