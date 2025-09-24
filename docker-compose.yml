@@ -67,6 +67,7 @@ services:
     volumes:
       - ./backend:/app
       - ./library:/app/library
+      - ./config:/app/config  # 添加配置目錄掛載
       - static_files:/app/static
       - media_files:/app/media
     depends_on:

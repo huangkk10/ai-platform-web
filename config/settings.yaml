@@ -1,0 +1,34 @@
+# AI Platform Web 專案配置文件
+# 此文件包含專案的主要配置參數
+
+# AI 服務器配置
+ai_server:
+  ai_pc_ip: "10.10.172.37"
+  # 其他 AI 服務相關配置可以在此添加
+  # ai_port: 80
+  # ai_protocol: "http"
+
+# 資料庫配置（如需要）
+database:
+  # postgres_host: "localhost"
+  # postgres_port: 5432
+  # postgres_db: "ai_platform"
+
+# API 配置
+api:
+  # timeout: 60
+  # retry_count: 3
+
+# 前端配置
+frontend:
+  # theme: "default"
+  # language: "zh-TW"
+
+# 日誌配置
+logging:
+  # level: "INFO"
+  # format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# 版本信息
+version: "1.0.0"
+last_updated: "2025-09-25"
