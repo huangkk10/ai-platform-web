@@ -391,10 +391,42 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
   }, [registerClearFunction, clearClearFunction, clearChat]);
 
   const formatMessage = (content) => {
-    // 改進的 Markdown 格式化函數，優化了間距和顯示
+    // 改進的 Markdown 格式化函數，優化了間距和顯示，支援 YAML 和配置格式
     const lines = content.split('\n');
     const result = [];
     let i = 0;
+    
+    // 輔助函數：檢查是否為 YAML 或配置行
+    const isConfigLine = (line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return false;
+      
+      // YAML 格式檢查
+      const yamlPatterns = [
+        /^\s*-\s+\w+:/,                    // - key:
+        /^\s*\w+\s*:/,                     // key:
+        /^\s*-\s+name:/,                   // - name:
+        /^\s*-\s+win_\w+:/,               // - win_command:, win_shell:
+        /^\s*state:/,                      // state:
+        /^\s*when:/,                       // when:
+        /^\s*enable:/,                     // enable:
+        /^\s*direction:/,                  // direction:
+        /^\s*protocol:/,                   // protocol:
+        /^\s*localport:/,                  // localport:
+        /^\s*action:/,                     // action:
+      ];
+      
+      return yamlPatterns.some(pattern => pattern.test(trimmed));
+    };
+
+    // 輔助函數：檢查是否為 Windows 路徑或命令
+    const isWindowsPathOrCommand = (text) => {
+      return /^[A-Z]:\\/.test(text) ||                    // C:\path
+             /^"[A-Z]:\\/.test(text) ||                   // "C:\path"
+             /^win_\w+:/.test(text) ||                    // win_command:, win_shell:
+             /\.exe\b/.test(text) ||                      // .exe files
+             /\/[A-Z]+\b/.test(text);                     // /SETPASSWORD, etc.
+    };
     
     // 輔助函數：處理行內格式（粗體、斜體、代碼等）
     const formatInlineText = (text, keyPrefix = '') => {
@@ -402,15 +434,31 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
         return text || '\u00A0';
       }
       
+      // 檢查整行是否為特殊格式
+      const trimmed = text.trim();
+      
+      // Windows 路徑或命令 - 整行代碼格式
+      if (isWindowsPathOrCommand(trimmed)) {
+        return <Text key={keyPrefix} code style={{ wordBreak: 'break-all' }}>{text}</Text>;
+      }
+      
+      // YAML 配置行 - 保持縮排的代碼格式
+      if (isConfigLine(text)) {
+        return <Text key={keyPrefix} code style={{ fontFamily: 'Monaco, Consolas, "Courier New", monospace' }}>{text}</Text>;
+      }
+      
       // 將行內格式拆分為 token
       const tokens = [];
       let currentPos = 0;
       
-      // 正則表達式匹配各種行內格式
+      // 正則表達式匹配各種行內格式 - 擴展支援更多格式
       const patterns = [
         { regex: /(\*\*[^*]+\*\*)/g, type: 'bold' },
         { regex: /(`[^`]+`)/g, type: 'code' },
-        { regex: /(\*[^*]+\*)/g, type: 'italic' }
+        { regex: /(\*[^*]+\*)/g, type: 'italic' },
+        { regex: /(win_\w+)/g, type: 'code' },              // win_command, win_shell
+        { regex: /([A-Z]:\\[^\s]+)/g, type: 'code' },       // Windows paths
+        { regex: /(\w+\.exe)/g, type: 'code' },             // .exe files
       ];
       
       // 找出所有匹配的格式
@@ -482,7 +530,83 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
     
     while (i < lines.length) {
       const line = lines[i];
+      const trimmed = line.trim();
       let processed = false;
+      
+      // 檢查是否為 YAML 代碼塊或多行配置開始
+      if ((trimmed.includes('yaml') || trimmed === '```' || trimmed.startsWith('```')) && 
+          (i + 1 < lines.length)) {
+        // 尋找代碼塊結束
+        let j = i + 1;
+        const codeLines = [];
+        let foundEnd = false;
+        
+        // 如果開始行包含 ```，尋找對應的結束 ```
+        if (trimmed.startsWith('```')) {
+          while (j < lines.length) {
+            if (lines[j].trim() === '```') {
+              foundEnd = true;
+              break;
+            }
+            codeLines.push(lines[j]);
+            j++;
+          }
+        } else {
+          // 檢查後續行是否為 YAML 配置格式
+          while (j < lines.length && j < i + 20) { // 最多檢查 20 行
+            const nextLine = lines[j];
+            if (!nextLine.trim()) {
+              j++;
+              continue;
+            }
+            if (isConfigLine(nextLine) || nextLine.trim().startsWith('-') || nextLine.match(/^\s+\w/)) {
+              codeLines.push(nextLine);
+              j++;
+            } else {
+              foundEnd = true;
+              break;
+            }
+          }
+        }
+        
+        // 如果找到了配置內容，創建代碼塊
+        if (codeLines.length > 0) {
+          const language = trimmed.includes('yaml') ? 'yaml' : 'text';
+          result.push(
+            <div key={`codeblock-${i}`} style={{ 
+              backgroundColor: '#f6f8fa', 
+              border: '1px solid #e1e4e8',
+              borderRadius: '6px',
+              padding: '12px',
+              margin: '8px 0',
+              fontFamily: 'Monaco, Consolas, "Courier New", monospace',
+              fontSize: '13px',
+              overflow: 'auto'
+            }}>
+              {language === 'yaml' && (
+                <div style={{ color: '#666', fontSize: '12px', marginBottom: '8px' }}>
+                  YAML 配置
+                </div>
+              )}
+              <pre style={{ 
+                margin: 0, 
+                whiteSpace: 'pre-wrap', 
+                wordWrap: 'break-word',
+                lineHeight: '1.4'
+              }}>
+                <Text code>{codeLines.join('\n')}</Text>
+              </pre>
+            </div>
+          );
+          
+          i = foundEnd ? j + 1 : j;
+          processed = true;
+        }
+      }
+      
+      if (processed) {
+        continue;
+      }
       
       // 檢查是否為表格開始（包含 | 符號的行）
       if (line.includes('|') && i + 1 < lines.length && lines[i + 1].includes('|')) {
@@ -623,7 +747,7 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
         );
         processed = true;
       }
-      // 代碼塊 (```code```)
+      // 代碼塊 (```code```) - 改進版本
       else if (line.startsWith('```') && line.endsWith('```') && line.length > 6) {
         result.push(
           <div key={i} style={{ 
@@ -636,6 +760,40 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
             fontSize: '13px'
           }}>
             <Text code>{line.slice(3, -3)}</Text>
+          </div>
+        );
+        processed = true;
+      }
+      // 單行 YAML 或配置格式
+      else if (isConfigLine(line)) {
+        result.push(
+          <div key={i} style={{ 
+            backgroundColor: '#f8f9fa', 
+            border: '1px solid #e9ecef',
+            borderRadius: '4px',
+            padding: '8px 12px',
+            margin: '4px 0',
+            fontFamily: 'Monaco, Consolas, "Courier New", monospace',
+            fontSize: '13px'
+          }}>
+            <Text code style={{ backgroundColor: 'transparent' }}>{line}</Text>
+          </div>
+        );
+        processed = true;
+      }
+      // Windows 路徑或命令行
+      else if (isWindowsPathOrCommand(trimmed)) {
+        result.push(
+          <div key={i} style={{ 
+            backgroundColor: '#fff3cd', 
+            border: '1px solid #ffeaa7',
+            borderRadius: '4px',
+            padding: '8px 12px',
+            margin: '4px 0',
+            fontFamily: 'Monaco, Consolas, "Courier New", monospace',
+            fontSize: '13px'
+          }}>
+            <Text code style={{ backgroundColor: 'transparent', color: '#6f42c1' }}>{line}</Text>
           </div>
         );
         processed = true;
