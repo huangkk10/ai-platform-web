@@ -391,13 +391,98 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
   }, [registerClearFunction, clearClearFunction, clearChat]);
 
   const formatMessage = (content) => {
-    // 完整的 Markdown 格式化
+    // 改進的 Markdown 格式化函數
     const lines = content.split('\n');
     const result = [];
     let i = 0;
     
+    // 輔助函數：處理行內格式（粗體、斜體、代碼等）
+    const formatInlineText = (text, keyPrefix = '') => {
+      if (!text || typeof text !== 'string') {
+        return text || '\u00A0';
+      }
+      
+      // 將行內格式拆分為 token
+      const tokens = [];
+      let currentPos = 0;
+      
+      // 正則表達式匹配各種行內格式
+      const patterns = [
+        { regex: /(\*\*[^*]+\*\*)/g, type: 'bold' },
+        { regex: /(`[^`]+`)/g, type: 'code' },
+        { regex: /(\*[^*]+\*)/g, type: 'italic' }
+      ];
+      
+      // 找出所有匹配的格式
+      const matches = [];
+      patterns.forEach(pattern => {
+        let match;
+        const regex = new RegExp(pattern.regex.source, 'g');
+        while ((match = regex.exec(text)) !== null) {
+          matches.push({
+            start: match.index,
+            end: match.index + match[0].length,
+            text: match[0],
+            type: pattern.type
+          });
+        }
+      });
+      
+      // 按位置排序
+      matches.sort((a, b) => a.start - b.start);
+      
+      // 生成 tokens
+      let pos = 0;
+      matches.forEach((match, index) => {
+        // 添加前面的普通文字
+        if (pos < match.start) {
+          const plainText = text.slice(pos, match.start);
+          if (plainText) {
+            tokens.push({ type: 'text', content: plainText });
+          }
+        }
+        
+        // 添加格式化文字
+        tokens.push({
+          type: match.type,
+          content: match.text
+        });
+        
+        pos = match.end;
+      });
+      
+      // 添加剩餘的普通文字
+      if (pos < text.length) {
+        const remainingText = text.slice(pos);
+        if (remainingText) {
+          tokens.push({ type: 'text', content: remainingText });
+        }
+      }
+      
+      // 如果沒有找到任何格式，直接返回文字
+      if (tokens.length === 0) {
+        tokens.push({ type: 'text', content: text });
+      }
+      
+      // 將 tokens 轉換為 React 元素
+      return tokens.map((token, tokenIndex) => {
+        const key = `${keyPrefix}-${tokenIndex}`;
+        switch (token.type) {
+          case 'bold':
+            return <Text key={key} strong>{token.content.slice(2, -2)}</Text>;
+          case 'code':
+            return <Text key={key} code>{token.content.slice(1, -1)}</Text>;
+          case 'italic':
+            return <Text key={key} italic>{token.content.slice(1, -1)}</Text>;
+          default:
+            return token.content;
+        }
+      });
+    };
+    
     while (i < lines.length) {
       const line = lines[i];
+      let processed = false;
       
       // 檢查是否為表格開始（包含 | 符號的行）
       if (line.includes('|') && i + 1 < lines.length && lines[i + 1].includes('|')) {
@@ -429,18 +514,7 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
                 title: header,
                 dataIndex: `col${index}`,
                 key: `col${index}`,
-                render: (text) => {
-                  // 處理單元格內的 Markdown 格式
-                  if (typeof text === 'string') {
-                    if (text.startsWith('**') && text.endsWith('**')) {
-                      return <Text strong>{text.slice(2, -2)}</Text>;
-                    }
-                    if (text.startsWith('`') && text.endsWith('`')) {
-                      return <Text code>{text.slice(1, -1)}</Text>;
-                    }
-                  }
-                  return text;
-                }
+                render: (text) => formatInlineText(text, `table-cell-${i}-${index}`)
               }));
               
               const dataSource = dataRows.map((row, rowIndex) => {
@@ -465,7 +539,7 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
               );
               
               i = j; // 跳過已處理的表格行
-              continue;
+              processed = true;
             }
           } catch (error) {
             console.warn('表格解析失敗:', error);
@@ -473,58 +547,50 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
         }
       }
       
-      // 標題格式 (# ## ###)
+      if (processed) {
+        continue;
+      }
+      
+      // 標題格式 (# ## ###) - 優先處理
       if (line.startsWith('###')) {
-        result.push(<Title key={i} level={5} style={{ display: 'block', marginBottom: '8px', marginTop: '12px' }}>
-          {line.replace(/^###\s*/, '')}
-        </Title>);
-      }
-      else if (line.startsWith('##')) {
-        result.push(<Title key={i} level={4} style={{ display: 'block', marginBottom: '8px', marginTop: '12px' }}>
-          {line.replace(/^##\s*/, '')}
-        </Title>);
-      }
-      else if (line.startsWith('#')) {
-        result.push(<Title key={i} level={3} style={{ display: 'block', marginBottom: '8px', marginTop: '12px' }}>
-          {line.replace(/^#\s*/, '')}
-        </Title>);
-      }
-      // 粗體文字 (**text**)
-      else if (line.startsWith('**') && line.endsWith('**')) {
-        result.push(<Text key={i} strong style={{ display: 'block', marginBottom: '6px', fontSize: '14px' }}>
-          {line.slice(2, -2)}
-        </Text>);
+        result.push(
+          <Title key={i} level={5} style={{ display: 'block', marginBottom: '8px', marginTop: '12px' }}>
+            {line.replace(/^###\s*/, '')}
+          </Title>
+        );
+        processed = true;
+      } else if (line.startsWith('##')) {
+        result.push(
+          <Title key={i} level={4} style={{ display: 'block', marginBottom: '8px', marginTop: '12px' }}>
+            {line.replace(/^##\s*/, '')}
+          </Title>
+        );
+        processed = true;
+      } else if (line.startsWith('#')) {
+        result.push(
+          <Title key={i} level={3} style={{ display: 'block', marginBottom: '8px', marginTop: '12px' }}>
+            {line.replace(/^#\s*/, '')}
+          </Title>
+        );
+        processed = true;
       }
       // 水平分隔線
       else if (line === '---' || line === '***') {
         result.push(<hr key={i} style={{ margin: '16px 0', border: 'none', borderTop: '1px solid #e8e8e8' }} />);
+        processed = true;
       }
       // 無序列表項目 (- 或 •)
       else if (line.startsWith('- ') || line.startsWith('• ')) {
         const listContent = line.replace(/^[-•]\s*/, '');
-        // 檢查是否包含粗體文字
-        if (listContent.includes('**')) {
-          const parts = listContent.split(/(\*\*.*?\*\*)/);
-          result.push(
-            <div key={i} style={{ display: 'flex', marginLeft: '16px', marginBottom: '4px' }}>
-              <span style={{ marginRight: '8px', color: '#666' }}>•</span>
-              <Text style={{ flex: 1 }}>
-                {parts.map((part, partIndex) => 
-                  part.startsWith('**') && part.endsWith('**') ? 
-                    <Text key={partIndex} strong>{part.slice(2, -2)}</Text> : 
-                    part
-                )}
-              </Text>
-            </div>
-          );
-        } else {
-          result.push(
-            <div key={i} style={{ display: 'flex', marginLeft: '16px', marginBottom: '4px' }}>
-              <span style={{ marginRight: '8px', color: '#666' }}>•</span>
-              <Text style={{ flex: 1 }}>{listContent}</Text>
-            </div>
-          );
-        }
+        result.push(
+          <div key={i} style={{ display: 'flex', marginLeft: '16px', marginBottom: '4px' }}>
+            <span style={{ marginRight: '8px', color: '#666' }}>•</span>
+            <Text style={{ flex: 1 }}>
+              {formatInlineText(listContent, `list-${i}`)}
+            </Text>
+          </div>
+        );
+        processed = true;
       }
       // 有序列表項目 (1. 2. 3.)
       else if (/^\d+\.\s/.test(line)) {
@@ -534,9 +600,12 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
           result.push(
             <div key={i} style={{ display: 'flex', marginLeft: '16px', marginBottom: '4px' }}>
               <span style={{ marginRight: '8px', color: '#666', fontWeight: 'bold' }}>{number}.</span>
-              <Text style={{ flex: 1 }}>{listContent}</Text>
+              <Text style={{ flex: 1 }}>
+                {formatInlineText(listContent, `ordered-list-${i}`)}
+              </Text>
             </div>
           );
+          processed = true;
         }
       }
       // 引用文字 (> text)
@@ -549,9 +618,10 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
             fontStyle: 'italic',
             color: '#666'
           }}>
-            <Text>{line.slice(2)}</Text>
+            <Text>{formatInlineText(line.slice(2), `quote-${i}`)}</Text>
           </div>
         );
+        processed = true;
       }
       // 代碼塊 (```code```)
       else if (line.startsWith('```') && line.endsWith('```') && line.length > 6) {
@@ -568,51 +638,26 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
             <Text code>{line.slice(3, -3)}</Text>
           </div>
         );
+        processed = true;
       }
-      // 行內代碼 (`code`)
-      else if (line.includes('`')) {
-        const parts = line.split(/(`[^`]*`)/);
-        result.push(
-          <Text key={i} style={{ display: 'block', marginBottom: line.trim() ? '4px' : '8px' }}>
-            {parts.map((part, partIndex) => 
-              part.startsWith('`') && part.endsWith('`') ? 
-                <Text key={partIndex} code>{part.slice(1, -1)}</Text> : 
-                part
-            )}
-          </Text>
-        );
-      }
-      // 處理行內粗體文字
-      else if (line.includes('**')) {
-        const parts = line.split(/(\*\*.*?\*\*)/);
-        result.push(
-          <Text key={i} style={{ display: 'block', marginBottom: line.trim() ? '4px' : '8px' }}>
-            {parts.map((part, partIndex) => 
-              part.startsWith('**') && part.endsWith('**') ? 
-                <Text key={partIndex} strong>{part.slice(2, -2)}</Text> : 
-                part
-            )}
-          </Text>
-        );
-      }
-      // 處理行內斜體文字 (*text*)
-      else if (line.includes('*') && !line.includes('**')) {
-        const parts = line.split(/(\*[^*]*\*)/);
-        result.push(
-          <Text key={i} style={{ display: 'block', marginBottom: line.trim() ? '4px' : '8px' }}>
-            {parts.map((part, partIndex) => 
-              part.startsWith('*') && part.endsWith('*') && part.length > 2 ? 
-                <Text key={partIndex} italic>{part.slice(1, -1)}</Text> : 
-                part
-            )}
-          </Text>
-        );
-      }
-      // 普通文字
-      else {
-        result.push(<Text key={i} style={{ display: 'block', marginBottom: line.trim() ? '4px' : '8px' }}>
-          {line || '\u00A0'}
-        </Text>);
+      
+      // 如果沒有被特殊格式處理，就作為普通文字處理（包含行內格式）
+      if (!processed) {
+        // 檢查是否為完全由粗體包圍的行
+        if (line.startsWith('**') && line.endsWith('**') && line.length > 4 && !line.slice(2, -2).includes('**')) {
+          result.push(
+            <Text key={i} strong style={{ display: 'block', marginBottom: '6px', fontSize: '14px' }}>
+              {line.slice(2, -2)}
+            </Text>
+          );
+        } else {
+          // 普通文字，但可能包含行內格式
+          result.push(
+            <Text key={i} style={{ display: 'block', marginBottom: line.trim() ? '4px' : '8px' }}>
+              {formatInlineText(line, `text-${i}`)}
+            </Text>
+          );
+        }
       }
       
       i++;
