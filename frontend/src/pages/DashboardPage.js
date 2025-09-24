@@ -106,12 +106,12 @@ const DashboardPage = () => {
 
   return (
     <div style={{ padding: '24px', background: '#f5f5f5', minHeight: '100vh' }}>
-      {/* 總聊天次數 - 單獨一行 */}
+      {/* 總詢問次數 - 單獨一行 */}
       <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
         <Col span={24}>
           <Card style={{ textAlign: 'center' }}>
             <Statistic
-              title="總聊天次數"
+              title="總詢問次數"
               value={statistics?.summary.total_chats || 0}
               prefix={<MessageOutlined style={{ color: '#1890ff' }} />}
               valueStyle={{ color: '#1890ff' }}
