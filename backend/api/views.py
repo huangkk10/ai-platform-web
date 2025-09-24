@@ -3117,11 +3117,51 @@ class RVTGuideViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         """建立新的 RVT Guide"""
-        serializer.save()
+        instance = serializer.save()
+        # 自動生成向量
+        self._generate_vector_for_guide(instance, action='create')
     
     def perform_update(self, serializer):
         """更新現有的 RVT Guide"""
-        serializer.save()
+        instance = serializer.save()
+        # 自動生成向量
+        self._generate_vector_for_guide(instance, action='update')
+    
+    def _generate_vector_for_guide(self, instance, action='create'):
+        """
+        為 RVT Guide 生成向量資料
+        
+        Args:
+            instance: RVTGuide 實例
+            action: 操作類型 ('create' 或 'update')
+        """
+        try:
+            # 動態導入 embedding_service 避免循環導入
+            from .services.embedding_service import get_embedding_service
+            
+            # 格式化內容用於向量化
+            content = f"標題: {instance.title}\n"
+            content += f"主分類: {instance.get_main_category_display()}\n"
+            content += f"內容: {instance.content}\n"
+            
+            # 獲取 embedding 服務
+            service = get_embedding_service()  # 使用 1024 維模型
+            
+            # 生成並儲存向量
+            success = service.store_document_embedding(
+                source_table='rvt_guide',
+                source_id=instance.id,
+                content=content,
+                use_1024_table=True  # 使用 1024 維表格
+            )
+            
+            if success:
+                logger.info(f"✅ 成功為 RVT Guide 生成向量 ({action}): ID {instance.id} - {instance.title}")
+            else:
+                logger.error(f"❌ RVT Guide 向量生成失敗 ({action}): ID {instance.id} - {instance.title}")
+                
+        except Exception as e:
+            logger.error(f"❌ RVT Guide 向量生成異常 ({action}): ID {instance.id} - {str(e)}")
     
     def get_queryset(self):
         """支援搜尋和篩選"""
