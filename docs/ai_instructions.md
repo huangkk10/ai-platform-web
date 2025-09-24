@@ -281,6 +281,180 @@ curl -X POST "http://10.10.173.12/api/dify/knowledge/retrieval/" \
 - **API 響應時間**：確保 < 2秒響應
 - **Dify 配置檢查**：確認知識庫啟用狀態
 
+## 🎨 UI 框架與開發偏好設定
+
+### 🥇 首選 UI 框架：Ant Design of React
+
+**強制性規範**：
+1. **所有 React 前端開發都必須優先使用 Ant Design (antd) 作為 UI 組件庫**
+2. **新功能開發時，優先選擇 Ant Design 的現成組件**
+3. **統一設計風格，確保界面一致性**
+
+### 📦 核心組件優先順序
+
+#### 1. 資料展示組件
+```javascript
+// ✅ 優先使用：Table, List, Card, Descriptions, Statistic
+import { Table, Card, Descriptions, Tag, Typography } from 'antd';
+
+// ❌ 避免使用：自定義表格或其他 UI 庫的組件
+```
+
+#### 2. 表單組件
+```javascript
+// ✅ 優先使用：Form, Input, Select, DatePicker, Upload, Switch
+import { Form, Input, Select, Button, DatePicker, Upload } from 'antd';
+
+// 表單布局使用 Ant Design 的 Grid 系統
+const { Row, Col } = antd;
+```
+
+#### 3. 導航組件
+```javascript
+// ✅ 優先使用：Menu, Breadcrumb, Steps, Pagination
+import { Menu, Breadcrumb, Steps, Pagination } from 'antd';
+```
+
+#### 4. 反饋組件
+```javascript
+// ✅ 優先使用：Modal, Drawer, notification, message, Popconfirm
+import { Modal, Drawer, message, notification, Popconfirm } from 'antd';
+```
+
+### 🎯 開發指導原則
+
+#### 1. 組件選擇決策樹
+```
+需要 UI 組件？
+├─ Ant Design 有現成組件？
+│  ├─ 是 → 直接使用 antd 組件 ✅
+│  └─ 否 → 檢查是否可以組合多個 antd 組件
+├─ 需要高度自定義？
+│  ├─ 基於 antd 組件擴展 ✅
+│  └─ 最後選項：自定義組件（保持 antd 風格）
+```
+
+#### 2. 樣式規範
+```javascript
+// ✅ 推薦：使用 Ant Design 的主題變數和工具類
+import { theme } from 'antd';
+
+const {
+  token: { colorPrimary, borderRadius, padding },
+} = theme.useToken();
+
+// ✅ 推薦：使用 Ant Design 的間距系統
+<div style={{ padding: token.padding, margin: token.margin }}>
+
+// ❌ 避免：硬編碼樣式值
+<div style={{ padding: '16px', margin: '8px' }}>
+```
+
+#### 3. 響應式設計
+```javascript
+// ✅ 使用 Ant Design 的 Grid 系統
+import { Row, Col } from 'antd';
+
+<Row gutter={[16, 16]}>
+  <Col xs={24} sm={12} md={8} lg={6}>
+    <Card>內容</Card>
+  </Col>
+</Row>
+```
+
+### 📋 實際應用範例（基於當前專案）
+
+#### RVT Guide Page 標準模式：
+```javascript
+// ✅ 當前實作已符合規範
+import {
+  Card, Table, Button, Space, Typography, Tag, message,
+  Input, Select, Row, Col, Modal, Form, Tooltip
+} from 'antd';
+```
+
+#### Know Issue Page 標準模式：
+```javascript
+// ✅ 應使用的組件組合
+import {
+  Card, Table, Button, Space, Typography, Tag, 
+  Form, Select, Input, DatePicker, Upload,
+  Modal, Drawer, message, notification
+} from 'antd';
+```
+
+### 🚫 需要避免的做法
+
+#### ❌ 不要混用其他 UI 庫
+```javascript
+// ❌ 避免：引入其他 UI 庫
+import { Button } from 'react-bootstrap';  // 禁止
+import { TextField } from '@mui/material';  // 禁止
+
+// ✅ 統一使用：Ant Design
+import { Button, Input } from 'antd';
+```
+
+#### ❌ 不要過度自定義樣式
+```javascript
+// ❌ 避免：完全覆蓋 antd 樣式
+<Button style={{ 
+  background: 'red', 
+  border: 'none', 
+  borderRadius: '0' 
+}}>
+
+// ✅ 推薦：使用 antd 的預設變體
+<Button type="primary" danger>
+```
+
+### 🎨 主題與設計系統
+
+#### 色彩使用規範
+```javascript
+// ✅ 使用 Ant Design 預設色彩
+const statusColors = {
+  success: 'green',
+  warning: 'orange', 
+  error: 'red',
+  info: 'blue',
+  processing: 'cyan'
+};
+
+// 標籤顏色選擇
+<Tag color="blue">系統架構</Tag>
+<Tag color="green">環境準備</Tag>
+<Tag color="orange">配置管理</Tag>
+```
+
+#### Icon 使用規範
+```javascript
+// ✅ 統一使用 @ant-design/icons
+import {
+  PlusOutlined, EditOutlined, DeleteOutlined,
+  FileTextOutlined, ToolOutlined, EyeOutlined
+} from '@ant-design/icons';
+
+// ❌ 避免使用其他圖標庫
+import { FaPlus } from 'react-icons/fa';  // 禁止
+```
+
+### 🧪 AI 協助開發時的檢查清單
+
+**AI 在建議前端代碼時必須確認**：
+- [ ] 所有 UI 組件都來自 `antd`
+- [ ] 使用 Ant Design 的設計規範和間距系統
+- [ ] 響應式布局使用 `Row` 和 `Col`
+- [ ] 表單使用 `Form` 組件和相應的 validation
+- [ ] 狀態反饋使用 `message` 或 `notification`
+- [ ] Icon 使用 `@ant-design/icons`
+- [ ] 顏色和主題符合 Ant Design 規範
+
+### 📚 參考資源
+- [Ant Design 官方文檔](https://ant.design/docs/react/introduce-cn)
+- [Ant Design 設計語言](https://ant.design/docs/spec/introduce-cn)
+- [當前專案的最佳實踐範例](frontend/src/pages/RvtGuidePage.js)
+
 ## 🔧 Dify App Config 使用指南
 
 ### 📁 配置管理系統
