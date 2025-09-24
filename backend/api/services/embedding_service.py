@@ -401,7 +401,6 @@ def _get_rvt_guide_results(vector_results: List[dict], version_info: str) -> Lis
                     'metadata': {
                         'main_category': rvt_data['main_category'],
                         'question_type': rvt_data['question_type'],
-                        'target_user': rvt_data['target_user'],
                         'source': f'rvt_guide_vector_search_{version_info}'
                     }
                 })
