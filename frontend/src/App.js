@@ -70,7 +70,7 @@ function AppLayout() {
       case '/knowledge/rvt-log':
         return 'RVT Assistant';
       case '/knowledge/rvt-guide/create':
-        return 'RVT Assistant - 新增指導文檔';
+        return 'RVT Assistant - 新增 User Guide';
       default:
         // 動態處理編輯頁面的標題
         if (pathname.startsWith('/knowledge/rvt-guide/edit/')) {

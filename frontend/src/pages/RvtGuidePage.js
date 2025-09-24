@@ -275,7 +275,7 @@ const RvtGuidePage = () => {
               icon={<PlusOutlined />}
               onClick={() => navigate('/knowledge/rvt-guide/create')}
             >
-              新增指導文檔
+              新增 User Guide
             </Button>
           </Space>
         }
