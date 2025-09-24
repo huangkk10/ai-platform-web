@@ -13,6 +13,7 @@ class DisableCSRFMiddleware(MiddlewareMixin):
         '/api/chat/',  # 聊天相關 API
         '/api/dify/',
         '/api/rvt-guide/',
+        '/api/rvt-guides/',  # RVT Guide CRUD API
     ]
     
     def process_request(self, request):

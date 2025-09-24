@@ -20,6 +20,7 @@ import KnowIssueChatPage from './pages/KnowIssueChatPage';
 import LogAnalyzeChatPage from './pages/LogAnalyzeChatPage';
 import RvtAssistantChatPage from './pages/RvtAssistantChatPage';
 import LogAnalyzePage from './pages/LogAnalyzePage';
+import RvtGuideEditPage from './pages/RvtGuideEditPage';
 
 const { Content } = Layout;
 
@@ -67,15 +68,13 @@ function AppLayout() {
         return 'Protocol RAG';
       case '/knowledge/rvt-log':
         return 'RVT Assistant';
-      case '/knowledge/ocr-storage-benchmark':
-        return 'AI OCR';
-      case '/log-analyze':
-        return 'Log Analyze';
-      case '/admin/test-class-management':
-        return 'Test Class Management';
-      case '/admin/user-management':
-        return 'User Management';
+      case '/knowledge/rvt-guide/create':
+        return 'RVT Assistant - 新增指導文檔';
       default:
+        // 動態處理編輯頁面的標題
+        if (pathname.startsWith('/knowledge/rvt-guide/edit/')) {
+          return 'RVT Assistant - 編輯 User Guide';
+        }
         return '';
     }
   };
@@ -127,6 +126,8 @@ function AppLayout() {
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/knowledge/know-issue" element={<KnowIssuePage />} />
             <Route path="/knowledge/rvt-log" element={<RvtGuidePage />} />
+            <Route path="/knowledge/rvt-guide/create" element={<RvtGuideEditPage />} />
+            <Route path="/knowledge/rvt-guide/edit/:id" element={<RvtGuideEditPage />} />
             <Route path="/knowledge/ocr-storage-benchmark" element={<OcrStorageBenchmarkPage />} />
             <Route path="/know-issue-chat" element={<KnowIssueChatPage collapsed={collapsed} />} />
             <Route path="/log-analyze-chat" element={<LogAnalyzeChatPage collapsed={collapsed} />} />

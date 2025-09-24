@@ -12,9 +12,9 @@ import {
   Select,
   Row,
   Col,
-  Modal,
-  Form
+  Modal
 } from 'antd';
+import { useNavigate } from 'react-router-dom';
 import { 
   FileTextOutlined, 
   PlusOutlined, 
@@ -34,14 +34,12 @@ const { TextArea } = Input;
 
 const RvtGuidePage = () => {
   const { user, isAuthenticated, loading: authLoading, initialized } = useAuth();
+  const navigate = useNavigate();
   const [guides, setGuides] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedGuide, setSelectedGuide] = useState(null);
-  const [editingGuide, setEditingGuide] = useState(null);
   const [selectedMainCategory, setSelectedMainCategory] = useState('');
-  const [form] = Form.useForm();
 
   // RVT 分類選項 - 對應資料庫的 main_category
   const mainCategoryOptions = [
@@ -159,7 +157,7 @@ const RvtGuidePage = () => {
             icon={<EditOutlined />}
             size="small"
             type="text"
-            onClick={() => handleEdit(record)}
+            onClick={() => navigate(`/knowledge/rvt-guide/edit/${record.id}`)}
             title="編輯"
           />
           {user?.is_staff && (
@@ -213,58 +211,6 @@ const RvtGuidePage = () => {
   };
 
   // 處理新增/編輯
-  const handleEdit = async (record = null) => {
-    setEditingGuide(record);
-    
-    if (record) {
-      try {
-        // 獲取完整的記錄資料（包括內容）
-        const response = await axios.get(`/api/rvt-guides/${record.id}/`);
-        const fullRecord = response.data;
-        
-        console.log('Full record from API:', fullRecord); // 調試日誌
-        
-        // 先設置主分類狀態，這樣子分類選項才會正確顯示
-        setSelectedMainCategory(fullRecord.main_category || '');
-        
-        // 等待 Modal 打開後再設置表單值
-        setModalVisible(true);
-        
-        // 使用 setTimeout 確保 Modal 已經渲染且狀態已更新
-        setTimeout(() => {
-          // 設置表單值
-          form.setFieldsValue({
-            title: fullRecord.title || '',
-            main_category: fullRecord.main_category || '',
-            question_type: fullRecord.question_type || '',
-            content: fullRecord.content || '',
-          });
-          console.log('Form values set:', form.getFieldsValue()); // 調試日誌
-        }, 100);
-        
-      } catch (error) {
-        console.error('獲取編輯資料失敗:', error);
-        message.error('獲取編輯資料失敗');
-        return;
-      }
-    } else {
-      // 新增模式：清空狀態和表單
-      setSelectedMainCategory('');
-      form.resetFields();
-      setModalVisible(true);
-    }
-  };
-
-  // 處理主分類變更
-  const handleMainCategoryChange = (value) => {
-    setSelectedMainCategory(value);
-    // 清除子分類選擇
-
-  };
-
-  // 獲取當前主分類對應的子分類選項
-
-
   // 處理刪除
   const handleDelete = async (record) => {
     if (!user?.is_staff) {
@@ -288,32 +234,6 @@ const RvtGuidePage = () => {
         }
       },
     });
-  };
-
-  // 處理表單提交
-  const handleFormSubmit = async (values) => {
-    try {
-      const submitData = {
-        ...values,
-      };
-
-      if (editingGuide) {
-        await axios.put(`/api/rvt-guides/${editingGuide.id}/`, submitData);
-        message.success('更新成功');
-      } else {
-        await axios.post('/api/rvt-guides/', submitData);
-        message.success('新增成功');
-      }
-
-      setModalVisible(false);
-      setEditingGuide(null);
-      setSelectedMainCategory('');
-      form.resetFields();
-      fetchGuides();
-    } catch (error) {
-      console.error('操作失敗:', error);
-      message.error('操作失敗');
-    }
   };
 
   // 如果用戶未認證，顯示登入提示
@@ -353,7 +273,7 @@ const RvtGuidePage = () => {
             <Button
               type="primary"
               icon={<PlusOutlined />}
-              onClick={() => handleEdit()}
+              onClick={() => navigate('/knowledge/rvt-guide/create')}
             >
               新增指導文檔
             </Button>
@@ -377,111 +297,6 @@ const RvtGuidePage = () => {
         />
       </Card>
 
-      {/* 新增/編輯表單 Modal */}
-      <Modal
-        title={editingGuide ? '編輯指導文檔' : '新增指導文檔'}
-        open={modalVisible}
-        onCancel={() => {
-          setModalVisible(false);
-          setEditingGuide(null);
-          setSelectedMainCategory('');
-          form.resetFields();
-        }}
-        footer={null}
-        width={800}
-        destroyOnClose
-      >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleFormSubmit}
-          preserve={false}
-
-        >
-          <Row gutter={16}>
-            <Col span={24}>
-              <Form.Item
-                name="title"
-                label="標題"
-                rules={[{ required: true, message: '請輸入標題' }]}
-              >
-                <Input placeholder="請輸入指導文檔標題" />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="main_category"
-                label="主分類"
-                rules={[{ required: true, message: '請選擇主分類' }]}
-              >
-                <Select 
-                  placeholder="請選擇主分類"
-                  onChange={handleMainCategoryChange}
-                >
-                  {mainCategoryOptions.map(option => (
-                    <Option key={option.value} value={option.value}>
-                      {option.label}
-                    </Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
-
-          </Row>
-
-          <Row gutter={16}>
-            <Col span={8}>
-              <Form.Item
-                name="question_type"
-                label="問題類型"
-                rules={[{ required: true, message: '請選擇問題類型' }]}
-              >
-                <Select placeholder="請選擇問題類型">
-                  {questionTypeOptions.map(option => (
-                    <Option key={option.value} value={option.value}>
-                      {option.label}
-                    </Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
-
-          </Row>
-
-          <Form.Item
-            name="content"
-            label="內容"
-            rules={[{ required: true, message: '請輸入內容' }]}
-          >
-            <TextArea 
-              rows={8} 
-              placeholder="請輸入指導文檔內容" 
-            />
-          </Form.Item>
-
-
-
-          <Form.Item>
-            <Space>
-              <Button type="primary" htmlType="submit">
-                {editingGuide ? '更新' : '新增'}
-              </Button>
-              <Button onClick={() => {
-                setModalVisible(false);
-                setEditingGuide(null);
-                setSelectedMainCategory('');
-                form.resetFields();
-              }}>
-                取消
-              </Button>
-            </Space>
-          </Form.Item>
-        </Form>
-      </Modal>
-
       {/* 詳細內容 Modal */}
       <Modal
         title={
@@ -501,22 +316,22 @@ const RvtGuidePage = () => {
           setSelectedGuide(null);
         }}
         footer={[
-          <Button key="close" onClick={() => {
-            setDetailModalVisible(false);
-            setSelectedGuide(null);
-          }}>
-            關閉
-          </Button>,
           <Button 
             key="edit" 
             type="primary" 
             icon={<EditOutlined />}
             onClick={() => {
               setDetailModalVisible(false);
-              handleEdit(selectedGuide);
+              navigate(`/knowledge/rvt-guide/edit/${selectedGuide.id}`);
             }}
           >
-            編輯
+            編輯指導文檔
+          </Button>,
+          <Button key="close" onClick={() => {
+            setDetailModalVisible(false);
+            setSelectedGuide(null);
+          }}>
+            關閉
           </Button>
         ]}
         width={900}
