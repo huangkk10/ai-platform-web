@@ -667,7 +667,7 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
   };
 
   return (
-    <Layout style={{ height: '100vh', background: '#f5f5f5' }}>
+    <Layout style={{ height: '100vh', background: '#f5f5f5' }} className="chat-page rvt-assistant-chat-page">
       <Content style={{ display: 'flex', flexDirection: 'column', padding: '0', height: '100%', paddingTop: '64px' }}>
 
         {/* Messages Container */}
@@ -698,7 +698,7 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
                   className={`message-card ${msg.type}`}
                   bodyStyle={{ padding: '12px 16px' }}
                 >
-                  <div className="message-text">
+                  <div className="message-text chat-message-content">
                     {formatMessage(msg.content)}
                   </div>
                   <div className="message-time">
@@ -769,6 +769,7 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
               placeholder={`請描述你的 RVT 問題... (按 Enter 發送，Shift + Enter 換行${rvtConfig ? ` • ${rvtConfig.app_name}` : ''})`}
               autoSize={{ minRows: 1, maxRows: 4 }}
               disabled={loading}
+              className="chat-input-area"
               style={{ 
                 borderRadius: '20px', 
                 resize: 'none',

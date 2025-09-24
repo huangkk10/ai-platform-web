@@ -787,7 +787,7 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
   };
 
   return (
-    <Layout style={{ height: '100vh', background: '#f5f5f5' }}>
+    <Layout style={{ height: '100vh', background: '#f5f5f5' }} className="chat-page log-analyze-chat-page">
       <Content style={{ display: 'flex', flexDirection: 'column', padding: '0', height: '100%', paddingTop: '64px' }}>
         {/* Messages Container */}
         <div className="messages-container" style={{ 
@@ -862,7 +862,7 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
                     </div>
                   )}
                   
-                  <div className="message-text">
+                  <div className="message-text chat-message-content">
                     {formatMessage(msg.content)}
                   </div>
                   
@@ -1124,7 +1124,7 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
                 placeholder={`請描述你的日誌問題或上傳檔案... (按 Enter 發送，Shift + Enter 換行${difyConfig ? ` • 連接到: ${difyConfig.workspace}` : ''})`}
                 autoSize={{ minRows: 1, maxRows: 4 }}
                 disabled={loading}
-                className="textarea-with-button"
+                className="textarea-with-button chat-input-area"
               />
             </div>
             

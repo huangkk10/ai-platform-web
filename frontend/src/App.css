@@ -4,8 +4,9 @@
   text-align: left;
   min-height: 100vh;
   background: #f5f5f5;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
-    'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-family: 'Microsoft JhengHei', '微軟正黑體', 'Microsoft YaHei', '微软雅黑', 
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
 /* 側邊欄樣式自定義 */
@@ -334,6 +335,67 @@
   --hwseng-error: #e74c3c;
   --hwseng-text: #2c3e50;
   --hwseng-bg: #ecf0f1;
+}
+
+/* ===== 統一聊天字體樣式 ===== */
+/* 所有聊天頁面統一使用微軟正黑體 */
+.chat-font-family {
+  font-family: 'Microsoft JhengHei', '微軟正黑體', 'Microsoft YaHei', '微软雅黑',
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+/* 聊天消息內容專用字體樣式 */
+.chat-message-content {
+  font-family: 'Microsoft JhengHei', '微軟正黑體', 'Microsoft YaHei', '微软雅黑',
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 聊天輸入框專用字體樣式 */
+.chat-input-area {
+  font-family: 'Microsoft JhengHei', '微軟正黑體', 'Microsoft YaHei', '微软雅黑',
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 覆蓋 Ant Design 的字體設定在聊天頁面中 */
+.chat-page .ant-typography,
+.chat-page .ant-typography h1,
+.chat-page .ant-typography h2,
+.chat-page .ant-typography h3,
+.chat-page .ant-typography h4,
+.chat-page .ant-typography h5,
+.chat-page .ant-typography h6,
+.chat-page .ant-typography p,
+.chat-page .ant-typography span,
+.chat-page .ant-typography div,
+.chat-page .ant-input,
+.chat-page .ant-input-affix-wrapper,
+.chat-page .ant-select,
+.chat-page .ant-btn,
+.chat-page .ant-card,
+.chat-page .ant-table {
+  font-family: 'Microsoft JhengHei', '微軟正黑體', 'Microsoft YaHei', '微软雅黑',
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+}
+
+/* 專門針對聊天消息的樣式 */
+.message-text,
+.message-text *,
+.message-content,
+.message-content * {
+  font-family: 'Microsoft JhengHei', '微軟正黑體', 'Microsoft YaHei', '微软雅黑',
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Helvetica Neue', Helvetica, Arial, sans-serif !important;
 }
 
 /* 自定義滾動條 */
