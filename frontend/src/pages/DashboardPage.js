@@ -161,7 +161,7 @@ const DashboardPage = () => {
         {/* 圓餅圖 - 各功能使用比例 */}
         <Col xs={24} lg={12}>
           <Card 
-            title="聊天功能使用分佈" 
+            title="功能使用分佈" 
             extra={
               <span style={{ fontSize: '12px', color: '#666' }}>
                 最近 {dateRange} 天
