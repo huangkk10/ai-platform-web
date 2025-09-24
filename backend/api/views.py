@@ -606,20 +606,24 @@ def search_rvt_guide_knowledge(query_text, limit=5):
                 CASE 
                     WHEN title ILIKE %s THEN 1.0
                     WHEN content ILIKE %s THEN 0.8
+                    WHEN main_category ILIKE %s THEN 0.7
+                    WHEN question_type ILIKE %s THEN 0.6
                     ELSE 0.5
                 END as score
             FROM rvt_guide
             WHERE 
                 title ILIKE %s OR 
-                content ILIKE %s
+                content ILIKE %s OR
+                main_category ILIKE %s OR
+                question_type ILIKE %s
             ORDER BY score DESC, created_at DESC
             LIMIT %s
             """
             
             search_pattern = f'%{query_text}%'
             cursor.execute(sql, [
-                search_pattern, search_pattern, 
-                search_pattern, search_pattern,
+                search_pattern, search_pattern, search_pattern, search_pattern,
+                search_pattern, search_pattern, search_pattern, search_pattern,
                 limit
             ])
             
@@ -632,13 +636,9 @@ def search_rvt_guide_knowledge(query_text, limit=5):
                 
                 # 格式化為知識片段
                 content = f"# {guide_data['title']}\n\n"
-                content += f"**分類**: {guide_data['main_category']} > {guide_data['sub_category']}\n\n"
+                content += f"**分類**: {guide_data['main_category']}\n"
+                content += f"**問題類型**: {guide_data['question_type']}\n\n"
                 content += f"**內容**:\n{guide_data['content']}"
-                
-                # 獲取關鍵字列表
-                keywords_list = []
-                if guide_data['keywords']:
-                    keywords_list = [k.strip() for k in guide_data['keywords'].split(',')]
                 
                 results.append({
                     'id': str(guide_data['id']),
@@ -647,13 +647,8 @@ def search_rvt_guide_knowledge(query_text, limit=5):
                     'score': float(guide_data['score']),
                     'metadata': {
                         'source': 'rvt_guide_database',
-                        'document_name': guide_data['document_name'],
-                        'version': guide_data['version'],
                         'main_category': guide_data['main_category'],
-                        'sub_category': guide_data['sub_category'],
                         'question_type': guide_data['question_type'],
-
-                        'keywords': keywords_list,
                         'created_at': str(guide_data['created_at']) if guide_data['created_at'] else None,
                         'updated_at': str(guide_data['updated_at']) if guide_data['updated_at'] else None
                     }
