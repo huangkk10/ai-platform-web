@@ -135,15 +135,6 @@ const RvtGuidePage = () => {
       onFilter: (value, record) => record.question_type === value,
     },
     {
-      title: '子分類',
-      dataIndex: 'sub_category_display',
-      key: 'sub_category',
-      width: 150,
-      ellipsis: true,
-      render: (text) => text || '-',
-    },
-
-    {
       title: '建立時間',
       dataIndex: 'created_at',
       key: 'created_at',
@@ -552,10 +543,7 @@ const RvtGuidePage = () => {
                     {selectedGuide.main_category_display}
                   </Tag>
                 </div>
-                <div>
-                  <strong>📋 子分類：</strong>
-                  <span style={{ marginLeft: '8px' }}>{selectedGuide.sub_category_display || '-'}</span>
-                </div>
+
                 <div>
                   <strong>🔄 問題類型：</strong>
                   <Tag 
