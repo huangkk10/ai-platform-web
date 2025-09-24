@@ -398,6 +398,65 @@
     'Helvetica Neue', Helvetica, Arial, sans-serif !important;
 }
 
+/* 優化聊天消息中的表格顯示 */
+.message-text .ant-table {
+  margin: 8px 0;
+  font-size: 12px;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.message-text .ant-table-thead > tr > th {
+  background: #f8f9fa;
+  font-weight: 600;
+  font-size: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.message-text .ant-table-tbody > tr > td {
+  padding: 6px 12px;
+  font-size: 12px;
+  line-height: 1.4;
+  border-bottom: 1px solid #f1f3f4;
+}
+
+.message-text .ant-table-tbody > tr:last-child > td {
+  border-bottom: none;
+}
+
+/* 改善聊天消息的行間距和段落間距 */
+.chat-message-content {
+  font-family: 'Microsoft JhengHei', '微軟正黑體', 'Microsoft YaHei', '微软雅黑',
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.chat-message-content > * {
+  margin: 0;
+  padding: 0;
+}
+
+.chat-message-content > *:not(:last-child) {
+  margin-bottom: 4px;
+}
+
+/* 改善列表顯示 */
+.chat-message-content ul, .chat-message-content ol {
+  margin: 8px 0 8px 16px;
+  padding: 0;
+}
+
+.chat-message-content li {
+  margin-bottom: 2px;
+  line-height: 1.5;
+}
+
 /* 自定義滾動條 */
 ::-webkit-scrollbar {
   width: 6px;

@@ -391,7 +391,7 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
   }, [registerClearFunction, clearClearFunction, clearChat]);
 
   const formatMessage = (content) => {
-    // 改進的 Markdown 格式化函數
+    // 改進的 Markdown 格式化函數，優化了間距和顯示
     const lines = content.split('\n');
     const result = [];
     let i = 0;
@@ -650,12 +650,17 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
               {line.slice(2, -2)}
             </Text>
           );
-        } else {
-          // 普通文字，但可能包含行內格式
+        } else if (line.trim() === '') {
+          // 空行，添加一個小間距
           result.push(
-            <Text key={i} style={{ display: 'block', marginBottom: line.trim() ? '4px' : '8px' }}>
+            <div key={i} style={{ height: '8px' }} />
+          );
+        } else {
+          // 普通文字，但可能包含行內格式 - 去掉不必要的 marginBottom
+          result.push(
+            <span key={i} style={{ display: 'block', lineHeight: '1.5' }}>
               {formatInlineText(line, `text-${i}`)}
-            </Text>
+            </span>
           );
         }
       }

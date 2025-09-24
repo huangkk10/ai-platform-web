@@ -751,33 +751,40 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
       else if (line.includes('**')) {
         const parts = line.split(/(\*\*.*?\*\*)/);
         result.push(
-          <Text key={i} style={{ display: 'block', marginBottom: line.trim() ? '4px' : '8px' }}>
+          <span key={i} style={{ display: 'block', lineHeight: '1.5' }}>
             {parts.map((part, partIndex) => 
               part.startsWith('**') && part.endsWith('**') ? 
                 <Text key={partIndex} strong>{part.slice(2, -2)}</Text> : 
                 part
             )}
-          </Text>
+          </span>
         );
       }
-      // 處理行內斜體文字 (*text*)
+            // 處理行內斜體文字 (*text*)
       else if (line.includes('*') && !line.includes('**')) {
         const parts = line.split(/(\*[^*]*\*)/);
         result.push(
-          <Text key={i} style={{ display: 'block', marginBottom: line.trim() ? '4px' : '8px' }}>
+          <span key={i} style={{ display: 'block', lineHeight: '1.5' }}>
             {parts.map((part, partIndex) => 
               part.startsWith('*') && part.endsWith('*') && part.length > 2 ? 
                 <Text key={partIndex} italic>{part.slice(1, -1)}</Text> : 
                 part
             )}
-          </Text>
+          </span>
         );
       }
       // 普通文字
       else {
-        result.push(<Text key={i} style={{ display: 'block', marginBottom: line.trim() ? '4px' : '8px' }}>
-          {line || '\u00A0'}
-        </Text>);
+        if (line.trim() === '') {
+          // 空行，添加一個小間距
+          result.push(<div key={i} style={{ height: '8px' }} />);
+        } else {
+          result.push(
+            <span key={i} style={{ display: 'block', lineHeight: '1.5' }}>
+              {line || '\u00A0'}
+            </span>
+          );
+        }
       }
       
       i++;
