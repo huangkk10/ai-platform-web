@@ -71,12 +71,11 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   border: none;
   position: relative;
-  transition: all 0.2s ease;
+  transition: opacity 0.2s ease;
 }
 
 .message-card:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  opacity: 0.95;
 }
 
 .message-card.user {
@@ -85,7 +84,7 @@
 }
 
 .message-card.user:hover {
-  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.3);
+  opacity: 0.95;
 }
 
 .message-card.user .ant-card-body {
