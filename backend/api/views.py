@@ -40,6 +40,76 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+def retry_api_request(func, max_retries=3, retry_delay=1, backoff_factor=2):
+    """
+    API 請求重試機制
+    
+    Args:
+        func: 要執行的函數
+        max_retries: 最大重試次數
+        retry_delay: 初始重試延遲（秒）
+        backoff_factor: 退避係數
+    
+    Returns:
+        函數執行結果或拋出最後一個異常
+    """
+    import requests
+    import time
+    
+    last_exception = None
+    delay = retry_delay
+    
+    for attempt in range(max_retries + 1):
+        try:
+            result = func()
+            if attempt > 0:
+                logger.info(f"重試成功，嘗試次數: {attempt + 1}")
+            return result
+            
+        except requests.exceptions.Timeout as e:
+            last_exception = e
+            if attempt < max_retries:
+                logger.warning(f"請求超時，第 {attempt + 1} 次重試，延遲 {delay} 秒")
+                time.sleep(delay)
+                delay *= backoff_factor
+                continue
+                
+        except requests.exceptions.ConnectionError as e:
+            last_exception = e
+            if attempt < max_retries:
+                logger.warning(f"連接錯誤，第 {attempt + 1} 次重試，延遲 {delay} 秒")
+                time.sleep(delay)
+                delay *= backoff_factor
+                continue
+                
+        except requests.exceptions.RequestException as e:
+            # 檢查是否是可重試的 HTTP 錯誤
+            if hasattr(e, 'response') and e.response is not None:
+                status_code = e.response.status_code
+                
+                # HTTP 400: Bad Request - 可能是暫時性問題
+                # HTTP 429: Too Many Requests - 速率限制
+                # HTTP 502, 503, 504: 服務器錯誤
+                if status_code in [400, 429, 502, 503, 504]:
+                    last_exception = e
+                    if attempt < max_retries:
+                        logger.warning(f"HTTP {status_code} 錯誤，第 {attempt + 1} 次重試，延遲 {delay} 秒")
+                        time.sleep(delay)
+                        delay *= backoff_factor
+                        continue
+                        
+            # 其他 HTTP 錯誤不重試
+            raise e
+            
+        except Exception as e:
+            # 其他異常不重試
+            raise e
+    
+    # 所有重試都失敗，拋出最後一個異常
+    logger.error(f"重試 {max_retries} 次後仍然失敗")
+    raise last_exception
+
+
 def preprocess_chinese_query(query):
     """
     預處理中文查詢，提取關鍵字並優化搜索效果
@@ -2855,6 +2925,9 @@ def record_chat_usage(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+
+
+
 @csrf_exempt
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -2918,25 +2991,74 @@ def rvt_guide_chat(request):
         
         start_time = time.time()
         
-        # 發送請求到 Dify RVT Guide
-        try:
+        # 使用重試機制發送請求到 Dify RVT Guide
+        def make_dify_request():
+            """內部函數：發送 Dify API 請求"""
             response = requests.post(
                 api_url,
                 headers=headers,
                 json=payload,
-                timeout=rvt_config.get('timeout', 60)  # 使用配置中的超時時間
+                timeout=rvt_config.get('timeout', 60)
+            )
+            
+            # 如果是 HTTP 400 錯誤且是 answer 格式問題，拋出異常以觸發重試
+            if response.status_code == 400:
+                try:
+                    error_data = response.json()
+                    error_message = error_data.get('message', '')
+                    # 檢查是否是 answer 字段格式問題
+                    if 'answer' in error_message and 'string' in error_message and 'list' in error_message:
+                        logger.warning(f"Dify API 返回 answer 格式錯誤，觸發重試: {error_message}")
+                        # 拋出 RequestException 以觸發重試機制
+                        raise requests.exceptions.RequestException(f"Answer format error: {error_message}", response=response)
+                except (ValueError, KeyError):
+                    # JSON 解析失敗，正常處理
+                    pass
+                    
+            return response
+        
+        try:
+            # 使用現有的 retry_api_request 函數
+            response = retry_api_request(
+                func=make_dify_request,
+                max_retries=3,
+                retry_delay=1,
+                backoff_factor=2
             )
         except requests.exceptions.Timeout:
+            logger.error(f"RVT Guide 請求超時，已重試 3 次")
             return Response({
                 'success': False,
                 'error': 'RVT Guide 分析超時，請稍後再試或簡化問題描述'
             }, status=status.HTTP_408_REQUEST_TIMEOUT)
         except requests.exceptions.ConnectionError:
+            logger.error(f"RVT Guide 連接失敗，已重試 3 次")
             return Response({
                 'success': False,
-                'error': 'RVT Guide 連接失敗，請檢查網路連接'
+                'error': 'RVT Guide 連接失敗，請檢查網路連接或稍後再試'
             }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        except requests.exceptions.RequestException as e:
+            if hasattr(e, 'response') and e.response is not None:
+                status_code = e.response.status_code
+                logger.error(f"RVT Guide API 錯誤 {status_code}，已重試 3 次")
+                if status_code == 400:
+                    return Response({
+                        'success': False,
+                        'error': 'RVT Guide 請求格式錯誤，已嘗試重試但仍然失敗，請重新整理頁面或稍後再試'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                else:
+                    return Response({
+                        'success': False,
+                        'error': f'RVT Guide API 錯誤: HTTP {status_code}，已重試但仍然失敗'
+                    }, status=status_code)
+            else:
+                logger.error(f"RVT Guide 其他網路錯誤: {str(e)}")
+                return Response({
+                    'success': False,
+                    'error': f'RVT Guide API 請求錯誤: {str(e)}'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         except Exception as req_error:
+            logger.error(f"RVT Guide 未預期的錯誤: {str(req_error)}")
             return Response({
                 'success': False,
                 'error': f'RVT Guide API 請求錯誤: {str(req_error)}'
@@ -2947,12 +3069,29 @@ def rvt_guide_chat(request):
         if response.status_code == 200:
             result = response.json()
             
+            # 處理 Dify API 返回的 answer 字段可能是數組的情況
+            raw_answer = result.get('answer', '')
+            if isinstance(raw_answer, list):
+                # 如果 answer 是數組，將其轉換為字符串
+                if len(raw_answer) == 0:
+                    answer = "抱歉，目前無法提供回答，請稍後再試或重新描述問題。"
+                    logger.warning(f"RVT Guide API returned empty array for answer")
+                else:
+                    answer = ' '.join(str(item) for item in raw_answer)
+                    logger.warning(f"RVT Guide API returned array for answer, converted to string")
+            elif isinstance(raw_answer, str):
+                answer = raw_answer
+            else:
+                # 處理其他異常情況
+                answer = str(raw_answer) if raw_answer else "抱歉，回答格式異常，請稍後再試。"
+                logger.warning(f"RVT Guide API returned unexpected answer type: {type(raw_answer)}")
+            
             # 記錄成功的聊天
             logger.info(f"RVT Guide chat success for user {request.user.username if request.user.is_authenticated else 'guest'}: response_time={elapsed:.2f}s")
             
             return Response({
                 'success': True,
-                'answer': result.get('answer', ''),
+                'answer': answer,
                 'conversation_id': result.get('conversation_id', ''),
                 'message_id': result.get('message_id', ''),
                 'response_time': elapsed,
@@ -2986,11 +3125,27 @@ def rvt_guide_chat(request):
                         
                         if retry_response.status_code == 200:
                             retry_result = retry_response.json()
+                            
+                            # 處理重試成功時的 answer 字段格式問題
+                            raw_retry_answer = retry_result.get('answer', '')
+                            if isinstance(raw_retry_answer, list):
+                                if len(raw_retry_answer) == 0:
+                                    retry_answer = "抱歉，目前無法提供回答，請稍後再試或重新描述問題。"
+                                    logger.warning(f"RVT Guide retry API returned empty array for answer")
+                                else:
+                                    retry_answer = ' '.join(str(item) for item in raw_retry_answer)
+                                    logger.warning(f"RVT Guide retry API returned array for answer, converted to string")
+                            elif isinstance(raw_retry_answer, str):
+                                retry_answer = raw_retry_answer
+                            else:
+                                retry_answer = str(raw_retry_answer) if raw_retry_answer else "抱歉，回答格式異常，請稍後再試。"
+                                logger.warning(f"RVT Guide retry API returned unexpected answer type: {type(raw_retry_answer)}")
+                            
                             logger.info(f"RVT Guide chat retry success")
                             
                             return Response({
                                 'success': True,
-                                'answer': retry_result.get('answer', ''),
+                                'answer': retry_answer,
                                 'conversation_id': retry_result.get('conversation_id', ''),
                                 'message_id': retry_result.get('message_id', ''),
                                 'response_time': elapsed,
