@@ -2621,61 +2621,13 @@ def dify_ocr_chat(request):
             # 記錄成功的聊天
             logger.info(f"AI OCR chat success for user {request.user.username if request.user.is_authenticated else 'guest'}: {message[:50]}...")
             
-            # 🆕 增強 AI 回答，如果 AI 回答太通用且有檢索資料，則補充具體資料
-            enhanced_answer = result.get('answer', '')
+            # 直接使用原始的 AI 回答，不進行增強處理
+            answer = result.get('answer', '')
             metadata = result.get('metadata', {})
-            
-            # 檢查是否有檢索到的知識庫資料
-            retriever_resources = metadata.get('retriever_resources', [])
-            if retriever_resources and len(retriever_resources) > 0:
-                # 檢查 AI 回答是否太通用（包含常見的通用回答詞彙）
-                generic_phrases = ['嗨呀', '👋', '有什麼我可以幫忙', '隨便聊聊', '😊', '你好', 'hello', '什麼問題']
-                is_generic_answer = any(phrase in enhanced_answer.lower() for phrase in generic_phrases)
-                
-                if is_generic_answer or len(enhanced_answer.strip()) < 50:
-                    logger.info(f"Detected generic AI answer, enhancing with retrieval data")
-                    
-                    # 構建基於檢索資料的回答
-                    enhanced_parts = [
-                        f"✅ **已找到相關的 OCR 存儲測試資料**\n"
-                    ]
-                    
-                    # 顯示所有找到的記錄而不限制數量
-                    for i, resource in enumerate(retriever_resources, 1):
-                        doc_metadata = resource.get('doc_metadata', {})
-                        enhanced_parts.append(f"**📊 測試記錄 {i}**")
-                        
-                        if doc_metadata.get('firmware_version'):
-                            enhanced_parts.append(f"• **固件版本**: {doc_metadata['firmware_version']}")
-                        if doc_metadata.get('benchmark_score'):
-                            enhanced_parts.append(f"• **基準分數**: {doc_metadata['benchmark_score']}")
-                        if doc_metadata.get('device_model'):
-                            enhanced_parts.append(f"• **裝置型號**: {doc_metadata['device_model']}")
-                        if doc_metadata.get('average_bandwidth'):
-                            enhanced_parts.append(f"• **平均帶寬**: {doc_metadata['average_bandwidth']}")
-                        if doc_metadata.get('test_datetime'):
-                            test_time = doc_metadata['test_datetime']
-                            enhanced_parts.append(f"• **測試時間**: {test_time}")
-                        if doc_metadata.get('ocr_confidence'):
-                            confidence = float(doc_metadata['ocr_confidence']) * 100
-                            enhanced_parts.append(f"• **OCR 信心度**: {confidence:.0f}%")
-                        if doc_metadata.get('project_name'):
-                            enhanced_parts.append(f"• **專案名稱**: {doc_metadata['project_name']}")
-                        
-                        enhanced_parts.append("")  # 空行分隔
-                    
-                    # 移除 "還有 X 筆記錄" 的提示，因為已顯示全部
-                    enhanced_parts.append(f"💡 **總計**: 找到 {len(retriever_resources)} 筆相關測試記錄")
-                    enhanced_parts.append("\n💡 **建議**: 這些是系統在知識庫中找到的相關測試資料，您可以詢問更具體的問題來獲得詳細分析。")
-                    
-                    # 替換原本的通用回答
-                    enhanced_answer = "\n".join(enhanced_parts)
-                    
-                    logger.info(f"Enhanced answer length: {len(enhanced_answer)} characters")
             
             return Response({
                 'success': True,
-                'answer': enhanced_answer,
+                'answer': answer,
                 'conversation_id': result.get('conversation_id', ''),
                 'message_id': result.get('message_id', ''),
                 'response_time': elapsed,
