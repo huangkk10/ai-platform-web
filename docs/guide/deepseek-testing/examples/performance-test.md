@@ -36,7 +36,7 @@ from datetime import datetime
 class ResponseTimeBenchmark:
     """回應時間基準測試"""
     
-    def __init__(self, host="10.10.172.5", username="svd", password="1234"):
+    def __init__(self, host="10.10.172.37", username="svd", password="1234"):
         self.host = host
         self.username = username
         self.password = password
@@ -357,7 +357,7 @@ class StressTestRunner:
         try:
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect("10.10.172.5", username="svd", password="1234", timeout=10)
+            ssh.connect("10.10.172.37", username="svd", password="1234", timeout=10)
             
             # 持續發送請求直到測試結束
             while time.time() < end_time and not self.stop_event.is_set():
@@ -645,7 +645,7 @@ class LongTermStabilityTest:
             connect_start = time.time()
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect("10.10.172.5", username="svd", password="1234", timeout=15)
+            ssh.connect("10.10.172.37", username="svd", password="1234", timeout=15)
             result["connection_time"] = time.time() - connect_start
             result["connection_test"] = True
             
@@ -901,7 +901,7 @@ class PerformanceMonitor:
             connect_start = time.time()
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect("10.10.172.5", username="svd", password="1234", timeout=10)
+            ssh.connect("10.10.172.37", username="svd", password="1234", timeout=10)
             metrics["connection_time"] = time.time() - connect_start
             metrics["connection_status"] = True
             

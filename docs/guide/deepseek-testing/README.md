@@ -89,7 +89,7 @@ python tests/test_ssh_communication/deepseek_ssh_test.py
 如遇到問題，請參考：
 1. [故障排除指南](troubleshooting.md)
 2. [配置說明](configuration.md)
-3. 檢查服務器狀態：`ssh user@10.10.172.5 "systemctl status ollama"`
+3. 檢查服務器狀態：`ssh user@10.10.172.37 "systemctl status ollama"`
 
 ---
 

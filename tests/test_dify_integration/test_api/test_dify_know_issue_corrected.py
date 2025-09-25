@@ -11,9 +11,9 @@ import time
 
 # Dify API 配置
 DIFY_CONFIG = {
-    'api_url': 'http://10.10.172.5/v1/chat-messages',
+    'api_url': 'http://10.10.172.37/v1/chat-messages',
     'api_key': 'app-Sql11xracJ71PtZThNJ4ZQQW',
-    'base_url': 'http://10.10.172.5'
+    'base_url': 'http://10.10.172.37'
 }
 
 def test_dify_chat_api():

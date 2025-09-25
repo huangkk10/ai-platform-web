@@ -16,13 +16,13 @@
 **診斷步驟**：
 ```bash
 # 1. 檢查網路連通性
-ping 10.10.172.5
+ping 10.10.172.37
 
 # 2. 檢查 SSH 服務是否運行
-nmap -p 22 10.10.172.5
+nmap -p 22 10.10.172.37
 
 # 3. 測試手動 SSH 連接
-ssh svd@10.10.172.5
+ssh svd@10.10.172.37
 
 # 4. 檢查防火牆設定
 sudo ufw status
@@ -43,10 +43,10 @@ sudo ufw status
 **診斷步驟**：
 ```bash
 # 手動測試認證
-ssh svd@10.10.172.5
+ssh svd@10.10.172.37
 
 # 檢查用戶是否存在
-ssh-keyscan 10.10.172.5
+ssh-keyscan 10.10.172.37
 ```
 
 **解決方案**：
@@ -64,7 +64,7 @@ ssh-keyscan 10.10.172.5
 ```python
 # 增加連接超時時間
 ssh.connect(
-    "10.10.172.5", 
+    "10.10.172.37", 
     username="svd", 
     password="1234", 
     timeout=30  # 從 10 增加到 30 秒
@@ -82,7 +82,7 @@ ssh.connect(
 **診斷步驟**：
 ```bash
 # SSH 登入後檢查 Ollama 狀態
-ssh svd@10.10.172.5
+ssh svd@10.10.172.37
 
 # 檢查服務狀態
 systemctl status ollama
@@ -184,7 +184,7 @@ import locale
 print(locale.getpreferredencoding())
 
 # 檢查 SSH 終端編碼
-ssh svd@10.10.172.5 "echo $LANG"
+ssh svd@10.10.172.37 "echo $LANG"
 ```
 
 **解決方案**：
@@ -214,13 +214,13 @@ command = f'echo {safe_question} | ollama run deepseek-r1:14b --'
 **診斷步驟**：
 ```bash
 # 檢查服務器負載
-ssh svd@10.10.172.5 "top -bn1 | head -10"
+ssh svd@10.10.172.37 "top -bn1 | head -10"
 
 # 檢查記憶體使用
-ssh svd@10.10.172.5 "free -h"
+ssh svd@10.10.172.37 "free -h"
 
 # 檢查 GPU 使用 (如果有)
-ssh svd@10.10.172.5 "nvidia-smi"
+ssh svd@10.10.172.37 "nvidia-smi"
 ```
 
 **解決方案**：
@@ -252,7 +252,7 @@ def network_test():
     """網路連通性測試"""
     print("🌐 網路連通性測試")
     try:
-        result = subprocess.run(['ping', '-c', '3', '10.10.172.5'], 
+        result = subprocess.run(['ping', '-c', '3', '10.10.172.37'], 
                               capture_output=True, text=True, timeout=10)
         if result.returncode == 0:
             print("✅ 網路連通正常")
@@ -272,7 +272,7 @@ def ssh_test():
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         
         start_time = time.time()
-        ssh.connect("10.10.172.5", username="svd", password="1234", timeout=10)
+        ssh.connect("10.10.172.37", username="svd", password="1234", timeout=10)
         connect_time = time.time() - start_time
         
         print(f"✅ SSH 連接成功 (耗時: {connect_time:.2f}s)")
@@ -295,7 +295,7 @@ def ollama_test():
     try:
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect("10.10.172.5", username="svd", password="1234", timeout=10)
+        ssh.connect("10.10.172.37", username="svd", password="1234", timeout=10)
         
         # 檢查 Ollama 是否可用
         stdin, stdout, stderr = ssh.exec_command("which ollama")
@@ -387,7 +387,7 @@ def performance_monitor(duration_minutes=10):
             
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect("10.10.172.5", username="svd", password="1234", timeout=10)
+            ssh.connect("10.10.172.37", username="svd", password="1234", timeout=10)
             
             # 執行簡單測試
             stdin, stdout, stderr = ssh.exec_command('echo "Hello" | ollama run deepseek-r1:14b --', timeout=30)

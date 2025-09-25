@@ -15,7 +15,7 @@
 ### 系統需求
 - Python 3.10+
 - 虛擬環境 (venv)
-- 網路連接到 10.10.172.5
+- 網路連接到 10.10.172.37
 
 ### 依賴套件
 ```bash
@@ -30,11 +30,11 @@ pip install paramiko>=4.0.0
 ```python
 ssh = paramiko.SSHClient()
 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-ssh.connect("10.10.172.5", username="svd", password="1234", timeout=10)
+ssh.connect("10.10.172.37", username="svd", password="1234", timeout=10)
 ```
 
 **重要參數說明**：
-- `host`: 10.10.172.5 (DeepSeek AI 服務器)
+- `host`: 10.10.172.37 (DeepSeek AI 服務器)
 - `username`: svd (服務器用戶名)
 - `password`: 1234 (連接密碼)
 - `timeout`: 10秒 (連接超時時間)
@@ -155,7 +155,7 @@ questions = [
 ```python
 # SSH 連接參數
 ssh.connect(
-    "10.10.172.5", 
+    "10.10.172.37", 
     username="svd", 
     password="1234", 
     timeout=20  # 增加超時時間
@@ -198,7 +198,7 @@ def check_connection_health():
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         
         start_time = time.time()
-        ssh.connect("10.10.172.5", username="svd", password="1234", timeout=10)
+        ssh.connect("10.10.172.37", username="svd", password="1234", timeout=10)
         connect_time = time.time() - start_time
         
         print(f"✅ 連接建立時間: {connect_time:.2f}s")
@@ -261,7 +261,7 @@ def batch_test(test_count=5):
 # 使用環境變數管理敏感資訊
 import os
 
-HOST = os.getenv('DEEPSEEK_HOST', '10.10.172.5')
+HOST = os.getenv('DEEPSEEK_HOST', '10.10.172.37')
 USERNAME = os.getenv('DEEPSEEK_USER', 'svd')
 PASSWORD = os.getenv('DEEPSEEK_PASS', '1234')
 

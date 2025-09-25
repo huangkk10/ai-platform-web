@@ -8,12 +8,42 @@ Dify 知識庫檢查腳本
 import requests
 import json
 import time
+import sys
+import os
+from pathlib import Path
 
-# Dify API 配置
-DIFY_CONFIG = {
-    'dataset_api_key': 'dataset-JLa32OwILQHkgPqYStTCW4sC',
-    'base_url': 'http://10.10.172.5'
-}
+# 添加專案根目錄到 Python 路徑
+project_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(project_root))
+
+try:
+    from config.config_loader import get_ai_pc_ip
+    from tests.test_config import get_rvt_guide_test_config
+    CONFIG_AVAILABLE = True
+    print("✅ 配置系統載入成功")
+except ImportError as e:
+    CONFIG_AVAILABLE = False
+    print(f"⚠️  配置系統載入失敗: {e}")
+
+# 使用新的配置系統
+if CONFIG_AVAILABLE:
+    ai_pc_ip = get_ai_pc_ip()
+    DIFY_CONFIG = {
+        'dataset_api_key': 'dataset-JLa32OwILQHkgPqYStTCW4sC',
+        'base_url': f'http://{ai_pc_ip}'
+    }
+    RVT_CONFIG = get_rvt_guide_test_config()
+else:
+    # 備用配置
+    DIFY_CONFIG = {
+        'dataset_api_key': 'dataset-JLa32OwILQHkgPqYStTCW4sC',
+        'base_url': 'http://10.10.172.37'
+    }
+    RVT_CONFIG = {
+        'api_url': 'http://10.10.172.37/v1/chat-messages',
+        'api_key': 'app-Lp4mlfIWHqMWPHTlzF9ywT4F',
+        'base_url': 'http://10.10.172.37'
+    }
 
 # 從上次測試得到的資料集 ID
 TARGET_DATASET_ID = 'cb1eeadb-880a-4c54-aafc-0777487b5238'

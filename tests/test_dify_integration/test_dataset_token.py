@@ -16,12 +16,12 @@ from typing import List, Dict, Any, Optional
 # Dify API 配置
 DIFY_CONFIG = {
     # 聊天應用 API (用於查詢)
-    'chat_api_url': 'http://10.10.172.5/v1/chat-messages',
+    'chat_api_url': 'http://10.10.172.37/v1/chat-messages',
     'chat_api_key': 'app-R5nTTZw6jSQX75sDvyUMxLgo',
     
     # 知識庫 API (用於管理資料集)
     'dataset_api_key': 'dataset-JLa32OwILQHkgPqYStTCW4sC',
-    'base_url': 'http://10.10.172.5'
+    'base_url': 'http://10.10.172.37'
 }
 
 class DifyFullKnowledgeBaseTester:

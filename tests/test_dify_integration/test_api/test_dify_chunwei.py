@@ -12,11 +12,11 @@ import time
 
 # Dify API 配置
 DIFY_CONFIG = {
-    'api_url': 'http://10.10.172.5/v1/chat-messages',
-    'dataset_api_url': 'http://10.10.172.5/v1/datasets/j89ytSyDedYS4sDly2Jnqz0a/retrieve',
+    'api_url': 'http://10.10.172.37/v1/chat-messages',
+    'dataset_api_url': 'http://10.10.172.37/v1/datasets/j89ytSyDedYS4sDly2Jnqz0a/retrieve',
     'api_key': 'app-Sql11xracJ71PtZThNJ4ZQQW',
     'dataset_key': 'dataset-j89ytSyDedYS4sDly2Jnqz0a',
-    'base_url': 'http://10.10.172.5'
+    'base_url': 'http://10.10.172.37'
 }
 
 def test_dify_dataset_api():
@@ -449,7 +449,7 @@ def compare_with_deepseek():
         
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect('10.10.172.5', username='svd', password='1234', timeout=10)
+        ssh.connect('10.10.172.37', username='svd', password='1234', timeout=10)
         
         escaped_prompt = test_question.replace('"', '\\"')
         command = f'echo "{escaped_prompt}" | ollama run deepseek-r1:14b'

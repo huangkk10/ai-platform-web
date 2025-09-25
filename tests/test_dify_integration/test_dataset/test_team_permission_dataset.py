@@ -10,7 +10,7 @@ import time
 
 # Dify API 配置
 DIFY_CONFIG = {
-    'base_url': 'http://10.10.172.5',
+    'base_url': 'http://10.10.172.37',
     'dataset_api_key': 'dataset-JLa32OwILQHkgPqYStTCW4sC'
 }
 
@@ -166,7 +166,7 @@ def main():
             
             if upload_success:
                 print(f"\n🎯 測試建議:")
-                print(f"1. 🌐 直接訪問: http://10.10.172.5/datasets/{team_dataset['id']}")
+                print(f"1. 🌐 直接訪問: http://10.10.172.37/datasets/{team_dataset['id']}")
                 print(f"2. 🔍 在 UI 搜尋: {team_dataset['name']}")
                 print(f"3. 👥 確認權限設定為 'all_team_members'，應該在 UI 可見")
     

@@ -492,7 +492,7 @@ from library.config.dify_app_configs import get_protocol_known_issue_config
 config = get_protocol_known_issue_config()
 
 # 配置包含：
-# - api_url: 'http://10.10.172.5/v1/chat-messages'
+# - api_url: 'http://10.10.172.37/v1/chat-messages'
 # - api_key: 'app-Sql11xracJ71PtZThNJ4ZQQW'
 # - app_name: 'Protocol Known Issue System'
 # - workspace: 'Protocol_known_issue_system'

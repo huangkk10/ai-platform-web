@@ -59,7 +59,7 @@ def english_request_chinese_response():
     try:
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect("10.10.172.5", username="svd", password="1234", timeout=10)
+        ssh.connect("10.10.172.37", username="svd", password="1234", timeout=10)
         print("✅ SSH 連接成功")
         
         results = []
@@ -214,7 +214,7 @@ def direct_chinese_questions():
     try:
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect("10.10.172.5", username="svd", password="1234", timeout=10)
+        ssh.connect("10.10.172.37", username="svd", password="1234", timeout=10)
         print("✅ SSH 連接成功")
         
         results = []
@@ -593,7 +593,7 @@ def test_chinese_ssh_client():
     print("🌏 中文 SSH 客戶端測試")
     print("=" * 50)
     
-    client = ChineseSSHClient("10.10.172.5", "svd", "1234")
+    client = ChineseSSHClient("10.10.172.37", "svd", "1234")
     
     if not client.connect():
         print("❌ 無法連接到服務器")

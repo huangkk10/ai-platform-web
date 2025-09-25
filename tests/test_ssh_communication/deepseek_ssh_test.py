@@ -17,7 +17,7 @@ def simple_english_test():
         # SSH 連接
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect("10.10.172.5", username="svd", password="1234", timeout=10)
+        ssh.connect("10.10.172.37", username="svd", password="1234", timeout=10)
         print("✅ SSH 連接成功")
         
         # 英文問題測試
@@ -68,7 +68,7 @@ def test_chinese_with_different_methods():
     try:
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect("10.10.172.5", username="svd", password="1234", timeout=10)
+        ssh.connect("10.10.172.37", username="svd", password="1234", timeout=10)
         
         # 方法1: 請求英文回應中文問題
         print("\n📋 方法1: 用英文描述中文問題")

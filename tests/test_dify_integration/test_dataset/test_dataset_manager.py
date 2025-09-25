@@ -28,7 +28,7 @@ from dify_integration.client import DifyClient
 
 # 真實 API 配置
 REAL_API_CONFIG = {
-    'base_url': 'http://10.10.172.5',
+    'base_url': 'http://10.10.172.37',
     'dataset_api_key': 'dataset-JLa32OwILQHkgPqYStTCW4sC'
 }
 

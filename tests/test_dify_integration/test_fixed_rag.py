@@ -16,9 +16,9 @@ from typing import List, Dict, Any, Tuple, Optional
 
 # Dify API 配置
 DIFY_CONFIG = {
-    'api_url': 'http://10.10.172.5/v1/chat-messages',
+    'api_url': 'http://10.10.172.37/v1/chat-messages',
     'api_key': 'app-R5nTTZw6jSQX75sDvyUMxLgo',
-    'base_url': 'http://10.10.172.5'
+    'base_url': 'http://10.10.172.37'
 }
 
 class FixedRAGTester:

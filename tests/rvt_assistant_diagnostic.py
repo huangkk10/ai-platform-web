@@ -34,7 +34,7 @@ class RVTAssistantDiagnostic:
             self.config = get_rvt_guide_test_config()
             self.ai_pc_ip = get_ai_pc_ip()
         else:
-            self.ai_pc_ip = "10.10.172.5"
+            self.ai_pc_ip = "10.10.172.37"
             self.config = {
                 'api_url': f'http://{self.ai_pc_ip}/v1/chat-messages',
                 'api_key': 'app-Lp4mlfIWHqMWPHTlzF9ywT4F',

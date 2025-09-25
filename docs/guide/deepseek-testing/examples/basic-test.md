@@ -18,7 +18,7 @@ def single_question_test(question="Hello, how are you?"):
         # 建立 SSH 連接
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect("10.10.172.5", username="svd", password="1234", timeout=10)
+        ssh.connect("10.10.172.37", username="svd", password="1234", timeout=10)
         
         # 執行命令
         command = f'echo "{question}" | ollama run deepseek-r1:14b --'
@@ -63,7 +63,7 @@ def quick_connection_test():
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         
         start_time = time.time()
-        ssh.connect("10.10.172.5", username="svd", password="1234", timeout=5)
+        ssh.connect("10.10.172.37", username="svd", password="1234", timeout=5)
         connect_time = time.time() - start_time
         
         print(f"✅ 連接成功，耗時: {connect_time:.2f}s")
@@ -111,7 +111,7 @@ def multi_question_test():
         # 建立持久連接
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect("10.10.172.5", username="svd", password="1234", timeout=10)
+        ssh.connect("10.10.172.37", username="svd", password="1234", timeout=10)
         print("✅ SSH 連接建立")
         
         for i, question in enumerate(questions, 1):
@@ -222,7 +222,7 @@ def concurrent_test(max_workers=3):
             # 每個執行緒建立自己的 SSH 連接
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect("10.10.172.5", username="svd", password="1234", timeout=10)
+            ssh.connect("10.10.172.37", username="svd", password="1234", timeout=10)
             
             command = f'echo "{question}" | ollama run deepseek-r1:14b --'
             start_time = time.time()
@@ -331,7 +331,7 @@ def response_time_test(test_question="Hello", iterations=10):
     try:
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect("10.10.172.5", username="svd", password="1234", timeout=10)
+        ssh.connect("10.10.172.37", username="svd", password="1234", timeout=10)
         print("✅ SSH 連接建立")
         
         for i in range(iterations):
@@ -427,7 +427,7 @@ def stability_test(duration_minutes=10):
     try:
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect("10.10.172.5", username="svd", password="1234", timeout=10)
+        ssh.connect("10.10.172.37", username="svd", password="1234", timeout=10)
         print("✅ SSH 連接建立")
         
         while time.time() < end_time:

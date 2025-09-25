@@ -19,7 +19,7 @@ try:
 except ImportError:
     CONFIG_AVAILABLE = False
     def get_ai_pc_ip_with_env():
-        return os.getenv('AI_PC_IP', '10.10.172.5')
+        return os.getenv('AI_PC_IP', '10.10.172.37')
 
 
 def get_dify_test_config():

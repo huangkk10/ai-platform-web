@@ -14,7 +14,7 @@ import os
 # Dify API 配置
 DIFY_CONFIG = {
     'dataset_api_key': 'dataset-JLa32OwILQHkgPqYStTCW4sC',  # 知識庫 API Token
-    'base_url': 'http://10.10.172.5'
+    'base_url': 'http://10.10.172.37'
 }
 
 class DifyUploadTesterV2:

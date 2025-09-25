@@ -25,12 +25,12 @@ except ImportError as e:
     print(f"⚠️  配置系統載入失敗: {e}")
     print("⚠️  使用備用配置")
     def get_ai_pc_ip():
-        return "10.10.172.5"
+        return "10.10.172.37"
     def get_dify_test_config():
         return {
-            'api_url': 'http://10.10.172.5/v1/chat-messages',
+            'api_url': 'http://10.10.172.37/v1/chat-messages',
             'api_key': 'app-Sql11xracJ71PtZThNJ4ZQQW',
-            'base_url': 'http://10.10.172.5'
+            'base_url': 'http://10.10.172.37'
         }
 
 

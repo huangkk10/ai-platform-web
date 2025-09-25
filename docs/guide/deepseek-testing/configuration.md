@@ -8,7 +8,7 @@
 ```python
 # 連接參數
 SSH_CONFIG = {
-    "host": "10.10.172.5",       # DeepSeek AI 服務器 IP
+    "host": "10.10.172.37",       # DeepSeek AI 服務器 IP
     "username": "svd",           # SSH 用戶名
     "password": "1234",          # SSH 密碼
     "port": 22,                  # SSH 端口 (預設)
@@ -83,7 +83,7 @@ CHINESE_TESTS = {
 
 ```bash
 # .env 檔案 (不要提交到版本控制)
-DEEPSEEK_HOST=10.10.172.5
+DEEPSEEK_HOST=10.10.172.37
 DEEPSEEK_USER=svd
 DEEPSEEK_PASS=1234
 DEEPSEEK_MODEL=deepseek-r1:14b
@@ -97,7 +97,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 SSH_CONFIG = {
-    "host": os.getenv('DEEPSEEK_HOST', '10.10.172.5'),
+    "host": os.getenv('DEEPSEEK_HOST', '10.10.172.37'),
     "username": os.getenv('DEEPSEEK_USER', 'svd'),
     "password": os.getenv('DEEPSEEK_PASS', '1234'),
     "timeout": int(os.getenv('SSH_TIMEOUT', '10'))
@@ -117,7 +117,7 @@ def ssh_key_connect():
     private_key = paramiko.RSAKey.from_private_key_file('/path/to/private_key')
     
     ssh.connect(
-        hostname="10.10.172.5",
+        hostname="10.10.172.37",
         username="svd",
         pkey=private_key,
         timeout=10
@@ -347,7 +347,7 @@ from typing import List, Dict, Any
 
 @dataclass
 class SSHConfig:
-    host: str = "10.10.172.5"
+    host: str = "10.10.172.37"
     username: str = "svd"
     password: str = "1234"
     port: int = 22
@@ -378,7 +378,7 @@ class DeepSeekTestConfig:
     def from_env(cls):
         """從環境變數載入配置"""
         ssh_config = SSHConfig(
-            host=os.getenv('DEEPSEEK_HOST', '10.10.172.5'),
+            host=os.getenv('DEEPSEEK_HOST', '10.10.172.37'),
             username=os.getenv('DEEPSEEK_USER', 'svd'),
             password=os.getenv('DEEPSEEK_PASS', '1234'),
             timeout=int(os.getenv('SSH_TIMEOUT', '10'))

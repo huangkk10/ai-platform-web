@@ -33,10 +33,10 @@ except ImportError:
 
 # Dify API 配置
 DIFY_CONFIG = {
-    'api_url': 'http://10.10.172.5/v1/chat-messages',
+    'api_url': 'http://10.10.172.37/v1/chat-messages',
     'api_key': 'app-R5nTTZw6jSQX75sDvyUMxLgo',  # 應用 API Token
     'dataset_api_key': 'dataset-JLa32OwILQHkgPqYStTCW4sC',  # 知識庫 API Token
-    'base_url': 'http://10.10.172.5'
+    'base_url': 'http://10.10.172.37'
 }
 
 # 向量化配置
