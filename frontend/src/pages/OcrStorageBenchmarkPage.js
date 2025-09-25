@@ -97,7 +97,7 @@ const OcrStorageBenchmarkPage = () => {
             value={score} 
             valueStyle={{ 
               fontSize: '16px', 
-              color: score >= 6000 ? '#52c41a' : score >= 4000 ? '#faad14' : '#f5222d'
+              color: '#000000'
             }}
           />
         </div>
@@ -789,7 +789,7 @@ const OcrStorageBenchmarkPage = () => {
                 <Col span={12}>
                   <div style={{ marginBottom: '8px' }}>
                     <strong>📈 Storage Benchmark Score：</strong>
-                    <Tag color="green" style={{ marginLeft: '8px', fontSize: '16px', padding: '4px 8px' }}>
+                    <Tag style={{ marginLeft: '8px', fontSize: '16px', padding: '4px 8px', color: '#000000', backgroundColor: '#f5f5f5', border: '1px solid #d9d9d9' }}>
                       {previewRecord.benchmark_score}
                     </Tag>
                   </div>
