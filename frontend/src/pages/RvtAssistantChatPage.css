@@ -243,61 +243,200 @@
   color: rgba(255, 255, 255, 0.9);
 }
 
-/* 列表樣式 */
-.message-text ul, .message-text ol {
-  margin: 8px 0;
-  padding-left: 20px;
-}
-
-.message-text li {
-  margin-bottom: 4px;
-  line-height: 1.5;
+/* markdown-it 生成的 HTML 樣式 - 統一樣式 */
+.message-text .markdown-content {
+  font-family: 'Microsoft JhengHei', '微軟正黑體', 'Microsoft YaHei', '微软雅黑',
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+  line-height: 1.6;
 }
 
 /* 標題樣式 */
-.message-text h1, .message-text h2, .message-text h3, 
-.message-text h4, .message-text h5, .message-text h6 {
-  color: #333;
-  margin: 12px 0 8px 0;
-  font-weight: 600;
+.message-text .markdown-content h1 {
+  color: #1890ff !important;
+  font-size: 20px !important;
+  font-weight: 600 !important;
+  margin: 16px 0 12px 0 !important;
+  border-bottom: 2px solid #1890ff !important;
+  padding-bottom: 4px !important;
 }
 
-.message-card.user .message-text h1,
-.message-card.user .message-text h2,
-.message-card.user .message-text h3,
-.message-card.user .message-text h4,
-.message-card.user .message-text h5,
-.message-card.user .message-text h6 {
+.message-text .markdown-content h2 {
+  color: #1890ff !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  margin: 12px 0 8px 0 !important;
+}
+
+.message-text .markdown-content h3 {
+  color: #1890ff !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  margin: 10px 0 6px 0 !important;
+  border-left: 4px solid #1890ff !important;
+  padding-left: 12px !important;
+}
+
+.message-text .markdown-content h4 {
+  color: #333 !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  margin: 8px 0 4px 0 !important;
+}
+
+.message-text .markdown-content h5 {
+  color: #333 !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  margin: 6px 0 3px 0 !important;
+}
+
+.message-text .markdown-content h6 {
+  color: #666 !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  margin: 4px 0 2px 0 !important;
+}
+
+/* 列表樣式 - 終極解決方案 */
+.message-text .markdown-content ul,
+.message-text .markdown-content ol {
+  margin: 4px 0 !important;
+  padding-left: 20px !important;
+  list-style-position: outside !important;
+}
+
+.message-text .markdown-content ul {
+  list-style-type: disc !important;
+}
+
+.message-text .markdown-content ol {
+  list-style-type: decimal !important;
+}
+
+.message-text .markdown-content li {
+  margin-bottom: 2px !important;
+  line-height: 1.4 !important;
+  padding-left: 2px !important;
+}
+
+/* 修正可能的格式問題 */
+.message-text .markdown-content li p {
+  margin: 0 !important;
+  display: inline !important;
+}
+
+.message-text .markdown-content li > p:only-child {
+  display: inline !important;
+  margin: 0 !important;
+}
+
+/* 嵌套列表 - 修正對齊問題 */
+.message-text .markdown-content li ul,
+.message-text .markdown-content li ol {
+  margin: 2px 0 !important;
+  padding-left: 16px !important;
+}
+
+/* 特別處理嵌套列表項目 */
+.message-text .markdown-content li li {
+  margin-bottom: 2px !important;
+  line-height: 1.4 !important;
+  padding-left: 0px !important;
+}
+
+/* 表格樣式 */
+.message-text .markdown-content table {
+  width: 100% !important;
+  margin: 12px 0 !important;
+  border-collapse: collapse !important;
+  border: 1px solid #e8e8e8 !important;
+  border-radius: 6px !important;
+  overflow: hidden !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+}
+
+.message-text .markdown-content thead {
+  background-color: #1890ff !important;
   color: white !important;
 }
 
-/* 分隔線樣式 */
-.message-text hr {
-  border: none;
-  border-top: 1px solid rgba(0, 0, 0, 0.1);
-  margin: 12px 0;
+.message-text .markdown-content th {
+  padding: 10px 8px !important;
+  text-align: center !important;
+  font-weight: bold !important;
+  font-size: 13px !important;
+  color: white !important;
 }
 
-.message-card.user .message-text hr {
-  border-top-color: rgba(255, 255, 255, 0.3);
+.message-text .markdown-content td {
+  padding: 8px !important;
+  border-bottom: 1px solid #f0f0f0 !important;
+  font-size: 12px !important;
+  vertical-align: top !important;
 }
 
-/* 動畫效果 */
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* 代碼樣式 */
+.message-text .markdown-content pre {
+  background-color: #f6f8fa !important;
+  border: 1px solid #e1e4e8 !important;
+  border-radius: 6px !important;
+  padding: 12px !important;
+  margin: 8px 0 !important;
+  overflow: auto !important;
+  font-family: 'Monaco', 'Consolas', 'Courier New', monospace !important;
+  font-size: 13px !important;
 }
 
-/* Loading 動畫 */
-.message-card .ant-spin {
-  display: inline-flex;
-  align-items: center;
+.message-text .markdown-content code {
+  background-color: #f6f8fa !important;
+  border: 1px solid #e1e4e8 !important;
+  border-radius: 3px !important;
+  padding: 2px 4px !important;
+  font-size: 12px !important;
+  font-family: 'Monaco', 'Consolas', 'Courier New', monospace !important;
+}
+
+.message-text .markdown-content pre code {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+/* 引用樣式 */
+.message-text .markdown-content blockquote {
+  border-left: 4px solid #d9d9d9 !important;
+  margin: 8px 0 !important;
+  padding: 8px 12px !important;
+  background-color: #f8f9ff !important;
+  border-radius: 0 4px 4px 0 !important;
+  font-style: italic !important;
+  color: #666 !important;
+}
+
+/* 段落樣式 */
+.message-text .markdown-content p {
+  margin-bottom: 8px !important;
+  line-height: 1.6 !important;
+}
+
+/* 修正特殊段落間距問題 - 當段落後緊跟列表時減少間距 */
+.message-text .markdown-content p + ul,
+.message-text .markdown-content p + ol {
+  margin-top: -4px !important;
+}
+
+/* 修正包含粗體文字的標題式段落間距 */
+.message-text .markdown-content p strong:only-child {
+  display: block;
+  margin-bottom: -4px !important;
+}
+
+/* 分隔線 */
+.message-text .markdown-content hr {
+  margin: 16px 0 !important;
+  border: none !important;
+  border-top: 1px solid #e8e8e8 !important;
 }
 
 /* 響應式設計 */

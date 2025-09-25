@@ -1,8 +1,10 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Layout, Input, Button, Card, Avatar, message, Spin, Typography, Tag, Table } from 'antd';
 import { SendOutlined, UserOutlined, RobotOutlined, InfoCircleOutlined, ToolOutlined } from '@ant-design/icons';
 import { useChatContext } from '../contexts/ChatContext';
 import { recordChatUsage, CHAT_TYPES } from '../utils/chatUsage';
+import MarkdownIt from 'markdown-it';
+import DOMPurify from 'dompurify';
 import './RvtAssistantChatPage.css';
 
 const { Content } = Layout;
@@ -98,6 +100,17 @@ const clearStoredChat = () => {
 const RvtAssistantChatPage = ({ collapsed = false }) => {
   const { registerClearFunction, clearClearFunction } = useChatContext();
   
+  // 初始化 Markdown 解析器
+  const md = useMemo(() => {
+    return new MarkdownIt({
+      html: false,        // 禁用 HTML 標籤
+      xhtmlOut: true,     // 使用 XHTML 格式
+      breaks: true,       // 將換行轉為 <br>
+      linkify: true,      // 自動轉換 URL 為鏈接
+      typographer: true   // 啟用智能標點符號替換
+    });
+  }, []);
+  
   // 動態載入提示組件
   const LoadingIndicator = () => {
     const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -140,7 +153,7 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
       {
         id: 1,
         type: 'assistant',
-        content: '🛠️ 歡迎使用 RVT Assistant！\n\n我是你的 RVT 測試專家助手，可以協助你解決 RVT 相關的問題。\n\n**我可以幫助你：**\n- RVT 測試流程指導\n- 故障排除和問題診斷\n- Jenkins 和 Ansible 配置建議\n- 最佳實踐建議\n- RVT 工具使用方法\n\n**提問建議：**\n• 具體描述你遇到的問題\n• 提供錯誤訊息或日誌片段\n• 說明你的環境配置\n\n現在就開始吧！有什麼 RVT 相關的問題需要協助嗎？',
+        content: '🛠️ 歡迎使用 RVT Assistant！\n\n我是你的 RVT 測試專家助手，可以協助你解決 RVT 相關的問題。\n\n**我可以幫助你：**\n- RVT 測試流程指導\n- 故障排除和問題診斷\n- Jenkins 和 Ansible 配置建議\n- 最佳實踐建議\n- RVT 工具使用方法\n**提問建議：**\n• 具體描述你遇到的問題\n• 提供錯誤訊息或日誌片段\n•\n現在就開始吧！有什麼 RVT 相關的問題需要協助嗎？',
         timestamp: new Date()
       }
     ];
@@ -371,7 +384,7 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
     const defaultMessage = {
       id: 1,
       type: 'assistant',
-      content: '🛠️ 歡迎使用 RVT Assistant！\n\n我是你的 RVT 測試專家助手，可以協助你解決 RVT 相關的問題。\n\n**我可以幫助你：**\n- RVT 測試流程指導\n- 故障排除和問題診斷\n- Jenkins 和 Ansible 配置建議\n- 最佳實踐建議\n- RVT 工具使用方法\n\n**提問建議：**\n• 具體描述你遇到的問題\n• 提供錯誤訊息或日誌片段\n• 說明你的環境配置\n\n現在就開始吧！有什麼 RVT 相關的問題需要協助嗎？',
+      content: '🛠️ 歡迎使用 RVT Assistant！\n\n我是你的 RVT 測試專家助手，可以協助你解決 RVT 相關的問題。\n\n**我可以幫助你：**\n- RVT 測試流程指導\n- 故障排除和問題診斷\n- Jenkins 和 Ansible 配置建議\n- 最佳實踐建議\n- RVT 工具使用方法\n\n**提問建議：**\n• 具體描述你遇到的問題\n• 提供錯誤訊息或日誌片段\n現在就開始吧！有什麼 RVT 相關的問題需要協助嗎？',
       timestamp: new Date()
     };
     
@@ -391,442 +404,36 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
   }, [registerClearFunction, clearClearFunction, clearChat]);
 
   const formatMessage = (content) => {
-    // 改進的 Markdown 格式化函數，優化了間距和顯示，支援 YAML 和配置格式
-    const lines = content.split('\n');
-    const result = [];
-    let i = 0;
+    // 使用 markdown-it + DOMPurify 專業 Markdown 渲染器
     
-    // 輔助函數：檢查是否為 YAML 或配置行
-    const isConfigLine = (line) => {
-      const trimmed = line.trim();
-      if (!trimmed) return false;
-      
-      // YAML 格式檢查
-      const yamlPatterns = [
-        /^\s*-\s+\w+:/,                    // - key:
-        /^\s*\w+\s*:/,                     // key:
-        /^\s*-\s+name:/,                   // - name:
-        /^\s*-\s+win_\w+:/,               // - win_command:, win_shell:
-        /^\s*state:/,                      // state:
-        /^\s*when:/,                       // when:
-        /^\s*enable:/,                     // enable:
-        /^\s*direction:/,                  // direction:
-        /^\s*protocol:/,                   // protocol:
-        /^\s*localport:/,                  // localport:
-        /^\s*action:/,                     // action:
-      ];
-      
-      return yamlPatterns.some(pattern => pattern.test(trimmed));
-    };
-
-    // 輔助函數：檢查是否為 Windows 路徑或命令
-    const isWindowsPathOrCommand = (text) => {
-      return /^[A-Z]:\\/.test(text) ||                    // C:\path
-             /^"[A-Z]:\\/.test(text) ||                   // "C:\path"
-             /^win_\w+:/.test(text) ||                    // win_command:, win_shell:
-             /\.exe\b/.test(text) ||                      // .exe files
-             /\/[A-Z]+\b/.test(text);                     // /SETPASSWORD, etc.
-    };
+    // Debug: 打印原始內容以查看格式問題
+    console.log('Original markdown content:', JSON.stringify(content));
     
-    // 輔助函數：處理行內格式（粗體、斜體、代碼等）
-    const formatInlineText = (text, keyPrefix = '') => {
-      if (!text || typeof text !== 'string') {
-        return text || '\u00A0';
-      }
-      
-      // 檢查整行是否為特殊格式
-      const trimmed = text.trim();
-      
-      // Windows 路徑或命令 - 整行代碼格式
-      if (isWindowsPathOrCommand(trimmed)) {
-        return <Text key={keyPrefix} code style={{ wordBreak: 'break-all' }}>{text}</Text>;
-      }
-      
-      // YAML 配置行 - 保持縮排的代碼格式
-      if (isConfigLine(text)) {
-        return <Text key={keyPrefix} code style={{ fontFamily: 'Monaco, Consolas, "Courier New", monospace' }}>{text}</Text>;
-      }
-      
-      // 將行內格式拆分為 token
-      const tokens = [];
-      let currentPos = 0;
-      
-      // 正則表達式匹配各種行內格式 - 擴展支援更多格式
-      const patterns = [
-        { regex: /(\*\*[^*]+\*\*)/g, type: 'bold' },
-        { regex: /(`[^`]+`)/g, type: 'code' },
-        { regex: /(\*[^*]+\*)/g, type: 'italic' },
-        { regex: /(win_\w+)/g, type: 'code' },              // win_command, win_shell
-        { regex: /([A-Z]:\\[^\s]+)/g, type: 'code' },       // Windows paths
-        { regex: /(\w+\.exe)/g, type: 'code' },             // .exe files
-      ];
-      
-      // 找出所有匹配的格式
-      const matches = [];
-      patterns.forEach(pattern => {
-        let match;
-        const regex = new RegExp(pattern.regex.source, 'g');
-        while ((match = regex.exec(text)) !== null) {
-          matches.push({
-            start: match.index,
-            end: match.index + match[0].length,
-            text: match[0],
-            type: pattern.type
-          });
-        }
-      });
-      
-      // 按位置排序
-      matches.sort((a, b) => a.start - b.start);
-      
-      // 生成 tokens
-      let pos = 0;
-      matches.forEach((match, index) => {
-        // 添加前面的普通文字
-        if (pos < match.start) {
-          const plainText = text.slice(pos, match.start);
-          if (plainText) {
-            tokens.push({ type: 'text', content: plainText });
-          }
-        }
-        
-        // 添加格式化文字
-        tokens.push({
-          type: match.type,
-          content: match.text
-        });
-        
-        pos = match.end;
-      });
-      
-      // 添加剩餘的普通文字
-      if (pos < text.length) {
-        const remainingText = text.slice(pos);
-        if (remainingText) {
-          tokens.push({ type: 'text', content: remainingText });
-        }
-      }
-      
-      // 如果沒有找到任何格式，直接返回文字
-      if (tokens.length === 0) {
-        tokens.push({ type: 'text', content: text });
-      }
-      
-      // 將 tokens 轉換為 React 元素
-      return tokens.map((token, tokenIndex) => {
-        const key = `${keyPrefix}-${tokenIndex}`;
-        switch (token.type) {
-          case 'bold':
-            return <Text key={key} strong>{token.content.slice(2, -2)}</Text>;
-          case 'code':
-            return <Text key={key} code>{token.content.slice(1, -1)}</Text>;
-          case 'italic':
-            return <Text key={key} italic>{token.content.slice(1, -1)}</Text>;
-          default:
-            return token.content;
-        }
-      });
-    };
+    // 預處理：統一列表格式
+    let processedContent = content
+      // 統一無序列表標記為 -
+      .replace(/^\s*[*•]\s+/gm, '- ')
+      // 統一有序列表格式
+      .replace(/^\s*(\d+)\.\s+/gm, '$1. ')
+      // 清理多餘空行
+      .replace(/\n\s*\n\s*\n/g, '\n\n')
+      // 確保列表項目前後有合適的空行
+      .replace(/(\n- .*?)(?=\n[^-\s])/g, '$1\n')
+      .replace(/(\n\d+\. .*?)(?=\n[^0-9\s])/g, '$1\n');
     
-    while (i < lines.length) {
-      const line = lines[i];
-      const trimmed = line.trim();
-      let processed = false;
-      
-      // 檢查是否為 YAML 代碼塊或多行配置開始
-      if ((trimmed.includes('yaml') || trimmed === '```' || trimmed.startsWith('```')) && 
-          (i + 1 < lines.length)) {
-        // 尋找代碼塊結束
-        let j = i + 1;
-        const codeLines = [];
-        let foundEnd = false;
-        
-        // 如果開始行包含 ```，尋找對應的結束 ```
-        if (trimmed.startsWith('```')) {
-          while (j < lines.length) {
-            if (lines[j].trim() === '```') {
-              foundEnd = true;
-              break;
-            }
-            codeLines.push(lines[j]);
-            j++;
-          }
-        } else {
-          // 檢查後續行是否為 YAML 配置格式
-          while (j < lines.length && j < i + 20) { // 最多檢查 20 行
-            const nextLine = lines[j];
-            if (!nextLine.trim()) {
-              j++;
-              continue;
-            }
-            if (isConfigLine(nextLine) || nextLine.trim().startsWith('-') || nextLine.match(/^\s+\w/)) {
-              codeLines.push(nextLine);
-              j++;
-            } else {
-              foundEnd = true;
-              break;
-            }
-          }
-        }
-        
-        // 如果找到了配置內容，創建代碼塊
-        if (codeLines.length > 0) {
-          const language = trimmed.includes('yaml') ? 'yaml' : 'text';
-          result.push(
-            <div key={`codeblock-${i}`} style={{ 
-              backgroundColor: '#f6f8fa', 
-              border: '1px solid #e1e4e8',
-              borderRadius: '6px',
-              padding: '12px',
-              margin: '8px 0',
-              fontFamily: 'Monaco, Consolas, "Courier New", monospace',
-              fontSize: '13px',
-              overflow: 'auto'
-            }}>
-              {language === 'yaml' && (
-                <div style={{ color: '#666', fontSize: '12px', marginBottom: '8px' }}>
-                  YAML 配置
-                </div>
-              )}
-              <pre style={{ 
-                margin: 0, 
-                whiteSpace: 'pre-wrap', 
-                wordWrap: 'break-word',
-                lineHeight: '1.4'
-              }}>
-                <Text code>{codeLines.join('\n')}</Text>
-              </pre>
-            </div>
-          );
-          
-          i = foundEnd ? j + 1 : j;
-          processed = true;
-        }
-      }
-      
-      if (processed) {
-        continue;
-      }
-      
-      // 檢查是否為表格開始（包含 | 符號的行）
-      if (line.includes('|') && i + 1 < lines.length && lines[i + 1].includes('|')) {
-        // 可能是表格，嘗試解析
-        const tableLines = [];
-        let j = i;
-        
-        // 收集所有連續的表格行
-        while (j < lines.length && lines[j].includes('|')) {
-          tableLines.push(lines[j]);
-          j++;
-        }
-        
-        // 檢查是否為有效的表格（至少有標題行和分隔行）
-        if (tableLines.length >= 2) {
-          try {
-            // 解析表格
-            const headerRow = tableLines[0].split('|').map(cell => cell.trim()).filter(cell => cell);
-            const separatorRow = tableLines[1];
-            
-            // 檢查分隔行是否符合表格格式
-            if (separatorRow.includes('-') || separatorRow.includes(':')) {
-              const dataRows = tableLines.slice(2).map(row => 
-                row.split('|').map(cell => cell.trim()).filter(cell => cell)
-              ).filter(row => row.length > 0);
-              
-              // 創建 Ant Design Table 的數據結構
-              const columns = headerRow.map((header, index) => ({
-                title: header,
-                dataIndex: `col${index}`,
-                key: `col${index}`,
-                render: (text) => formatInlineText(text, `table-cell-${i}-${index}`)
-              }));
-              
-              const dataSource = dataRows.map((row, rowIndex) => {
-                const rowData = { key: rowIndex };
-                row.forEach((cell, cellIndex) => {
-                  rowData[`col${cellIndex}`] = cell;
-                });
-                return rowData;
-              });
-              
-              result.push(
-                <div key={`table-${i}`} style={{ margin: '12px 0' }}>
-                  <Table 
-                    columns={columns}
-                    dataSource={dataSource}
-                    pagination={false}
-                    size="small"
-                    bordered
-                    style={{ fontSize: '13px' }}
-                  />
-                </div>
-              );
-              
-              i = j; // 跳過已處理的表格行
-              processed = true;
-            }
-          } catch (error) {
-            console.warn('表格解析失敗:', error);
-          }
-        }
-      }
-      
-      if (processed) {
-        continue;
-      }
-      
-      // 標題格式 (# ## ###) - 優先處理
-      if (line.startsWith('###')) {
-        result.push(
-          <Title key={i} level={5} style={{ display: 'block', marginBottom: '8px', marginTop: '12px' }}>
-            {line.replace(/^###\s*/, '')}
-          </Title>
-        );
-        processed = true;
-      } else if (line.startsWith('##')) {
-        result.push(
-          <Title key={i} level={4} style={{ display: 'block', marginBottom: '8px', marginTop: '12px' }}>
-            {line.replace(/^##\s*/, '')}
-          </Title>
-        );
-        processed = true;
-      } else if (line.startsWith('#')) {
-        result.push(
-          <Title key={i} level={3} style={{ display: 'block', marginBottom: '8px', marginTop: '12px' }}>
-            {line.replace(/^#\s*/, '')}
-          </Title>
-        );
-        processed = true;
-      }
-      // 水平分隔線
-      else if (line === '---' || line === '***') {
-        result.push(<hr key={i} style={{ margin: '16px 0', border: 'none', borderTop: '1px solid #e8e8e8' }} />);
-        processed = true;
-      }
-      // 無序列表項目 (- 或 •)
-      else if (line.startsWith('- ') || line.startsWith('• ')) {
-        const listContent = line.replace(/^[-•]\s*/, '');
-        result.push(
-          <div key={i} style={{ display: 'flex', marginLeft: '16px', marginBottom: '4px' }}>
-            <span style={{ marginRight: '8px', color: '#666' }}>•</span>
-            <Text style={{ flex: 1 }}>
-              {formatInlineText(listContent, `list-${i}`)}
-            </Text>
-          </div>
-        );
-        processed = true;
-      }
-      // 有序列表項目 (1. 2. 3.)
-      else if (/^\d+\.\s/.test(line)) {
-        const match = line.match(/^(\d+)\.\s(.*)$/);
-        if (match) {
-          const [, number, listContent] = match;
-          result.push(
-            <div key={i} style={{ display: 'flex', marginLeft: '16px', marginBottom: '4px' }}>
-              <span style={{ marginRight: '8px', color: '#666', fontWeight: 'bold' }}>{number}.</span>
-              <Text style={{ flex: 1 }}>
-                {formatInlineText(listContent, `ordered-list-${i}`)}
-              </Text>
-            </div>
-          );
-          processed = true;
-        }
-      }
-      // 引用文字 (> text)
-      else if (line.startsWith('> ')) {
-        result.push(
-          <div key={i} style={{ 
-            borderLeft: '4px solid #d9d9d9', 
-            paddingLeft: '12px', 
-            marginBottom: '8px',
-            fontStyle: 'italic',
-            color: '#666'
-          }}>
-            <Text>{formatInlineText(line.slice(2), `quote-${i}`)}</Text>
-          </div>
-        );
-        processed = true;
-      }
-      // 代碼塊 (```code```) - 改進版本
-      else if (line.startsWith('```') && line.endsWith('```') && line.length > 6) {
-        result.push(
-          <div key={i} style={{ 
-            backgroundColor: '#f6f8fa', 
-            border: '1px solid #e1e4e8',
-            borderRadius: '6px',
-            padding: '12px',
-            margin: '8px 0',
-            fontFamily: 'Monaco, Consolas, "Courier New", monospace',
-            fontSize: '13px'
-          }}>
-            <Text code>{line.slice(3, -3)}</Text>
-          </div>
-        );
-        processed = true;
-      }
-      // 單行 YAML 或配置格式
-      else if (isConfigLine(line)) {
-        result.push(
-          <div key={i} style={{ 
-            backgroundColor: '#f8f9fa', 
-            border: '1px solid #e9ecef',
-            borderRadius: '4px',
-            padding: '8px 12px',
-            margin: '4px 0',
-            fontFamily: 'Monaco, Consolas, "Courier New", monospace',
-            fontSize: '13px'
-          }}>
-            <Text code style={{ backgroundColor: 'transparent' }}>{line}</Text>
-          </div>
-        );
-        processed = true;
-      }
-      // Windows 路徑或命令行
-      else if (isWindowsPathOrCommand(trimmed)) {
-        result.push(
-          <div key={i} style={{ 
-            backgroundColor: '#fff3cd', 
-            border: '1px solid #ffeaa7',
-            borderRadius: '4px',
-            padding: '8px 12px',
-            margin: '4px 0',
-            fontFamily: 'Monaco, Consolas, "Courier New", monospace',
-            fontSize: '13px'
-          }}>
-            <Text code style={{ backgroundColor: 'transparent', color: '#6f42c1' }}>{line}</Text>
-          </div>
-        );
-        processed = true;
-      }
-      
-      // 如果沒有被特殊格式處理，就作為普通文字處理（包含行內格式）
-      if (!processed) {
-        // 檢查是否為完全由粗體包圍的行
-        if (line.startsWith('**') && line.endsWith('**') && line.length > 4 && !line.slice(2, -2).includes('**')) {
-          result.push(
-            <Text key={i} strong style={{ display: 'block', marginBottom: '6px', fontSize: '14px' }}>
-              {line.slice(2, -2)}
-            </Text>
-          );
-        } else if (line.trim() === '') {
-          // 空行，添加一個小間距
-          result.push(
-            <div key={i} style={{ height: '8px' }} />
-          );
-        } else {
-          // 普通文字，但可能包含行內格式 - 去掉不必要的 marginBottom
-          result.push(
-            <span key={i} style={{ display: 'block', lineHeight: '1.5' }}>
-              {formatInlineText(line, `text-${i}`)}
-            </span>
-          );
-        }
-      }
-      
-      i++;
-    }
+    console.log('Processed markdown content:', JSON.stringify(processedContent));
     
-    return result;
+    const html = md.render(processedContent);
+    console.log('Generated HTML:', html);
+    
+    const cleanHtml = DOMPurify.sanitize(html);
+    
+    return (
+      <div 
+        className="markdown-content"
+        dangerouslySetInnerHTML={{ __html: cleanHtml }}
+      />
+    );
   };
 
   return (
