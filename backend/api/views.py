@@ -2640,7 +2640,8 @@ def dify_ocr_chat(request):
                         f"✅ **已找到相關的 OCR 存儲測試資料**\n"
                     ]
                     
-                    for i, resource in enumerate(retriever_resources[:2], 1):
+                    # 顯示所有找到的記錄而不限制數量
+                    for i, resource in enumerate(retriever_resources, 1):
                         doc_metadata = resource.get('doc_metadata', {})
                         enhanced_parts.append(f"**📊 測試記錄 {i}**")
                         
@@ -2663,9 +2664,8 @@ def dify_ocr_chat(request):
                         
                         enhanced_parts.append("")  # 空行分隔
                     
-                    if len(retriever_resources) > 2:
-                        enhanced_parts.append(f"*(還有 {len(retriever_resources) - 2} 筆相關測試記錄)*")
-                    
+                    # 移除 "還有 X 筆記錄" 的提示，因為已顯示全部
+                    enhanced_parts.append(f"💡 **總計**: 找到 {len(retriever_resources)} 筆相關測試記錄")
                     enhanced_parts.append("\n💡 **建議**: 這些是系統在知識庫中找到的相關測試資料，您可以詢問更具體的問題來獲得詳細分析。")
                     
                     # 替換原本的通用回答

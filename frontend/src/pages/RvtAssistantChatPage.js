@@ -406,9 +406,6 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
   const formatMessage = (content) => {
     // 使用 markdown-it + DOMPurify 專業 Markdown 渲染器
     
-    // Debug: 打印原始內容以查看格式問題
-    console.log('Original markdown content:', JSON.stringify(content));
-    
     // 預處理：統一列表格式
     let processedContent = content
       // 統一無序列表標記為 -
@@ -421,11 +418,7 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
       .replace(/(\n- .*?)(?=\n[^-\s])/g, '$1\n')
       .replace(/(\n\d+\. .*?)(?=\n[^0-9\s])/g, '$1\n');
     
-    console.log('Processed markdown content:', JSON.stringify(processedContent));
-    
     const html = md.render(processedContent);
-    console.log('Generated HTML:', html);
-    
     const cleanHtml = DOMPurify.sanitize(html);
     
     return (

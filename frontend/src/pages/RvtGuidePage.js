@@ -181,7 +181,8 @@ const RvtGuidePage = () => {
     
     setLoading(true);
     try {
-      const response = await axios.get('/api/rvt-guides/');
+      // 添加 page_size 參數來覆蓋預設分頁限制
+      const response = await axios.get('/api/rvt-guides/?page_size=100');
       setGuides(response.data.results || response.data);
     } catch (error) {
       console.error('獲取 RVT Guide 資料失敗:', error);
