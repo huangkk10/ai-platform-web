@@ -201,11 +201,9 @@
 @keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(10px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
@@ -215,15 +213,14 @@
   align-items: center;
 }
 
-/* 高亮效果 */
+/* 高亮效果 - 移除會導致抖動的 transform 和 box-shadow 變化 */
 .message-card:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-  transition: all 0.2s ease;
+  opacity: 0.95;
+  transition: opacity 0.2s ease;
 }
 
 .message-card.user:hover {
-  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.3);
+  opacity: 0.95;
 }
 
 /* 分隔線樣式 */

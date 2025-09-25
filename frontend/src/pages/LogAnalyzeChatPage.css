@@ -253,9 +253,8 @@
 .image-upload-btn-inside:hover {
   background: #bae7ff !important;
   color: #096dd9 !important;
-  transform: scale(1.05) !important;
-  box-shadow: 0 3px 8px rgba(24, 144, 255, 0.35) !important;
   border-color: #096dd9 !important;
+  opacity: 0.9 !important;
 }
 
 .image-upload-btn-inside:focus {
@@ -284,7 +283,7 @@
 
 .image-preview-item-inline:hover {
   border-color: #1890ff;
-  box-shadow: 0 2px 4px rgba(24, 144, 255, 0.15);
+  opacity: 0.9;
 }
 
 /* 圖片加載骨架屏 */
@@ -349,7 +348,7 @@
 
 .image-remove-btn-inline:hover {
   background-color: #ff7875 !important;
-  transform: scale(1.1) !important;
+  opacity: 0.9 !important;
 }
 
 /* 帶按鈕的文本輸入框 */
@@ -416,7 +415,7 @@
 
 .image-preview-item-inline:hover {
   border-color: #1890ff;
-  box-shadow: 0 2px 4px rgba(24, 144, 255, 0.15);
+  opacity: 0.9;
 }
 
 /* 圖片加載骨架屏 */
@@ -495,7 +494,7 @@
 
 .image-remove-btn-inline:hover {
   background-color: #ff7875 !important;
-  transform: scale(1.1) !important;
+  opacity: 0.9 !important;
 }
 
 /* 動畫效果 */
@@ -506,11 +505,9 @@
 @keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(10px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
@@ -520,15 +517,14 @@
   align-items: center;
 }
 
-/* 高亮效果 */
+/* 高亮效果 - 移除會導致抖動的 transform 和 box-shadow */
 .message-card:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-  transition: all 0.2s ease;
+  opacity: 0.95;
+  transition: opacity 0.2s ease;
 }
 
 .message-card.user:hover {
-  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.3);
+  opacity: 0.95;
 }
 
 /* 分隔線樣式 */
