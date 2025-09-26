@@ -26,11 +26,11 @@ class ReportAnalyzerClient(DifyChatClient):
         """
         # 如果沒有提供完整配置，使用 Report Analyzer 3 的默認配置
         if not (api_url and api_key):
-            from ..config.dify_app_configs import get_report_analyzer_3_config
-            config = get_report_analyzer_3_config()
-            api_url = api_url or config['api_url']
-            api_key = api_key or config['api_key'] 
-            base_url = base_url or config['base_url']
+            from ..config.dify_config_manager import get_report_analyzer_config
+            config = get_report_analyzer_config()
+            api_url = api_url or config.api_url
+            api_key = api_key or config.api_key 
+            base_url = base_url or config.base_url
         
         super().__init__(api_url, api_key, base_url)
         self.file_manager = DifyFileManager(self.config['base_url'], self.config['api_key'], self.session)

@@ -31,11 +31,14 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../'))
 
 # 導入 Dify 配置管理
 try:
-    from library.config.dify_app_configs import create_protocol_chat_client, get_protocol_known_issue_config
+    from library.config.dify_config_manager import get_protocol_known_issue_config, get_report_analyzer_config
+    from library.dify_integration import make_dify_request, process_dify_answer
 except ImportError:
     # 如果 library 路徑有問題，提供備用配置
-    create_protocol_chat_client = None
     get_protocol_known_issue_config = None
+    get_report_analyzer_config = None
+    make_dify_request = None
+    process_dify_answer = None
 
 logger = logging.getLogger(__name__)
 
@@ -2064,7 +2067,8 @@ def dify_chat_with_file(request):
         import tempfile
         import requests
         from library.dify_integration import create_report_analyzer_client
-        from library.config.dify_app_configs import get_report_analyzer_3_config
+        # 使用新的配置管理器
+        # get_report_analyzer_config 已在頂部引入
         from library.data_processing.file_utils import (
             get_file_info, 
             validate_file_for_upload, 
@@ -2120,11 +2124,11 @@ def dify_chat_with_file(request):
                 query = message if message else get_default_analysis_query(temp_file_path)
                 
                 # 5. 使用 library 進行分析
-                config = get_report_analyzer_3_config()
+                config = get_report_analyzer_config()
                 client = create_report_analyzer_client(
-                    config['api_url'],
-                    config['api_key'],
-                    config['base_url']
+                    config.api_url,
+                    config.api_key,
+                    config.base_url
                 )
                 
                 start_time = time.time()
@@ -2308,7 +2312,6 @@ def dify_chat(request):
         
         # 使用 Protocol Known Issue 配置（用於 Protocol RAG）
         try:
-            from library.config.dify_app_configs import get_protocol_known_issue_config
             dify_config = get_protocol_known_issue_config()
         except Exception as config_error:
             logger.error(f"Failed to load Protocol Known Issue config: {config_error}")
@@ -2318,8 +2321,8 @@ def dify_chat(request):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
         # 檢查必要配置
-        api_url = dify_config.get('api_url')
-        api_key = dify_config.get('api_key')
+        api_url = dify_config.api_url
+        api_key = dify_config.api_key
         
         if not api_url or not api_key:
             return Response({
@@ -2453,22 +2456,10 @@ def dify_config_info(request):
     """
     try:
         # 使用 Protocol Known Issue 配置
-        from library.config.dify_app_configs import get_protocol_known_issue_config
         config = get_protocol_known_issue_config()
         
         # 只返回安全的配置資訊
-        safe_config = {
-            'app_name': config.get('app_name', 'Protocol Known Issue System'),
-            'workspace': config.get('workspace', 'Protocol_Known_Issue'),
-            'description': config.get('description', ''),
-            'features': config.get('features', []),
-            'api_url': config.get('api_url', ''),
-            'base_url': config.get('base_url', ''),
-            'timeout': config.get('timeout', 60),
-            'response_mode': config.get('response_mode', 'blocking'),
-            # 不返回完整的 API Key，只返回前幾位用於驗證
-            'api_key_prefix': config.get('api_key', '')[:10] + '...' if config.get('api_key') else ''
-        }
+        safe_config = config.get_safe_config()
         
         return Response({
             'success': True,
@@ -2508,8 +2499,7 @@ def dify_ocr_chat(request):
         
         # 使用 Report Analyzer 3 配置（專門用於 AI OCR）
         try:
-            from library.config.dify_app_configs import get_report_analyzer_3_config
-            dify_config = get_report_analyzer_3_config()
+            dify_config = get_report_analyzer_config()
         except Exception as config_error:
             logger.error(f"Failed to load Report Analyzer 3 config: {config_error}")
             return Response({
@@ -2518,8 +2508,8 @@ def dify_ocr_chat(request):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
         # 檢查必要配置
-        api_url = dify_config.get('api_url')
-        api_key = dify_config.get('api_key')
+        api_url = dify_config.api_url
+        api_key = dify_config.api_key
         
         if not api_url or not api_key:
             return Response({
@@ -2834,10 +2824,11 @@ def rvt_guide_chat(request):
                 'error': '訊息內容不能為空'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        # 使用 RVT_GUIDE 配置
+        # 使用新的配置管理器獲取 RVT_GUIDE 配置
         try:
-            from library.config.dify_app_configs import get_rvt_guide_config
-            rvt_config = get_rvt_guide_config()
+            from library.config import get_rvt_guide_config
+            rvt_config_obj = get_rvt_guide_config()
+            rvt_config = rvt_config_obj.to_dict()  # 轉換為字典以兼容現有代碼
         except Exception as config_error:
             logger.error(f"Failed to load RVT Guide config: {config_error}")
             return Response({
@@ -2980,18 +2971,11 @@ def rvt_guide_config(request):
     獲取 RVT Guide 配置信息
     """
     try:
-        from library.config.dify_app_configs import get_rvt_guide_config
-        config = get_rvt_guide_config()
+        from library.config import get_rvt_guide_config
+        config_obj = get_rvt_guide_config()
         
         # 返回安全的配置信息（不包含 API key）
-        safe_config = {
-            'app_name': config.get('app_name', 'RVT Guide'),
-            'workspace': config.get('workspace', 'RVT_Guide'),
-            'description': config.get('description', 'RVT 相關指導和協助'),
-            'features': config.get('features', ['RVT 指導', '技術支援', 'RVT 流程管理']),
-            'timeout': config.get('timeout', 60),
-            'response_mode': config.get('response_mode', 'blocking')
-        }
+        safe_config = config_obj.get_safe_config()
         
         return Response({
             'success': True,
