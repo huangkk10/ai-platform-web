@@ -162,17 +162,21 @@ const OcrStorageBenchmarkPage = () => {
       sorter: (a, b) => new Date(a.test_datetime) - new Date(b.test_datetime),
     },
     {
-      title: '3DMark版本',
-      dataIndex: 'mark_version_3d',
-      key: 'mark_version_3d',
-      width: 140,
-      render: (version) => version ? (
-        <Tag color="purple" style={{ fontFamily: 'monospace' }}>
-          {version}
-        </Tag>
-      ) : (
-        <span style={{ color: '#ccc' }}>-</span>
-      ),
+      title: '更新時間',
+      dataIndex: 'updated_at',
+      key: 'updated_at',
+      width: 180,
+      render: (datetime) => {
+        if (!datetime) return '-';
+        const date = new Date(datetime);
+        return (
+          <div style={{ fontSize: '13px' }}>
+            <div>{date.toLocaleDateString('zh-TW')}</div>
+            <div style={{ color: '#666' }}>{date.toLocaleTimeString('zh-TW')}</div>
+          </div>
+        );
+      },
+      sorter: (a, b) => new Date(a.updated_at) - new Date(b.updated_at),
     },
     {
       title: '操作',
@@ -713,17 +717,6 @@ const OcrStorageBenchmarkPage = () => {
               </Form.Item>
             </Col>
           </Row>
-
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="mark_version_3d"
-                label="3DMark版本"
-              >
-                <Input placeholder="例如: 2.28.8228" />
-              </Form.Item>
-            </Col>
-          </Row>
         </Form>
       </Modal>
 
@@ -821,18 +814,6 @@ const OcrStorageBenchmarkPage = () => {
                       {previewRecord.test_datetime ? 
                         new Date(previewRecord.test_datetime).toLocaleString('zh-TW') : '-'}
                     </span>
-                  </div>
-                </Col>
-                <Col span={12}>
-                  <div style={{ marginBottom: '8px' }}>
-                    <strong>🎮 3DMark版本：</strong>
-                    {previewRecord.mark_version_3d ? (
-                      <Tag color="cyan" style={{ marginLeft: '8px', fontFamily: 'monospace' }}>
-                        {previewRecord.mark_version_3d}
-                      </Tag>
-                    ) : (
-                      <span style={{ marginLeft: '8px', color: '#999' }}>未指定</span>
-                    )}
                   </div>
                 </Col>
               </Row>

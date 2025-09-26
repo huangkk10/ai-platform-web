@@ -691,7 +691,8 @@ def search_ocr_storage_benchmark(query_text, limit=5):
                         'benchmark_version': benchmark_data['benchmark_version'],
                         'project_name': benchmark_data['project_name'],
                         'ocr_confidence': benchmark_data['ocr_confidence'],
-                        'created_at': str(benchmark_data['created_at']) if benchmark_data['created_at'] else None
+                        'created_at': str(benchmark_data['created_at']) if benchmark_data['created_at'] else None,
+                        'updated_at': str(benchmark_data['updated_at']) if benchmark_data['updated_at'] else None
                     }
                 })
             
