@@ -95,7 +95,7 @@ AUTH_PASSWORD_VALIDATORS = [
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = config('TZ', default='Asia/Taipei')
 USE_I18N = True
-USE_TZ = True
+USE_TZ = False  # 關閉 UTC 時區轉換，直接使用本地時區
 
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
