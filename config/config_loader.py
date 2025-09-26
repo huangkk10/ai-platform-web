@@ -76,7 +76,7 @@ class ConfigLoader:
         """
         return {
             "ai_server": {
-                "ai_pc_ip": "10.10.172.5"  # 預設 IP
+                "ai_pc_ip": "10.10.172.37"  # 預設 IP
             },
             "database": {},
             "api": {
@@ -121,7 +121,7 @@ class ConfigLoader:
         Returns:
             str: IP 地址
         """
-        return self.get('ai_server.ai_pc_ip', '10.10.172.5')
+        return self.get('ai_server.ai_pc_ip', '10.10.172.37')
     
     def get_full_config(self) -> Dict[str, Any]:
         """
@@ -256,7 +256,7 @@ def get_ai_pc_ip_with_env() -> str:
     Returns:
         str: IP 地址
     """
-    return get_config_with_env_override('ai_server.ai_pc_ip', 'AI_PC_IP', '10.10.172.5')
+    return get_config_with_env_override('ai_server.ai_pc_ip', 'AI_PC_IP', '10.10.172.37')
 
 
 if __name__ == "__main__":
