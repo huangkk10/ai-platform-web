@@ -10,6 +10,7 @@ from .document_manager import DocumentManager
 from .chat_client import DifyChatClient, create_chat_client, quick_chat
 from .file_manager import DifyFileManager
 from .report_analyzer_client import ReportAnalyzerClient, create_report_analyzer_client, quick_file_analysis
+from .request_manager import DifyRequestManager, DifyResponseHandler, make_dify_request, process_dify_answer, handle_conversation_error
 
 __all__ = [
     # 原有模組
@@ -28,7 +29,14 @@ __all__ = [
     # Report Analyzer 專用模組
     'ReportAnalyzerClient',
     'create_report_analyzer_client',
-    'quick_file_analysis'
+    'quick_file_analysis',
+    
+    # 請求管理模組
+    'DifyRequestManager',
+    'DifyResponseHandler', 
+    'make_dify_request',
+    'process_dify_answer',
+    'handle_conversation_error'
 ]
 
 
