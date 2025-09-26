@@ -110,119 +110,6 @@ def retry_api_request(func, max_retries=3, retry_delay=1, backoff_factor=2):
     raise last_exception
 
 
-def preprocess_chinese_query(query):
-    """
-    預處理中文查詢，提取關鍵字並優化搜索效果
-    支援向量搜索和關鍵字搜索的雙重優化
-    """
-    logger.debug(f"預處理原始查詢: '{query}'")
-    
-    # 移除問號和其他標點符號
-    processed = query.replace('？', '').replace('?', '').replace('。', '').replace('，', ' ').replace(',', ' ')
-    
-    # 擴展關鍵字映射 - 更全面的映射
-    keyword_expansions = {
-        # Jenkins 相關
-        'Jenkins有階段': 'Jenkins 測試階段',
-        'Jenkins階段': 'Jenkins 測試階段',
-        'Jenkins有幾個階段': 'Jenkins 測試階段',
-        'Jenkins有哪些階段': 'Jenkins 測試階段',
-        'Jenkins測試階段': 'Jenkins 測試階段',
-        'Jenkins流程': 'Jenkins 測試階段',
-        'Jenkins步驟': 'Jenkins 測試階段',
-        
-        # RVT 相關
-        'RVT是什麼': 'RVT 系統架構',
-        'RVT系統': 'RVT 系統架構',
-        'RVT操作流程': 'RVT Jenkins Ansible',
-        'RVT流程': 'RVT Jenkins Ansible',
-        '什麼是RVT': 'RVT 系統架構',
-        'RVT概念': 'RVT 系統架構',
-        
-        # Ansible 相關
-        'Ansible設定': 'Ansible 配置',
-        'Ansible如何設定': 'Ansible 配置',
-        'Ansible配置': 'Ansible 配置',
-        'Ansible參數': 'Ansible 參數',
-        
-        # 其他概念
-        '環境準備': '先決條件 環境準備',
-        '故障排除': 'Jenkins 失敗 故障排除',
-        '配置管理': 'Ansible 配置',
-        'MDT配置': 'MDT 環境準備',
-        'UART設定': 'UART 配置',
-    }
-    
-    # 移除問句詞並標準化
-    normalized_query = processed.replace(' ', '').lower()
-    
-    # 先檢查是否有直接映射
-    for pattern, replacement in keyword_expansions.items():
-        if pattern.replace(' ', '').lower() in normalized_query:
-            logger.info(f"Keyword expansion: '{query}' -> '{replacement}'")
-            return replacement
-    
-    # 常見的問句詞彙移除
-    stop_words = ['有哪些', '是什麼', '如何', '怎麼', '什麼', '幾個', '多少', '怎樣', '有什麼', '有', '是']
-    
-    # 移除常見問句詞彙
-    for stop_word in stop_words:
-        processed = processed.replace(stop_word, ' ')
-    
-    # 移除多餘空格
-    processed = ' '.join(processed.split())
-    
-    # 技術關鍵字提取和增強
-    tech_keywords = {
-        'jenkins': 'Jenkins',
-        'ansible': 'Ansible', 
-        'rvt': 'RVT',
-        'uart': 'UART',
-        'mdt': 'MDT',
-        'poll': 'Poll 輪詢',
-        'deploy': 'Deploy 部署',
-        'ffu': 'FFU 韌體更新',
-        'setup': 'SETUP 測試平台',
-        'initcard': 'InitCard 開卡',
-        'bios': 'BIOS iPXE',
-        'nas': 'NAS 配置',
-        '階段': '測試階段',
-        '流程': '操作流程',
-        '參數': '參數設定',
-        '配置': '配置設定',
-        '故障': '故障排除',
-        '環境': '環境準備',
-        '先決條件': '先決條件 環境準備'
-    }
-    
-    # 增強關鍵字匹配
-    enhanced_keywords = []
-    query_lower = query.lower()
-    
-    for key, enhanced in tech_keywords.items():
-        if key in query_lower:
-            enhanced_keywords.append(enhanced)
-    
-    if enhanced_keywords:
-        result = ' '.join(enhanced_keywords)
-        logger.info(f"Tech keyword enhancement: '{query}' -> '{result}'")
-        return result
-    
-    # 如果處理後的查詢太短，使用原查詢的關鍵部分
-    if len(processed.strip()) < 3:
-        # 提取核心技術詞彙
-        core_terms = []
-        for term in ['Jenkins', 'Ansible', 'RVT', 'UART', 'MDT']:
-            if term.lower() in query.lower():
-                core_terms.append(term)
-        
-        if core_terms:
-            return ' '.join(core_terms)
-        return query
-    
-    return processed.strip() if processed.strip() else query
-
-
 class UserViewSet(viewsets.ModelViewSet):
     """使用者 ViewSet - 完整 CRUD，僅管理員可修改"""
     queryset = User.objects.all()
@@ -879,9 +766,8 @@ def dify_knowledge_search(request):
                 'error_msg': 'Query parameter is required'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        # 暫時註釋預處理功能，直接使用原始查詢測試向量搜索效果
-        # processed_query = preprocess_chinese_query(query)
-        processed_query = query  # 直接使用原始查詢
+        # 直接使用原始查詢
+        processed_query = query
         logger.info(f"Using original query directly: '{processed_query}'")
         
         # 搜索 PostgreSQL 知識
