@@ -7,7 +7,6 @@ from typing import Dict, Any
 from .client import DifyClient
 from .dataset_manager import DatasetManager
 from .document_manager import DocumentManager
-from .batch_operations import DifyBatchOperations
 from .chat_client import DifyChatClient, create_chat_client, quick_chat
 from .file_manager import DifyFileManager
 from .report_analyzer_client import ReportAnalyzerClient, create_report_analyzer_client, quick_file_analysis
@@ -16,8 +15,7 @@ __all__ = [
     # 原有模組
     'DifyClient', 
     'DatasetManager', 
-    'DocumentManager', 
-    'DifyBatchOperations',
+    'DocumentManager',
     
     # 聊天相關模組
     'DifyChatClient',
