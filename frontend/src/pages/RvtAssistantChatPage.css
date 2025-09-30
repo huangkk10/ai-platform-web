@@ -484,6 +484,43 @@
   border-top: 1px solid #e8e8e8 !important;
 }
 
+/* 發送和停止按鈕樣式 */
+.send-button {
+  background-color: #1890ff !important;
+  border-color: #1890ff !important;
+  color: #fff !important;
+}
+
+.send-button:hover {
+  background-color: #40a9ff !important;
+  border-color: #40a9ff !important;
+}
+
+.stop-button {
+  background-color: #ff4d4f !important;
+  border-color: #ff4d4f !important;
+  color: #fff !important;
+}
+
+.stop-button:hover {
+  background-color: #ff7875 !important;
+  border-color: #ff7875 !important;
+}
+
+.stop-button .anticon {
+  color: #fff !important;
+}
+
+.send-button .anticon {
+  color: #fff !important;
+}
+
+/* 確保按鈕不顯示 loading 動畫 */
+.stop-button .ant-btn-loading-icon,
+.send-button .ant-btn-loading-icon {
+  display: none !important;
+}
+
 /* 響應式設計 */
 @media (max-width: 768px) {
   .message-content {
