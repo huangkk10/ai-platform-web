@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Layout, Input, Button, Card, Avatar, message, Spin, Typography, Tag, Table } from 'antd';
-import { SendOutlined, UserOutlined, RobotOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { SendOutlined, MinusSquareFilled, UserOutlined, RobotOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { useChatContext } from '../contexts/ChatContext';
 import { recordChatUsage, CHAT_TYPES } from '../utils/chatUsage';
 import './KnowIssueChatPage.css';
@@ -153,6 +153,7 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
   const [conversationId, setConversationId] = useState(loadConversationId);
   const [difyConfig, setDifyConfig] = useState(null);
   const messagesEndRef = useRef(null);
+  const abortControllerRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -217,6 +218,10 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
     setLoading(true);
     setLoadingStartTime(Date.now());
 
+    // 創建新的 AbortController
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
     try {
       // 使用新的 Dify Chat API
       const response = await fetch('/api/dify/chat/', {
@@ -225,6 +230,7 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
           'Content-Type': 'application/json',
         },
         credentials: 'include', // 包含憑證，但不強制要求
+        signal: abortController.signal, // 添加 abort signal
         body: JSON.stringify({
           message: userMessage.content,
           conversation_id: conversationId
@@ -314,6 +320,19 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
     } catch (error) {
       console.error('Error calling Dify Chat API:', error);
       
+      // 檢查是否是用戶主動取消
+      if (error.name === 'AbortError') {
+        console.log('請求被用戶取消');
+        const cancelMessage = {
+          id: Date.now() + 1,
+          type: 'assistant',
+          content: '⏹️ 請求已被取消。\n\n您可以重新提問或修改問題。',
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, cancelMessage]);
+        return;
+      }
+      
       let errorText = '未知錯誤';
       
       if (error.name === 'TypeError' && error.message.includes('fetch')) {
@@ -355,6 +374,7 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
     } finally {
       setLoading(false);
       setLoadingStartTime(null);
+      abortControllerRef.current = null;
     }
   };
 
@@ -362,6 +382,14 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
+    }
+  };
+
+  const handleStopRequest = () => {
+    if (abortControllerRef.current) {
+      console.log('正在取消當前請求...');
+      abortControllerRef.current.abort();
+      message.info('正在停止當前任務...');
     }
   };
 
@@ -718,12 +746,10 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
               className="chat-input-area"
               style={{ borderRadius: '20px', resize: 'none' }}
             />
-            <Button
-              type="primary"
-              icon={<SendOutlined />}
-              onClick={handleSendMessage}
-              loading={loading}
-              disabled={!inputMessage.trim()}
+            <button
+              onClick={loading ? handleStopRequest : handleSendMessage}
+              disabled={!loading && !inputMessage.trim()}
+              title={loading ? "點擊停止當前任務" : "發送消息"}
               style={{ 
                 borderRadius: '50%', 
                 width: '40px', 
@@ -731,9 +757,18 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
                 marginLeft: '12px',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                backgroundColor: loading ? '#595959' : (!inputMessage.trim() ? '#d9d9d9' : '#1890ff'),
+                borderColor: loading ? '#595959' : (!inputMessage.trim() ? '#d9d9d9' : '#1890ff'),
+                color: '#fff',
+                border: '1px solid',
+                cursor: (loading || inputMessage.trim()) ? 'pointer' : 'not-allowed',
+                fontSize: '16px',
+                transition: 'all 0.3s ease'
               }}
-            />
+            >
+              {loading ? <MinusSquareFilled /> : <SendOutlined />}
+            </button>
           </div>
         </div>
       </Content>
