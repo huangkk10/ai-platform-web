@@ -105,7 +105,7 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
     return new MarkdownIt({
       html: false,        // 禁用 HTML 標籤
       xhtmlOut: true,     // 使用 XHTML 格式
-      breaks: true,       // 將換行轉為 <br>
+      breaks: false,      // 不自動將單一換行轉為 <br>，保持標準 markdown 行為
       linkify: true,      // 自動轉換 URL 為鏈接
       typographer: true   // 啟用智能標點符號替換
     });
