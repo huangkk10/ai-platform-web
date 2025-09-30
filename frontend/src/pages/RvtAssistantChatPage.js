@@ -97,6 +97,14 @@ const clearStoredChat = () => {
   }
 };
 
+// RVT Assistant 預設歡迎消息常量
+const DEFAULT_WELCOME_MESSAGE = {
+  id: 1,
+  type: 'assistant',
+  content: '🛠️ 歡迎使用 RVT Assistant！\n我是你的 RVT 測試專家助手，可以協助你解決 RVT 相關的問題。\n\n**我可以幫助你：**\n- RVT 測試流程指導\n- 故障排除和問題診斷\n- RVT 工具使用方法\n\n**提問建議：**\n• 具體描述你遇到的問題\n\n現在就開始吧！有什麼 RVT 相關的問題需要協助嗎？',
+  timestamp: new Date()
+};
+
 const RvtAssistantChatPage = ({ collapsed = false }) => {
   const { registerClearFunction, clearClearFunction } = useChatContext();
   
@@ -148,15 +156,8 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
     if (storedMessages && storedMessages.length > 0) {
       return storedMessages;
     }
-    // 預設歡迎消息
-    return [
-      {
-        id: 1,
-        type: 'assistant',
-        content: '🛠️ 歡迎使用 RVT Assistant！\n\n我是你的 RVT 測試專家助手，可以協助你解決 RVT 相關的問題。\n\n**我可以幫助你：**\n- RVT 測試流程指導\n- 故障排除和問題診斷\n- Jenkins 和 Ansible 配置建議\n- 最佳實踐建議\n- RVT 工具使用方法\n**提問建議：**\n• 具體描述你遇到的問題\n• 提供錯誤訊息或日誌片段\n•\n現在就開始吧！有什麼 RVT 相關的問題需要協助嗎？',
-        timestamp: new Date()
-      }
-    ];
+    // 使用預設歡迎消息常量
+    return [{ ...DEFAULT_WELCOME_MESSAGE, timestamp: new Date() }];
   };
   
   const [messages, setMessages] = useState(getInitialMessages);
@@ -381,12 +382,8 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
   };
 
   const clearChat = useCallback(() => {
-    const defaultMessage = {
-      id: 1,
-      type: 'assistant',
-      content: '🛠️ 歡迎使用 RVT Assistant！\n\n我是你的 RVT 測試專家助手，可以協助你解決 RVT 相關的問題。\n\n**我可以幫助你：**\n- RVT 測試流程指導\n- 故障排除和問題診斷\n- Jenkins 和 Ansible 配置建議\n- 最佳實踐建議\n- RVT 工具使用方法\n\n**提問建議：**\n• 具體描述你遇到的問題\n• 提供錯誤訊息或日誌片段\n現在就開始吧！有什麼 RVT 相關的問題需要協助嗎？',
-      timestamp: new Date()
-    };
+    // 使用預設歡迎消息常量
+    const defaultMessage = { ...DEFAULT_WELCOME_MESSAGE, timestamp: new Date() };
     
     setMessages([defaultMessage]);
     setConversationId('');
