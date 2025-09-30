@@ -10,7 +10,7 @@ class OCRStorageBenchmarkSimple(models.Model):
     average_bandwidth = models.CharField(max_length=50, verbose_name="平均帶寬", help_text="例如: 1174.89 MB/s")
     device_model = models.CharField(max_length=200, verbose_name="裝置型號", help_text="例如: KINGSTON SFYR2S1TO")
     firmware_version = models.CharField(max_length=100, verbose_name="韌體版本", help_text="例如: SGW0904A")
-    test_datetime = models.DateTimeField(verbose_name="測試時間", help_text="例如: 2025-09-06 16:13")
+    test_datetime = models.DateTimeField(null=True, blank=True, verbose_name="測試時間", help_text="例如: 2025-09-06 16:13")
     benchmark_version = models.CharField(max_length=50, verbose_name="3DMark版本", help_text="例如: 2.28.8228 (測試專用版)")
     
     # === OCR 相關欄位 ===

@@ -392,7 +392,7 @@ class OCRStorageBenchmark(models.Model):
     firmware_version = models.CharField(max_length=100, verbose_name="韌體版本", help_text="裝置韌體版本號")
     
     # 測試資訊
-    test_datetime = models.DateTimeField(verbose_name="測試時間", help_text="進行測試的具體時間")
+    test_datetime = models.DateTimeField(null=True, blank=True, verbose_name="測試時間", help_text="進行測試的具體時間")
     benchmark_version = models.CharField(max_length=50, verbose_name="基準版本", help_text="3DMark 或其他基準測試軟體版本")
     mark_version_3d = models.CharField(max_length=50, blank=True, verbose_name="3DMark版本", help_text="3DMark 軟體的具體版本號")
     
@@ -420,7 +420,7 @@ class OCRStorageBenchmark(models.Model):
     uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="上傳者", related_name="uploaded_ocr_records")
     
     class Meta:
-        ordering = ['-test_datetime', '-created_at']
+        ordering = ['-test_datetime', '-created_at']  # NULL值会排在最后
         verbose_name = "AI OCR 存儲基準測試"
         verbose_name_plural = "AI OCR 存儲基準測試"
         db_table = 'ocr_storage_benchmark'
@@ -432,7 +432,8 @@ class OCRStorageBenchmark(models.Model):
     
     def __str__(self):
         class_info = f"[{self.get_class_identifier()}]" if self.get_class_identifier() else ""
-        return f"{class_info}[{self.project_name}] {self.device_model} - {self.benchmark_score}分 ({self.test_datetime.strftime('%Y-%m-%d')})"
+        date_info = self.test_datetime.strftime('%Y-%m-%d') if self.test_datetime else '未知時間'
+        return f"{class_info}[{self.project_name}] {self.device_model} - {self.benchmark_score}分 ({date_info})"
     
     def get_summary(self):
         """獲取測試摘要"""

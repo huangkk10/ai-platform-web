@@ -975,16 +975,18 @@ class OCRDatabaseManager:
                             save_data['test_datetime'] = parsed_datetime
                             print(f"✅ 成功解析測試時間: {save_data['test_datetime']}")
                         else:
-                            # 如果所有格式都失敗，保持原始字符串
-                            save_data['test_datetime'] = test_date_str
-                            print(f"⚠️ 無法解析為 datetime，保存為字符串: {test_date_str}")
+                            # 如果所有格式都失敗，設置為 None（空值）
+                            save_data['test_datetime'] = None
+                            print(f"⚠️ 無法解析為有效的 datetime 格式，設置為空值: {test_date_str}")
                         
                     except Exception as e:
                         print(f"⚠️ 日期解析失敗: {parsed_data['test_datetime']} -> {e}")
-                        # 如果解析失敗，保存原始字符串
-                        save_data['test_datetime'] = str(parsed_data['test_datetime'])
+                        # 如果解析失敗，設置為 None（空值）
+                        save_data['test_datetime'] = None
             else:
-                save_data['test_datetime'] = datetime.now()
+                # 如果沒有解析到 test_datetime，設置為 None（空值）而不是當前時間
+                save_data['test_datetime'] = None
+                print(f"ℹ️ 未檢測到測試時間信息，設置為空值")
             
             # 清理無效值
             save_data = {k: v for k, v in save_data.items() if v is not None}
