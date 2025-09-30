@@ -2653,8 +2653,11 @@ def chat_usage_statistics(request):
         
         # 獲取日期範圍參數
         days = int(request.GET.get('days', 30))  # 默認30天
-        end_date = timezone.now()
-        start_date = end_date - timedelta(days=days)
+        
+        # 修正日期計算：使用日期開始時間，而不是當前具體時間
+        current_time = timezone.now()
+        end_date = current_time.replace(hour=23, minute=59, second=59, microsecond=999999)  # 今天結束時間
+        start_date = (current_time - timedelta(days=days-1)).replace(hour=0, minute=0, second=0, microsecond=0)  # 開始日期的00:00:00
         
         # 基礎查詢集
         base_queryset = ChatUsage.objects.filter(
@@ -2686,12 +2689,13 @@ def chat_usage_statistics(request):
         # 2. 每日使用次數統計 (曲線圖數據)
         daily_stats = []
         for i in range(days):
-            current_date = start_date + timedelta(days=i)
-            next_date = current_date + timedelta(days=1)
+            # 每日統計使用日期的開始和結束時間
+            current_date = (start_date + timedelta(days=i)).replace(hour=0, minute=0, second=0, microsecond=0)
+            next_date = current_date.replace(hour=23, minute=59, second=59, microsecond=999999)
             
             day_usage = base_queryset.filter(
                 created_at__gte=current_date,
-                created_at__lt=next_date
+                created_at__lte=next_date  # 改為 <= 因為已經設置到當天結束時間
             )
             
             # 各類型當日使用次數

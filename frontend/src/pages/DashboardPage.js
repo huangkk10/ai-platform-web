@@ -48,15 +48,24 @@ const DashboardPage = () => {
     }
   };
 
-  // 圓餅圖顏色
-  const COLORS = ['#1890ff', '#52c41a', '#faad14'];
+  // 功能颜色映射 - 统一颜色配置
+  const FUNCTION_COLORS = {
+    'RVT Assistant': '#1890ff',     // 蓝色
+    'AI OCR': '#52c41a',           // 绿色  
+    'Protocol RAG': '#faad14'       // 橙色
+  };
+
+  // 根据功能名称获取颜色
+  const getFunctionColor = (functionName) => {
+    return FUNCTION_COLORS[functionName] || '#d9d9d9'; // 默认灰色
+  };
 
   // 準備圓餅圖數據
   const preparePieData = () => {
     if (!statistics?.pie_chart) return [];
-    return statistics.pie_chart.map((item, index) => ({
+    return statistics.pie_chart.map((item) => ({
       ...item,
-      color: COLORS[index % COLORS.length]
+      color: getFunctionColor(item.name)
     }));
   };
 
@@ -238,21 +247,21 @@ const DashboardPage = () => {
                     <Line 
                       type="monotone" 
                       dataKey="Protocol RAG" 
-                      stroke="#1890ff" 
+                      stroke={FUNCTION_COLORS['Protocol RAG']} 
                       strokeWidth={2}
                       dot={{ r: 4 }}
                     />
                     <Line 
                       type="monotone" 
                       dataKey="AI OCR" 
-                      stroke="#52c41a" 
+                      stroke={FUNCTION_COLORS['AI OCR']} 
                       strokeWidth={2}
                       dot={{ r: 4 }}
                     />
                     <Line 
                       type="monotone" 
                       dataKey="RVT Assistant" 
-                      stroke="#faad14" 
+                      stroke={FUNCTION_COLORS['RVT Assistant']} 
                       strokeWidth={2}
                       dot={{ r: 4 }}
                     />
@@ -279,15 +288,27 @@ const DashboardPage = () => {
         <Col span={24}>
           <Card title="功能詳細統計">
             <Row gutter={[16, 16]}>
-              {statistics?.pie_chart?.map((item, index) => (
+              {statistics?.pie_chart?.map((item, index) => {
+                const functionColor = getFunctionColor(item.name);
+                const lightBackgroundColor = {
+                  '#1890ff': '#e6f7ff',  // RVT Assistant 蓝色背景
+                  '#52c41a': '#f6ffed',  // AI OCR 绿色背景
+                  '#faad14': '#fff7e6'   // Protocol RAG 橙色背景
+                }[functionColor] || '#f5f5f5';
+                
+                const borderColor = {
+                  '#1890ff': '#91d5ff',  // RVT Assistant 蓝色边框
+                  '#52c41a': '#b7eb8f',  // AI OCR 绿色边框  
+                  '#faad14': '#ffd591'   // Protocol RAG 橙色边框
+                }[functionColor] || '#d9d9d9';
+
+                return (
                 <Col xs={24} md={8} key={index}>
                   <Card 
                     size="small"
                     style={{ 
-                      background: index === 0 ? '#e6f7ff' : 
-                                 index === 1 ? '#f6ffed' : '#fff7e6',
-                      border: `1px solid ${index === 0 ? '#91d5ff' : 
-                                           index === 1 ? '#b7eb8f' : '#ffd591'}`
+                      background: lightBackgroundColor,
+                      border: `1px solid ${borderColor}`
                     }}
                   >
                     <Statistic
@@ -295,8 +316,7 @@ const DashboardPage = () => {
                       value={item.value}
                       suffix="次"
                       valueStyle={{ 
-                        color: index === 0 ? '#1890ff' : 
-                               index === 1 ? '#52c41a' : '#faad14'
+                        color: functionColor
                       }}
                     />
                     <div style={{ fontSize: '12px', color: '#666', marginTop: '8px' }}>
@@ -304,7 +324,8 @@ const DashboardPage = () => {
                     </div>
                   </Card>
                 </Col>
-              )) || []}
+                );
+              }) || []}
             </Row>
           </Card>
         </Col>
