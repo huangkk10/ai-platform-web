@@ -447,8 +447,17 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
   const formatMessage = (content) => {
     // 使用 markdown-it + DOMPurify 專業 Markdown 渲染器
     
-    // 預處理：統一列表格式
+    // 預處理：清理不需要的 HTML 實體和統一格式
     let processedContent = content
+      // 清理 HTML 實體編碼的 <br> 標籤 - 這是問題的根源！
+      .replace(/&lt;br&gt;/gi, '\n')
+      .replace(/&lt;\/br&gt;/gi, '')
+      // 清理其他常見的 HTML 實體
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
       // 統一無序列表標記為 -
       .replace(/^\s*[*•]\s+/gm, '- ')
       // 統一有序列表格式
