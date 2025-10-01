@@ -143,12 +143,12 @@ class ServiceMonitor:
             service_type="Web Framework"
         )
     
-    def check_frontend_service(self, host: str = "localhost", port: int = 3000) -> ServiceInfo:
+    def check_frontend_service(self, host: str = "ai-react", port: int = 3000) -> ServiceInfo:
         """
         檢查前端服務狀態
         
         Args:
-            host: 主機地址，默認 localhost
+            host: 主機地址，默認 ai-react (Docker 容器名稱)
             port: 端口號，默認 3000
             
         Returns:
@@ -156,12 +156,12 @@ class ServiceMonitor:
         """
         return self.check_port_connectivity(host, port, "frontend")
     
-    def check_nginx_service(self, host: str = "localhost", port: int = 80) -> ServiceInfo:
+    def check_nginx_service(self, host: str = "ai-nginx", port: int = 80) -> ServiceInfo:
         """
         檢查 Nginx 服務狀態
         
         Args:
-            host: 主機地址，默認 localhost  
+            host: 主機地址，默認 ai-nginx (Docker 容器名稱)
             port: 端口號，默認 80
             
         Returns:

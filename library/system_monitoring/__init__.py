@@ -8,13 +8,19 @@
 from .service_monitor import ServiceMonitor, ServiceStatus, create_service_monitor
 from .system_stats import SystemStatsCollector, create_stats_collector  
 from .health_checker import HealthChecker, create_health_checker
+from .resource_monitor import SystemResourceMonitor, create_resource_monitor
+from .admin_monitor import AdminSystemMonitor, create_admin_monitor
 
 __all__ = [
     'ServiceMonitor',
     'ServiceStatus', 
     'SystemStatsCollector',
     'HealthChecker',
+    'SystemResourceMonitor',
+    'AdminSystemMonitor',
     'create_service_monitor',
     'create_stats_collector',
-    'create_health_checker'
+    'create_health_checker',
+    'create_resource_monitor',
+    'create_admin_monitor'
 ]

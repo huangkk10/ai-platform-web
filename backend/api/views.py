@@ -41,7 +41,10 @@ try:
         search_ocr_storage_benchmark
     )
     # 🆕 導入系統監控服務
-    from library.system_monitoring import HealthChecker, create_health_checker
+    from library.system_monitoring import (
+        HealthChecker, create_health_checker,
+        AdminSystemMonitor, create_admin_monitor
+    )
 except ImportError:
     # 如果 library 路徑有問題，提供備用配置
     get_protocol_known_issue_config = None
@@ -56,6 +59,8 @@ except ImportError:
     # 備用系統監控服務
     HealthChecker = None
     create_health_checker = None
+    AdminSystemMonitor = None
+    create_admin_monitor = None
 
 logger = logging.getLogger(__name__)
 
@@ -3178,88 +3183,105 @@ def system_logs(request):
 @permission_classes([permissions.IsAdminUser])
 def simple_system_status(request):
     """
-    簡化版系統狀態監控 API - 不依賴 Docker API
+    簡化版系統狀態監控 API - 使用 library/system_monitoring 模組
     """
     try:
-        import psutil
-        from django.db import connection
-        from django.utils import timezone
-        
-        logger.info("Starting simple_system_status API call")
-        
-        # 獲取系統資源
-        try:
-            cpu_percent = psutil.cpu_percent(interval=1)
-            memory = psutil.virtual_memory()
-            disk = psutil.disk_usage('/')
-            logger.info(f"System resources: CPU={cpu_percent}%, Memory={memory.percent}%, Disk={round((disk.used / disk.total) * 100, 1)}%")
-        except Exception as e:
-            logger.error(f"Error getting system resources: {e}")
-            return Response({'error': f'系統資源獲取失敗: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-        # 資料庫狀態
-        db_healthy = True
-        database_stats = {}
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute("SELECT 1")
-                
-                # 主要表統計
-                tables = [
-                    ('users', 'auth_user'),
-                    ('know_issues', 'know_issue'), 
-                    ('projects', 'api_project')
-                ]
-                
-                for name, table in tables:
-                    try:
-                        cursor.execute(f"SELECT COUNT(*) FROM {table}")
-                        database_stats[name] = cursor.fetchone()[0]
-                    except Exception as table_error:
-                        logger.warning(f"Error counting {table}: {table_error}")
-                        database_stats[name] = 0
-                        
-        except Exception as e:
-            logger.error(f"Database error: {e}")
-            db_healthy = False
-            database_stats = {'error': str(e)}
-        
-        # 警告檢查
-        alerts = []
-        if cpu_percent > 80:
-            alerts.append('CPU 使用率過高')
-        if memory.percent > 80:
-            alerts.append('記憶體使用率過高')
-        if disk.percent > 85:
-            alerts.append('磁碟空間不足')
-        
-        response_data = {
-            'status': 'healthy' if db_healthy and not alerts else 'warning',
-            'timestamp': timezone.now().isoformat(),
-            'server_time': timezone.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'system': {
-                'cpu_percent': round(cpu_percent, 1),
-                'memory': {
-                    'total': round(memory.total / (1024**3), 2),
-                    'used': round(memory.used / (1024**3), 2),
-                    'percent': round(memory.percent, 1)
+        # 如果 library 可用，使用新的管理員監控器
+        if AdminSystemMonitor and create_admin_monitor:
+            from django.db import connection
+            
+            logger.info("使用 AdminSystemMonitor 進行系統狀態檢查")
+            
+            # 使用新的管理員監控器
+            admin_monitor = create_admin_monitor()
+            status_dict = admin_monitor.get_simple_status_dict(connection)
+            
+            logger.info(f"AdminSystemMonitor 回傳狀態: {status_dict.get('status')}")
+            return Response(status_dict, status=status.HTTP_200_OK)
+            
+        else:
+            # 備用實現（如果 library 不可用）
+            logger.warning("AdminSystemMonitor library 不可用，使用備用實現")
+            
+            import psutil
+            from django.db import connection
+            from django.utils import timezone
+            
+            logger.info("Starting simple_system_status API call")
+            
+            # 獲取系統資源
+            try:
+                cpu_percent = psutil.cpu_percent(interval=1)
+                memory = psutil.virtual_memory()
+                disk = psutil.disk_usage('/')
+                logger.info(f"System resources: CPU={cpu_percent}%, Memory={memory.percent}%, Disk={round((disk.used / disk.total) * 100, 1)}%")
+            except Exception as e:
+                logger.error(f"Error getting system resources: {e}")
+                return Response({'error': f'系統資源獲取失敗: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+            # 資料庫狀態
+            db_healthy = True
+            database_stats = {}
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT 1")
+                    
+                    # 主要表統計
+                    tables = [
+                        ('users', 'auth_user'),
+                        ('know_issues', 'know_issue'), 
+                        ('projects', 'api_project')
+                    ]
+                    
+                    for name, table in tables:
+                        try:
+                            cursor.execute(f"SELECT COUNT(*) FROM {table}")
+                            database_stats[name] = cursor.fetchone()[0]
+                        except Exception as table_error:
+                            logger.warning(f"Error counting {table}: {table_error}")
+                            database_stats[name] = 0
+                            
+            except Exception as e:
+                logger.error(f"Database error: {e}")
+                db_healthy = False
+                database_stats = {'error': str(e)}
+            
+            # 警告檢查
+            alerts = []
+            if cpu_percent > 80:
+                alerts.append('CPU 使用率過高')
+            if memory.percent > 80:
+                alerts.append('記憶體使用率過高')
+            if (disk.used / disk.total) * 100 > 85:
+                alerts.append('磁碟空間不足')
+            
+            response_data = {
+                'status': 'healthy' if db_healthy and not alerts else 'warning',
+                'timestamp': timezone.now().isoformat(),
+                'server_time': timezone.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'system': {
+                    'cpu_percent': round(cpu_percent, 1),
+                    'memory': {
+                        'total': round(memory.total / (1024**3), 2),
+                        'used': round(memory.used / (1024**3), 2),
+                        'percent': round(memory.percent, 1)
+                    },
+                    'disk': {
+                        'total': round(disk.total / (1024**3), 2),
+                        'used': round(disk.used / (1024**3), 2),
+                        'percent': round((disk.used / disk.total) * 100, 1)
+                    }
                 },
-                'disk': {
-                    'total': round(disk.total / (1024**3), 2),
-                    'used': round(disk.used / (1024**3), 2),
-                    'percent': round((disk.used / disk.total) * 100, 1)
-                }
-            },
-            'services': {
-                'django': {'status': 'running'},
-                'database': {'status': 'healthy' if db_healthy else 'error'}
-            },
-            'database_stats': database_stats,
-            'alerts': alerts
-        }
-        
-        logger.info(f"API response data: {response_data}")
-        return Response(response_data)
+                'services': {
+                    'django': {'status': 'running'},
+                    'database': {'status': 'healthy' if db_healthy else 'error'}
+                },
+                'database_stats': database_stats,
+                'alerts': alerts
+            }
+            
+            logger.info(f"API response data: {response_data}")
+            return Response(response_data)
         
     except Exception as e:
         logger.error(f"Simple system status error: {str(e)}")
