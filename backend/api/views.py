@@ -15,8 +15,8 @@ import logging
 import sys
 import os
 import time
-from .models import UserProfile, Project, Task, Employee, DifyEmployee, KnowIssue, TestClass, OCRTestClass, OCRStorageBenchmark, RVTGuide
-from .serializers import UserSerializer, UserProfileSerializer, ProjectSerializer, TaskSerializer, EmployeeSerializer, DifyEmployeeSerializer, DifyEmployeeListSerializer, KnowIssueSerializer, TestClassSerializer, OCRTestClassSerializer, OCRStorageBenchmarkSerializer, OCRStorageBenchmarkListSerializer, RVTGuideSerializer, RVTGuideListSerializer
+from .models import UserProfile, Project, Task, KnowIssue, TestClass, OCRTestClass, OCRStorageBenchmark, RVTGuide
+from .serializers import UserSerializer, UserProfileSerializer, ProjectSerializer, TaskSerializer, KnowIssueSerializer, TestClassSerializer, OCRTestClassSerializer, OCRStorageBenchmarkSerializer, OCRStorageBenchmarkListSerializer, RVTGuideSerializer, RVTGuideListSerializer
 
 # 導入向量搜索服務
 try:
@@ -317,78 +317,10 @@ class TaskViewSet(viewsets.ModelViewSet):
             )
 
 
-class EmployeeViewSet(viewsets.ModelViewSet):
-    """簡化員工 ViewSet - 僅包含 id 和 name"""
-    queryset = Employee.objects.all()
-    serializer_class = EmployeeSerializer
-    permission_classes = []  # 公開訪問
-    
-    def get_queryset(self):
-        """可選：支援搜索"""
-        queryset = Employee.objects.all()
-        search = self.request.query_params.get('search', None)
-        if search:
-            queryset = queryset.filter(name__icontains=search)
-        return queryset
 
 
-class DifyEmployeeViewSet(viewsets.ModelViewSet):
-    """Dify員工 ViewSet - 支援資料庫照片存儲"""
-    queryset = DifyEmployee.objects.all()
-    permission_classes = []  # 公開訪問，用於 Dify 知識庫查詢
-    
-    def get_serializer_class(self):
-        """根據動作選擇序列化器"""
-        if self.action == 'list':
-            # 列表頁面不包含照片資料以提升效能
-            return DifyEmployeeListSerializer
-        return DifyEmployeeSerializer
-    
-    @action(detail=True, methods=['get'], url_path='photo')
-    def get_photo(self, request, pk=None):
-        """獲取員工照片"""
-        employee = self.get_object()
-        if employee.photo_binary:
-            data_url = employee.get_photo_data_url()
-            return Response({
-                'photo_data_url': data_url,
-                'filename': employee.photo_filename,
-                'content_type': employee.photo_content_type,
-                'size_kb': len(employee.photo_binary) // 1024
-            })
-        else:
-            return Response(
-                {'error': 'No photo available'}, 
-                status=status.HTTP_404_NOT_FOUND
-            )
-    
-    @action(detail=False, methods=['get'], url_path='with-photos')
-    def with_photos(self, request):
-        """獲取有照片的員工列表"""
-        employees = DifyEmployee.objects.exclude(photo_binary__isnull=True).exclude(photo_binary__exact=b'')
-        serializer = DifyEmployeeListSerializer(employees, many=True)
-        return Response(serializer.data)
-    
-    @action(detail=False, methods=['post'], url_path='search')
-    def search_employees(self, request):
-        """搜索員工"""
-        query = request.data.get('query', '')
-        if not query:
-            return Response(
-                {'error': 'Query parameter is required'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # 使用 Django ORM 搜索
-        employees = DifyEmployee.objects.filter(
-            models.Q(name__icontains=query) |
-            models.Q(department__icontains=query) |
-            models.Q(position__icontains=query) |
-            models.Q(skills__icontains=query)
-        )
-        
-        serializer = DifyEmployeeListSerializer(employees, many=True)
-        return Response(serializer.data)
+
+
 
 
 def search_postgres_knowledge(query_text, limit=5):
