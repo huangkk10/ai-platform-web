@@ -126,7 +126,7 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
   // 初始化 Markdown 解析器
   const md = useMemo(() => {
     return new MarkdownIt({
-      html: false,        // 禁用 HTML 標籤
+      html: true,         // 🔄 啟用 HTML 標籤處理 - 測試是否能解決問題
       xhtmlOut: true,     // 使用 XHTML 格式
       breaks: false,      // 不自動將單一換行轉為 <br>，保持標準 markdown 行為
       linkify: true,      // 自動轉換 URL 為鏈接
