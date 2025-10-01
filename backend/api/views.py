@@ -40,6 +40,8 @@ try:
         search_rvt_guide_knowledge,
         search_ocr_storage_benchmark
     )
+    # 🆕 導入系統監控服務
+    from library.system_monitoring import HealthChecker, create_health_checker
 except ImportError:
     # 如果 library 路徑有問題，提供備用配置
     get_protocol_known_issue_config = None
@@ -51,6 +53,9 @@ except ImportError:
     search_know_issue_knowledge = None
     search_rvt_guide_knowledge = None
     search_ocr_storage_benchmark = None
+    # 備用系統監控服務
+    HealthChecker = None
+    create_health_checker = None
 
 logger = logging.getLogger(__name__)
 
@@ -3271,122 +3276,65 @@ def basic_system_status(request):
     """
     基本系統狀態 API - 所有登入用戶可訪問
     提供基本的系統運行狀態，不包含敏感信息
+    
+    使用 library/system_monitoring 模組提供的功能
     """
     try:
-        from django.db import connection
-        from django.utils import timezone
-        
-        # 檢查基本服務狀態
-        django_status = 'running'
-        db_status = 'healthy'
-        
-        # 檢查前端和 Nginx 服務
-        services_status = {
-            'django': {
-                'status': 'running',
-                'message': 'Django REST API 正常運行',
-                'port': '8000'
-            },
-            'database': {
-                'status': 'healthy',
-                'message': '資料庫連接正常',
-                'type': 'PostgreSQL'
-            },
-            'frontend': {
-                'status': 'unknown',
-                'message': '前端服務狀態未知',
-                'port': '3000'
-            },
-            'nginx': {
-                'status': 'unknown', 
-                'message': '反向代理服務狀態未知',
-                'port': '80'
-            }
-        }
-        
-        # 檢查資料庫連接
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute("SELECT 1")
-                cursor.fetchone()
-                services_status['database']['status'] = 'healthy'
-                services_status['database']['message'] = '資料庫連接正常'
-        except Exception as e:
-            services_status['database']['status'] = 'error'
-            services_status['database']['message'] = f'資料庫連接失敗: {str(e)}'
-        
-        # 嘗試檢查其他服務（通過簡單的方式）
-        try:
-            import subprocess
-            import socket
+        # 如果 library 可用，使用新的健康檢查器
+        if HealthChecker and create_health_checker:
+            from django.db import connection
             
-            # 檢查 React 開發服務器端口
-            try:
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                result = sock.connect_ex(('localhost', 3000))
-                if result == 0:
-                    services_status['frontend']['status'] = 'running'
-                    services_status['frontend']['message'] = 'React 前端服務正常運行'
-                else:
-                    services_status['frontend']['status'] = 'stopped'
-                    services_status['frontend']['message'] = 'React 前端服務未運行'
-                sock.close()
-            except:
-                services_status['frontend']['status'] = 'unknown'
-                services_status['frontend']['message'] = '無法檢查前端服務狀態'
+            # 使用新的健康檢查器
+            health_checker = create_health_checker()
+            health_result = health_checker.perform_basic_health_check(connection)
             
-            # 檢查 Nginx 端口
+            # 轉換為 API 回應格式
+            response_data = health_result.to_dict()
+            
+            return Response(response_data, status=status.HTTP_200_OK)
+            
+        else:
+            # 備用實現（如果 library 不可用）
+            logger.warning("HealthChecker library 不可用，使用備用實現")
+            
+            from django.db import connection
+            from django.utils import timezone
+            
+            # 簡化的備用實現
             try:
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                result = sock.connect_ex(('localhost', 80))
-                if result == 0:
-                    services_status['nginx']['status'] = 'running'
-                    services_status['nginx']['message'] = 'Nginx 反向代理正常運行'
-                else:
-                    services_status['nginx']['status'] = 'stopped'
-                    services_status['nginx']['message'] = 'Nginx 服務未運行'
-                sock.close()
-            except:
-                services_status['nginx']['status'] = 'unknown'
-                services_status['nginx']['message'] = '無法檢查 Nginx 服務狀態'
-                
-        except Exception as e:
-            logger.warning(f"Service check error: {str(e)}")
-        
-        db_status = services_status['database']['status']
-        
-        # 獲取基本統計（不敏感的信息）
-        basic_stats = {}
-        try:
-            with connection.cursor() as cursor:
-                # 統計基本的公開信息，並添加描述
-                cursor.execute("SELECT COUNT(*) FROM auth_user WHERE is_active = true")
-                active_users = cursor.fetchone()[0]
-                
-                cursor.execute("SELECT COUNT(*) FROM know_issue")
-                total_issues = cursor.fetchone()[0]
-                
-                basic_stats = {
-                    'active_users': {
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT 1")
+                    cursor.fetchone()
+                db_healthy = True
+                db_message = '資料庫連接正常'
+            except Exception as e:
+                db_healthy = False
+                db_message = f'資料庫連接失敗: {str(e)}'
+            
+            # 基本統計
+            basic_stats = {}
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT COUNT(*) FROM auth_user WHERE is_active = true")
+                    active_users = cursor.fetchone()[0]
+                    basic_stats['active_users'] = {
                         'count': active_users,
                         'description': '系統中的活躍用戶數量'
-                    },
-                    'total_know_issues': {
-                        'count': total_issues,
-                        'description': '知識庫中的問題記錄數量'
                     }
-                }
-        except Exception as e:
-            basic_stats = {'error': f'統計數據獲取失敗: {str(e)}'}
-        
-        return Response({
-            'status': 'healthy' if db_status == 'healthy' else 'warning',
-            'timestamp': timezone.now().isoformat(),
-            'server_time': timezone.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'services': services_status,
-            'basic_stats': basic_stats,
-            'user_level': 'basic'  # 標示這是基本級別的狀態信息
-        })
+            except Exception as e:
+                basic_stats['error'] = f'統計數據獲取失敗: {str(e)}'
+            
+            return Response({
+                'status': 'healthy' if db_healthy else 'warning',
+                'timestamp': timezone.now().isoformat(),
+                'server_time': timezone.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'services': {
+                    'django': {'status': 'running', 'message': 'Django API 正常運行'},
+                    'database': {'status': 'healthy' if db_healthy else 'error', 'message': db_message}
+                },
+                'statistics': basic_stats,
+                'user_level': 'basic'
+            })
         
     except Exception as e:
         logger.error(f"Basic system status error: {str(e)}")
