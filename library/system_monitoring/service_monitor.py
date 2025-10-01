@@ -45,8 +45,35 @@ class ServiceInfo:
 class ServiceMonitor:
     """服務監控器類別"""
     
-    def __init__(self):
+    def __init__(self, config=None):
         self.logger = logging.getLogger(__name__)
+        self.config = config or self._load_default_config()
+        
+    def _load_default_config(self) -> Dict[str, Any]:
+        """載入預設配置或從配置文件載入"""
+        try:
+            # 嘗試載入配置文件
+            from library.config.config_loader import ConfigLoader
+            config_loader = ConfigLoader()
+            full_config = config_loader.get_config()
+            return full_config.get('system_monitoring', {}).get('services', {})
+        except ImportError:
+            # 如果配置載入器不可用，使用預設配置
+            self.logger.warning("ConfigLoader 不可用，使用預設服務配置")
+            return {
+                'django': {'enabled': True, 'port': 8000},
+                'database': {'enabled': True, 'type': 'PostgreSQL'},
+                'frontend': {'enabled': True, 'host': 'ai-react', 'port': 3000, 'timeout': 3},
+                'nginx': {'enabled': True, 'host': 'ai-nginx', 'port': 80, 'timeout': 3}
+            }
+        except Exception as e:
+            self.logger.warning(f"載入配置失敗，使用預設配置: {str(e)}")
+            return {
+                'django': {'enabled': True, 'port': 8000},
+                'database': {'enabled': True, 'type': 'PostgreSQL'},
+                'frontend': {'enabled': True, 'host': 'ai-react', 'port': 3000, 'timeout': 3},
+                'nginx': {'enabled': True, 'host': 'ai-nginx', 'port': 80, 'timeout': 3}
+            }
         
     def check_database_connection(self, connection=None) -> ServiceInfo:
         """
@@ -143,35 +170,59 @@ class ServiceMonitor:
             service_type="Web Framework"
         )
     
-    def check_frontend_service(self, host: str = "ai-react", port: int = 3000) -> ServiceInfo:
+    def check_frontend_service(self, host: str = None, port: int = None) -> ServiceInfo:
         """
-        檢查前端服務狀態
+        檢查前端服務狀態 - 使用配置文件中的設定
         
         Args:
-            host: 主機地址，默認 ai-react (Docker 容器名稱)
-            port: 端口號，默認 3000
+            host: 主機地址，如果為 None 則使用配置文件設定
+            port: 端口號，如果為 None 則使用配置文件設定
             
         Returns:
             ServiceInfo: 前端服務信息
         """
-        return self.check_port_connectivity(host, port, "frontend")
+        frontend_config = self.config.get('frontend', {})
+        
+        if not frontend_config.get('enabled', True):
+            return ServiceInfo(
+                name="frontend",
+                status=ServiceStatus.UNKNOWN,
+                message="前端服務監控已停用"
+            )
+        
+        actual_host = host or frontend_config.get('host', 'ai-react')
+        actual_port = port or frontend_config.get('port', 3000)
+        
+        return self.check_port_connectivity(actual_host, actual_port, "frontend")
     
-    def check_nginx_service(self, host: str = "ai-nginx", port: int = 80) -> ServiceInfo:
+    def check_nginx_service(self, host: str = None, port: int = None) -> ServiceInfo:
         """
-        檢查 Nginx 服務狀態
+        檢查 Nginx 服務狀態 - 使用配置文件中的設定
         
         Args:
-            host: 主機地址，默認 ai-nginx (Docker 容器名稱)
-            port: 端口號，默認 80
+            host: 主機地址，如果為 None 則使用配置文件設定
+            port: 端口號，如果為 None 則使用配置文件設定
             
         Returns:
             ServiceInfo: Nginx 服務信息
         """
-        return self.check_port_connectivity(host, port, "nginx")
+        nginx_config = self.config.get('nginx', {})
+        
+        if not nginx_config.get('enabled', True):
+            return ServiceInfo(
+                name="nginx",
+                status=ServiceStatus.UNKNOWN,
+                message="Nginx 服務監控已停用"
+            )
+        
+        actual_host = host or nginx_config.get('host', 'ai-nginx')
+        actual_port = port or nginx_config.get('port', 80)
+        
+        return self.check_port_connectivity(actual_host, actual_port, "nginx")
     
     def get_all_services_status(self, connection=None) -> Dict[str, ServiceInfo]:
         """
-        獲取所有服務狀態
+        獲取所有服務狀態 - 根據配置文件決定檢查哪些服務
         
         Args:
             connection: Django database connection object
@@ -182,16 +233,27 @@ class ServiceMonitor:
         services = {}
         
         # Django 服務 (總是運行中，因為正在執行此代碼)
-        services['django'] = self.check_django_service()
+        django_config = self.config.get('django', {})
+        if django_config.get('enabled', True):
+            services['django'] = self.check_django_service()
         
         # 資料庫服務
-        services['database'] = self.check_database_connection(connection)
+        database_config = self.config.get('database', {})
+        if database_config.get('enabled', True):
+            services['database'] = self.check_database_connection(connection)
         
-        # 前端服務 
-        services['frontend'] = self.check_frontend_service()
+        # 前端服務
+        frontend_config = self.config.get('frontend', {})
+        if frontend_config.get('enabled', True):
+            services['frontend'] = self.check_frontend_service()
         
         # Nginx 服務
-        services['nginx'] = self.check_nginx_service()
+        nginx_config = self.config.get('nginx', {})
+        if nginx_config.get('enabled', True):
+            services['nginx'] = self.check_nginx_service()
+        
+        # 未來可以根據配置添加其他服務
+        # 例如 Redis, Elasticsearch 等
         
         return services
     
@@ -209,11 +271,14 @@ class ServiceMonitor:
         return {name: service.to_dict() for name, service in services.items()}
 
 
-def create_service_monitor() -> ServiceMonitor:
+def create_service_monitor(config=None) -> ServiceMonitor:
     """
     創建服務監控器實例
+    
+    Args:
+        config: 可選的配置字典，如果為 None 則從配置文件載入
     
     Returns:
         ServiceMonitor: 服務監控器實例
     """
-    return ServiceMonitor()
+    return ServiceMonitor(config)

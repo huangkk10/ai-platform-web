@@ -61,24 +61,55 @@ class AdminHealthReport:
 class AdminSystemMonitor:
     """管理員級別系統監控器"""
     
-    def __init__(self):
+    def __init__(self, config=None):
         self.logger = logging.getLogger(__name__)
         self.resource_monitor = create_resource_monitor()
-        self.service_monitor = create_service_monitor()
+        self.service_monitor = create_service_monitor(config)
         self.stats_collector = create_stats_collector()
         
-        # 預定義的資料庫表映射 (顯示名稱, 實際表名, 中文描述)
-        self.database_tables = [
-            ('users', 'auth_user', '用戶'),
-            ('know_issues', 'know_issue', 'Know Issue'),
-            ('projects', 'api_project', '專案'),
-            ('rvt_guides', 'rvt_guide', 'RVT 指南'),
-            ('ocr_benchmarks', 'ocr_storage_benchmark', 'OCR 基準測試'),
-            ('test_classes', 'protocol_test_class', '測試類別'),
-            ('employee', 'employee', '員工'),
-            ('user_profiles', 'api_userprofile', '用戶檔案'),
-            ('chat_usage', 'chat_usage', '聊天使用記錄'),
-        ]
+        # 從配置文件載入資料庫表配置
+        self.config = config or self._load_default_config()
+        self.database_tables = self._load_database_tables_config()
+        
+    def _load_default_config(self) -> Dict[str, Any]:
+        """載入預設配置或從配置文件載入"""
+        try:
+            # 嘗試載入配置文件
+            from library.config.config_loader import ConfigLoader
+            config_loader = ConfigLoader()
+            full_config = config_loader.get_config()
+            return full_config.get('system_monitoring', {})
+        except ImportError:
+            # 如果配置載入器不可用，使用預設配置
+            self.logger.warning("ConfigLoader 不可用，使用預設系統監控配置")
+            return {}
+        except Exception as e:
+            self.logger.warning(f"載入配置失敗，使用預設配置: {str(e)}")
+            return {}
+    
+    def _load_database_tables_config(self) -> List[Tuple[str, str, str]]:
+        """從配置文件載入資料庫表配置"""
+        tables_config = self.config.get('database_tables', [])
+        
+        if tables_config:
+            # 從配置文件載入
+            return [
+                (table['key'], table['table'], table['display'])
+                for table in tables_config
+            ]
+        else:
+            # 使用預設配置
+            self.logger.info("使用預設資料庫表配置")
+            return [
+                ('users', 'auth_user', '用戶'),
+                ('know_issues', 'know_issue', 'Know Issue'),
+                ('projects', 'api_project', '專案'),
+                ('rvt_guides', 'rvt_guide', 'RVT 指南'),
+                ('ocr_benchmarks', 'ocr_storage_benchmark', 'OCR 基準測試'),
+                ('test_classes', 'protocol_test_class', '測試類別'),
+                ('employees', 'employee', '員工'),
+                ('user_profiles', 'api_userprofile', '用戶檔案'),
+            ]
     
     def get_database_table_stats(self, connection=None) -> List[DatabaseTableStats]:
         """
@@ -375,11 +406,14 @@ class AdminSystemMonitor:
         }
 
 
-def create_admin_monitor() -> AdminSystemMonitor:
+def create_admin_monitor(config=None) -> AdminSystemMonitor:
     """
     創建管理員系統監控器實例
+    
+    Args:
+        config: 可選的配置字典，如果為 None 則從配置文件載入
     
     Returns:
         AdminSystemMonitor: 管理員監控器實例
     """
-    return AdminSystemMonitor()
+    return AdminSystemMonitor(config)
