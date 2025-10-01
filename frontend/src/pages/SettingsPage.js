@@ -353,7 +353,11 @@ const SettingsPage = () => {
                     <Progress
                       type="circle"
                       percent={Math.round(systemStatus.system.cpu_percent || 0)}
-                      format={(percent) => `${percent}%`}
+                      format={(percent) => {
+                        // 顯示實際的 CPU 百分比，保留一位小數
+                        const actualValue = systemStatus.system.cpu_percent || 0;
+                        return actualValue < 1 ? `${actualValue.toFixed(1)}%` : `${Math.round(actualValue)}%`;
+                      }}
                       strokeColor={percent => percent > 80 ? '#ff4d4f' : percent > 60 ? '#faad14' : '#52c41a'}
                       size={120}
                       strokeWidth={6}
