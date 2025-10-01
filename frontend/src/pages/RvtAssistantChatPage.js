@@ -106,7 +106,7 @@ const clearStoredChat = () => {
 const DEFAULT_WELCOME_MESSAGE = {
   id: 1,
   type: 'assistant',
-  content: '🛠️ 歡迎使用 RVT Assistant！\n我是你的 RVT 測試專家助手，可以協助你解決 RVT 相關的問題。\n\n**我可以幫助你：**\n- RVT 測試流程指導\n- 故障排除和問題診斷\n- RVT 工具使用方法\n\n**提問建議：**\n• 具體描述你遇到的問題\n\n現在就開始吧！有什麼 RVT 相關的問題需要協助嗎？',
+  content: '🛠️ 歡迎使用 RVT Assistant！我是你的 RVT 測試專家助手，可以協助你解決 RVT 相關的問題。\n\n**我可以幫助你：**\n- RVT 測試流程指導\n- 故障排除和問題診斷\n- RVT 工具使用方法\n\n現在就開始吧！有什麼 RVT 相關的問題需要協助嗎？',
   timestamp: new Date()
 };
 

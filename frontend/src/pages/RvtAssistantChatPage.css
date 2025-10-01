@@ -255,7 +255,7 @@
   color: #1890ff !important;
   font-size: 20px !important;
   font-weight: 600 !important;
-  margin: 16px 0 12px 0 !important;
+  margin: 12px 0 8px 0 !important;
   border-bottom: 2px solid #1890ff !important;
   padding-bottom: 4px !important;
 }
@@ -264,14 +264,14 @@
   color: #1890ff !important;
   font-size: 18px !important;
   font-weight: 600 !important;
-  margin: 12px 0 8px 0 !important;
+  margin: 8px 0 6px 0 !important;
 }
 
 .message-text .markdown-content h3 {
   color: #1890ff !important;
   font-size: 16px !important;
   font-weight: 600 !important;
-  margin: 10px 0 6px 0 !important;
+  margin: 6px 0 4px 0 !important;
   border-left: 4px solid #1890ff !important;
   padding-left: 12px !important;
 }
@@ -461,7 +461,7 @@
 
 /* 段落樣式 */
 .message-text .markdown-content p {
-  margin-bottom: 8px !important;
+  margin-bottom: 6px !important;
   line-height: 1.6 !important;
 }
 
