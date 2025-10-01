@@ -10,6 +10,12 @@ from .system_stats import SystemStatsCollector, create_stats_collector
 from .health_checker import HealthChecker, create_health_checker
 from .resource_monitor import SystemResourceMonitor, create_resource_monitor
 from .admin_monitor import AdminSystemMonitor, create_admin_monitor
+from .fallback_monitor import (
+    FallbackSystemMonitor, 
+    create_fallback_monitor,
+    get_minimal_fallback_status_dict,
+    get_basic_fallback_status_dict
+)
 
 __all__ = [
     'ServiceMonitor',
@@ -18,9 +24,13 @@ __all__ = [
     'HealthChecker',
     'SystemResourceMonitor',
     'AdminSystemMonitor',
+    'FallbackSystemMonitor',
     'create_service_monitor',
     'create_stats_collector',
     'create_health_checker',
     'create_resource_monitor',
-    'create_admin_monitor'
+    'create_admin_monitor',
+    'create_fallback_monitor',
+    'get_minimal_fallback_status_dict',
+    'get_basic_fallback_status_dict'
 ]
