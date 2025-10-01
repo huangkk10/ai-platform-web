@@ -14,6 +14,12 @@ from .ocr_analyzer import (
     parse_storage_benchmark_text,
     save_ocr_analysis_result
 )
+from .database_search import (
+    DatabaseSearchService,
+    search_know_issue_knowledge,
+    search_rvt_guide_knowledge,
+    search_ocr_storage_benchmark
+)
 
 __all__ = [
     'FileParser', 
@@ -24,5 +30,10 @@ __all__ = [
     'create_ocr_analyzer',
     'create_ocr_database_manager',
     'parse_storage_benchmark_text',
-    'save_ocr_analysis_result'
+    'save_ocr_analysis_result',
+    # Database search services
+    'DatabaseSearchService',
+    'search_know_issue_knowledge',
+    'search_rvt_guide_knowledge',
+    'search_ocr_storage_benchmark',
 ]
