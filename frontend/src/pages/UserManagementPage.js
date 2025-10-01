@@ -347,7 +347,7 @@ const UserManagementPage = () => {
             </Button>
           </Space>
         }
-        bodyStyle={{ padding: '16px' }}
+        styles={{ body: { padding: '16px' } }}
         style={{
           borderRadius: '12px',
           overflow: 'hidden'

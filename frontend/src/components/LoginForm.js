@@ -9,13 +9,13 @@ const LoginForm = ({ visible, onClose, onSuccess, onRegister }) => {
   const [error, setError] = useState('');
   const { login } = useAuth();
 
-  // 調試：當模態框顯示時在控制台輸出
+  // 當模態框顯示時重置表單
   React.useEffect(() => {
     if (visible) {
-      console.log('🔥 LOGIN MODAL IS NOW VISIBLE! 🔥');
-      console.log('Modal width should be 90vw with red border');
+      form.resetFields();
+      setError('');
     }
-  }, [visible]);
+  }, [visible, form]);
 
   const handleSubmit = async (values) => {
     setLoading(true);

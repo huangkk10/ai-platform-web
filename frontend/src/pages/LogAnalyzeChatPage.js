@@ -848,7 +848,7 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
                 />
                 <Card 
                   className={`message-card ${msg.type}`}
-                  bodyStyle={{ padding: '12px 16px' }}
+                  styles={{ body: { padding: '12px 16px' } }}
                 >
                   {/* 如果用戶消息包含檔案，先顯示檔案 */}
                   {msg.type === 'user' && msg.images && msg.images.length > 0 && (
@@ -1045,7 +1045,7 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
                 />
                 <Card 
                   className="message-card assistant"
-                  bodyStyle={{ padding: '12px 16px' }}
+                  styles={{ body: { padding: '12px 16px' } }}
                 >
                   <LoadingIndicator />
                 </Card>
@@ -1177,9 +1177,8 @@ const LogAnalyzeChatPage = ({ collapsed = false }) => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 backgroundColor: loading ? '#595959' : ((!inputMessage.trim() && uploadedImages.length === 0) ? '#d9d9d9' : '#1890ff'),
-                borderColor: loading ? '#595959' : ((!inputMessage.trim() && uploadedImages.length === 0) ? '#d9d9d9' : '#1890ff'),
                 color: '#fff',
-                border: '1px solid',
+                border: `1px solid ${loading ? '#595959' : ((!inputMessage.trim() && uploadedImages.length === 0) ? '#d9d9d9' : '#1890ff')}`,
                 cursor: (loading || inputMessage.trim() || uploadedImages.length > 0) ? 'pointer' : 'not-allowed',
                 fontSize: '16px',
                 transition: 'all 0.3s ease'

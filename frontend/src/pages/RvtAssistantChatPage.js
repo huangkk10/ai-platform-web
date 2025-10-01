@@ -495,7 +495,7 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
                 />
                 <Card 
                   className={`message-card ${msg.type}`}
-                  bodyStyle={{ padding: '12px 16px' }}
+                  styles={{ body: { padding: '12px 16px' } }}
                 >
                   <div className="message-text chat-message-content">
                     {formatMessage(msg.content)}
@@ -530,7 +530,7 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
                 />
                 <Card 
                   className="message-card assistant"
-                  bodyStyle={{ padding: '12px 16px' }}
+                  styles={{ body: { padding: '12px 16px' } }}
                 >
                   <LoadingIndicator />
                 </Card>
@@ -592,9 +592,8 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 backgroundColor: loading ? '#595959' : (!inputMessage.trim() ? '#d9d9d9' : '#1890ff'),
-                borderColor: loading ? '#595959' : (!inputMessage.trim() ? '#d9d9d9' : '#1890ff'),
                 color: '#fff',
-                border: '1px solid',
+                border: `1px solid ${loading ? '#595959' : (!inputMessage.trim() ? '#d9d9d9' : '#1890ff')}`,
                 cursor: (loading || inputMessage.trim()) ? 'pointer' : 'not-allowed',
                 fontSize: '16px',
                 transition: 'all 0.3s ease',
