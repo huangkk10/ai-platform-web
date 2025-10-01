@@ -24,6 +24,85 @@ frontend:
   # theme: "default"
   # language: "zh-TW"
 
+# 系統監控配置
+system_monitoring:
+  services:
+    # Django 服務配置
+    django:
+      enabled: true
+      port: 8000
+      service_type: "Web Framework"
+    
+    # 資料庫服務配置
+    database:
+      enabled: true
+      type: "PostgreSQL"
+      # 使用 Django 連接，不需要額外配置
+    
+    # 前端服務配置
+    frontend:
+      enabled: true
+      host: "ai-react"  # Docker 容器名稱
+      port: 3000
+      timeout: 3  # 連接超時秒數
+      
+    # Nginx 代理服務配置
+    nginx:
+      enabled: true
+      host: "ai-nginx"  # Docker 容器名稱
+      port: 80
+      timeout: 3
+      
+    # 可選：其他服務配置
+    # redis:
+    #   enabled: false
+    #   host: "localhost"
+    #   port: 6379
+    
+    # elasticsearch:
+    #   enabled: false
+    #   host: "localhost" 
+    #   port: 9200
+
+  # 資源監控閾值配置
+  thresholds:
+    cpu:
+      warning: 80
+      critical: 90
+    memory:
+      warning: 80
+      critical: 90
+    disk:
+      warning: 85
+      critical: 95
+
+  # 資料庫表監控配置
+  database_tables:
+    - key: "users"
+      table: "auth_user"
+      display: "用戶"
+    - key: "know_issues"
+      table: "know_issue" 
+      display: "Know Issue"
+    - key: "projects"
+      table: "api_project"
+      display: "專案"
+    - key: "rvt_guides" 
+      table: "rvt_guide"
+      display: "RVT 指南"
+    - key: "ocr_benchmarks"
+      table: "ocr_storage_benchmark"
+      display: "OCR 基準測試"
+    - key: "test_classes"
+      table: "protocol_test_class"
+      display: "測試類別"
+    - key: "employees"
+      table: "employee"
+      display: "員工"
+    - key: "user_profiles"
+      table: "api_userprofile"
+      display: "用戶檔案"
+
 # 日誌配置
 logging:
   # level: "INFO"
@@ -31,4 +110,4 @@ logging:
 
 # 版本信息
 version: "1.0.0"
-last_updated: "2025-09-25"
+last_updated: "2025-10-01"

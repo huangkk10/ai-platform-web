@@ -2972,176 +2972,6 @@ class RVTGuideViewSet(viewsets.ModelViewSet):
 
 # ============= 系統狀態監控 API =============
 
-@api_view(['GET'])
-@permission_classes([permissions.IsAdminUser])
-def system_status(request):
-    """
-    系統狀態監控 API - 只有管理員可以訪問
-    """
-    try:
-        import psutil
-        import subprocess
-        import docker
-        from django.db import connection
-        from django.core.cache import cache
-        from django.utils import timezone
-        from datetime import timedelta
-        
-        status_data = {}
-        
-        # 1. 資料庫狀態
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute("SELECT version()")
-                db_version = cursor.fetchone()[0]
-                
-                cursor.execute("SELECT COUNT(*) FROM django_session WHERE expire_date > NOW()")
-                active_sessions = cursor.fetchone()[0]
-                
-                # 檢查主要表的記錄數
-                cursor.execute("SELECT COUNT(*) FROM auth_user")
-                user_count = cursor.fetchone()[0]
-                
-                cursor.execute("SELECT COUNT(*) FROM know_issue")
-                know_issue_count = cursor.fetchone()[0]
-                
-            status_data['database'] = {
-                'status': 'healthy',
-                'version': db_version.split(' ')[0],
-                'active_sessions': active_sessions,
-                'user_count': user_count,
-                'know_issue_count': know_issue_count,
-                'connection_pool': len(connection.queries) if connection.queries else 0
-            }
-        except Exception as e:
-            status_data['database'] = {
-                'status': 'error',
-                'error': str(e)
-            }
-        
-        # 2. 系統資源狀態
-        try:
-            # CPU 使用率
-            cpu_percent = psutil.cpu_percent(interval=1)
-            
-            # 記憶體使用率
-            memory = psutil.virtual_memory()
-            
-            # 磁碟使用率
-            disk = psutil.disk_usage('/')
-            
-            status_data['system'] = {
-                'status': 'healthy',
-                'cpu_percent': round(cpu_percent, 2),
-                'memory': {
-                    'total': round(memory.total / (1024**3), 2),  # GB
-                    'used': round(memory.used / (1024**3), 2),   # GB
-                    'percent': round(memory.percent, 2)
-                },
-                'disk': {
-                    'total': round(disk.total / (1024**3), 2),   # GB
-                    'used': round(disk.used / (1024**3), 2),    # GB
-                    'percent': round((disk.used / disk.total) * 100, 2)
-                }
-            }
-        except Exception as e:
-            status_data['system'] = {
-                'status': 'error',
-                'error': str(e)
-            }
-        
-        # 3. 容器狀態檢查 (不使用 Docker API)
-        try:
-            # 使用系統命令檢查容器狀態
-            import subprocess
-            
-            result = subprocess.run(['docker', 'ps', '--format', 'table {{.Names}}\t{{.Status}}\t{{.Image}}'], 
-                                  capture_output=True, text=True, timeout=10)
-            
-            if result.returncode == 0:
-                lines = result.stdout.strip().split('\n')[1:]  # 跳過標題行
-                container_info = []
-                
-                for line in lines:
-                    if line.strip():
-                        parts = line.split('\t')
-                        if len(parts) >= 3:
-                            name, status, image = parts[0], parts[1], parts[2]
-                            if any(keyword in name for keyword in ['ai-', 'postgres', 'adminer', 'portainer']):
-                                container_info.append({
-                                    'name': name,
-                                    'status': 'running' if 'Up' in status else 'stopped',
-                                    'image': image,
-                                    'status_detail': status
-                                })
-                
-                status_data['containers'] = {
-                    'status': 'healthy',
-                    'total': len(container_info),
-                    'running': len([c for c in container_info if c['status'] == 'running']),
-                    'containers': container_info
-                }
-            else:
-                raise Exception(f"Docker command failed: {result.stderr}")
-                
-        except Exception as e:
-            status_data['containers'] = {
-                'status': 'unavailable',
-                'error': f'容器狀態檢查失敗: {str(e)}',
-                'message': '無法獲取容器狀態，可能是權限問題'
-            }
-        
-        # 4. API 效能統計
-        try:
-            from django.db.models import Count, Avg
-            from django.contrib.sessions.models import Session
-            
-            # 最近 24 小時的統計
-            yesterday = timezone.now() - timedelta(days=1)
-            
-            # 活躍會話數
-            active_sessions = Session.objects.filter(expire_date__gt=timezone.now()).count()
-            
-            # 用戶活動統計
-            recent_users = User.objects.filter(last_login__gte=yesterday).count()
-            
-            status_data['api'] = {
-                'status': 'healthy',
-                'active_sessions': active_sessions,
-                'recent_active_users': recent_users,
-                'total_users': User.objects.count(),
-                'total_know_issues': KnowIssue.objects.count(),
-                'uptime': str(timezone.now() - timezone.now().replace(hour=0, minute=0, second=0))
-            }
-        except Exception as e:
-            status_data['api'] = {
-                'status': 'error',
-                'error': str(e)
-            }
-        
-        # 5. 服務健康檢查
-        status_data['overall'] = {
-            'status': 'healthy' if all(
-                section.get('status') == 'healthy' 
-                for section in [status_data.get('database', {}), status_data.get('system', {}), 
-                               status_data.get('containers', {}), status_data.get('api', {})]
-            ) else 'warning',
-            'timestamp': timezone.now().isoformat(),
-            'server_time': timezone.now().strftime('%Y-%m-%d %H:%M:%S')
-        }
-        
-        return Response(status_data, status=status.HTTP_200_OK)
-        
-    except Exception as e:
-        logger.error(f"系統狀態檢查失敗: {str(e)}")
-        return Response({
-            'error': f'系統狀態檢查失敗: {str(e)}',
-            'overall': {
-                'status': 'error',
-                'timestamp': timezone.now().isoformat() if 'timezone' in locals() else None
-            }
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 @api_view(['GET'])
 @permission_classes([permissions.IsAdminUser])
@@ -3150,13 +2980,15 @@ def system_logs(request):
     系統日誌 API - 獲取最近的系統日誌
     """
     try:
+        from django.utils import timezone
+        import logging
+        
         log_type = request.query_params.get('type', 'django')
         lines = int(request.query_params.get('lines', 50))
         
         if log_type == 'django':
             # 獲取 Django 日誌（這裡簡化處理）
-            import logging
-            logger = logging.getLogger('django')
+            logger_instance = logging.getLogger('django')
             
             # 返回模擬的日誌數據
             logs = [
@@ -3216,10 +3048,15 @@ def simple_system_status(request):
             
     except Exception as e:
         logger.error(f"Simple system status error: {str(e)}")
+        try:
+            from django.utils import timezone
+            timestamp = timezone.now().isoformat()
+        except:
+            timestamp = None
         return Response({
             'error': f'系統狀態獲取失敗: {str(e)}',
             'status': 'error',
-            'timestamp': timezone.now().isoformat() if 'timezone' in globals() else None
+            'timestamp': timestamp
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

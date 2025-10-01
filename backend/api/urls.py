@@ -71,7 +71,6 @@ urlpatterns = [
     path('chat/record-usage/', views.record_chat_usage, name='record_chat_usage'),
     
     # 系統狀態監控 API
-    path('system/status/', views.system_status, name='system_status'),
     path('system/simple-status/', views.simple_system_status, name='simple_system_status'),
     path('system/basic-status/', views.basic_system_status, name='basic_system_status'),
     path('system/logs/', views.system_logs, name='system_logs'),
