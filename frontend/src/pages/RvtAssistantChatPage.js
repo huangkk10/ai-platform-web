@@ -2,18 +2,8 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { Layout, Input, Button, Card, Avatar, message, Spin, Typography, Tag, Table } from 'antd';
 import { 
   SendOutlined, 
-  StopOutlined, 
-  PauseCircleOutlined, 
-  CloseCircleOutlined, 
-  PoweroffOutlined,
-  PauseOutlined,
-  BorderOutlined,
-  StopFilled,
-  MinusSquareOutlined,
   MinusSquareFilled,
   UserOutlined, 
-  RobotOutlined, 
-  InfoCircleOutlined, 
   ToolOutlined 
 } from '@ant-design/icons';
 import { useChatContext } from '../contexts/ChatContext';
@@ -244,7 +234,6 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
 
     setMessages(prev => [...prev, userMessage]);
     setInputMessage('');
-    console.log('🚀 設置 loading = true'); // 調試信息
     setLoading(true);
     setLoadingStartTime(Date.now());
 
@@ -335,7 +324,6 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
             errorMessage.includes('conversation_id') ||
             errorMessage.includes('404')) {
           // 清除無效的對話ID
-          console.log('清除無效的對話ID:', conversationId);
           setConversationId('');
           localStorage.removeItem(CONVERSATION_ID_KEY);
           
@@ -351,7 +339,6 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
       
       // 檢查是否是用戶主動取消
       if (error.name === 'AbortError') {
-        console.log('請求被用戶取消');
         const cancelMessage = {
           id: Date.now() + 1,
           type: 'assistant',
@@ -419,7 +406,6 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
 
   const handleStopRequest = () => {
     if (abortControllerRef.current) {
-      console.log('正在取消當前請求...');
       abortControllerRef.current.abort();
       message.info('正在停止當前任務...');
     }
