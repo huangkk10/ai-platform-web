@@ -47,6 +47,15 @@ try:
         get_minimal_fallback_status_dict,
         get_basic_fallback_status_dict
     )
+    # 🆕 導入認證服務 library
+    from library.auth import (
+        AuthenticationService,
+        UserProfileService,
+        ValidationService,
+        AuthResponseFormatter,
+        LoginHandler
+    )
+    AUTH_LIBRARY_AVAILABLE = True
 except ImportError:
     # 如果 library 路徑有問題，提供備用配置
     get_protocol_known_issue_config = None
@@ -65,6 +74,13 @@ except ImportError:
     create_admin_monitor = None
     get_minimal_fallback_status_dict = None
     get_basic_fallback_status_dict = None
+    # 備用認證服務
+    AuthenticationService = None
+    UserProfileService = None
+    ValidationService = None
+    AuthResponseFormatter = None
+    LoginHandler = None
+    AUTH_LIBRARY_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -1404,6 +1420,7 @@ class OCRStorageBenchmarkViewSet(viewsets.ModelViewSet):
 class UserLoginView(View):
     """
     用戶登入 API - 使用 class-based view 避免 CSRF 問題
+    已重構為使用 library/auth 認證服務
     """
     def post(self, request):
         try:
@@ -1411,11 +1428,112 @@ class UserLoginView(View):
             username = data.get('username', '')
             password = data.get('password', '')
             
-            if not username or not password:
+            # 🆕 使用認證 library 進行重構
+            if AUTH_LIBRARY_AVAILABLE:
+                # 使用 library 中的 LoginHandler 處理登入
+                return LoginHandler.handle_class_based_login(request, username, password)
+            else:
+                # 📝 TODO: 考慮在 Library 穩定運行 6 個月後移除此備用機制
+                return self._login_fallback(request, username, password)
+                
+        except json.JSONDecodeError:
+            if AUTH_LIBRARY_AVAILABLE:
+                return AuthResponseFormatter.validation_error_response({
+                    'format': ['無效的 JSON 格式']
+                })
+            else:
                 return JsonResponse({
                     'success': False,
-                    'message': '用戶名和密碼不能為空'
+                    'message': '無效的 JSON 格式'
                 }, status=400)
+        except Exception as e:
+            logger.error(f"Login error: {str(e)}")
+            if AUTH_LIBRARY_AVAILABLE:
+                return AuthResponseFormatter.error_response('伺服器錯誤', status_code=500)
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'message': '伺服器錯誤'
+                }, status=500)
+    
+    # 🆕 _login_with_library 已移至 library/auth/login_handler.py 
+    # 現在直接使用 LoginHandler.handle_class_based_login()
+    
+    def _login_fallback(self, request, username: str, password: str):
+        """🔄 簡化備用登入實現 - 僅在 Library 不可用時使用"""
+        logger.warning("使用備用登入機制 - Library 認證服務不可用")
+        
+        if not username or not password:
+            return JsonResponse({
+                'success': False,
+                'message': '用戶名和密碼不能為空'
+            }, status=400)
+        
+        # 使用 Django 原生認證
+        user = authenticate(request, username=username, password=password)
+        
+        if user and user.is_active:
+            login(request, user)
+            
+            # 簡化用戶資料處理
+            try:
+                profile = UserProfile.objects.get(user=user)
+                bio = profile.bio
+            except UserProfile.DoesNotExist:
+                bio = ''
+            
+            return JsonResponse({
+                'success': True,
+                'message': '登入成功 (備用模式)',
+                'user': {
+                    'id': user.id,
+                    'username': user.username,
+                    'email': user.email,
+                    'first_name': user.first_name,
+                    'last_name': user.last_name,
+                    'is_staff': user.is_staff,
+                    'is_superuser': user.is_superuser,
+                    'bio': bio,
+                    'date_joined': user.date_joined.isoformat(),
+                    'last_login': user.last_login.isoformat() if user.last_login else None
+                }
+            }, status=200)
+        else:
+            error_msg = '該帳號已被停用' if user and not user.is_active else '用戶名或密碼錯誤'
+            return JsonResponse({
+                'success': False,
+                'message': error_msg
+            }, status=401)
+
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@authentication_classes([])
+def user_login(request):
+    """
+    用戶登入 API - 已重構為使用 library/auth 認證服務
+    """
+    try:
+        data = json.loads(request.body)
+        username = data.get('username', '')
+        password = data.get('password', '')
+        
+        # 🆕 使用認證 library 進行重構
+        if AUTH_LIBRARY_AVAILABLE:
+            # 使用 LoginHandler 統一處理登入邏輯
+            login_response = LoginHandler.handle_login(request, username, password)
+            
+            # 將 JsonResponse 轉換為 DRF Response
+            response_data = json.loads(login_response.content.decode('utf-8'))
+            return Response(response_data, status=login_response.status_code)
+        else:
+            # 🔄 備用實現（原有邏輯）
+            if not username or not password:
+                return Response({
+                    'success': False,
+                    'message': '用戶名和密碼不能為空'
+                }, status=status.HTTP_400_BAD_REQUEST)
             
             # Django 認證
             user = authenticate(request, username=username, password=password)
@@ -1431,7 +1549,7 @@ class UserLoginView(View):
                     except UserProfile.DoesNotExist:
                         bio = ''
                     
-                    return JsonResponse({
+                    return Response({
                         'success': True,
                         'message': '登入成功',
                         'user': {
@@ -1446,102 +1564,37 @@ class UserLoginView(View):
                             'date_joined': user.date_joined.isoformat(),
                             'last_login': user.last_login.isoformat() if user.last_login else None
                         }
-                    }, status=200)
+                    }, status=status.HTTP_200_OK)
                 else:
-                    return JsonResponse({
+                    return Response({
                         'success': False,
                         'message': '該帳號已被停用'
-                    }, status=401)
+                    }, status=status.HTTP_401_UNAUTHORIZED)
             else:
-                return JsonResponse({
+                return Response({
                     'success': False,
                     'message': '用戶名或密碼錯誤'
-                }, status=401)
-                
-        except json.JSONDecodeError:
-            return JsonResponse({
-                'success': False,
-                'message': '無效的 JSON 格式'
-            }, status=400)
-        except Exception as e:
-            logger.error(f"Login error: {str(e)}")
-            return JsonResponse({
-                'success': False,
-                'message': '伺服器錯誤'
-            }, status=500)
-
-
-@csrf_exempt
-@api_view(['POST'])
-@permission_classes([AllowAny])
-@authentication_classes([])
-def user_login(request):
-    """
-    用戶登入 API
-    """
-    try:
-        data = json.loads(request.body)
-        username = data.get('username', '')
-        password = data.get('password', '')
-        
-        if not username or not password:
-            return Response({
-                'success': False,
-                'message': '用戶名和密碼不能為空'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Django 認證
-        user = authenticate(request, username=username, password=password)
-        
-        if user is not None:
-            if user.is_active:
-                login(request, user)
-                
-                # 獲取或創建用戶資料
-                try:
-                    profile = UserProfile.objects.get(user=user)
-                    bio = profile.bio
-                except UserProfile.DoesNotExist:
-                    bio = ''
-                
-                return Response({
-                    'success': True,
-                    'message': '登入成功',
-                    'user': {
-                        'id': user.id,
-                        'username': user.username,
-                        'email': user.email,
-                        'first_name': user.first_name,
-                        'last_name': user.last_name,
-                        'is_staff': user.is_staff,
-                        'is_superuser': user.is_superuser,
-                        'bio': bio,
-                        'date_joined': user.date_joined.isoformat(),
-                        'last_login': user.last_login.isoformat() if user.last_login else None
-                    }
-                }, status=status.HTTP_200_OK)
-            else:
-                return Response({
-                    'success': False,
-                    'message': '該帳號已被停用'
                 }, status=status.HTTP_401_UNAUTHORIZED)
+            
+    except json.JSONDecodeError:
+        if AUTH_LIBRARY_AVAILABLE:
+            return AuthResponseFormatter.validation_error_response({
+                'format': ['無效的 JSON 格式']
+            })
         else:
             return Response({
                 'success': False,
-                'message': '用戶名或密碼錯誤'
-            }, status=status.HTTP_401_UNAUTHORIZED)
-            
-    except json.JSONDecodeError:
-        return Response({
-            'success': False,
-            'message': '無效的 JSON 格式'
-        }, status=status.HTTP_400_BAD_REQUEST)
+                'message': '無效的 JSON 格式'
+            }, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         logger.error(f"Login error: {str(e)}")
-        return Response({
-            'success': False,
-            'message': '伺服器錯誤'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        if AUTH_LIBRARY_AVAILABLE:
+            return AuthResponseFormatter.error_response('伺服器錯誤', status_code=500)
+        else:
+            return Response({
+                'success': False,
+                'message': '伺服器錯誤'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @csrf_exempt
@@ -1550,7 +1603,7 @@ def user_login(request):
 @authentication_classes([])
 def user_register(request):
     """
-    用戶註冊 API
+    用戶註冊 API - 已重構為使用 library/auth 認證服務
     """
     try:
         data = json.loads(request.body)
@@ -1560,80 +1613,150 @@ def user_register(request):
         first_name = data.get('first_name', '').strip()
         last_name = data.get('last_name', '').strip()
         
-        # 基本驗證
-        if not username:
-            return Response({
-                'success': False,
-                'message': '用戶名不能為空'
-            }, status=status.HTTP_400_BAD_REQUEST)
+        # 🆕 使用認證 library 進行重構
+        if AUTH_LIBRARY_AVAILABLE:
+            # 1. 使用 ValidationService 進行註冊數據驗證
+            validation_result, errors = ValidationService.validate_registration_data({
+                'username': username,
+                'password': password,
+                'email': email,
+                'first_name': first_name,
+                'last_name': last_name
+            })
             
-        if not password:
-            return Response({
-                'success': False,
-                'message': '密碼不能為空'
-            }, status=status.HTTP_400_BAD_REQUEST)
+            if not validation_result:
+                return AuthResponseFormatter.validation_error_response(errors)
             
-        if not email:
+            # 2. 檢查用戶名是否已存在
+            if User.objects.filter(username=username).exists():
+                return AuthResponseFormatter.validation_error_response({
+                    'username': ['用戶名已存在']
+                })
+            
+            # 3. 檢查 Email 是否已存在
+            if User.objects.filter(email=email).exists():
+                return AuthResponseFormatter.validation_error_response({
+                    'email': ['Email 已被註冊']
+                })
+            
+            # 4. 創建新用戶
+            user = User.objects.create_user(
+                username=username,
+                password=password,
+                email=email,
+                first_name=first_name,
+                last_name=last_name
+            )
+            
+            # 5. 使用 UserProfileService 創建用戶檔案
+            UserProfileService.create_or_update_user_profile(
+                user=user,
+                profile_data={'bio': f'歡迎 {first_name or username} 加入！'}
+            )
+            
+            logger.info(f"New user registered: {username} ({email})")
+            
+            # 6. 使用 AuthResponseFormatter 格式化成功響應
+            response = AuthResponseFormatter.success_response(
+                message='註冊成功！請使用新帳號登入',
+                data={
+                    'user': {
+                        'id': user.id,
+                        'username': user.username,
+                        'email': user.email,
+                        'first_name': user.first_name,
+                        'last_name': user.last_name,
+                        'date_joined': user.date_joined.isoformat()
+                    }
+                }
+            )
+            # 手動設置狀態碼
+            response.status_code = 201
+            return response
+        else:
+            # 🔄 備用實現（原有邏輯）
+            # 基本驗證
+            if not username:
+                return Response({
+                    'success': False,
+                    'message': '用戶名不能為空'
+                }, status=status.HTTP_400_BAD_REQUEST)
+                
+            if not password:
+                return Response({
+                    'success': False,
+                    'message': '密碼不能為空'
+                }, status=status.HTTP_400_BAD_REQUEST)
+                
+            if not email:
+                return Response({
+                    'success': False,
+                    'message': 'Email 不能為空'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 檢查用戶名是否已存在
+            if User.objects.filter(username=username).exists():
+                return Response({
+                    'success': False,
+                    'message': '用戶名已存在'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 檢查 Email 是否已存在
+            if User.objects.filter(email=email).exists():
+                return Response({
+                    'success': False,
+                    'message': 'Email 已被註冊'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 創建新用戶
+            user = User.objects.create_user(
+                username=username,
+                password=password,
+                email=email,
+                first_name=first_name,
+                last_name=last_name
+            )
+            
+            # 創建對應的 UserProfile
+            UserProfile.objects.create(
+                user=user,
+                bio=f'歡迎 {first_name or username} 加入！'
+            )
+            
+            logger.info(f"New user registered: {username} ({email})")
+            
             return Response({
-                'success': False,
-                'message': 'Email 不能為空'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # 檢查用戶名是否已存在
-        if User.objects.filter(username=username).exists():
-            return Response({
-                'success': False,
-                'message': '用戶名已存在'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # 檢查 Email 是否已存在
-        if User.objects.filter(email=email).exists():
-            return Response({
-                'success': False,
-                'message': 'Email 已被註冊'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # 創建新用戶
-        user = User.objects.create_user(
-            username=username,
-            password=password,
-            email=email,
-            first_name=first_name,
-            last_name=last_name
-        )
-        
-        # 創建對應的 UserProfile
-        UserProfile.objects.create(
-            user=user,
-            bio=f'歡迎 {first_name or username} 加入！'
-        )
-        
-        logger.info(f"New user registered: {username} ({email})")
-        
-        return Response({
-            'success': True,
-            'message': '註冊成功！請使用新帳號登入',
-            'user': {
-                'id': user.id,
-                'username': user.username,
-                'email': user.email,
-                'first_name': user.first_name,
-                'last_name': user.last_name,
-                'date_joined': user.date_joined.isoformat()
-            }
-        }, status=status.HTTP_201_CREATED)
+                'success': True,
+                'message': '註冊成功！請使用新帳號登入',
+                'user': {
+                    'id': user.id,
+                    'username': user.username,
+                    'email': user.email,
+                    'first_name': user.first_name,
+                    'last_name': user.last_name,
+                    'date_joined': user.date_joined.isoformat()
+                }
+            }, status=status.HTTP_201_CREATED)
         
     except json.JSONDecodeError:
-        return Response({
-            'success': False,
-            'message': '無效的 JSON 格式'
-        }, status=status.HTTP_400_BAD_REQUEST)
+        if AUTH_LIBRARY_AVAILABLE:
+            return AuthResponseFormatter.validation_error_response({
+                'format': ['無效的 JSON 格式']
+            })
+        else:
+            return Response({
+                'success': False,
+                'message': '無效的 JSON 格式'
+            }, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         logger.error(f"Registration error: {str(e)}")
-        return Response({
-            'success': False,
-            'message': f'註冊失敗: {str(e)}'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        if AUTH_LIBRARY_AVAILABLE:
+            return AuthResponseFormatter.error_response(f'註冊失敗: {str(e)}', status_code=500)
+        else:
+            return Response({
+                'success': False,
+                'message': f'註冊失敗: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @csrf_exempt
@@ -1642,50 +1765,75 @@ def user_register(request):
 @authentication_classes([])
 def user_logout(request):
     """
-    用戶登出 API - 強制清除 session
+    用戶登出 API - 已重構為使用 library/auth 認證服務
     """
     try:
-        username = None
-        
-        # 嘗試獲取用戶名（如果有的話）
-        if hasattr(request, 'user') and request.user.is_authenticated:
-            username = request.user.username
-        
-        # 強制清除 session
-        if hasattr(request, 'session'):
-            request.session.flush()  # 完全清除 session
-        
-        # Django logout
-        logout(request)
-        
-        # 清除所有相關的 session
-        from django.contrib.sessions.models import Session
-        if username:
-            # 清除該用戶的所有 session（可選）
-            user_sessions = Session.objects.filter(
-                session_data__contains=username
+        # 🆕 使用認證 library 進行重構
+        if AUTH_LIBRARY_AVAILABLE:
+            # 使用 AuthenticationService 進行登出
+            logout_result = AuthenticationService.logout_user(
+                request, 
+                force_clear_all_sessions=True
             )
-            user_sessions.delete()
-        
-        return Response({
-            'success': True,
-            'message': f'用戶 {username or "用戶"} 已成功登出並清除所有 session'
-        }, status=status.HTTP_200_OK)
+            
+            # 使用 AuthResponseFormatter 格式化成功響應
+            return AuthResponseFormatter.success_response(
+                message=logout_result['message'],
+                data={'username': logout_result.get('username')}
+            )
+        else:
+            # 🔄 備用實現（原有邏輯）
+            username = None
+            
+            # 嘗試獲取用戶名（如果有的話）
+            if hasattr(request, 'user') and request.user.is_authenticated:
+                username = request.user.username
+            
+            # 強制清除 session
+            if hasattr(request, 'session'):
+                request.session.flush()  # 完全清除 session
+            
+            # Django logout
+            logout(request)
+            
+            # 清除所有相關的 session
+            from django.contrib.sessions.models import Session
+            if username:
+                # 清除該用戶的所有 session（可選）
+                user_sessions = Session.objects.filter(
+                    session_data__contains=username
+                )
+                user_sessions.delete()
+            
+            return Response({
+                'success': True,
+                'message': f'用戶 {username or "用戶"} 已成功登出並清除所有 session'
+            }, status=status.HTTP_200_OK)
         
     except Exception as e:
         logger.error(f"Logout error: {str(e)}")
-        # 即使出錯也要嘗試清除 session
-        try:
-            if hasattr(request, 'session'):
-                request.session.flush()
-            logout(request)
-        except:
-            pass
-            
-        return Response({
-            'success': True,
-            'message': '已強制清除登入狀態'
-        }, status=status.HTTP_200_OK)
+        
+        if AUTH_LIBRARY_AVAILABLE:
+            # 使用 library 的錯誤處理
+            try:
+                # 即使出錯也嘗試使用 AuthenticationService
+                AuthenticationService.logout_user(request, force_clear_all_sessions=True)
+            except:
+                pass
+            return AuthResponseFormatter.success_response('已強制清除登入狀態')
+        else:
+            # 備用錯誤處理
+            try:
+                if hasattr(request, 'session'):
+                    request.session.flush()
+                logout(request)
+            except:
+                pass
+                
+            return Response({
+                'success': True,
+                'message': '已強制清除登入狀態'
+            }, status=status.HTTP_200_OK)
 
 
 @csrf_exempt
@@ -1693,7 +1841,7 @@ def user_logout(request):
 @permission_classes([IsAuthenticated])
 def change_password(request):
     """
-    更改密碼 API
+    更改密碼 API - 已重構為使用 library/auth 認證服務
     """
     try:
         # 使用 request.data 而不是 request.body
@@ -1701,46 +1849,91 @@ def change_password(request):
         old_password = data.get('old_password', '')
         new_password = data.get('new_password', '')
         
-        # 基本驗證
-        if not old_password:
-            return Response({
-                'old_password': ['目前密碼不能為空']
-            }, status=status.HTTP_400_BAD_REQUEST)
+        # 🆕 使用認證 library 進行重構
+        if AUTH_LIBRARY_AVAILABLE:
+            # 1. 使用 ValidationService 進行密碼驗證
+            validation_result, errors = ValidationService.validate_password_change_data({
+                'old_password': old_password,
+                'new_password': new_password
+            })
             
-        if not new_password:
+            if not validation_result:
+                return AuthResponseFormatter.validation_error_response(errors)
+            
+            # 2. 使用 AuthenticationService 更改密碼
+            change_result = AuthenticationService.change_user_password(
+                user=request.user,
+                old_password=old_password,
+                new_password=new_password
+            )
+            
+            if change_result['success']:
+                # 3. 使用 AuthResponseFormatter 格式化成功響應
+                return AuthResponseFormatter.success_response(
+                    message=change_result['message']
+                )
+            else:
+                # 密碼更改失敗，返回錯誤響應
+                error_code = change_result.get('error_code')
+                if error_code == 'INVALID_OLD_PASSWORD':
+                    return AuthResponseFormatter.validation_error_response({
+                        'old_password': [change_result['message']]
+                    })
+                elif error_code == 'SAME_PASSWORD':
+                    return AuthResponseFormatter.validation_error_response({
+                        'new_password': [change_result['message']]
+                    })
+                else:
+                    return AuthResponseFormatter.error_response(
+                        change_result['message'], 
+                        status_code=400,
+                        error_code=error_code
+                    )
+        else:
+            # 🔄 備用實現（原有邏輯）
+            # 基本驗證
+            if not old_password:
+                return Response({
+                    'old_password': ['目前密碼不能為空']
+                }, status=status.HTTP_400_BAD_REQUEST)
+                
+            if not new_password:
+                return Response({
+                    'new_password': ['新密碼不能為空']
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 驗證目前密碼
+            user = request.user
+            if not user.check_password(old_password):
+                return Response({
+                    'old_password': ['目前密碼不正確']
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 檢查新密碼是否與舊密碼相同
+            if user.check_password(new_password):
+                return Response({
+                    'new_password': ['新密碼不能與目前密碼相同']
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 更改密碼
+            user.set_password(new_password)
+            user.save()
+            
+            logger.info(f"Password changed successfully for user: {user.username}")
+            
             return Response({
-                'new_password': ['新密碼不能為空']
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # 驗證目前密碼
-        user = request.user
-        if not user.check_password(old_password):
-            return Response({
-                'old_password': ['目前密碼不正確']
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # 檢查新密碼是否與舊密碼相同
-        if user.check_password(new_password):
-            return Response({
-                'new_password': ['新密碼不能與目前密碼相同']
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # 更改密碼
-        user.set_password(new_password)
-        user.save()
-        
-        logger.info(f"Password changed successfully for user: {user.username}")
-        
-        return Response({
-            'success': True,
-            'message': '密碼更改成功'
-        }, status=status.HTTP_200_OK)
+                'success': True,
+                'message': '密碼更改成功'
+            }, status=status.HTTP_200_OK)
         
     except Exception as e:
         logger.error(f"Change password error: {str(e)}")
-        return Response({
-            'error': '伺服器錯誤，請稍後再試'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        if AUTH_LIBRARY_AVAILABLE:
+            return AuthResponseFormatter.error_response('伺服器錯誤，請稍後再試', status_code=500)
+        else:
+            return Response({
+                'error': '伺服器錯誤，請稍後再試'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])
