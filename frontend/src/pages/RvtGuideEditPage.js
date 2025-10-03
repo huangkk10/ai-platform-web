@@ -30,22 +30,7 @@ const RvtGuideEditPage = () => {
   const isEdit = !!id;
 
   // 分類選項
-  const mainCategoryOptions = [
-    { value: 'system_architecture', label: '系統架構' },
-    { value: 'environment_setup', label: '環境準備' },
-    { value: 'configuration_management', label: '配置管理' },
-    { value: 'test_case_management', label: '測項管理' },
-    { value: 'operation_flow', label: '操作流程' },
-    { value: 'troubleshooting', label: '故障排除' },
-    { value: 'contact_support', label: '聯絡支援' }
-  ];
 
-  const questionTypeOptions = [
-    { value: 'operation_guide', label: '操作指南' },
-    { value: 'parameter_explanation', label: '參數說明' },
-    { value: 'troubleshooting', label: '故障排除' },
-    { value: 'concept_explanation', label: '概念說明' }
-  ];
 
   // 載入資料 (編輯模式)
   useEffect(() => {
@@ -147,38 +132,7 @@ const RvtGuideEditPage = () => {
                 </Col>
               </Row>
 
-              <Row gutter={24}>
-                <Col span={12}>
-                  <Form.Item
-                    name="main_category"
-                    label="主分類"
-                    rules={[{ required: true, message: '請選擇主分類' }]}
-                  >
-                    <Select placeholder="請選擇主分類">
-                      {mainCategoryOptions.map(option => (
-                        <Option key={option.value} value={option.value}>
-                          {option.label}
-                        </Option>
-                      ))}
-                    </Select>
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item
-                    name="question_type"
-                    label="問題類型"
-                    rules={[{ required: true, message: '請選擇問題類型' }]}
-                  >
-                    <Select placeholder="請選擇問題類型">
-                      {questionTypeOptions.map(option => (
-                        <Option key={option.value} value={option.value}>
-                          {option.label}
-                        </Option>
-                      ))}
-                    </Select>
-                  </Form.Item>
-                </Col>
-              </Row>
+
 
               <Row gutter={24}>
                 <Col span={24}>

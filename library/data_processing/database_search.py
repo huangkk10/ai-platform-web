@@ -168,32 +168,26 @@ class DatabaseSearchService:
                 SELECT 
                     id,
                     title,
-                    main_category,
                     content,
-                    question_type,
                     created_at,
                     updated_at,
                     CASE 
                         WHEN title ILIKE %s THEN 1.0
                         WHEN content ILIKE %s THEN 0.8
-                        WHEN main_category ILIKE %s THEN 0.7
-                        WHEN question_type ILIKE %s THEN 0.6
                         ELSE 0.5
                     END as score
                 FROM rvt_guide
                 WHERE 
                     title ILIKE %s OR 
-                    content ILIKE %s OR
-                    main_category ILIKE %s OR
-                    question_type ILIKE %s
+                    content ILIKE %s
                 ORDER BY score DESC, created_at DESC
                 LIMIT %s
                 """
                 
                 search_pattern = f'%{query_text}%'
                 cursor.execute(sql, [
-                    search_pattern, search_pattern, search_pattern, search_pattern,
-                    search_pattern, search_pattern, search_pattern, search_pattern,
+                    search_pattern, search_pattern,
+                    search_pattern, search_pattern,
                     limit
                 ])
                 
@@ -206,8 +200,6 @@ class DatabaseSearchService:
                     
                     # 格式化為知識片段
                     content = f"# {guide_data['title']}\n\n"
-                    content += f"**分類**: {guide_data['main_category']}\n"
-                    content += f"**問題類型**: {guide_data['question_type']}\n\n"
                     content += f"**內容**:\n{guide_data['content']}"
                     
                     results.append({
@@ -217,8 +209,6 @@ class DatabaseSearchService:
                         'score': float(guide_data['score']),
                         'metadata': {
                             'source': 'rvt_guide_database',
-                            'main_category': guide_data['main_category'],
-                            'question_type': guide_data['question_type'],
                             'created_at': str(guide_data['created_at']) if guide_data['created_at'] else None,
                             'updated_at': str(guide_data['updated_at']) if guide_data['updated_at'] else None
                         }

@@ -62,13 +62,13 @@ class Command(BaseCommand):
                     self.style.WARNING(f"⚠️  警告：實際向量維度 {len(test_embedding)} 小於預期的 1024 維")
                 )
             
-            # 查詢 RVT Guide 資料
-            rvt_guides = RVTGuide.objects.filter(status='published').order_by('id')
+            # 查詢所有 RVT Guide 資料
+            rvt_guides = RVTGuide.objects.all().order_by('id')
             total_count = rvt_guides.count()
             
             if total_count == 0:
                 self.stdout.write(
-                    self.style.WARNING("⚠️  沒有找到已發布的 RVT Guide 資料")
+                    self.style.WARNING("⚠️  沒有找到 RVT Guide 資料")
                 )
                 return
             
@@ -194,15 +194,7 @@ class Command(BaseCommand):
         # 添加標題
         content_parts.append(f"標題: {rvt_guide.title}")
         
-        # 添加分類資訊
-        content_parts.append(f"主分類: {rvt_guide.get_main_category_display()}")
-        content_parts.append(f"子分類: {rvt_guide.get_sub_category_display()}")
-        
         # 添加主要內容
         content_parts.append(f"內容: {rvt_guide.content}")
-        
-        # 添加使用情境資訊
-        content_parts.append(f"問題類型: {rvt_guide.get_question_type_display()}")
-        content_parts.append(f"目標使用者: {rvt_guide.get_target_user_display()}")
         
         return "\n".join(content_parts)

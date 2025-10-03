@@ -39,26 +39,6 @@ const RvtGuidePage = () => {
   const [loading, setLoading] = useState(false);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedGuide, setSelectedGuide] = useState(null);
-  const [selectedMainCategory, setSelectedMainCategory] = useState('');
-
-  // RVT 分類選項 - 對應資料庫的 main_category
-  const mainCategoryOptions = [
-    { value: 'system_architecture', label: '系統架構', color: 'blue' },
-    { value: 'environment_setup', label: '環境準備', color: 'green' },
-    { value: 'configuration_management', label: '配置管理', color: 'orange' },
-    { value: 'test_case_management', label: '測項管理', color: 'purple' },
-    { value: 'operation_flow', label: '操作流程', color: 'cyan' },
-    { value: 'troubleshooting', label: '故障排除', color: 'red' },
-    { value: 'contact_support', label: '聯絡支援', color: 'magenta' }
-  ];
-
-  // 問題類型選項
-  const questionTypeOptions = [
-    { value: 'operation_guide', label: '操作指南', color: 'blue' },
-    { value: 'parameter_explanation', label: '參數說明', color: 'green' },
-    { value: 'troubleshooting', label: '故障排除', color: 'red' },
-    { value: 'concept_explanation', label: '概念說明', color: 'purple' }
-  ];
 
 
 
@@ -102,40 +82,6 @@ const RvtGuidePage = () => {
         </Tooltip>
       ),
       sorter: (a, b) => a.title.localeCompare(b.title),
-    },
-    {
-      title: '主分類',
-      dataIndex: 'main_category',
-      key: 'main_category',
-      width: 120,
-      align: 'center',
-      render: (mainCategory, record) => {
-        const categoryOpt = mainCategoryOptions.find(opt => opt.value === mainCategory);
-        return (
-          <Tag color={categoryOpt?.color || 'default'}>
-            {record.main_category_display || categoryOpt?.label || mainCategory}
-          </Tag>
-        );
-      },
-      filters: mainCategoryOptions.map(opt => ({ text: opt.label, value: opt.value })),
-      onFilter: (value, record) => record.main_category === value,
-    },
-    {
-      title: '問題類型',
-      dataIndex: 'question_type',
-      key: 'question_type',
-      width: 110,
-      align: 'center',
-      render: (questionType, record) => {
-        const typeOpt = questionTypeOptions.find(opt => opt.value === questionType);
-        return (
-          <Tag color={typeOpt?.color || 'default'}>
-            {record.question_type_display || typeOpt?.label || questionType}
-          </Tag>
-        );
-      },
-      filters: questionTypeOptions.map(opt => ({ text: opt.label, value: opt.value })),
-      onFilter: (value, record) => record.question_type === value,
     },
     {
       title: '建立時間',
@@ -355,25 +301,7 @@ const RvtGuidePage = () => {
                   <strong>📂 標題：</strong>
                   <span style={{ marginLeft: '8px' }}>{selectedGuide.title}</span>
                 </div>
-                <div>
-                  <strong>🏷️ 主分類：</strong>
-                  <Tag 
-                    color={mainCategoryOptions.find(opt => opt.value === selectedGuide.main_category)?.color || 'blue'}
-                    style={{ marginLeft: '8px' }}
-                  >
-                    {selectedGuide.main_category_display}
-                  </Tag>
-                </div>
 
-                <div>
-                  <strong>🔄 問題類型：</strong>
-                  <Tag 
-                    color={questionTypeOptions.find(opt => opt.value === selectedGuide.question_type)?.color || 'green'}
-                    style={{ marginLeft: '8px' }}
-                  >
-                    {selectedGuide.question_type_display}
-                  </Tag>
-                </div>
 
 
 

@@ -2974,7 +2974,6 @@ class RVTGuideViewSet(viewsets.ModelViewSet):
             
             # 格式化內容用於向量化
             content = f"標題: {instance.title}\n"
-            content += f"主分類: {instance.get_main_category_display()}\n"
             content += f"內容: {instance.content}\n"
             
             # 獲取 embedding 服務
@@ -3005,10 +3004,7 @@ class RVTGuideViewSet(viewsets.ModelViewSet):
         if title:
             queryset = queryset.filter(title__icontains=title)
         
-        # 主分類篩選
-        main_category = self.request.query_params.get('main_category', None)
-        if main_category:
-            queryset = queryset.filter(main_category=main_category)
+
         
         # 子分類篩選
         sub_category = self.request.query_params.get('sub_category', None)
@@ -3020,10 +3016,7 @@ class RVTGuideViewSet(viewsets.ModelViewSet):
         if status_filter:
             queryset = queryset.filter(status=status_filter)
         
-        # 問題類型篩選
-        question_type = self.request.query_params.get('question_type', None)
-        if question_type:
-            queryset = queryset.filter(question_type=question_type)
+
         
         # 目標用戶篩選
 
@@ -3057,8 +3050,7 @@ class RVTGuideViewSet(viewsets.ModelViewSet):
             total_guides = queryset.count()
             published_guides = queryset.filter(status='published').count()
             
-            # 按主分類統計
-            main_category_stats = queryset.values('main_category').annotate(count=Count('id'))
+
             
             # 按子分類統計
             sub_category_stats = queryset.values('sub_category').annotate(count=Count('id'))
@@ -3066,8 +3058,7 @@ class RVTGuideViewSet(viewsets.ModelViewSet):
             # 按狀態統計
             status_stats = queryset.values('status').annotate(count=Count('id'))
             
-            # 按問題類型統計
-            question_type_stats = queryset.values('question_type').annotate(count=Count('id'))
+
             
             # 按目標用戶統計
 
@@ -3080,10 +3071,8 @@ class RVTGuideViewSet(viewsets.ModelViewSet):
                 'total_guides': total_guides,
                 'published_guides': published_guides,
                 'publish_rate': round(published_guides / total_guides * 100, 2) if total_guides > 0 else 0,
-                'main_category_distribution': list(main_category_stats),
                 'sub_category_distribution': list(sub_category_stats),
                 'status_distribution': list(status_stats),
-                'question_type_distribution': list(question_type_stats),
 
                 'recent_guides': recent_guides_data
             }, status=status.HTTP_200_OK)

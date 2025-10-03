@@ -497,45 +497,11 @@ class OCRStorageBenchmark(models.Model):
 class RVTGuide(models.Model):
     """RVT 使用指南知識庫模型"""
     
-    MAIN_CATEGORY_CHOICES = [
-        ('system_architecture', '系統架構'),
-        ('environment_setup', '環境準備'),
-        ('configuration_management', '配置管理'),
-        ('test_case_management', '測項管理'),
-        ('operation_flow', '操作流程'),
-        ('troubleshooting', '故障排除'),
-        ('contact_support', '聯絡支援'),
-    ]
-    
-
-    
     # 基本識別欄位
     title = models.CharField(max_length=300, verbose_name="文檔標題", help_text="文檔的顯示標題")
     
-    # 分類欄位
-    main_category = models.CharField(
-        max_length=50, 
-        choices=MAIN_CATEGORY_CHOICES, 
-        verbose_name="主分類",
-        help_text="文檔所屬的主要分類"
-    )
-    
     # 內容欄位
     content = models.TextField(verbose_name="文檔內容", help_text="文檔的主要內容")
-    
-    # 使用情境欄位
-    question_type = models.CharField(
-        max_length=50,
-        choices=[
-            ('operation_guide', '操作指南'),
-            ('parameter_explanation', '參數說明'),
-            ('troubleshooting', '故障排除'),
-            ('concept_explanation', '概念說明'),
-        ],
-        default='operation_guide',
-        verbose_name="問題類型",
-        help_text="這個文檔主要回答什麼類型的問題"
-    )
     
 
     
@@ -546,21 +512,13 @@ class RVTGuide(models.Model):
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新時間")
     
     class Meta:
-        ordering = ['main_category', 'title']
+        ordering = ['title']
         verbose_name = "RVT使用指南"
         verbose_name_plural = "RVT使用指南"
         db_table = 'rvt_guide'
-        indexes = [
-            models.Index(fields=['main_category']),
-        ]
     
     def __str__(self):
-        return f"[{self.get_main_category_display()}] {self.title}"
-    
-    def get_full_category_name(self):
-        """獲取完整的分類名稱"""
-        main_name = self.get_main_category_display()
-        return main_name
+        return self.title
     
     def get_search_content(self):
         """獲取用於搜索的完整內容"""

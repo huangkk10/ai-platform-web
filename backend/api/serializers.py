@@ -231,50 +231,28 @@ class OCRTestClassSerializer(serializers.ModelSerializer):
 
 class RVTGuideSerializer(serializers.ModelSerializer):
     """RVT Guide 完整序列化器"""
-    main_category_display = serializers.CharField(source='get_main_category_display', read_only=True)
-    question_type_display = serializers.CharField(source='get_question_type_display', read_only=True)
-    
-    full_category_name = serializers.SerializerMethodField()
     
     class Meta:
         model = RVTGuide
         fields = [
             'id', 'title',
-            'main_category', 'main_category_display',
             'content',
-            'question_type', 'question_type_display',
-            'full_category_name', 'created_at', 'updated_at'
+            'created_at', 'updated_at'
         ]
         read_only_fields = [
-            'id', 'created_at', 'updated_at', 'main_category_display',
-            'question_type_display', 'full_category_name'
+            'id', 'created_at', 'updated_at'
         ]
-    
-    def get_full_category_name(self, obj):
-        """獲取完整分類名稱"""
-        return obj.get_full_category_name()
 
 
 class RVTGuideListSerializer(serializers.ModelSerializer):
     """RVT Guide 列表序列化器 - 用於列表視圖，包含較少字段以提升性能"""
-    main_category_display = serializers.CharField(source='get_main_category_display', read_only=True)
-    question_type_display = serializers.CharField(source='get_question_type_display', read_only=True)
-    
-    full_category_name = serializers.SerializerMethodField()
     
     class Meta:
         model = RVTGuide
         fields = [
             'id', 'title',
-            'main_category', 'main_category_display',
-            'question_type', 'question_type_display',
-            'full_category_name', 'created_at', 'updated_at'
+            'created_at', 'updated_at'
         ]
         read_only_fields = [
-            'id', 'created_at', 'updated_at', 'main_category_display',
-            'question_type_display', 'full_category_name'
+            'id', 'created_at', 'updated_at'
         ]
-    
-    def get_full_category_name(self, obj):
-        """獲取完整分類名稱"""
-        return obj.get_full_category_name()
