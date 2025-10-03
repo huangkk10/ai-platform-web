@@ -155,19 +155,6 @@ const LoginForm = ({ visible, onClose, onSuccess, onRegister }) => {
           </div>
         </>
       )}
-
-      <div style={{ 
-        marginTop: 16, 
-        padding: 12, 
-        background: '#f6f8fa', 
-        borderRadius: 4,
-        fontSize: 12,
-        color: '#666'
-      }}>
-        <div><strong>測試帳號：</strong></div>
-        <div>用戶名：admin</div>
-        <div>密碼：admin123</div>
-      </div>
     </Modal>
   );
 };
