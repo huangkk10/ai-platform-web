@@ -946,8 +946,8 @@ class KnowIssueViewSet(viewsets.ModelViewSet):
             if uploaded_images:
                 instance.save()
             
-            # 🆕 自動生成向量
-            self._generate_vector_for_know_issue(instance, action='create')
+            # 🚫 已禁用自動向量生成
+            # self._generate_vector_for_know_issue(instance, action='create')
             
             # 返回完整的序列化數據
             response_serializer = self.get_serializer(instance)
@@ -999,8 +999,8 @@ class KnowIssueViewSet(viewsets.ModelViewSet):
             if uploaded_images:
                 instance.save()
             
-            # 🆕 自動生成向量
-            self._generate_vector_for_know_issue(instance, action='update')
+            # 🚫 已禁用自動向量生成
+            # self._generate_vector_for_know_issue(instance, action='update')
             
             # 返回完整的序列化數據
             response_serializer = self.get_serializer(instance)

@@ -29,21 +29,8 @@ class DatabaseSearchService:
             搜索結果列表，每個結果包含 id, title, content, score, metadata
         """
         try:
-            # 🆕 優先嘗試向量搜索
-            try:
-                from api.services.embedding_service import search_know_issue_with_vectors
-                vector_results = search_know_issue_with_vectors(query_text, top_k=limit)
-                if vector_results and len(vector_results) > 0:
-                    logger.info(f"Know Issue 向量搜索找到 {len(vector_results)} 個結果")
-                    return vector_results
-                else:
-                    logger.info("Know Issue 向量搜索無結果，回退到關鍵字搜索")
-            except ImportError:
-                logger.info("向量搜索服務不可用，使用關鍵字搜索")
-            except Exception as e:
-                logger.warning(f"向量搜索失敗，回退到關鍵字搜索: {str(e)}")
-            
-            # 🔄 回退到關鍵字搜索（原有邏輯）
+            # 🔄 直接使用關鍵字搜索（已禁用向量搜索）
+            logger.info("使用關鍵字搜索 Know Issue 知識庫")
             with connection.cursor() as cursor:
                 sql = """
                 SELECT 
