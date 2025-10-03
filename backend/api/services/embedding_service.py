@@ -408,3 +408,117 @@ def _get_rvt_guide_results(vector_results: List[dict], version_info: str) -> Lis
     except Exception as e:
         logger.error(f"獲取 RVT Guide 詳細資料失敗: {str(e)}")
         return []
+
+
+def search_know_issue_with_vectors(query: str, top_k: int = 5, threshold: float = 0.3) -> List[dict]:
+    """
+    🆕 使用向量搜索 Know Issue (1024維)
+    
+    Args:
+        query: 查詢文本
+        top_k: 返回結果數量
+        threshold: 相似度閾值
+        
+    Returns:
+        搜索結果列表
+    """
+    try:
+        service = get_embedding_service()  # 使用 1024 維模型
+        
+        # 搜索相似向量
+        vector_results = service.search_similar_documents(
+            query=query,
+            source_table='know_issue',
+            limit=top_k,
+            use_1024_table=True  # 使用 1024 維表格
+        )
+        
+        if not vector_results:
+            logger.info("Know Issue 向量搜索無結果")
+            return []
+        
+        return _get_know_issue_results(vector_results, "1024維")
+        
+    except Exception as e:
+        logger.error(f"Know Issue 向量搜索失敗: {str(e)}")
+        return []
+
+
+def _get_know_issue_results(vector_results: List[dict], version_info: str) -> List[dict]:
+    """
+    🆕 從向量搜索結果獲取 Know Issue 詳細資料
+    
+    Args:
+        vector_results: 向量搜索原始結果
+        version_info: 版本信息（用於日誌）
+        
+    Returns:
+        格式化的搜索結果
+    """
+    try:
+        # 提取 source_id 列表
+        source_ids = [result['source_id'] for result in vector_results]
+        
+        if not source_ids:
+            return []
+        
+        # 從資料庫獲取 Know Issue 詳細資料
+        with connection.cursor() as cursor:
+            placeholders = ','.join(['%s'] * len(source_ids))
+            cursor.execute(f"""
+                SELECT 
+                    ki.id, ki.issue_id, ki.project, ki.test_version,
+                    ki.issue_type, ki.status, ki.error_message,
+                    ki.supplement, ki.script, ki.jira_number,
+                    ki.created_at, ki.updated_at,
+                    tc.name as test_class_name
+                FROM know_issue ki
+                LEFT JOIN protocol_test_class tc ON ki.test_class_id = tc.id
+                WHERE ki.id IN ({placeholders})
+            """, source_ids)
+            
+            columns = [desc[0] for desc in cursor.description]
+            know_issues = {}
+            
+            for row in cursor.fetchall():
+                issue_data = dict(zip(columns, row))
+                know_issues[issue_data['id']] = issue_data
+        
+        # 組合結果，保持向量搜索的順序
+        final_results = []
+        for vector_result in vector_results:
+            source_id = vector_result['source_id']
+            if source_id in know_issues:
+                issue_data = know_issues[source_id]
+                
+                # 格式化內容用於 Dify
+                content = f"問題編號: {issue_data['issue_id']}\n"
+                content += f"專案: {issue_data['project']}\n"
+                content += f"問題類型: {issue_data['issue_type']}\n"
+                content += f"狀態: {issue_data['status']}\n"
+                content += f"錯誤訊息: {issue_data['error_message']}\n"
+                if issue_data['supplement']:
+                    content += f"補充說明: {issue_data['supplement']}\n"
+                if issue_data['script']:
+                    content += f"相關腳本: {issue_data['script']}\n"
+                
+                final_results.append({
+                    'id': str(source_id),
+                    'title': f"{issue_data['issue_id']} - {issue_data['project']}",
+                    'content': content,
+                    'score': vector_result['similarity_score'],
+                    'metadata': {
+                        'source': f'know_issue_vector_search_{version_info}',
+                        'issue_id': issue_data['issue_id'],
+                        'project': issue_data['project'],
+                        'issue_type': issue_data['issue_type'],
+                        'status': issue_data['status']
+                    }
+                })
+        
+        logger.info(f"向量搜索返回 {len(final_results)} 個 Know Issue 結果 ({version_info})")
+        return final_results
+        
+    except Exception as e:
+        logger.error(f"獲取 Know Issue 詳細資料失敗: {str(e)}")
+        return []

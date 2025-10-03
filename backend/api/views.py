@@ -946,6 +946,9 @@ class KnowIssueViewSet(viewsets.ModelViewSet):
             if uploaded_images:
                 instance.save()
             
+            # 🆕 自動生成向量
+            self._generate_vector_for_know_issue(instance, action='create')
+            
             # 返回完整的序列化數據
             response_serializer = self.get_serializer(instance)
             headers = self.get_success_headers(response_serializer.data)
@@ -996,6 +999,9 @@ class KnowIssueViewSet(viewsets.ModelViewSet):
             if uploaded_images:
                 instance.save()
             
+            # 🆕 自動生成向量
+            self._generate_vector_for_know_issue(instance, action='update')
+            
             # 返回完整的序列化數據
             response_serializer = self.get_serializer(instance)
             return Response(response_serializer.data)
@@ -1014,6 +1020,48 @@ class KnowIssueViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         """更新時設定更新人員為當前用戶"""
         serializer.save(updated_by=self.request.user)
+    
+    def _generate_vector_for_know_issue(self, instance, action='create'):
+        """
+        為 Know Issue 生成向量資料
+        
+        Args:
+            instance: KnowIssue 實例
+            action: 操作類型 ('create' 或 'update')
+        """
+        try:
+            # 動態導入 embedding_service 避免循環導入
+            from .services.embedding_service import get_embedding_service
+            
+            # 格式化內容用於向量化
+            content = f"Issue ID: {instance.issue_id}\n"
+            content += f"專案: {instance.project}\n"
+            content += f"問題類型: {instance.issue_type}\n"
+            content += f"狀態: {instance.status}\n"
+            content += f"錯誤訊息: {instance.error_message}\n"
+            if instance.supplement:
+                content += f"補充說明: {instance.supplement}\n"
+            if instance.script:
+                content += f"相關腳本: {instance.script}\n"
+            
+            # 獲取 embedding 服務
+            service = get_embedding_service()  # 使用 1024 維模型
+            
+            # 生成並儲存向量
+            success = service.store_document_embedding(
+                source_table='know_issue',
+                source_id=instance.id,
+                content=content,
+                use_1024_table=True  # 使用 1024 維表格
+            )
+            
+            if success:
+                logger.info(f"✅ 成功為 Know Issue 生成向量 ({action}): ID {instance.id} - {instance.issue_id}")
+            else:
+                logger.error(f"❌ Know Issue 向量生成失敗 ({action}): ID {instance.id} - {instance.issue_id}")
+                
+        except Exception as e:
+            logger.error(f"❌ Know Issue 向量生成異常 ({action}): ID {instance.id} - {str(e)}")
 
 
 @method_decorator(csrf_exempt, name='dispatch')
