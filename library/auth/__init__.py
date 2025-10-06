@@ -8,7 +8,8 @@
 - UserProfileService: 用户资料管理服务  
 - ValidationService: 输入验证服务
 - AuthResponseFormatter: 认证响应格式化器
-- LoginHandler: 完整登入流程处理器 (NEW)
+- LoginHandler: 完整登入流程处理器
+- DRFAuthHandler: Django REST Framework API 处理器 (NEW)
 """
 
 from .authentication_service import AuthenticationService
@@ -16,11 +17,13 @@ from .user_profile_service import UserProfileService
 from .validation_service import ValidationService
 from .response_formatter import AuthResponseFormatter
 from .login_handler import LoginHandler
+from .api_handlers import DRFAuthHandler
 
 __all__ = [
     'AuthenticationService',
     'UserProfileService', 
     'ValidationService',
     'AuthResponseFormatter',
-    'LoginHandler'
+    'LoginHandler',
+    'DRFAuthHandler'
 ]

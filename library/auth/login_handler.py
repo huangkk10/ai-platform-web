@@ -126,3 +126,75 @@ class LoginHandler:
         """
         # 使用相同的處理邏輯
         return LoginHandler.handle_login(request, username, password)
+    
+    @staticmethod
+    def handle_fallback_login(request, username: str, password: str) -> JsonResponse:
+        """
+        🔄 備用登入實現 - 僅在 Library 認證服務不可用時使用
+        
+        這是一個簡化版本的登入處理，當主要的認證服務無法使用時的備用方案。
+        不依賴其他 library 組件，使用 Django 原生認證。
+        
+        Args:
+            request: Django HttpRequest 物件
+            username: 用戶名
+            password: 密碼
+            
+        Returns:
+            JsonResponse: 包含登入結果的響應
+        """
+        logger.warning("使用備用登入機制 - Library 認證服務不可用")
+        
+        # 基本參數驗證
+        if not username or not password:
+            return JsonResponse({
+                'success': False,
+                'message': '用戶名和密碼不能為空'
+            }, status=400)
+        
+        try:
+            # 使用 Django 原生認證
+            from django.contrib.auth import authenticate, login
+            user = authenticate(request, username=username, password=password)
+            
+            if user and user.is_active:
+                login(request, user)
+                
+                # 簡化用戶資料處理 - 不依賴 UserProfileService
+                try:
+                    from api.models import UserProfile
+                    profile = UserProfile.objects.get(user=user)
+                    bio = profile.bio
+                except:
+                    # 如果 UserProfile 不存在或其他錯誤，使用空字符串
+                    bio = ''
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': '登入成功 (備用模式)',
+                    'user': {
+                        'id': user.id,
+                        'username': user.username,
+                        'email': user.email,
+                        'first_name': user.first_name,
+                        'last_name': user.last_name,
+                        'is_staff': user.is_staff,
+                        'is_superuser': user.is_superuser,
+                        'bio': bio,
+                        'date_joined': user.date_joined.isoformat(),
+                        'last_login': user.last_login.isoformat() if user.last_login else None
+                    }
+                }, status=200)
+            else:
+                error_msg = '該帳號已被停用' if user and not user.is_active else '用戶名或密碼錯誤'
+                return JsonResponse({
+                    'success': False,
+                    'message': error_msg
+                }, status=401)
+                
+        except Exception as e:
+            logger.error(f"備用登入過程發生錯誤: {str(e)}")
+            return JsonResponse({
+                'success': False,
+                'message': '登入過程發生錯誤'
+            }, status=500)
