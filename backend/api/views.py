@@ -1466,63 +1466,23 @@ class OCRStorageBenchmarkViewSet(viewsets.ModelViewSet):
 
 # === 用戶認證 API ===
 
-@method_decorator(csrf_exempt, name='dispatch')
-class UserLoginView(View):
-    """
-    用戶登入 API - 使用 class-based view 避免 CSRF 問題
-    已重構為使用 library/auth 認證服務
-    """
-    def post(self, request):
-        try:
-            data = json.loads(request.body)
-            username = data.get('username', '')
-            password = data.get('password', '')
-            
-            # 🆕 使用認證 library 進行重構
-            if AUTH_LIBRARY_AVAILABLE:
-                # 使用 library 中的 LoginHandler 處理登入
-                return LoginHandler.handle_class_based_login(request, username, password)
-            else:
-                # 📝 TODO: 考慮在 Library 穩定運行 6 個月後移除此備用機制
-                # 直接使用 library 中的備用登入方法，無需中間層
-                return LoginHandler.handle_fallback_login(request, username, password)
-                
-        except json.JSONDecodeError:
-            if AUTH_LIBRARY_AVAILABLE:
-                return AuthResponseFormatter.validation_error_response({
-                    'format': ['無效的 JSON 格式']
-                })
-            else:
-                return JsonResponse({
-                    'success': False,
-                    'message': '無效的 JSON 格式'
-                }, status=400)
-        except Exception as e:
-            logger.error(f"Login error: {str(e)}")
-            if AUTH_LIBRARY_AVAILABLE:
-                return AuthResponseFormatter.error_response('伺服器錯誤', status_code=500)
-            else:
-                return JsonResponse({
-                    'success': False,
-                    'message': '伺服器錯誤'
-                }, status=500)
-    
-    # 🆕 _login_with_library 已移至 library/auth/login_handler.py 
-    # 現在直接使用 LoginHandler.handle_class_based_login()
-    # 
-    # 📝 _login_fallback 方法已移除：直接使用 LoginHandler.handle_fallback_login()
-    # 避免不必要的中間層，代碼更簡潔直接
-
-
 @csrf_exempt
 @api_view(['POST'])
 @permission_classes([AllowAny])
 @authentication_classes([])
-def user_login(request):
+def user_login_api(request):
     """
-    用戶登入 API - 完全使用 library/auth/DRFAuthHandler 實現
+    用戶登入 API - 統一使用 DRFAuthHandler 實現
+    優化版本：移除 class-based view，統一使用 function-based view
     """
     return DRFAuthHandler.handle_login_api(request)
+
+
+# 🚫 已棄用：UserLoginView class 已重構為 function-based view
+# 理由：統一 API 風格，簡化維護，更好的 DRF 整合
+
+
+# user_login function 已移除 - 改為使用優化後的 UserLoginView
 
 
 @csrf_exempt

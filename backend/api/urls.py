@@ -16,8 +16,8 @@ router.register(r'rvt-guides', views.RVTGuideViewSet)
 urlpatterns = [
     path('', include(router.urls)),
     
-    # 用戶認證 API (放在 rest_framework.urls 之前)
-    path('auth/login/', views.UserLoginView.as_view(), name='user_login'),
+    # 用戶認證 API (放在 rest_framework.urls 之前) - 統一使用 function-based views
+    path('auth/login/', views.user_login_api, name='user_login'),
     path('auth/register/', views.user_register, name='user_register'),
     path('auth/logout/', views.user_logout, name='user_logout'),
     path('auth/user/', views.user_info, name='user_info'),
