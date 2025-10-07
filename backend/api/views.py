@@ -1225,29 +1225,10 @@ class OCRStorageBenchmarkViewSet(viewsets.ModelViewSet):
                     'error': f'圖像上傳失敗: {str(e)}'
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
-    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
-    def verify_record(self, request, pk=None):
-        """驗證記錄"""
-        try:
-            ocr_record = self.get_object()
-            verification_notes = request.data.get('verification_notes', '')
-            
-            ocr_record.verified_by = request.user
-            ocr_record.verification_notes = verification_notes
-            ocr_record.is_verified = True
-            ocr_record.save()
-            
-            return Response({
-                'message': '記錄驗證成功',
-                'verified_by': request.user.username,
-                'verification_notes': verification_notes
-            }, status=status.HTTP_200_OK)
-            
-        except Exception as e:
-            logger.error(f"記錄驗證失敗: {str(e)}")
-            return Response({
-                'error': f'記錄驗證失敗: {str(e)}'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    # 🚨 verify_record 方法已移除
+    # 原因：OCRStorageBenchmark 模型中沒有 verified_by, verification_notes, is_verified 字段
+    # 這些字段在運行 0021 遷移時已被移除，但方法未同步更新
+    # 如需驗證功能，請先在模型中重新添加相關字段
     
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def process_ocr(self, request, pk=None):
@@ -1275,9 +1256,13 @@ class OCRStorageBenchmarkViewSet(viewsets.ModelViewSet):
                     # 使用緊急備用處理
                     return emergency_fallback_process_ocr(ocr_record)
                 else:
-                    # 最後的本地備用實現
-                    logger.error("所有 library 最終備用函數都不可用，使用本地緊急實現")
-                    return self._emergency_local_fallback_process_ocr(ocr_record)
+                    # 🚨 最終錯誤：所有 library 備用函數都不可用
+                    logger.error("所有 library 最終備用函數都不可用，OCR 處理功能完全無法使用")
+                    return Response({
+                        'error': 'OCR 處理服務完全不可用，請檢查系統配置或聯絡管理員',
+                        'error_code': 'OCR_SERVICE_UNAVAILABLE',
+                        'note': '所有備用處理方式都已失效，系統需要維護'
+                    }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
                 
         except Exception as e:
             logger.error(f"OCR 處理失敗: {str(e)}")
@@ -1285,96 +1270,69 @@ class OCRStorageBenchmarkViewSet(viewsets.ModelViewSet):
                 'error': f'OCR 處理失敗: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
-    def _emergency_local_fallback_process_ocr(self, ocr_record):
-        """
-        緊急本地備用 OCR 處理實現
-        
-        🚨 僅在所有 library 備用函數都不可用時使用
-        此方法是從原來的 _final_fallback_process_ocr 重命名而來
-        """
-        try:
-            # 檢查是否有原始圖像
-            if not ocr_record.original_image_data:
-                return Response({
-                    'error': '請先上傳原始圖像'
-                }, status=status.HTTP_400_BAD_REQUEST)
-            
-            # 簡單模擬處理
-            import time
-            start_time = time.time()
-            
-            if hasattr(ocr_record, 'processing_status'):
-                ocr_record.processing_status = 'completed'
-            
-            processing_time = time.time() - start_time
-            
-            if hasattr(ocr_record, 'ocr_processing_time'):
-                ocr_record.ocr_processing_time = processing_time
-            if hasattr(ocr_record, 'ocr_confidence'):
-                ocr_record.ocr_confidence = 0.70  # 最終備用實現置信度最低
-                
-            ocr_record.save()
-            
-            return Response({
-                'message': 'OCR 處理完成（最終備用模式）',
-                'processing_time': processing_time,
-                'confidence': 0.70,
-                'note': '使用最終備用處理模式，功能受限，建議檢查系統配置'
-            }, status=status.HTTP_200_OK)
-            
-        except Exception as e:
-            logger.error(f"緊急本地備用 OCR 處理也失敗: {str(e)}")
-            return Response({
-                'error': f'OCR 處理完全失敗: {str(e)}',
-                'note': '所有備用處理方式都已失敗，請檢查系統配置或聯絡管理員'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    # 🆕 _emergency_local_fallback_process_ocr 方法已移除
+    # 原因：此功能已在 library/ai_ocr/fallback_handlers.py 中實現
+    # 現在使用：final_fallback_process_ocr 和 emergency_fallback_process_ocr 函數
+    # 這些函數提供更完整的錯誤處理和日誌記錄
     
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def statistics(self, request):
-        """獲取統計資料"""
+        """
+        獲取統計資料 - 🆕 重構後使用 AI OCR Library 統一實現
+        """
         try:
-            from django.db.models import Count, Avg, Max, Min
-            
             queryset = self.get_queryset()
             
-            # 基本統計
-            total_records = queryset.count()
-            # OCRStorageBenchmark 沒有 is_verified 字段，移除這個統計
-            # verified_records = queryset.filter(is_verified=True).count()
-            
-            # OCRStorageBenchmark 沒有 processing_status 字段，改為按測試類別統計
-            test_class_stats = queryset.values('test_class__name').annotate(count=Count('id'))
-            
-            # 分數統計
-            score_stats = queryset.aggregate(
-                avg_score=Avg('benchmark_score'),
-                max_score=Max('benchmark_score'),
-                min_score=Min('benchmark_score')
-            )
-            
-            # OCRStorageBenchmark 沒有 test_environment 字段，改為按韌體版本統計
-            firmware_stats = queryset.values('firmware_version').annotate(count=Count('id'))
-            
-            # OCRStorageBenchmark 沒有 test_type 字段，改為按專案名稱統計
-            project_stats = queryset.values('project_name').annotate(count=Count('id'))
-            
-            # 按裝置型號統計 (前10名)
-            device_stats = queryset.values('device_model').annotate(count=Count('id')).order_by('-count')[:10]
-            
-            return Response({
-                'total_records': total_records,
-                # 移除 verified_records 相關統計
-                'test_class_distribution': list(test_class_stats),
-                'score_statistics': score_stats,
-                'firmware_distribution': list(firmware_stats),
-                'project_distribution': list(project_stats),
-                'top_devices': list(device_stats)
-            }, status=status.HTTP_200_OK)
-            
+            if self._manager:
+                # 使用 ViewSet Manager 中的統計功能（已整合統計管理器）
+                return self._manager.get_statistics_data(queryset)
+            else:
+                # 使用 library 中的備用統計實現
+                logger.warning("ViewSet Manager 不可用，使用 library 統計備用實現")
+                try:
+                    if AI_OCR_LIBRARY_AVAILABLE:
+                        from library.ai_ocr import handle_ocr_storage_benchmark_statistics
+                        return handle_ocr_storage_benchmark_statistics(queryset)
+                    else:
+                        # AI OCR Library 完全不可用時的最終備用
+                        logger.error("AI OCR Library 完全不可用，使用最基本統計")
+                        return self._emergency_basic_statistics(queryset)
+                except ImportError as e:
+                    logger.error(f"AI OCR Library 統計功能導入失敗: {e}")
+                    return self._emergency_basic_statistics(queryset)
+                    
         except Exception as e:
             logger.error(f"統計資料獲取失敗: {str(e)}")
             return Response({
+                'success': False,
                 'error': f'統計資料獲取失敗: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def _emergency_basic_statistics(self, queryset):
+        """緊急基本統計實現（在所有 library 都不可用時使用）"""
+        try:
+            total_records = queryset.count()
+            if total_records == 0:
+                return Response({
+                    'success': True,
+                    'total_records': 0,
+                    'message': '沒有找到任何記錄',
+                    'emergency_fallback': True
+                }, status=status.HTTP_200_OK)
+            
+            return Response({
+                'success': True,
+                'total_records': total_records,
+                'message': '使用緊急基本統計實現，功能受限',
+                'emergency_fallback': True
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"緊急基本統計也失敗: {str(e)}")
+            return Response({
+                'success': False,
+                'error': f'統計功能完全不可用: {str(e)}',
+                'emergency_fallback': True
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

@@ -99,6 +99,15 @@ class OCRStorageBenchmarkViewSetManager:
         except ImportError as e:
             self.logger.warning(f"無法導入查詢管理器: {e}")
             self.queryset_manager = None
+            
+        # 🆕 初始化統計管理器
+        self.statistics_manager = None
+        try:
+            from .statistics_manager import create_ocr_statistics_manager
+            self.statistics_manager = create_ocr_statistics_manager()
+        except ImportError as e:
+            self.logger.warning(f"無法導入統計管理器: {e}")
+            self.statistics_manager = None
         
     def get_serializer_class(self, action):
         """根據操作類型選擇合適的序列化器"""
@@ -308,47 +317,64 @@ class OCRStorageBenchmarkViewSetManager:
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     def get_statistics_data(self, queryset):
-        """獲取統計資料"""
+        """
+        獲取統計資料 - 🆕 重構後使用統計管理器統一實現
+        """
+        try:
+            if self.statistics_manager:
+                # 使用統計管理器中的實現
+                return self.statistics_manager.get_ocr_storage_benchmark_statistics(queryset)
+            else:
+                # 使用備用實現
+                self.logger.warning("統計管理器不可用，使用備用實現")
+                try:
+                    from .statistics_manager import get_fallback_ocr_statistics
+                    return get_fallback_ocr_statistics(queryset)
+                except ImportError:
+                    # 最終備用方案：最基本的統計
+                    return self._basic_fallback_statistics(queryset)
+        except Exception as e:
+            self.logger.error(f"統計資料獲取失敗: {str(e)}")
+            return self._basic_fallback_statistics(queryset)
+    
+    def _basic_fallback_statistics(self, queryset):
+        """最基本的統計備用實現"""
         try:
             from django.db.models import Count, Avg, Max, Min
             
-            # 基本統計
             total_records = queryset.count()
             
-            # 按測試類別統計
-            test_class_stats = queryset.values('test_class__name').annotate(count=Count('id'))
+            if total_records == 0:
+                return Response({
+                    'success': True,
+                    'total_records': 0,
+                    'message': '沒有找到任何記錄',
+                    'fallback': True
+                }, status=status.HTTP_200_OK)
             
-            # 分數統計
+            # 基本分數統計
             score_stats = queryset.aggregate(
                 avg_score=Avg('benchmark_score'),
                 max_score=Max('benchmark_score'),
                 min_score=Min('benchmark_score')
             )
             
-            # 按韌體版本統計
-            firmware_stats = queryset.values('firmware_version').annotate(count=Count('id'))
-            
-            # 按專案名稱統計
-            project_stats = queryset.values('project_name').annotate(count=Count('id'))
-            
-            # 按裝置型號統計 (前10名)
-            device_stats = queryset.values('device_model').annotate(count=Count('id')).order_by('-count')[:10]
-            
-            self.logger.info(f"統計資料生成成功: {total_records} 記錄")
+            self.logger.info(f"基本統計資料生成成功: {total_records} 記錄")
             
             return Response({
+                'success': True,
                 'total_records': total_records,
-                'test_class_distribution': list(test_class_stats),
                 'score_statistics': score_stats,
-                'firmware_distribution': list(firmware_stats),
-                'project_distribution': list(project_stats),
-                'top_devices': list(device_stats)
+                'message': '使用基本備用統計實現',
+                'fallback': True
             }, status=status.HTTP_200_OK)
             
         except Exception as e:
-            self.logger.error(f"統計資料獲取失敗: {str(e)}")
+            self.logger.error(f"基本備用統計實現失敗: {str(e)}")
             return Response({
-                'error': f'統計資料獲取失敗: {str(e)}'
+                'success': False,
+                'error': f'統計資料獲取失敗: {str(e)}',
+                'fallback': True
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

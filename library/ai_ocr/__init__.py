@@ -69,6 +69,14 @@ try:
         create_ocr_queryset_manager,
         fallback_ocr_storage_benchmark_queryset_filter
     )
+    # 🆕 導入統計管理器
+    from .statistics_manager import (
+        OCRStatisticsManager,
+        OCRStatisticsFallbackManager,
+        create_ocr_statistics_manager,
+        get_fallback_ocr_statistics,
+        handle_ocr_storage_benchmark_statistics
+    )
     
     AI_OCR_LIBRARY_AVAILABLE = True
     
@@ -115,6 +123,13 @@ except ImportError as e:
     OCRStorageBenchmarkQueryManager = None
     create_ocr_queryset_manager = None
     fallback_ocr_storage_benchmark_queryset_filter = None
+    
+    # 🆕 統計管理器也設為 None
+    OCRStatisticsManager = None
+    OCRStatisticsFallbackManager = None
+    create_ocr_statistics_manager = None
+    get_fallback_ocr_statistics = None
+    handle_ocr_storage_benchmark_statistics = None
     
     AI_OCR_LIBRARY_AVAILABLE = False
 
@@ -193,6 +208,13 @@ __all__ = [
     'OCRStorageBenchmarkQueryManager',
     'create_ocr_queryset_manager',
     'fallback_ocr_storage_benchmark_queryset_filter',
+    
+    # 🆕 統計管理器
+    'OCRStatisticsManager',
+    'OCRStatisticsFallbackManager', 
+    'create_ocr_statistics_manager',
+    'get_fallback_ocr_statistics',
+    'handle_ocr_storage_benchmark_statistics',
     
     # 狀態
     'AI_OCR_LIBRARY_AVAILABLE',
