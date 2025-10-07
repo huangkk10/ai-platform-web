@@ -56,7 +56,18 @@ try:
         LoginHandler,
         DRFAuthHandler
     )
+    # 🆕 導入 RVT Guide library
+    from library.rvt_guide import (
+        RVTGuideAPIHandler,
+        RVTGuideViewSetManager,
+        RVTGuideSearchService,
+        RVTGuideVectorService,
+        fallback_dify_rvt_guide_search,
+        fallback_rvt_guide_chat,
+        fallback_rvt_guide_config
+    )
     AUTH_LIBRARY_AVAILABLE = True
+    RVT_GUIDE_LIBRARY_AVAILABLE = True
 except ImportError:
     # 如果 library 路徑有問題，提供備用配置
     get_protocol_known_issue_config = None
@@ -82,9 +93,26 @@ except ImportError:
     AuthResponseFormatter = None
     LoginHandler = None
     DRFAuthHandler = None
+    # 備用 RVT Guide 服務
+    RVTGuideAPIHandler = None
+    RVTGuideViewSetManager = None
+    RVTGuideSearchService = None
+    RVTGuideVectorService = None
+    # 備用函數設定為 None，將使用本地備用實現
+    fallback_dify_rvt_guide_search = None
+    fallback_rvt_guide_chat = None
+    fallback_rvt_guide_config = None
     AUTH_LIBRARY_AVAILABLE = False
+    RVT_GUIDE_LIBRARY_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
+
+
+# ============= 🎯 已重構：RVT Guide 實現已移到 library =============
+# 所有 RVT Guide 相關功能現在都使用 library/rvt_guide/ 模組
+# - 主要實現：library/rvt_guide/api_handlers.py
+# - 備用實現：library/rvt_guide/fallback_handlers.py
+# 無需本地備用函數，library 已提供完整的多層備用機制
 
 
 def retry_api_request(func, max_retries=3, retry_delay=1, backoff_factor=2):
@@ -789,76 +817,21 @@ def dify_ocr_storage_benchmark_search(request):
 @csrf_exempt
 def dify_rvt_guide_search(request):
     """
-    Dify RVT Guide 外部知識庫 API 端點 - 專門針對 RVT 使用指南搜索
-    
-    期望的請求格式:
-    {
-        "knowledge_id": "rvt_guide_db",
-        "query": "搜索字詞",
-        "retrieval_setting": {
-            "top_k": 3,
-            "score_threshold": 0.5
-        }
-    }
+    Dify RVT Guide 外部知識庫搜索 API - 使用 library 統一實現
     """
     try:
-        # 記錄請求來源
-        logger.info(f"Dify RVT Guide API request from: {request.META.get('REMOTE_ADDR')}")
-        
-        # 解析請求數據
-        data = json.loads(request.body) if request.body else {}
-        query = data.get('query', '')
-        knowledge_id = data.get('knowledge_id', 'rvt_guide_db')
-        retrieval_setting = data.get('retrieval_setting', {})
-        
-        top_k = retrieval_setting.get('top_k', 5)
-        score_threshold = retrieval_setting.get('score_threshold', 0.0)
-        
-        logger.info(f"RVT Guide search - Query: {query}, Top K: {top_k}, Score threshold: {score_threshold}")
-        
-        # 驗證必要參數
-        if not query:
+        if RVT_GUIDE_LIBRARY_AVAILABLE and RVTGuideAPIHandler:
+            return RVTGuideAPIHandler.handle_dify_search_api(request)
+        elif fallback_dify_rvt_guide_search:
+            # 使用 library 中的備用實現
+            return fallback_dify_rvt_guide_search(request)
+        else:
+            # library 完全不可用時的最終錯誤處理
+            logger.error("RVT Guide library 完全不可用")
             return Response({
                 'error_code': 2001,
-                'error_msg': 'Query parameter is required'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # 搜索 RVT Guide 資料
-        search_results = search_rvt_guide_knowledge(query, limit=top_k)
-        
-        # 過濾分數低於閾值的結果
-        filtered_results = [
-            result for result in search_results 
-            if result['score'] >= score_threshold
-        ]
-        
-        logger.info(f"RVT Guide search found {len(search_results)} results, {len(filtered_results)} after filtering")
-        
-        # 構建符合 Dify 規格的響應
-        records = []
-        for result in filtered_results:
-            record = {
-                'content': result['content'],
-                'score': result['score'],
-                'title': result['title'],
-                'metadata': result['metadata']
-            }
-            records.append(record)
-            logger.info(f"Added RVT Guide record: {record['title']}")
-        
-        response_data = {
-            'records': records
-        }
-        
-        logger.info(f"RVT Guide API response: Found {len(records)} results")
-        
-        return Response(response_data, status=status.HTTP_200_OK)
-        
-    except json.JSONDecodeError:
-        return Response({
-            'error_code': 1001,
-            'error_msg': 'Invalid JSON format'
-        }, status=status.HTTP_400_BAD_REQUEST)
+                'error_msg': 'RVT Guide service temporarily unavailable'
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
     except Exception as e:
         logger.error(f"Dify RVT Guide search error: {str(e)}")
         return Response({
@@ -2287,152 +2260,21 @@ def record_chat_usage(request):
 @permission_classes([AllowAny])
 def rvt_guide_chat(request):
     """
-    RVT Guide Chat API - 使用 RVT_GUIDE 配置
+    RVT Guide Chat API - 使用 library 統一實現
     """
     try:
-        import requests
-        
-        data = request.data
-        message = data.get('message', '').strip()
-        conversation_id = data.get('conversation_id', '')
-        
-        if not message:
-            return Response({
-                'success': False,
-                'error': '訊息內容不能為空'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # 使用新的配置管理器獲取 RVT_GUIDE 配置
-        try:
-            from library.config import get_rvt_guide_config
-            rvt_config_obj = get_rvt_guide_config()
-            rvt_config = rvt_config_obj.to_dict()  # 轉換為字典以兼容現有代碼
-        except Exception as config_error:
-            logger.error(f"Failed to load RVT Guide config: {config_error}")
-            return Response({
-                'success': False,
-                'error': f'RVT Guide 配置載入失敗: {str(config_error)}'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-        # 檢查必要配置
-        api_url = rvt_config.get('api_url')
-        api_key = rvt_config.get('api_key')
-        
-        if not api_url or not api_key:
-            return Response({
-                'success': False,
-                'error': 'RVT Guide API 配置不完整'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-        # 記錄請求
-        logger.info(f"RVT Guide chat request from user: {request.user.username if request.user.is_authenticated else 'guest'}")
-        logger.debug(f"RVT Guide message: {message[:100]}...")
-        
-        # 準備請求
-        headers = {
-            'Authorization': f'Bearer {api_key}',
-            'Content-Type': 'application/json'
-        }
-        
-        payload = {
-            'inputs': {},
-            'query': message,
-            'response_mode': 'blocking',
-            'user': f"rvt_user_{request.user.id if request.user.is_authenticated else 'guest'}"
-        }
-        
-        if conversation_id:
-            payload['conversation_id'] = conversation_id
-        
-        start_time = time.time()
-        
-        # 使用 library 中的 Dify 請求管理器
-        try:
-            from library.dify_integration import make_dify_request, process_dify_answer, handle_conversation_error
-            
-            # 發送請求到 Dify RVT Guide，包含智能重試機制
-            response = make_dify_request(
-                api_url=api_url,
-                headers=headers,
-                payload=payload,
-                timeout=rvt_config.get('timeout', 60),
-                handle_400_answer_format_error=True
-            )
-        except requests.exceptions.Timeout:
-            logger.error(f"RVT Guide 請求超時，已重試 3 次")
-            return Response({
-                'success': False,
-                'error': 'RVT Guide 分析超時，請稍後再試或簡化問題描述'
-            }, status=status.HTTP_408_REQUEST_TIMEOUT)
-        except requests.exceptions.ConnectionError:
-            logger.error(f"RVT Guide 連接失敗，已重試 3 次")
-            return Response({
-                'success': False,
-                'error': 'RVT Guide 連接失敗，請檢查網路連接或稍後再試'
-            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-        except Exception as req_error:
-            logger.error(f"RVT Guide 請求錯誤: {str(req_error)}")
-            return Response({
-                'success': False,
-                'error': f'RVT Guide API 請求錯誤: {str(req_error)}'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-        elapsed = time.time() - start_time
-        
-        if response.status_code == 200:
-            result = response.json()
-            
-            # 使用 library 中的響應處理器處理 answer 字段
-            answer = process_dify_answer(result.get('answer', ''))
-            
-            # 記錄成功的聊天
-            logger.info(f"RVT Guide chat success for user {request.user.username if request.user.is_authenticated else 'guest'}: response_time={elapsed:.2f}s")
-            
-            return Response({
-                'success': True,
-                'answer': answer,
-                'conversation_id': result.get('conversation_id', ''),
-                'message_id': result.get('message_id', ''),
-                'response_time': elapsed,
-                'metadata': result.get('metadata', {}),
-                'usage': result.get('usage', {}),
-                'workspace': rvt_config.get('workspace', 'RVT_Guide'),
-                'app_name': rvt_config.get('app_name', 'RVT Guide')
-            }, status=status.HTTP_200_OK)
+        if RVT_GUIDE_LIBRARY_AVAILABLE and RVTGuideAPIHandler:
+            return RVTGuideAPIHandler.handle_chat_api(request)
+        elif fallback_rvt_guide_chat:
+            # 使用 library 中的備用實現
+            return fallback_rvt_guide_chat(request)
         else:
-            # 特殊處理 404 錯誤（對話不存在）
-            if response.status_code == 404:
-                # 使用 library 中的對話錯誤處理器
-                retry_result = handle_conversation_error(
-                    response, api_url, headers, payload, rvt_config.get('timeout', 60)
-                )
-                
-                if retry_result:
-                    # 處理重試成功的回答
-                    retry_answer = process_dify_answer(retry_result.get('answer', ''))
-                    logger.info(f"RVT Guide chat retry success")
-                    
-                    return Response({
-                        'success': True,
-                        'answer': retry_answer,
-                        'conversation_id': retry_result.get('conversation_id', ''),
-                        'message_id': retry_result.get('message_id', ''),
-                        'response_time': elapsed,
-                        'metadata': retry_result.get('metadata', {}),
-                        'usage': retry_result.get('usage', {}),
-                        'warning': '原對話已過期，已開始新對話',
-                        'workspace': rvt_config.get('workspace', 'RVT_Guide'),
-                        'app_name': rvt_config.get('app_name', 'RVT Guide')
-                    }, status=status.HTTP_200_OK)
-            
-            error_msg = f"RVT Guide API 錯誤: {response.status_code} - {response.text}"
-            logger.error(f"RVT Guide chat error: {error_msg}")
-            
+            # library 完全不可用時的最終錯誤處理
+            logger.error("RVT Guide library 完全不可用")
             return Response({
                 'success': False,
-                'error': error_msg
-            }, status=response.status_code)
-        
+                'error': 'RVT Guide service temporarily unavailable, please contact administrator'
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
     except Exception as e:
         logger.error(f"RVT Guide chat error: {str(e)}")
         return Response({
@@ -2446,20 +2288,21 @@ def rvt_guide_chat(request):
 @permission_classes([AllowAny])
 def rvt_guide_config(request):
     """
-    獲取 RVT Guide 配置信息
+    獲取 RVT Guide 配置信息 - 使用 library 統一實現
     """
     try:
-        from library.config import get_rvt_guide_config
-        config_obj = get_rvt_guide_config()
-        
-        # 返回安全的配置信息（不包含 API key）
-        safe_config = config_obj.get_safe_config()
-        
-        return Response({
-            'success': True,
-            'config': safe_config
-        }, status=status.HTTP_200_OK)
-        
+        if RVT_GUIDE_LIBRARY_AVAILABLE and RVTGuideAPIHandler:
+            return RVTGuideAPIHandler.handle_config_api(request)
+        elif fallback_rvt_guide_config:
+            # 使用 library 中的備用實現
+            return fallback_rvt_guide_config(request)
+        else:
+            # library 完全不可用時的最終錯誤處理
+            logger.error("RVT Guide library 完全不可用")
+            return Response({
+                'success': False,
+                'error': 'RVT Guide configuration service temporarily unavailable'
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
     except Exception as e:
         logger.error(f"Get RVT Guide config error: {str(e)}")
         return Response({
@@ -2469,152 +2312,79 @@ def rvt_guide_config(request):
 
 
 class RVTGuideViewSet(viewsets.ModelViewSet):
-    """RVT Guide ViewSet - 用於 RVT Assistant 知識庫管理"""
+    """RVT Guide ViewSet - 使用 library 統一管理"""
     queryset = RVTGuide.objects.all()
     serializer_class = RVTGuideSerializer
     permission_classes = [permissions.IsAuthenticated]
     
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.viewset_manager = None
+        if RVT_GUIDE_LIBRARY_AVAILABLE and RVTGuideViewSetManager:
+            self.viewset_manager = RVTGuideViewSetManager()
+    
     def get_serializer_class(self):
         """根據操作類型選擇合適的序列化器"""
-        if self.action == 'list':
-            # 列表視圖使用輕量級序列化器以提升性能
-            return RVTGuideListSerializer
-        return RVTGuideSerializer
+        if self.viewset_manager:
+            return self.viewset_manager.get_serializer_class(self.action)
+        else:
+            # 備用實現
+            if self.action == 'list':
+                return RVTGuideListSerializer
+            return RVTGuideSerializer
     
     def perform_create(self, serializer):
         """建立新的 RVT Guide"""
-        instance = serializer.save()
-        # 自動生成向量
-        self._generate_vector_for_guide(instance, action='create')
+        if self.viewset_manager:
+            return self.viewset_manager.perform_create(serializer)
+        else:
+            # 備用實現
+            return serializer.save()
     
     def perform_update(self, serializer):
         """更新現有的 RVT Guide"""
-        instance = serializer.save()
-        # 自動生成向量
-        self._generate_vector_for_guide(instance, action='update')
-    
-    def _generate_vector_for_guide(self, instance, action='create'):
-        """
-        為 RVT Guide 生成向量資料
-        
-        Args:
-            instance: RVTGuide 實例
-            action: 操作類型 ('create' 或 'update')
-        """
-        try:
-            # 動態導入 embedding_service 避免循環導入
-            from .services.embedding_service import get_embedding_service
-            
-            # 格式化內容用於向量化
-            content = f"標題: {instance.title}\n"
-            content += f"內容: {instance.content}\n"
-            
-            # 獲取 embedding 服務
-            service = get_embedding_service()  # 使用 1024 維模型
-            
-            # 生成並儲存向量
-            success = service.store_document_embedding(
-                source_table='rvt_guide',
-                source_id=instance.id,
-                content=content,
-                use_1024_table=True  # 使用 1024 維表格
-            )
-            
-            if success:
-                logger.info(f"✅ 成功為 RVT Guide 生成向量 ({action}): ID {instance.id} - {instance.title}")
-            else:
-                logger.error(f"❌ RVT Guide 向量生成失敗 ({action}): ID {instance.id} - {instance.title}")
-                
-        except Exception as e:
-            logger.error(f"❌ RVT Guide 向量生成異常 ({action}): ID {instance.id} - {str(e)}")
+        if self.viewset_manager:
+            return self.viewset_manager.perform_update(serializer)
+        else:
+            # 備用實現
+            return serializer.save()
     
     def get_queryset(self):
         """支援搜尋和篩選"""
-        queryset = RVTGuide.objects.all()
+        base_queryset = RVTGuide.objects.all()
         
-        # 標題搜尋
-        title = self.request.query_params.get('title', None)
-        if title:
-            queryset = queryset.filter(title__icontains=title)
-        
-
-        
-        # 子分類篩選
-        sub_category = self.request.query_params.get('sub_category', None)
-        if sub_category:
-            queryset = queryset.filter(sub_category=sub_category)
-        
-        # 狀態篩選
-        status_filter = self.request.query_params.get('status', None)
-        if status_filter:
-            queryset = queryset.filter(status=status_filter)
-        
-
-        
-        # 目標用戶篩選
-
-        
-        # 關鍵字搜尋
-        keywords = self.request.query_params.get('keywords', None)
-        if keywords:
-            queryset = queryset.filter(keywords__icontains=keywords)
-        
-        # 一般關鍵字搜尋
-        search = self.request.query_params.get('search', None)
-        if search:
-            queryset = queryset.filter(
-                models.Q(title__icontains=search) |
-                models.Q(content__icontains=search) |
-                models.Q(keywords__icontains=search) |
-                models.Q(document_name__icontains=search)
-            )
-        
-        return queryset.order_by('-created_at')
+        if self.viewset_manager:
+            return self.viewset_manager.get_filtered_queryset(base_queryset, self.request.query_params)
+        else:
+            # 備用實現 - 簡化的篩選
+            search = self.request.query_params.get('search', None)
+            if search:
+                base_queryset = base_queryset.filter(
+                    models.Q(title__icontains=search) |
+                    models.Q(content__icontains=search)
+                )
+            return base_queryset.order_by('-created_at')
     
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def statistics(self, request):
         """獲取統計資料"""
-        try:
-            from django.db.models import Count
-            
-            queryset = self.get_queryset()
-            
-            # 基本統計
-            total_guides = queryset.count()
-            published_guides = queryset.filter(status='published').count()
-            
-
-            
-            # 按子分類統計
-            sub_category_stats = queryset.values('sub_category').annotate(count=Count('id'))
-            
-            # 按狀態統計
-            status_stats = queryset.values('status').annotate(count=Count('id'))
-            
-
-            
-            # 按目標用戶統計
-
-            
-            # 最新文檔 (前5名)
-            recent_guides = queryset.order_by('-updated_at')[:5]
-            recent_guides_data = RVTGuideListSerializer(recent_guides, many=True).data
-            
-            return Response({
-                'total_guides': total_guides,
-                'published_guides': published_guides,
-                'publish_rate': round(published_guides / total_guides * 100, 2) if total_guides > 0 else 0,
-                'sub_category_distribution': list(sub_category_stats),
-                'status_distribution': list(status_stats),
-
-                'recent_guides': recent_guides_data
-            }, status=status.HTTP_200_OK)
-            
-        except Exception as e:
-            logger.error(f"統計資料獲取失敗: {str(e)}")
-            return Response({
-                'error': f'統計資料獲取失敗: {str(e)}'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        queryset = self.get_queryset()
+        
+        if self.viewset_manager:
+            return self.viewset_manager.get_statistics_data(queryset)
+        else:
+            # 備用實現 - 基本統計
+            try:
+                total_guides = queryset.count()
+                return Response({
+                    'total_guides': total_guides,
+                    'message': '統計功能需要 RVT Guide library 支持'
+                }, status=status.HTTP_200_OK)
+            except Exception as e:
+                logger.error(f"統計資料獲取失敗: {str(e)}")
+                return Response({
+                    'error': f'統計資料獲取失敗: {str(e)}'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # ============= 系統狀態監控 API =============
