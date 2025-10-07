@@ -47,6 +47,10 @@ const RegisterForm = ({ visible, onClose, onSuccess }) => {
       
       if (error.response?.data?.message) {
         message.error(error.response.data.message);
+      } else if (error.response?.data?.errors) {
+        // 顯示具體的驗證錯誤
+        const errorMessages = Object.values(error.response.data.errors).join(', ');
+        message.error(`註冊失敗: ${errorMessages}`);
       } else if (error.response?.status === 400) {
         message.error('請檢查輸入的資料格式');
       } else if (error.response?.status === 500) {
@@ -108,14 +112,23 @@ const RegisterForm = ({ visible, onClose, onSuccess }) => {
           rules={[
             { required: true, message: '請輸入用戶名' },
             { min: 3, message: '用戶名至少需要 3 個字符' },
-            { max: 20, message: '用戶名不能超過 20 個字符' },
-            { pattern: /^[a-zA-Z0-9_-]+$/, message: '用戶名只能包含字母、數字、下劃線和短橫線' }
+            { max: 150, message: '用戶名不能超過 150 個字符' },
+            { pattern: /^[a-zA-Z0-9_-]{3,150}$/, message: '用戶名只能包含字母、數字、下劃線和短橫線（3-150個字符）' },
+            {
+              validator: (_, value) => {
+                if (!value) return Promise.resolve();
+                if (value.includes('@') || value.includes('.')) {
+                  return Promise.reject(new Error('用戶名不能是 Email 地址，請輸入獨特的用戶名'));
+                }
+                return Promise.resolve();
+              }
+            }
           ]}
         >
           <Input 
             prefix={<UserOutlined />} 
-            placeholder="請輸入用戶名（3-20個字符）"
-            autoComplete="off"
+            placeholder="請輸入用戶名（不能是Email，3-150個字符）"
+            autoComplete="username"
           />
         </Form.Item>
 
@@ -124,13 +137,14 @@ const RegisterForm = ({ visible, onClose, onSuccess }) => {
           label="電子郵件"
           rules={[
             { required: true, message: '請輸入電子郵件' },
-            { type: 'email', message: '請輸入有效的電子郵件格式' }
+            { type: 'email', message: '請輸入有效的電子郵件格式' },
+            { max: 254, message: 'Email 地址不能超過 254 個字符' }
           ]}
         >
           <Input 
             prefix={<MailOutlined />} 
             placeholder="請輸入電子郵件"
-            autoComplete="off"
+            autoComplete="email"
           />
         </Form.Item>
 
@@ -139,12 +153,13 @@ const RegisterForm = ({ visible, onClose, onSuccess }) => {
           label="密碼"
           rules={[
             { required: true, message: '請輸入密碼' },
+            { min: 6, message: '密碼至少需要 6 個字符' },
             { max: 128, message: '密碼不能超過 128 個字符' }
           ]}
         >
           <Input.Password 
             prefix={<LockOutlined />} 
-            placeholder="請輸入密碼"
+            placeholder="請輸入密碼（至少 6 個字符）"
             autoComplete="new-password"
           />
         </Form.Item>
@@ -175,20 +190,26 @@ const RegisterForm = ({ visible, onClose, onSuccess }) => {
         <Form.Item
           name="first_name"
           label="姓名"
+          rules={[
+            { max: 30, message: '姓名不能超過 30 個字符' }
+          ]}
         >
           <Input 
             placeholder="請輸入姓名（可選）"
-            autoComplete="off"
+            autoComplete="given-name"
           />
         </Form.Item>
 
         <Form.Item
           name="last_name"
           label="姓氏"
+          rules={[
+            { max: 30, message: '姓氏不能超過 30 個字符' }
+          ]}
         >
           <Input 
             placeholder="請輸入姓氏（可選）"
-            autoComplete="off"
+            autoComplete="family-name"
           />
         </Form.Item>
 
