@@ -86,8 +86,32 @@ try:
         fallback_rvt_guide_chat,
         fallback_rvt_guide_config
     )
+    # 🆕 導入 Know Issue library
+    from library.know_issue import (
+        KnowIssueViewSetManager,
+        KnowIssueAPIHandler,
+        KnowIssueProcessor,
+        process_know_issue_create,
+        process_know_issue_update,
+        handle_dify_know_issue_search_api,
+        create_know_issue_viewset_manager,
+        create_know_issue_api_handler,
+        KNOW_ISSUE_LIBRARY_AVAILABLE
+    )
+    # 🆕 導入 Dify Knowledge library
+    from library.dify_knowledge import (
+        DifyKnowledgeSearchHandler,
+        DifyKnowledgeAPIProcessor,
+        DifyKnowledgeManager,
+        handle_dify_knowledge_search_api,
+        process_dify_knowledge_request,
+        create_dify_knowledge_search_handler,
+        DIFY_KNOWLEDGE_LIBRARY_AVAILABLE
+    )
     AUTH_LIBRARY_AVAILABLE = True
     RVT_GUIDE_LIBRARY_AVAILABLE = True
+    KNOW_ISSUE_LIBRARY_AVAILABLE = True
+    DIFY_KNOWLEDGE_LIBRARY_AVAILABLE = True
 except ImportError:
     # 如果 library 路徑有問題，提供備用配置
     get_protocol_known_issue_config = None
@@ -120,6 +144,24 @@ except ImportError:
     RVTGuideViewSetManager = None
     RVTGuideSearchService = None
     RVTGuideVectorService = None
+    # 🆕 備用 Know Issue 服務
+    KnowIssueViewSetManager = None
+    KnowIssueAPIHandler = None
+    KnowIssueProcessor = None
+    process_know_issue_create = None
+    process_know_issue_update = None
+    handle_dify_know_issue_search_api = None
+    create_know_issue_viewset_manager = None
+    create_know_issue_api_handler = None
+    KNOW_ISSUE_LIBRARY_AVAILABLE = False
+    # 🆕 備用 Dify Knowledge 服務
+    DifyKnowledgeSearchHandler = None
+    DifyKnowledgeAPIProcessor = None
+    DifyKnowledgeManager = None
+    handle_dify_knowledge_search_api = None
+    process_dify_knowledge_request = None
+    create_dify_knowledge_search_handler = None
+    DIFY_KNOWLEDGE_LIBRARY_AVAILABLE = False
     # 🆕 備用 AI OCR 服務
     AIOCRAPIHandler = None
     OCRTestClassViewSetManager = None
@@ -143,6 +185,7 @@ except ImportError:
     fallback_rvt_guide_config = None
     AUTH_LIBRARY_AVAILABLE = False
     RVT_GUIDE_LIBRARY_AVAILABLE = False
+    KNOW_ISSUE_LIBRARY_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -542,141 +585,28 @@ def search_ocr_storage_benchmark(query_text, limit=5):
 @csrf_exempt
 def dify_knowledge_search(request):
     """
-    Dify 外部知識 API 端點 - 符合官方規格
+    Dify 外部知識 API 端點 - 使用 Dify Knowledge Library 統一實現
     
-    期望的請求格式 (根據 Dify 官方文檔):
-    {
-        "knowledge_id": "your-knowledge-id",
-        "query": "搜索字詞",
-        "retrieval_setting": {
-            "top_k": 3,
-            "score_threshold": 0.5
-        },
-        "metadata_condition": {...}  // 可選
-    }
-    
-    回應格式:
-    {
-        "records": [
-            {
-                "content": "知識內容",
-                "score": 0.95,
-                "title": "標題",
-                "metadata": {...}
-            }
-        ]
-    }
+    🔄 重構後：直接使用 library/dify_knowledge/ 處理
     """
     try:
-        # 檢查 Authorization header (可選，但符合 Dify 規格)
-        auth_header = request.headers.get('Authorization', '')
-        if auth_header and not auth_header.startswith('Bearer '):
-            return Response({
-                'error_code': 1001,
-                'error_msg': 'Invalid Authorization header format. Expected "Bearer <api-key>" format.'
-            }, status=status.HTTP_401_UNAUTHORIZED)
-        
-        # 解析請求資料
-        data = json.loads(request.body) if request.body else {}
-        
-        # 根據 Dify 官方規格解析參數
-        knowledge_id = data.get('knowledge_id', 'employee_database')
-        query = data.get('query', '')
-        retrieval_setting = data.get('retrieval_setting', {})
-        metadata_condition = data.get('metadata_condition', {})
-        
-        top_k = retrieval_setting.get('top_k', 5)
-        score_threshold = retrieval_setting.get('score_threshold', 0.0)
-        
-        # 確保分數閾值不會太高
-        if score_threshold > 0.9:
-            score_threshold = 0.0
-            logger.warning(f"Score threshold was too high, reset to 0.0")
-        
-        print(f"[DEBUG] Dify request - Query: '{query}', top_k: {top_k}, score_threshold: {score_threshold}, knowledge_id: '{knowledge_id}'")
-        logger.info(f"Dify knowledge search - Knowledge ID: '{knowledge_id}', Query: '{query}', top_k: {top_k}, score_threshold: {score_threshold}")
-        
-        if not query:
-            logger.warning("Query parameter is missing")
-            return Response({
-                'error_code': 2001,
-                'error_msg': 'Query parameter is required'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # 直接使用原始查詢
-        processed_query = query
-        logger.info(f"Using original query directly: '{processed_query}'")
-        
-        # 搜索 PostgreSQL 知識
-        logger.info(f"Searching for query: '{processed_query}' with limit: {top_k}")
-        
-        # 根據 knowledge_id 決定搜索哪個知識庫
-        if knowledge_id in ['know_issue_db', 'know_issue', 'know-issue']:
-            search_results = search_know_issue_knowledge(processed_query, limit=top_k)
-            logger.info(f"Know Issue search results count: {len(search_results)}")
-        elif knowledge_id in ['rvt_guide_db', 'rvt_guide', 'rvt-guide', 'rvt_user_guide']:
-            # 優先使用向量搜索，如果不可用則回退到關鍵字搜索
-            if VECTOR_SEARCH_AVAILABLE:
-                try:
-                    search_results = search_rvt_guide_with_vectors(processed_query, limit=top_k, threshold=0.1)
-                    logger.info(f"RVT Guide vector search results count: {len(search_results)}")
-                    
-                    # 如果向量搜索沒有結果，回退到關鍵字搜索
-                    if not search_results:
-                        logger.info("向量搜索無結果，回退到關鍵字搜索")
-                        search_results = search_rvt_guide_knowledge(processed_query, limit=top_k)
-                        logger.info(f"RVT Guide keyword search results count: {len(search_results)}")
-                except Exception as e:
-                    logger.error(f"向量搜索失敗，回退到關鍵字搜索: {e}")
-                    search_results = search_rvt_guide_knowledge(processed_query, limit=top_k)
-                    logger.info(f"RVT Guide fallback search results count: {len(search_results)}")
-            else:
-                search_results = search_rvt_guide_knowledge(processed_query, limit=top_k)
-                logger.info(f"RVT Guide keyword search results count: {len(search_results)}")
-        elif knowledge_id in ['ocr_storage_benchmark', 'ocr_benchmark', 'storage_benchmark', 'benchmark_db']:
-            # 搜索 OCR 存儲基準測試資料
-            search_results = search_ocr_storage_benchmark(processed_query, limit=top_k)
-            logger.info(f"OCR Storage Benchmark search results count: {len(search_results)}")
+        if DIFY_KNOWLEDGE_LIBRARY_AVAILABLE and handle_dify_knowledge_search_api:
+            # 使用 Dify Knowledge library 中的統一 API 處理器
+            return handle_dify_knowledge_search_api(request)
         else:
-            # 默認搜索員工知識庫
-            search_results = search_postgres_knowledge(processed_query, limit=top_k)
-            logger.info(f"Employee search results count: {len(search_results)}")
-        
-        logger.info(f"Raw search results count: {len(search_results)}")
-        
-        # 過濾分數低於閾值的結果
-        filtered_results = [
-            result for result in search_results 
-            if result['score'] >= score_threshold
-        ]
-        logger.info(f"Filtered results count: {len(filtered_results)} (threshold: {score_threshold})")
-        
-        # 轉換為 Dify 期望的格式
-        records = []
-        for result in filtered_results:
-            record = {
-                'content': result['content'],
-                'score': result['score'],
-                'title': result['title'],
-                'metadata': result['metadata']
-            }
-            records.append(record)
-            logger.info(f"Added record: {record['title']}")
-        
-        response_data = {
-            'records': records
-        }
-        
-        logger.info(f"Final response data: {response_data}")
-        logger.info(f"Dify knowledge search - Found {len(records)} results")
-        
-        return Response(response_data, status=status.HTTP_200_OK)
-        
-    except json.JSONDecodeError:
-        return Response({
-            'error_code': 1001,
-            'error_msg': 'Invalid JSON format'
-        }, status=status.HTTP_400_BAD_REQUEST)
+            # 使用備用實現
+            logger.warning("Dify Knowledge Library 不可用，使用備用實現")
+            try:
+                from library.dify_knowledge.fallback_handlers import fallback_dify_knowledge_search
+                return fallback_dify_knowledge_search(request)
+            except ImportError:
+                # 最終備用方案
+                logger.error("Dify Knowledge Library 完全不可用")
+                return Response({
+                    'error_code': 2001,
+                    'error_msg': 'Knowledge search service temporarily unavailable'
+                }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+                
     except Exception as e:
         logger.error(f"Dify knowledge search error: {str(e)}")
         return Response({
@@ -690,76 +620,28 @@ def dify_knowledge_search(request):
 @csrf_exempt
 def dify_know_issue_search(request):
     """
-    Dify Know Issue 外部知識庫 API 端點 - 專門針對問題知識庫搜索
+    Dify Know Issue 外部知識庫 API 端點 - 使用 library 統一實現
     
-    期望的請求格式:
-    {
-        "knowledge_id": "know_issue_db",
-        "query": "搜索字詞",
-        "retrieval_setting": {
-            "top_k": 3,
-            "score_threshold": 0.5
-        }
-    }
+    🔄 重構後：直接使用 library/know_issue/ 處理
     """
     try:
-        # 記錄請求來源
-        logger.info(f"Dify Know Issue API request from: {request.META.get('REMOTE_ADDR')}")
-        
-        # 解析請求數據
-        data = json.loads(request.body) if request.body else {}
-        query = data.get('query', '')
-        knowledge_id = data.get('knowledge_id', 'know_issue_db')
-        retrieval_setting = data.get('retrieval_setting', {})
-        
-        top_k = retrieval_setting.get('top_k', 5)
-        score_threshold = retrieval_setting.get('score_threshold', 0.0)
-        
-        logger.info(f"Know Issue search - Query: {query}, Top K: {top_k}, Score threshold: {score_threshold}")
-        
-        # 驗證必要參數
-        if not query:
-            return Response({
-                'error_code': 2001,
-                'error_msg': 'Query parameter is required'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # 搜索 Know Issue 資料
-        search_results = search_know_issue_knowledge(query, limit=top_k)
-        
-        # 過濾分數低於閾值的結果
-        filtered_results = [
-            result for result in search_results 
-            if result['score'] >= score_threshold
-        ]
-        
-        logger.info(f"Know Issue search found {len(search_results)} results, {len(filtered_results)} after filtering")
-        
-        # 構建符合 Dify 規格的響應
-        records = []
-        for result in filtered_results:
-            record = {
-                'content': result['content'],
-                'score': result['score'],
-                'title': result['title'],
-                'metadata': result['metadata']
-            }
-            records.append(record)
-            logger.info(f"Added Know Issue record: {record['title']}")
-        
-        response_data = {
-            'records': records
-        }
-        
-        logger.info(f"Know Issue API response: Found {len(records)} results")
-        
-        return Response(response_data, status=status.HTTP_200_OK)
-        
-    except json.JSONDecodeError:
-        return Response({
-            'error_code': 1001,
-            'error_msg': 'Invalid JSON format'
-        }, status=status.HTTP_400_BAD_REQUEST)
+        if KNOW_ISSUE_LIBRARY_AVAILABLE and handle_dify_know_issue_search_api:
+            # 使用 Know Issue library 中的 API 處理器
+            return handle_dify_know_issue_search_api(request)
+        else:
+            # 使用備用實現
+            logger.warning("Know Issue Library 不可用，使用備用實現")
+            try:
+                from library.know_issue.fallback_handlers import fallback_dify_know_issue_search
+                return fallback_dify_know_issue_search(request)
+            except ImportError:
+                # 最終備用方案
+                logger.error("Know Issue Library 完全不可用")
+                return Response({
+                    'error_code': 2001,
+                    'error_msg': 'Know Issue search service temporarily unavailable'
+                }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            
     except Exception as e:
         logger.error(f"Dify Know Issue search error: {str(e)}")
         return Response({
@@ -829,160 +711,147 @@ def dify_rvt_guide_search(request):
 
 
 class KnowIssueViewSet(viewsets.ModelViewSet):
-    """問題知識庫 ViewSet"""
+    """
+    問題知識庫 ViewSet - 使用 Know Issue Library 實現
+    
+    🔄 重構後：主要邏輯委託給 library/know_issue/
+    """
     queryset = KnowIssue.objects.all()
     serializer_class = KnowIssueSerializer
     permission_classes = [permissions.IsAuthenticated]
     
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # 初始化 Know Issue ViewSet Manager
+        if KNOW_ISSUE_LIBRARY_AVAILABLE and KnowIssueViewSetManager:
+            self._manager = KnowIssueViewSetManager()
+        else:
+            self._manager = None
+            logger.warning("Know Issue Library 不可用，KnowIssueViewSet 使用備用實現")
+    
     def get_permissions(self):
-        """根據動作決定權限"""
-        print(f"KnowIssue get_permissions - Action: {self.action}")
-        print(f"KnowIssue get_permissions - User: {self.request.user}")
-        print(f"KnowIssue get_permissions - Is authenticated: {self.request.user.is_authenticated}")
-        
-        # 允許所有登入用戶訪問
-        return [permissions.IsAuthenticated()]
+        """委託給 Know Issue Library 實現"""
+        if self._manager:
+            return self._manager.get_permissions_for_action(self.action, self.request.user)
+        else:
+            # 備用實現
+            logger.info(f"KnowIssue get_permissions - Action: {self.action}")
+            logger.info(f"KnowIssue get_permissions - User: {self.request.user}")
+            logger.info(f"KnowIssue get_permissions - Is authenticated: {self.request.user.is_authenticated}")
+            
+            # 允許所有登入用戶訪問
+            return [permissions.IsAuthenticated()]
     
     def get_queryset(self):
-        """根據查詢參數過濾資料"""
-        queryset = KnowIssue.objects.all()
+        """委託給 Know Issue Library 實現"""
+        base_queryset = KnowIssue.objects.all()
         
-        # 根據專案過濾
-        project = self.request.query_params.get('project', None)
-        if project:
-            queryset = queryset.filter(project__icontains=project)
-            
-        # 根據狀態過濾
-        status = self.request.query_params.get('status', None)
-        if status:
-            queryset = queryset.filter(status=status)
-            
-        # 根據問題類型過濾
-        issue_type = self.request.query_params.get('issue_type', None)
-        if issue_type:
-            queryset = queryset.filter(issue_type=issue_type)
-            
-        # 根據關鍵字搜尋
-        search = self.request.query_params.get('search', None)
-        if search:
-            queryset = queryset.filter(
-                models.Q(issue_id__icontains=search) |
-                models.Q(project__icontains=search) |
-                models.Q(error_message__icontains=search) |
-                models.Q(supplement__icontains=search)
-            )
-            
-        return queryset.order_by('-updated_at')
+        if self._manager:
+            return self._manager.get_filtered_queryset(base_queryset, self.request.query_params)
+        else:
+            # 備用實現 - 簡化過濾
+            try:
+                from library.know_issue.fallback_handlers import fallback_know_issue_queryset_filter
+                return fallback_know_issue_queryset_filter(base_queryset, self.request.query_params)
+            except ImportError:
+                # 最終備用實現
+                search = self.request.query_params.get('search', None)
+                if search:
+                    base_queryset = base_queryset.filter(
+                        models.Q(project__icontains=search) |
+                        models.Q(error_message__icontains=search)
+                    )
+                return base_queryset.order_by('-updated_at')
     
     def create(self, request, *args, **kwargs):
-        """創建 Know Issue，支援二進制圖片上傳"""
+        """
+        創建 Know Issue - 使用 Know Issue Library 統一實現
+        
+        🔄 重構後：直接使用 library/know_issue/ 處理
+        """
         try:
-            # 處理圖片上傳
-            uploaded_images = {}
-            for i in range(1, 6):  # image1 到 image5
-                image_field = f'image{i}'
-                if image_field in request.FILES:
-                    image_file = request.FILES[image_field]
-                    uploaded_images[i] = {
-                        'data': image_file.read(),
-                        'filename': image_file.name,
-                        'content_type': image_file.content_type
-                    }
-            
-            # 創建序列化器實例
             serializer = self.get_serializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
             
-            # 保存實例，設置更新人員
-            instance = serializer.save(updated_by=request.user)
-            
-            # 處理上傳的圖片 - 存為二進制數據
-            for image_index, image_data in uploaded_images.items():
-                instance.set_image_data(
-                    image_index,
-                    image_data['data'],
-                    image_data['filename'],
-                    image_data['content_type']
-                )
-            
-            # 再次保存以處理圖片
-            if uploaded_images:
-                instance.save()
-            
-            # 🚫 已禁用自動向量生成
-            # self._generate_vector_for_know_issue(instance, action='create')
-            
-            # 返回完整的序列化數據
-            response_serializer = self.get_serializer(instance)
-            headers = self.get_success_headers(response_serializer.data)
-            return Response(response_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-            
+            if KNOW_ISSUE_LIBRARY_AVAILABLE and process_know_issue_create:
+                # 使用 Know Issue library 中的統一處理器
+                return process_know_issue_create(request, serializer, request.user)
+            elif self._manager:
+                # 使用 ViewSet 管理器中的處理方法
+                return self._manager.handle_create(request, serializer)
+            else:
+                # 使用備用實現
+                try:
+                    from library.know_issue.fallback_handlers import fallback_know_issue_create
+                    return fallback_know_issue_create(request, serializer)
+                except ImportError:
+                    # 最終備用方案
+                    logger.warning("Know Issue Library 完全不可用，使用最終備用實現")
+                    if serializer.is_valid():
+                        instance = serializer.save(updated_by=request.user)
+                        return Response(serializer.data, status=status.HTTP_201_CREATED)
+                    else:
+                        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                
         except Exception as e:
             logger.error(f"KnowIssue create error: {str(e)}")
             return Response(
                 {'error': f'創建失敗: {str(e)}'}, 
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
     def update(self, request, *args, **kwargs):
-        """更新 Know Issue，支援二進制圖片上傳"""
+        """
+        更新 Know Issue - 使用 Know Issue Library 統一實現
+        
+        🔄 重構後：直接使用 library/know_issue/ 處理
+        """
         try:
             partial = kwargs.pop('partial', False)
             instance = self.get_object()
-            
-            # 處理圖片上傳
-            uploaded_images = {}
-            for i in range(1, 6):  # image1 到 image5
-                image_field = f'image{i}'
-                if image_field in request.FILES:
-                    image_file = request.FILES[image_field]
-                    uploaded_images[i] = {
-                        'data': image_file.read(),
-                        'filename': image_file.name,
-                        'content_type': image_file.content_type
-                    }
-            
-            # 更新其他欄位
             serializer = self.get_serializer(instance, data=request.data, partial=partial)
-            serializer.is_valid(raise_exception=True)
             
-            # 保存實例，設置更新人員
-            instance = serializer.save(updated_by=request.user)
-            
-            # 處理上傳的圖片 - 存為二進制數據
-            for image_index, image_data in uploaded_images.items():
-                instance.set_image_data(
-                    image_index,
-                    image_data['data'],
-                    image_data['filename'],
-                    image_data['content_type']
-                )
-            
-            # 再次保存以處理圖片
-            if uploaded_images:
-                instance.save()
-            
-            # 🚫 已禁用自動向量生成
-            # self._generate_vector_for_know_issue(instance, action='update')
-            
-            # 返回完整的序列化數據
-            response_serializer = self.get_serializer(instance)
-            return Response(response_serializer.data)
-            
+            if KNOW_ISSUE_LIBRARY_AVAILABLE and process_know_issue_update:
+                # 使用 Know Issue library 中的統一處理器
+                return process_know_issue_update(request, instance, serializer, request.user)
+            elif self._manager:
+                # 使用 ViewSet 管理器中的處理方法
+                return self._manager.handle_update(request, instance, serializer)
+            else:
+                # 使用備用實現
+                try:
+                    from library.know_issue.fallback_handlers import fallback_know_issue_update
+                    return fallback_know_issue_update(request, instance, serializer)
+                except ImportError:
+                    # 最終備用方案
+                    logger.warning("Know Issue Library 完全不可用，使用最終備用實現")
+                    if serializer.is_valid():
+                        updated_instance = serializer.save(updated_by=request.user)
+                        return Response(serializer.data, status=status.HTTP_200_OK)
+                    else:
+                        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                
         except Exception as e:
             logger.error(f"KnowIssue update error: {str(e)}")
             return Response(
                 {'error': f'更新失敗: {str(e)}'}, 
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
     def perform_create(self, serializer):
-        """建立時設定更新人員為當前用戶"""
-        serializer.save(updated_by=self.request.user)
+        """委託給 Know Issue Library 實現"""
+        if self._manager:
+            return self._manager.perform_create(serializer, self.request.user)
+        else:
+            # 備用實現
+            serializer.save(updated_by=self.request.user)
     
     def perform_update(self, serializer):
-        """更新時設定更新人員為當前用戶"""
-        serializer.save(updated_by=self.request.user)
+        """委託給 Know Issue Library 實現"""
+        if self._manager:
+            return self._manager.perform_update(serializer, self.request.user)
+        else:
+            # 備用實現
+            serializer.save(updated_by=self.request.user)
     
     def _generate_vector_for_know_issue(self, instance, action='create'):
         """
