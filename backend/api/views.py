@@ -38,7 +38,8 @@ try:
         DatabaseSearchService,
         search_know_issue_knowledge,
         search_rvt_guide_knowledge,
-        search_ocr_storage_benchmark
+        search_ocr_storage_benchmark,
+        search_postgres_knowledge
     )
     # 🆕 導入系統監控服務
     from library.system_monitoring import (
@@ -144,6 +145,7 @@ except ImportError:
     search_know_issue_knowledge = None
     search_rvt_guide_knowledge = None
     search_ocr_storage_benchmark = None
+    search_postgres_knowledge = None
     # 備用系統監控服務
     HealthChecker = None
     create_health_checker = None
@@ -642,63 +644,6 @@ class TaskViewSet(viewsets.ModelViewSet):
 
 
 
-
-
-
-def search_postgres_knowledge(query_text, limit=5):
-    """
-    在 PostgreSQL 中搜索員工知識
-    使用全文搜索查詢簡化員工資料
-    """
-    try:
-        with connection.cursor() as cursor:
-            # 使用全文搜索查詢員工資料 (僅有 id, name 欄位)
-            sql = """
-            SELECT 
-                id,
-                name,
-                CASE 
-                    WHEN name ILIKE %s THEN 1.0
-                    ELSE 0.5
-                END as score
-            FROM employee
-            WHERE 
-                name ILIKE %s
-            ORDER BY score DESC, name ASC
-            LIMIT %s
-            """
-            
-            search_pattern = f'%{query_text}%'
-            cursor.execute(sql, [
-                search_pattern, search_pattern, limit
-            ])
-            
-            rows = cursor.fetchall()
-            columns = [desc[0] for desc in cursor.description]
-            
-            results = []
-            for row in rows:
-                employee_data = dict(zip(columns, row))
-                # 格式化為知識片段
-                content = f"員工姓名: {employee_data['name']}\n"
-                content += f"員工ID: {employee_data['id']}"
-                
-                results.append({
-                    'id': str(employee_data['id']),
-                    'title': f"{employee_data['name']}",
-                    'content': content,
-                    'score': float(employee_data['score']),
-                    'metadata': {
-                        'source': 'employee_database',
-                        'employee_id': employee_data['id']
-                    }
-                })
-            
-            return results
-            
-    except Exception as e:
-        logger.error(f"Database search error: {str(e)}")
-        return []
 
 
 # ============= 🚨 重要：搜索函數已重構到 Library =============
@@ -1804,63 +1749,20 @@ class RVTGuideViewSet(viewsets.ModelViewSet):
             return serializer.save()
     
     def perform_destroy(self, instance):
-        """刪除 RVT Guide 時同時刪除對應的向量資料"""
-        try:
-            # 嘗試使用 library 的向量服務
-            if RVT_GUIDE_LIBRARY_AVAILABLE:
-                try:
-                    from library.rvt_guide import RVTGuideVectorService
-                    vector_service = RVTGuideVectorService()
-                    vector_service.delete_vector(instance)
-                except Exception as library_error:
-                    logger.warning(f"Library 向量服務不可用，使用備用實現: {str(library_error)}")
-                    # 備用實現：直接使用 embedding_service
-                    self._delete_vector_fallback(instance)
-            else:
-                # 備用實現
-                self._delete_vector_fallback(instance)
-                
-        except Exception as e:
-            logger.error(f"RVT Guide 向量刪除失敗: {str(e)}")
-        
-        # 刪除主記錄
-        instance.delete()
-    
-    def _delete_vector_fallback(self, instance):
-        """備用的向量刪除實現"""
-        try:
-            from .services.embedding_service import get_embedding_service
-            
-            service = get_embedding_service()
-            
-            # 刪除 1024 維向量（預設）
-            success_1024 = service.delete_document_embedding(
-                source_table='rvt_guide',
-                source_id=instance.id,
-                use_1024_table=True
-            )
-            
-            # 刪除 768 維向量（備用）
-            success_768 = service.delete_document_embedding(
-                source_table='rvt_guide',
-                source_id=instance.id,
-                use_1024_table=False
-            )
-            
-            if success_1024 or success_768:
-                logger.info(f"✅ RVT Guide 向量刪除成功: ID {instance.id} - {instance.title}")
-            else:
-                logger.warning(f"⚠️  未找到 RVT Guide 對應的向量資料: ID {instance.id}")
-                
-        except Exception as e:
-            logger.error(f"❗ RVT Guide 備用向量刪除失敗: ID {instance.id} - {str(e)}")
+        """刪除 RVT Guide 時同時刪除對應的向量資料 - 委託給 ViewSet Manager"""
+        if self.viewset_manager:
+            return self.viewset_manager.perform_destroy(instance)
+        else:
+            # 備用實現：直接刪除（沒有向量處理）
+            logger.warning("ViewSet Manager 不可用，使用簡化刪除邏輯")
+            instance.delete()
     
     def get_queryset(self):
-        """支援搜尋和篩選"""
+        """支援搜尋和篩選 - 委託給 ViewSet Manager"""
         base_queryset = RVTGuide.objects.all()
         
         if self.viewset_manager:
-            return self.viewset_manager.get_filtered_queryset(base_queryset, self.request.query_params)
+            return self.viewset_manager.get_queryset(base_queryset, self.request.query_params)
         else:
             # 備用實現 - 簡化的篩選
             search = self.request.query_params.get('search', None)

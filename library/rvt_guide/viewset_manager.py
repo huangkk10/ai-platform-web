@@ -93,29 +93,12 @@ class RVTGuideViewSetManager:
         if title:
             queryset = queryset.filter(title__icontains=title)
         
-        # 子分類篩選
-        sub_category = query_params.get('sub_category', None)
-        if sub_category:
-            queryset = queryset.filter(sub_category=sub_category)
-        
-        # 狀態篩選
-        status_filter = query_params.get('status', None)
-        if status_filter:
-            queryset = queryset.filter(status=status_filter)
-        
-        # 關鍵字搜尋
-        keywords = query_params.get('keywords', None)
-        if keywords:
-            queryset = queryset.filter(keywords__icontains=keywords)
-        
-        # 一般關鍵字搜尋
+        # 一般關鍵字搜尋（僅使用實際存在的欄位）
         search = query_params.get('search', None)
         if search:
             queryset = queryset.filter(
                 models.Q(title__icontains=search) |
-                models.Q(content__icontains=search) |
-                models.Q(keywords__icontains=search) |
-                models.Q(document_name__icontains=search)
+                models.Q(content__icontains=search)
             )
         
         return queryset.order_by('-created_at')
@@ -161,6 +144,78 @@ class RVTGuideViewSetManager:
             return Response({
                 'error': f'統計資料獲取失敗: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def perform_destroy(self, instance):
+        """
+        刪除 RVT Guide 時同時刪除對應的向量資料
+        
+        Args:
+            instance: RVTGuide 實例
+        """
+        try:
+            # 嘗試使用 library 的向量服務
+            try:
+                from .vector_service import RVTGuideVectorService
+                vector_service = RVTGuideVectorService()
+                vector_service.delete_vector(instance)
+            except Exception as library_error:
+                self.logger.warning(f"Library 向量服務不可用，使用備用實現: {str(library_error)}")
+                # 備用實現：直接使用 embedding_service
+                self._delete_vector_fallback(instance)
+                
+        except Exception as e:
+            self.logger.error(f"RVT Guide 向量刪除失敗: {str(e)}")
+        
+        # 刪除主記錄
+        instance.delete()
+    
+    def _delete_vector_fallback(self, instance):
+        """
+        備用的向量刪除實現
+        
+        Args:
+            instance: RVTGuide 實例
+        """
+        try:
+            # 動態導入避免循環導入
+            from api.services.embedding_service import get_embedding_service
+            
+            service = get_embedding_service()
+            
+            # 刪除 1024 維向量（預設）
+            success_1024 = service.delete_document_embedding(
+                source_table='rvt_guide',
+                source_id=instance.id,
+                use_1024_table=True
+            )
+            
+            # 刪除 768 維向量（備用）
+            success_768 = service.delete_document_embedding(
+                source_table='rvt_guide',
+                source_id=instance.id,
+                use_1024_table=False
+            )
+            
+            if success_1024 or success_768:
+                self.logger.info(f"✅ RVT Guide 向量刪除成功: ID {instance.id} - {instance.title}")
+            else:
+                self.logger.warning(f"⚠️  未找到 RVT Guide 對應的向量資料: ID {instance.id}")
+                
+        except Exception as e:
+            self.logger.error(f"❗ RVT Guide 備用向量刪除失敗: ID {instance.id} - {str(e)}")
+    
+    def get_queryset(self, base_queryset, query_params):
+        """
+        獲取過濾後的查詢集（重構後的統一方法）
+        
+        Args:
+            base_queryset: 基礎查詢集
+            query_params: 查詢參數字典
+            
+        Returns:
+            過濾後的查詢集
+        """
+        return self.get_filtered_queryset(base_queryset, query_params)
     
     def handle_bulk_operations(self, queryset, operation, data=None):
         """

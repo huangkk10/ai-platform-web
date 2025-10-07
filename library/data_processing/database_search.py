@@ -315,6 +315,70 @@ class DatabaseSearchService:
             logger.error(f"OCR Storage Benchmark database search error: {str(e)}")
             return []
     
+    @staticmethod
+    def search_employee_knowledge(query_text: str, limit: int = 5) -> List[Dict[str, Any]]:
+        """
+        在 PostgreSQL 中搜索員工知識
+        使用全文搜索查詢簡化員工資料
+        
+        Args:
+            query_text: 搜索關鍵字
+            limit: 返回結果數量限制
+            
+        Returns:
+            搜索結果列表，每個結果包含 id, title, content, score, metadata
+        """
+        try:
+            with connection.cursor() as cursor:
+                # 使用全文搜索查詢員工資料 (僅有 id, name 欄位)
+                sql = """
+                SELECT 
+                    id,
+                    name,
+                    CASE 
+                        WHEN name ILIKE %s THEN 1.0
+                        ELSE 0.5
+                    END as score
+                FROM employee
+                WHERE 
+                    name ILIKE %s
+                ORDER BY score DESC, name ASC
+                LIMIT %s
+                """
+                
+                search_pattern = f'%{query_text}%'
+                cursor.execute(sql, [
+                    search_pattern, search_pattern, limit
+                ])
+                
+                rows = cursor.fetchall()
+                columns = [desc[0] for desc in cursor.description]
+                
+                results = []
+                for row in rows:
+                    employee_data = dict(zip(columns, row))
+                    # 格式化為知識片段
+                    content = f"員工姓名: {employee_data['name']}\n"
+                    content += f"員工ID: {employee_data['id']}"
+                    
+                    results.append({
+                        'id': str(employee_data['id']),
+                        'title': f"{employee_data['name']}",
+                        'content': content,
+                        'score': float(employee_data['score']),
+                        'metadata': {
+                            'source': 'employee_database',
+                            'employee_id': employee_data['id']
+                        }
+                    })
+                
+                logger.info(f"Employee search found {len(results)} results for query: '{query_text}'")
+                return results
+                
+        except Exception as e:
+            logger.error(f"Employee database search error: {str(e)}")
+            return []
+    
     @classmethod
     def search_all_knowledge_bases(cls, query_text: str, limit_per_type: int = 3) -> Dict[str, List[Dict[str, Any]]]:
         """
@@ -330,7 +394,8 @@ class DatabaseSearchService:
         results = {
             'know_issues': cls.search_know_issue_knowledge(query_text, limit_per_type),
             'rvt_guides': cls.search_rvt_guide_knowledge(query_text, limit_per_type),
-            'ocr_benchmarks': cls.search_ocr_storage_benchmark(query_text, limit_per_type)
+            'ocr_benchmarks': cls.search_ocr_storage_benchmark(query_text, limit_per_type),
+            'employees': cls.search_employee_knowledge(query_text, limit_per_type)
         }
         
         # 統計總結果數
@@ -354,3 +419,18 @@ def search_rvt_guide_knowledge(query_text: str, limit: int = 5) -> List[Dict[str
 def search_ocr_storage_benchmark(query_text: str, limit: int = 5) -> List[Dict[str, Any]]:
     """向後相容的函數別名"""
     return DatabaseSearchService.search_ocr_storage_benchmark(query_text, limit)
+
+
+def search_postgres_knowledge(query_text: str, limit: int = 5) -> List[Dict[str, Any]]:
+    """
+    在 PostgreSQL 中搜索員工知識
+    使用全文搜索查詢簡化員工資料
+    
+    Args:
+        query_text: 搜索關鍵字
+        limit: 返回結果數量限制
+        
+    Returns:
+        搜索結果列表，每個結果包含 id, title, content, score, metadata
+    """
+    return DatabaseSearchService.search_employee_knowledge(query_text, limit)
