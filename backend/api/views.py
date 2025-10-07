@@ -16,7 +16,7 @@ import sys
 import os
 import time
 from .models import UserProfile, Project, Task, KnowIssue, TestClass, OCRTestClass, OCRStorageBenchmark, RVTGuide
-from .serializers import UserSerializer, UserProfileSerializer, ProjectSerializer, TaskSerializer, KnowIssueSerializer, TestClassSerializer, OCRTestClassSerializer, OCRStorageBenchmarkSerializer, OCRStorageBenchmarkListSerializer, RVTGuideSerializer, RVTGuideListSerializer
+from .serializers import UserSerializer, UserProfileSerializer, UserPermissionSerializer, ProjectSerializer, TaskSerializer, KnowIssueSerializer, TestClassSerializer, OCRTestClassSerializer, OCRStorageBenchmarkSerializer, OCRStorageBenchmarkListSerializer, RVTGuideSerializer, RVTGuideListSerializer
 
 # 導入向量搜索服務
 try:
@@ -288,6 +288,7 @@ def retry_api_request(func, max_retries=3, retry_delay=1, backoff_factor=2):
     raise last_exception
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class UserViewSet(viewsets.ModelViewSet):
     """使用者 ViewSet - 完整 CRUD，僅管理員可修改"""
     queryset = User.objects.all()
@@ -338,6 +339,7 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response({'message': f'Password changed for user {user.username}'})
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class UserProfileViewSet(viewsets.ModelViewSet):
     """使用者個人檔案 ViewSet"""
     queryset = UserProfile.objects.all()
@@ -345,8 +347,20 @@ class UserProfileViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # 只返回當前使用者的個人檔案
-        return UserProfile.objects.filter(user=self.request.user)
+        user = self.request.user
+        
+        # 超級管理員或 Django superuser 可以看到所有用戶的個人檔案
+        if user.is_superuser or (hasattr(user, 'userprofile') and user.userprofile.is_super_admin):
+            return UserProfile.objects.all()
+        
+        # 普通用戶只能看到自己的個人檔案
+        return UserProfile.objects.filter(user=user)
+
+    def get_serializer_class(self):
+        """根據不同的 action 使用不同的序列化器"""
+        if self.action in ['manage_permissions', 'bulk_update_permissions']:
+            return UserPermissionSerializer
+        return UserProfileSerializer
 
     @action(detail=False, methods=['get'], url_path='me')
     def get_my_profile(self, request):
@@ -361,7 +375,151 @@ class UserProfileViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+    @action(detail=False, methods=['get'], url_path='permissions', 
+            permission_classes=[permissions.IsAuthenticated])
+    def list_user_permissions(self, request):
+        """獲取所有用戶的權限列表 - 僅超級管理員可訪問"""
+        user = request.user
+        
+        # 檢查是否為超級管理員
+        if not (user.is_superuser or (hasattr(user, 'userprofile') and user.userprofile.is_super_admin)):
+            return Response(
+                {'error': '權限不足，僅超級管理員可以查看用戶權限列表'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # 獲取所有用戶檔案
+        profiles = UserProfile.objects.all().select_related('user').order_by('user__username')
+        serializer = UserPermissionSerializer(profiles, many=True)
+        
+        return Response({
+            'success': True,
+            'data': serializer.data,
+            'count': len(serializer.data)
+        })
 
+    @action(detail=True, methods=['patch'], url_path='permissions')
+    def manage_permissions(self, request, pk=None):
+        """管理指定用戶的權限 - 僅超級管理員可操作"""
+        user = request.user
+        
+        # 檢查是否為超級管理員
+        if not (user.is_superuser or (hasattr(user, 'userprofile') and user.userprofile.is_super_admin)):
+            return Response(
+                {'error': '權限不足，僅超級管理員可以修改用戶權限'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        try:
+            # pk 是 User ID，需要通過 user_id 查找 UserProfile
+            profile = UserProfile.objects.get(user_id=pk)
+        except UserProfile.DoesNotExist:
+            return Response(
+                {'error': '用戶檔案不存在'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # 防止非 Django superuser 修改其他超級管理員的權限
+        if profile.is_super_admin and not user.is_superuser:
+            return Response(
+                {'error': '只有 Django 超級用戶可以修改超級管理員的權限'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        serializer = UserPermissionSerializer(profile, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                'success': True,
+                'message': f'用戶 {profile.user.username} 的權限已更新',
+                'data': serializer.data
+            })
+        else:
+            return Response({
+                'success': False,
+                'errors': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['post'], url_path='bulk-permissions')
+    def bulk_update_permissions(self, request):
+        """批量更新用戶權限 - 僅超級管理員可操作"""
+        user = request.user
+        
+        # 檢查是否為超級管理員
+        if not (user.is_superuser or (hasattr(user, 'userprofile') and user.userprofile.is_super_admin)):
+            return Response(
+                {'error': '權限不足，僅超級管理員可以批量修改用戶權限'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        updates = request.data.get('updates', [])
+        if not updates:
+            return Response(
+                {'error': '請提供要更新的用戶權限資料'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        updated_count = 0
+        errors = []
+        
+        for update in updates:
+            profile_id = update.get('profile_id')
+            if not profile_id:
+                errors.append({'error': '缺少 profile_id'})
+                continue
+                
+            try:
+                profile = UserProfile.objects.get(pk=profile_id)
+                
+                # 防止非 Django superuser 修改其他超級管理員的權限
+                if profile.is_super_admin and not user.is_superuser:
+                    errors.append({
+                        'profile_id': profile_id,
+                        'error': '只有 Django 超級用戶可以修改超級管理員的權限'
+                    })
+                    continue
+                
+                serializer = UserPermissionSerializer(profile, data=update, partial=True)
+                if serializer.is_valid():
+                    serializer.save()
+                    updated_count += 1
+                else:
+                    errors.append({
+                        'profile_id': profile_id,
+                        'errors': serializer.errors
+                    })
+                    
+            except UserProfile.DoesNotExist:
+                errors.append({
+                    'profile_id': profile_id,
+                    'error': '用戶檔案不存在'
+                })
+        
+        return Response({
+            'success': True,
+            'message': f'已成功更新 {updated_count} 個用戶的權限',
+            'updated_count': updated_count,
+            'errors': errors
+        })
+
+    @action(detail=False, methods=['get'], url_path='my-permissions')
+    def get_my_permissions(self, request):
+        """獲取當前用戶的權限資訊"""
+        try:
+            profile = UserProfile.objects.get(user=request.user)
+            serializer = UserPermissionSerializer(profile)
+            return Response({
+                'success': True,
+                'data': serializer.data
+            })
+        except UserProfile.DoesNotExist:
+            return Response(
+                {'error': '用戶檔案不存在'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+
+@method_decorator(csrf_exempt, name='dispatch')
 class ProjectViewSet(viewsets.ModelViewSet):
     """專案 ViewSet"""
     queryset = Project.objects.all()
@@ -412,6 +570,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             )
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class TaskViewSet(viewsets.ModelViewSet):
     """任務 ViewSet"""
     queryset = Task.objects.all()
@@ -731,6 +890,7 @@ def dify_rvt_guide_search(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class KnowIssueViewSet(viewsets.ModelViewSet):
     """
     問題知識庫 ViewSet - 使用 Know Issue Library 實現
@@ -1601,6 +1761,7 @@ def rvt_guide_config(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class RVTGuideViewSet(viewsets.ModelViewSet):
     """RVT Guide ViewSet - 使用 library 統一管理"""
     queryset = RVTGuide.objects.all()

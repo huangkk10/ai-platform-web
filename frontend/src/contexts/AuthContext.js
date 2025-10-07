@@ -19,6 +19,8 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
+  const [permissions, setPermissions] = useState({});
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [initialized, setInitialized] = useState(false);
@@ -35,19 +37,56 @@ export const AuthProvider = ({ children }) => {
         setUser(response.data.user);
         setIsAuthenticated(true);
         console.log('AuthContext: User authenticated:', response.data.user);
+        
+        // 獲取用戶權限信息
+        await fetchUserPermissions();
       } else {
         setUser(null);
+        setUserProfile(null);
+        setPermissions({});
         setIsAuthenticated(false);
         console.log('AuthContext: User not authenticated');
       }
     } catch (error) {
       console.error('AuthContext: 檢查認證狀態失敗:', error);
       setUser(null);
+      setUserProfile(null);
+      setPermissions({});
       setIsAuthenticated(false);
     } finally {
       setLoading(false);
       setInitialized(true);
       console.log('AuthContext: Loading completed, initialized');
+    }
+  };
+
+  // 獲取用戶權限
+  const fetchUserPermissions = async () => {
+    try {
+      const response = await axios.get('/api/profiles/my-permissions/', {
+        withCredentials: true
+      });
+      if (response.data.success) {
+        setUserProfile(response.data.data);
+        
+        // 提取權限信息
+        const permissionsData = {
+          webProtocolRAG: response.data.data.web_protocol_rag,
+          webAIOCR: response.data.data.web_ai_ocr,
+          webRVTAssistant: response.data.data.web_rvt_assistant,
+          kbProtocolRAG: response.data.data.kb_protocol_rag,
+          kbAIOCR: response.data.data.kb_ai_ocr,
+          kbRVTAssistant: response.data.data.kb_rvt_assistant,
+          isSuperAdmin: response.data.data.is_super_admin,
+          canManagePermissions: response.data.data.can_manage_permissions
+        };
+        
+        setPermissions(permissionsData);
+        console.log('AuthContext: User permissions loaded:', permissionsData);
+      }
+    } catch (error) {
+      console.error('AuthContext: 獲取用戶權限失敗:', error);
+      setPermissions({});
     }
   };
 
@@ -64,6 +103,10 @@ export const AuthProvider = ({ children }) => {
       if (response.data.success) {
         setUser(response.data.user);
         setIsAuthenticated(true);
+        
+        // 登入成功後獲取權限
+        await fetchUserPermissions();
+        
         return { success: true, message: response.data.message };
       } else {
         return { success: false, message: response.data.message };
@@ -92,6 +135,8 @@ export const AuthProvider = ({ children }) => {
       
       // 無論 API 回應如何，都清除前端狀態
       setUser(null);
+      setUserProfile(null);
+      setPermissions({});
       setIsAuthenticated(false);
       
       if (response.data.success) {
@@ -103,6 +148,8 @@ export const AuthProvider = ({ children }) => {
       console.error('登出失敗:', error);
       // 即使 API 失敗，也清除本地狀態
       setUser(null);
+      setUserProfile(null);
+      setPermissions({});
       setIsAuthenticated(false);
       return { success: true, message: '已清除登入狀態' };
     }
@@ -129,15 +176,40 @@ export const AuthProvider = ({ children }) => {
     checkAuthStatus();
   }, []);
 
+  // 權限檢查工具函數
+  const hasPermission = (permissionName) => {
+    return permissions[permissionName] || false;
+  };
+
+  const hasAnyWebPermission = () => {
+    return permissions.webProtocolRAG || permissions.webAIOCR || permissions.webRVTAssistant;
+  };
+
+  const hasAnyKBPermission = () => {
+    return permissions.kbProtocolRAG || permissions.kbAIOCR || permissions.kbRVTAssistant;
+  };
+
+  const canManagePermissions = () => {
+    return permissions.isSuperAdmin || permissions.canManagePermissions;
+  };
+
   const value = {
     user,
+    userProfile,
+    permissions,
     isAuthenticated,
     loading,
     initialized,
     login,
     logout,
     refreshUserInfo,
-    checkAuthStatus
+    fetchUserPermissions,
+    checkAuthStatus,
+    // 權限檢查函數
+    hasPermission,
+    hasAnyWebPermission,
+    hasAnyKBPermission,
+    canManagePermissions
   };
 
   return (

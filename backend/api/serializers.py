@@ -44,11 +44,46 @@ class UserSerializer(serializers.ModelSerializer):
 
 class UserProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
+    permissions_summary = serializers.CharField(source='get_permissions_summary', read_only=True)
+    has_any_web_permission = serializers.BooleanField(source='has_any_web_permission', read_only=True)
+    has_any_kb_permission = serializers.BooleanField(source='has_any_kb_permission', read_only=True)
+    can_manage_permissions = serializers.BooleanField(source='can_manage_permissions', read_only=True)
     
     class Meta:
         model = UserProfile
-        fields = ['user', 'avatar', 'bio', 'location', 'birth_date', 'created_at', 'updated_at']
-        read_only_fields = ['created_at', 'updated_at']
+        fields = [
+            'user', 'avatar', 'bio', 'location', 'birth_date', 
+            # 權限相關欄位
+            'web_protocol_rag', 'web_ai_ocr', 'web_rvt_assistant',
+            'kb_protocol_rag', 'kb_ai_ocr', 'kb_rvt_assistant',
+            'is_super_admin',
+            # 計算欄位
+            'permissions_summary', 'has_any_web_permission', 
+            'has_any_kb_permission', 'can_manage_permissions',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['created_at', 'updated_at', 'permissions_summary', 
+                           'has_any_web_permission', 'has_any_kb_permission', 
+                           'can_manage_permissions']
+
+
+class UserPermissionSerializer(serializers.ModelSerializer):
+    """專用於權限管理的序列化器 - 只包含權限相關欄位"""
+    user = UserSerializer(read_only=True)
+    permissions_summary = serializers.CharField(source='get_permissions_summary', read_only=True)
+    
+    class Meta:
+        model = UserProfile
+        fields = [
+            'user', 
+            # 權限欄位
+            'web_protocol_rag', 'web_ai_ocr', 'web_rvt_assistant',
+            'kb_protocol_rag', 'kb_ai_ocr', 'kb_rvt_assistant',
+            'is_super_admin',
+            # 計算欄位
+            'permissions_summary'
+        ]
+        read_only_fields = ['permissions_summary']
 
 
 class ProjectSerializer(serializers.ModelSerializer):

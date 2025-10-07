@@ -10,11 +10,66 @@ class UserProfile(models.Model):
     bio = models.TextField(max_length=500, blank=True)
     location = models.CharField(max_length=100, blank=True)
     birth_date = models.DateField(null=True, blank=True)
+    
+    # 功能權限欄位 - Web 應用功能
+    web_protocol_rag = models.BooleanField(default=False, verbose_name="Web Protocol RAG 權限", 
+                                          help_text="是否可使用 Web 版本的 Protocol RAG 功能")
+    web_ai_ocr = models.BooleanField(default=False, verbose_name="Web AI OCR 權限", 
+                                    help_text="是否可使用 Web 版本的 AI OCR 功能")
+    web_rvt_assistant = models.BooleanField(default=False, verbose_name="Web RVT Assistant 權限", 
+                                           help_text="是否可使用 Web 版本的 RVT Assistant 功能")
+    
+    # 功能權限欄位 - 知識庫功能
+    kb_protocol_rag = models.BooleanField(default=False, verbose_name="知識庫 Protocol RAG 權限", 
+                                         help_text="是否可使用知識庫版本的 Protocol RAG 功能")
+    kb_ai_ocr = models.BooleanField(default=False, verbose_name="知識庫 AI OCR 權限", 
+                                   help_text="是否可使用知識庫版本的 AI OCR 功能")
+    kb_rvt_assistant = models.BooleanField(default=False, verbose_name="知識庫 RVT Assistant 權限", 
+                                          help_text="是否可使用知識庫版本的 RVT Assistant 功能")
+    
+    # 管理權限欄位
+    is_super_admin = models.BooleanField(default=False, verbose_name="超級管理員", 
+                                        help_text="超級管理員可以管理所有用戶的權限設定")
+    
+    # 原有欄位
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.user.username}'s Profile"
+    
+    def get_permissions_summary(self):
+        """獲取權限摘要"""
+        permissions = []
+        if self.web_protocol_rag:
+            permissions.append("Web Protocol RAG")
+        if self.web_ai_ocr:
+            permissions.append("Web AI OCR")
+        if self.web_rvt_assistant:
+            permissions.append("Web RVT Assistant")
+        if self.kb_protocol_rag:
+            permissions.append("KB Protocol RAG")
+        if self.kb_ai_ocr:
+            permissions.append("KB AI OCR")
+        if self.kb_rvt_assistant:
+            permissions.append("KB RVT Assistant")
+        
+        if self.is_super_admin:
+            permissions.append("超級管理員")
+        
+        return ", ".join(permissions) if permissions else "無特殊權限"
+    
+    def has_any_web_permission(self):
+        """檢查是否擁有任何 Web 功能權限"""
+        return any([self.web_protocol_rag, self.web_ai_ocr, self.web_rvt_assistant])
+    
+    def has_any_kb_permission(self):
+        """檢查是否擁有任何知識庫功能權限"""
+        return any([self.kb_protocol_rag, self.kb_ai_ocr, self.kb_rvt_assistant])
+    
+    def can_manage_permissions(self):
+        """檢查是否可以管理其他用戶權限"""
+        return self.is_super_admin or self.user.is_superuser
 
 
 class Project(models.Model):

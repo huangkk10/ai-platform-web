@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import './App.css';
 import axios from 'axios';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
@@ -15,7 +15,7 @@ import KnowIssuePage from './pages/KnowIssuePage';
 import RvtGuidePage from './pages/RvtGuidePage';
 import OcrStorageBenchmarkPage from './pages/OcrStorageBenchmarkPage';
 import TestClassManagementPage from './pages/TestClassManagementPage';
-import UserManagementPage from './pages/UserManagementPage';
+import IntegratedUserManagementPage from './pages/admin/IntegratedUserManagementPage';
 import KnowIssueChatPage from './pages/KnowIssueChatPage';
 import LogAnalyzeChatPage from './pages/LogAnalyzeChatPage';
 import RvtAssistantChatPage from './pages/RvtAssistantChatPage';
@@ -71,6 +71,8 @@ function AppLayout() {
         return 'RVT Assistant';
       case '/knowledge/rvt-guide/create':
         return 'RVT Assistant - 新增 User Guide';
+      case '/admin/user-management':
+        return '用戶權限管理';
       default:
         // 動態處理編輯頁面的標題
         if (pathname.startsWith('/knowledge/rvt-guide/edit/')) {
@@ -150,7 +152,7 @@ function AppLayout() {
             <Route path="/rvt-assistant-chat" element={<RvtAssistantChatPage collapsed={collapsed} />} />
             <Route path="/log-analyze" element={<LogAnalyzePage />} />
             <Route path="/admin/test-class-management" element={<TestClassManagementPage />} />
-            <Route path="/admin/user-management" element={<UserManagementPage />} />
+            <Route path="/admin/user-management" element={<IntegratedUserManagementPage />} />
           </Routes>
         </Content>
       </Layout>

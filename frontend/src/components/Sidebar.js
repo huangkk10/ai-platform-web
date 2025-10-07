@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Layout, Menu, Avatar, Space, Typography } from 'antd';
 import {
   SettingOutlined,
-  FileSearchOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   DatabaseOutlined,
@@ -20,15 +19,15 @@ const { Sider } = Layout;
 const { Text } = Typography;
 
 const Sidebar = ({ collapsed, onCollapse }) => {
-  const { user, isAuthenticated, loading, initialized } = useAuth();
+  const { user, isAuthenticated, initialized, hasPermission, canManagePermissions } = useAuth();
   const navigate = useNavigate();
 
-  // 動態生成頂部選單項目，根據用戶認證狀態
+  // 動態生成頂部選單項目，根據用戶權限
   const getTopMenuItems = () => {
     const baseItems = [];
 
-    // 只有登入用戶才能看到 Protocol RAG
-    if (isAuthenticated && user) {
+    // Protocol RAG - 需要 web_protocol_rag 權限
+    if (isAuthenticated && user && hasPermission('webProtocolRAG')) {
       baseItems.push({
         key: 'know-issue-chat',
         icon: <MessageOutlined />,
@@ -36,26 +35,24 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       });
     }
 
-    // RVT Assistant 所有用戶都可以看到
-    baseItems.push({
-      key: 'rvt-assistant-chat',
-      icon: <FileTextOutlined />,
-      label: 'RVT Assistant',
-    });
-
-    // 只有登入用戶才能看到 AI OCR
-    if (isAuthenticated && user) {
-      baseItems.splice(-1, 0, {
+    // AI OCR - 需要 web_ai_ocr 權限
+    if (isAuthenticated && user && hasPermission('webAIOCR')) {
+      baseItems.push({
         key: 'log-analyze-chat',
         icon: <FileTextOutlined />,
         label: 'AI OCR',
       });
     }
 
-    return baseItems;
-  };
+    // RVT Assistant - 對所有用戶開放（包括訪客）
+    baseItems.push({
+      key: 'rvt-assistant-chat',
+      icon: <FileTextOutlined />,
+      label: 'RVT Assistant',
+    });
 
-  const topMenuItems = getTopMenuItems();
+    return baseItems;
+  };  const topMenuItems = getTopMenuItems();
 
   // 處理選單點擊
   const handleMenuClick = ({ key }) => {
@@ -107,20 +104,27 @@ const Sidebar = ({ collapsed, onCollapse }) => {
     // 基本選單項目（移除查詢結果）
     const basicItems = [];
 
-    // knowledge submenu for authenticated users - 動態生成子項目
+    // knowledge submenu for authenticated users - 根據權限動態生成子項目
     const getKnowledgeChildren = () => {
-      const children = [
-        { key: 'know-issue', icon: <DatabaseOutlined />, label: 'Protocol RAG' },
-        { key: 'rvt-log', icon: <DatabaseOutlined />, label: 'RVT Assistant' },
-      ];
+      const children = [];
 
-      // 只有登入用戶才能看到 AI OCR
-      if (isAuthenticated && user) {
-        children.splice(1, 0, {
+      // Protocol RAG 知識庫 - 需要 kb_protocol_rag 權限
+      if (isAuthenticated && user && hasPermission('kbProtocolRAG')) {
+        children.push({ key: 'know-issue', icon: <DatabaseOutlined />, label: 'Protocol RAG' });
+      }
+
+      // AI OCR 知識庫 - 需要 kb_ai_ocr 權限
+      if (isAuthenticated && user && hasPermission('kbAIOCR')) {
+        children.push({
           key: 'ocr-storage-benchmark', 
           icon: <BarChartOutlined />, 
           label: 'AI OCR'
         });
+      }
+
+      // RVT Assistant 知識庫 - 需要 kb_rvt_assistant 權限
+      if (isAuthenticated && user && hasPermission('kbRVTAssistant')) {
+        children.push({ key: 'rvt-log', icon: <DatabaseOutlined />, label: 'RVT Assistant' });
       }
 
       return children;
@@ -134,14 +138,27 @@ const Sidebar = ({ collapsed, onCollapse }) => {
     };
 
     // admin submenu - 只有管理員可見
+    const getAdminChildren = () => {
+      const children = [];
+      
+      // TestClass 管理 - Django 管理員權限
+      if (user && (user.is_staff || user.is_superuser)) {
+        children.push({ key: 'test-class-management', icon: <ExperimentOutlined />, label: 'TestClass 管理' });
+      }
+      
+      // 整合的用戶權限管理 - Django 管理員權限
+      if (user && (user.is_staff || user.is_superuser)) {
+        children.push({ key: 'user-management', icon: <UserOutlined />, label: '用戶權限管理' });
+      }
+      
+      return children;
+    };
+
     const adminSubmenu = {
       key: 'admin',
       icon: <SettingOutlined />,
       label: '管理功能',
-      children: [
-        { key: 'test-class-management', icon: <ExperimentOutlined />, label: 'TestClass 管理' },
-        { key: 'user-management', icon: <UserOutlined />, label: '用戶管理' },
-      ],
+      children: getAdminChildren(),
     };
 
     const settingsItem = {
@@ -157,20 +174,22 @@ const Sidebar = ({ collapsed, onCollapse }) => {
     const isKnowledgePage = currentPath.startsWith('/knowledge/');
     const isAdminPage = currentPath.startsWith('/admin/');
     
-    // 知識庫選單 - 登入用戶可見
-    if ((initialized && isAuthenticated && user) || 
+    // 知識庫選單 - 需要任何知識庫權限
+    const knowledgeChildren = getKnowledgeChildren();
+    if ((initialized && isAuthenticated && user && knowledgeChildren.length > 0) || 
         (!initialized && isKnowledgePage)) {
       items.push(knowledgeSubmenu);
     }
     
-    // 管理功能選單 - 只有管理員可見
-    if ((initialized && isAuthenticated && user && (user.is_staff || user.is_superuser)) ||
+    // 管理功能選單 - 需要管理權限
+    const adminChildren = getAdminChildren();
+    if ((initialized && isAuthenticated && user && adminChildren.length > 0) ||
         (!initialized && isAdminPage)) {
       items.push(adminSubmenu);
     }
     
     // 系統設定 - 只有管理員可見
-    if ((initialized && isAuthenticated && user && (user.is_staff || user.is_superuser)) ||
+    if ((initialized && isAuthenticated && user && (user.is_staff || user.is_superuser || canManagePermissions())) ||
         (!initialized && currentPath === '/settings')) {
       items.push(settingsItem);
     }

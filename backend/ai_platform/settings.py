@@ -39,6 +39,7 @@ MIDDLEWARE = [
     'api.middleware.DisableCSRFMiddleware',  # 在 CSRF 中間件之前
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'api.middleware.UserProfileMiddleware',  # 在認證中間件之後
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
