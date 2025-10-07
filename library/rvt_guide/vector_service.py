@@ -121,20 +121,37 @@ class RVTGuideVectorService:
                 self.logger.warning("Embedding service 不可用，跳過向量刪除")
                 return False
             
-            # 這裡需要根據實際的 embedding_service API 實現
-            # 假設有 delete_document_embedding 方法
+            # 使用新的 delete_document_embedding 方法
+            success_1024 = False
+            success_768 = False
+            
             if hasattr(self.embedding_service, 'delete_document_embedding'):
-                success = self.embedding_service.delete_document_embedding(
+                # 刪除 1024 維向量（預設）
+                success_1024 = self.embedding_service.delete_document_embedding(
                     source_table='rvt_guide',
-                    source_id=instance.id
+                    source_id=instance.id,
+                    use_1024_table=True
                 )
                 
-                if success:
-                    self.logger.info(f"✅ RVT Guide 向量刪除成功: ID {instance.id}")
+                # 刪除 768 維向量（備用）
+                success_768 = self.embedding_service.delete_document_embedding(
+                    source_table='rvt_guide',
+                    source_id=instance.id,
+                    use_1024_table=False
+                )
+                
+                if success_1024 or success_768:
+                    dimensions = []
+                    if success_1024:
+                        dimensions.append("1024維")
+                    if success_768:
+                        dimensions.append("768維")
+                    self.logger.info(f"✅ RVT Guide 向量刪除成功 ({', '.join(dimensions)}): ID {instance.id}")
+                    return True
                 else:
-                    self.logger.error(f"❌ RVT Guide 向量刪除失敗: ID {instance.id}")
+                    self.logger.warning(f"⚠️  未找到 RVT Guide 對應的向量資料: ID {instance.id}")
+                    return False
                     
-                return success
             else:
                 self.logger.warning("Embedding service 不支援向量刪除")
                 return False

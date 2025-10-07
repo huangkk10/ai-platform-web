@@ -1803,6 +1803,58 @@ class RVTGuideViewSet(viewsets.ModelViewSet):
             # 備用實現
             return serializer.save()
     
+    def perform_destroy(self, instance):
+        """刪除 RVT Guide 時同時刪除對應的向量資料"""
+        try:
+            # 嘗試使用 library 的向量服務
+            if RVT_GUIDE_LIBRARY_AVAILABLE:
+                try:
+                    from library.rvt_guide import RVTGuideVectorService
+                    vector_service = RVTGuideVectorService()
+                    vector_service.delete_vector(instance)
+                except Exception as library_error:
+                    logger.warning(f"Library 向量服務不可用，使用備用實現: {str(library_error)}")
+                    # 備用實現：直接使用 embedding_service
+                    self._delete_vector_fallback(instance)
+            else:
+                # 備用實現
+                self._delete_vector_fallback(instance)
+                
+        except Exception as e:
+            logger.error(f"RVT Guide 向量刪除失敗: {str(e)}")
+        
+        # 刪除主記錄
+        instance.delete()
+    
+    def _delete_vector_fallback(self, instance):
+        """備用的向量刪除實現"""
+        try:
+            from .services.embedding_service import get_embedding_service
+            
+            service = get_embedding_service()
+            
+            # 刪除 1024 維向量（預設）
+            success_1024 = service.delete_document_embedding(
+                source_table='rvt_guide',
+                source_id=instance.id,
+                use_1024_table=True
+            )
+            
+            # 刪除 768 維向量（備用）
+            success_768 = service.delete_document_embedding(
+                source_table='rvt_guide',
+                source_id=instance.id,
+                use_1024_table=False
+            )
+            
+            if success_1024 or success_768:
+                logger.info(f"✅ RVT Guide 向量刪除成功: ID {instance.id} - {instance.title}")
+            else:
+                logger.warning(f"⚠️  未找到 RVT Guide 對應的向量資料: ID {instance.id}")
+                
+        except Exception as e:
+            logger.error(f"❗ RVT Guide 備用向量刪除失敗: ID {instance.id} - {str(e)}")
+    
     def get_queryset(self):
         """支援搜尋和篩選"""
         base_queryset = RVTGuide.objects.all()

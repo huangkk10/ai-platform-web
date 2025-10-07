@@ -201,6 +201,43 @@ class OpenSourceEmbeddingService:
             logger.error(f"存儲文檔嵌入失敗: {str(e)}")
             return False
     
+    def delete_document_embedding(self, source_table: str, source_id: int, use_1024_table: bool = False) -> bool:
+        """
+        刪除指定文檔的向量嵌入
+        
+        Args:
+            source_table: 來源表名
+            source_id: 來源記錄ID
+            use_1024_table: 是否使用 1024 維表格
+            
+        Returns:
+            是否成功刪除
+        """
+        try:
+            # 選擇目標表格
+            target_table = 'document_embeddings_1024' if use_1024_table else 'document_embeddings'
+            
+            # 刪除向量記錄
+            with connection.cursor() as cursor:
+                cursor.execute(f"""
+                    DELETE FROM {target_table}
+                    WHERE source_table = %s AND source_id = %s
+                """, [source_table, source_id])
+                
+                deleted_count = cursor.rowcount
+                
+            if deleted_count > 0:
+                table_name = "1024維" if use_1024_table else "768維"
+                logger.info(f"成功刪除文檔嵌入 ({table_name}): {source_table}:{source_id}")
+                return True
+            else:
+                logger.warning(f"未找到要刪除的文檔嵌入: {source_table}:{source_id}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"刪除文檔嵌入失敗: {str(e)}")
+            return False
+    
     def search_similar_documents(self, query: str, source_table: str = None, limit: int = 5, threshold: float = 0.0, use_1024_table: bool = False) -> List[dict]:
         """
         搜索相似文檔
