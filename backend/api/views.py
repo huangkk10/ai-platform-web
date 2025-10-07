@@ -69,7 +69,10 @@ try:
         # 🆕 導入查詢管理器
         OCRStorageBenchmarkQueryManager,
         create_ocr_queryset_manager,
-        fallback_ocr_storage_benchmark_queryset_filter
+        fallback_ocr_storage_benchmark_queryset_filter,
+        # 🆕 導入最終備用 OCR 處理函數
+        final_fallback_process_ocr,
+        emergency_fallback_process_ocr
     )
     # 🆕 導入認證服務 library
     from library.auth import (
@@ -207,6 +210,9 @@ except ImportError:
     OCRStorageBenchmarkQueryManager = None
     create_ocr_queryset_manager = None
     fallback_ocr_storage_benchmark_queryset_filter = None
+    # 🆕 備用最終 OCR 處理函數
+    final_fallback_process_ocr = None
+    emergency_fallback_process_ocr = None
     AI_OCR_LIBRARY_AVAILABLE = False
     # 備用函數設定為 None，將使用本地備用實現
     fallback_dify_rvt_guide_search = None
@@ -1349,9 +1355,18 @@ class OCRStorageBenchmarkViewSet(viewsets.ModelViewSet):
                 # 使用 ViewSet 管理器中的處理方法
                 return self._manager.handle_process_ocr(ocr_record)
             else:
-                # 最終備用實現
-                logger.warning("AI OCR Library 和管理器都不可用，使用最終備用實現")
-                return self._final_fallback_process_ocr(ocr_record)
+                # 🔄 重構後：使用 library 中的最終備用實現
+                logger.warning("AI OCR Library 和管理器都不可用，使用 library 最終備用實現")
+                if final_fallback_process_ocr:
+                    # 使用 AI OCR library 中的最終備用處理
+                    return final_fallback_process_ocr(ocr_record)
+                elif emergency_fallback_process_ocr:
+                    # 使用緊急備用處理
+                    return emergency_fallback_process_ocr(ocr_record)
+                else:
+                    # 最後的本地備用實現
+                    logger.error("所有 library 最終備用函數都不可用，使用本地緊急實現")
+                    return self._emergency_local_fallback_process_ocr(ocr_record)
                 
         except Exception as e:
             logger.error(f"OCR 處理失敗: {str(e)}")
@@ -1359,8 +1374,13 @@ class OCRStorageBenchmarkViewSet(viewsets.ModelViewSet):
                 'error': f'OCR 處理失敗: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
-    def _final_fallback_process_ocr(self, ocr_record):
-        """最終備用的 OCR 處理實現"""
+    def _emergency_local_fallback_process_ocr(self, ocr_record):
+        """
+        緊急本地備用 OCR 處理實現
+        
+        🚨 僅在所有 library 備用函數都不可用時使用
+        此方法是從原來的 _final_fallback_process_ocr 重命名而來
+        """
         try:
             # 檢查是否有原始圖像
             if not ocr_record.original_image_data:
@@ -1392,9 +1412,10 @@ class OCRStorageBenchmarkViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_200_OK)
             
         except Exception as e:
-            logger.error(f"最終備用 OCR 處理也失敗: {str(e)}")
+            logger.error(f"緊急本地備用 OCR 處理也失敗: {str(e)}")
             return Response({
-                'error': f'OCR 處理完全失敗: {str(e)}'
+                'error': f'OCR 處理完全失敗: {str(e)}',
+                'note': '所有備用處理方式都已失敗，請檢查系統配置或聯絡管理員'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])

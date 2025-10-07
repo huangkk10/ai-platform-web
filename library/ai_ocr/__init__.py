@@ -50,7 +50,10 @@ try:
         create_fallback_ocr_storage_benchmark_viewset_manager,
         create_fallback_ai_ocr_chat_service,
         create_fallback_ai_ocr_search_service,
-        handle_upload_image_fallback
+        handle_upload_image_fallback,
+        # 🆕 導入最終備用 OCR 處理函數
+        final_fallback_process_ocr,
+        emergency_fallback_process_ocr
     )
     # 🆕 導入 OCR 處理器
     from .ocr_processor import (
@@ -97,6 +100,9 @@ except ImportError as e:
     fallback_dify_chat_with_file = None
     fallback_dify_ocr_storage_benchmark_search = None
     handle_dify_ocr_storage_benchmark_search_fallback = None
+    # 🆕 最終備用 OCR 處理函數也設為 None
+    final_fallback_process_ocr = None
+    emergency_fallback_process_ocr = None
     
     # 🆕 OCR 處理器也設為 None
     OCRProcessor = None
@@ -172,6 +178,9 @@ __all__ = [
     'create_fallback_ai_ocr_chat_service',
     'create_fallback_ai_ocr_search_service',
     'handle_upload_image_fallback',
+    # 🆕 最終備用 OCR 處理函數
+    'final_fallback_process_ocr',
+    'emergency_fallback_process_ocr',
     
     # 🆕 OCR 處理器
     'OCRProcessor',
