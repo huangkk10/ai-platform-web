@@ -11,6 +11,7 @@ from .chat_client import DifyChatClient, create_chat_client, quick_chat
 from .file_manager import DifyFileManager
 from .report_analyzer_client import ReportAnalyzerClient, create_report_analyzer_client, quick_file_analysis
 from .request_manager import DifyRequestManager, DifyResponseHandler, make_dify_request, process_dify_answer, handle_conversation_error
+from .protocol_chat_handler import ProtocolChatHandler, create_protocol_chat_handler, handle_protocol_chat_api
 
 __all__ = [
     # 原有模組
@@ -36,7 +37,13 @@ __all__ = [
     'DifyResponseHandler', 
     'make_dify_request',
     'process_dify_answer',
-    'handle_conversation_error'
+    'handle_conversation_error',
+    
+    # Protocol Chat 模組
+    'ProtocolChatHandler',
+    'create_protocol_chat_handler',
+    'handle_protocol_chat_api',
+    'dify_protocol_chat_api'
 ]
 
 
@@ -87,3 +94,20 @@ def analyze_files_batch(file_paths: list, queries: list = None,
     """
     client = create_report_analyzer_client(api_url, api_key, base_url)
     return client.batch_file_analysis(file_paths, queries, user, verbose=verbose)
+
+
+def dify_protocol_chat_api(request):
+    """
+    Django API 便利函數：處理 Protocol Known Issue 配置的聊天請求
+    
+    Args:
+        request: Django request 對象
+        
+    Returns:
+        Django Response 對象
+        
+    使用方式：
+        from library.dify_integration import dify_protocol_chat_api
+        return dify_protocol_chat_api(request)
+    """
+    return handle_protocol_chat_api(request)
