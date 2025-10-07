@@ -140,7 +140,38 @@ class AIOCRAPIHandler:
                     try:
                         response_data = response.json()
                         if 'Conversation Not Exists' in response_data.get('message', ''):
-                            logger.warning("AI OCR conversation not exists, should retry without conversation_id")
+                            logger.warning("AI OCR conversation not exists, retrying without conversation_id")
+                            
+                            # 重新發送請求，不帶 conversation_id
+                            retry_payload = {
+                                'inputs': {},
+                                'query': payload['query'],
+                                'response_mode': 'blocking',
+                                'user': payload['user']
+                            }
+                            
+                            retry_response = requests.post(
+                                api_url,
+                                headers=headers,
+                                json=retry_payload,
+                                timeout=120
+                            )
+                            
+                            if retry_response.status_code == 200:
+                                retry_result = retry_response.json()
+                                logger.info("AI OCR retry success - conversation restarted")
+                                
+                                return Response({
+                                    'success': True,
+                                    'answer': retry_result.get('answer', ''),
+                                    'conversation_id': retry_result.get('conversation_id', ''),
+                                    'message_id': retry_result.get('message_id', ''),
+                                    'response_time': elapsed,
+                                    'metadata': retry_result.get('metadata', {}),
+                                    'usage': retry_result.get('usage', {}),
+                                    'warning': '原對話已過期，已開始新對話'
+                                }, status=status.HTTP_200_OK)
+                                
                     except Exception as retry_error:
                         logger.error(f"AI OCR retry request failed: {str(retry_error)}")
                 
