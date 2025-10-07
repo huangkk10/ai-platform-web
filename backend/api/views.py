@@ -108,10 +108,22 @@ try:
         create_dify_knowledge_search_handler,
         DIFY_KNOWLEDGE_LIBRARY_AVAILABLE
     )
+    # 🆕 導入 Chat Analytics library
+    from library.chat_analytics import (
+        ChatUsageStatisticsHandler,
+        ChatUsageRecorder,
+        ChatAnalyticsAPIHandler,
+        handle_chat_usage_statistics_api,
+        handle_record_chat_usage_api,
+        create_chat_statistics_handler,
+        create_chat_usage_recorder,
+        CHAT_ANALYTICS_LIBRARY_AVAILABLE
+    )
     AUTH_LIBRARY_AVAILABLE = True
     RVT_GUIDE_LIBRARY_AVAILABLE = True
     KNOW_ISSUE_LIBRARY_AVAILABLE = True
     DIFY_KNOWLEDGE_LIBRARY_AVAILABLE = True
+    CHAT_ANALYTICS_LIBRARY_AVAILABLE = True
 except ImportError:
     # 如果 library 路徑有問題，提供備用配置
     get_protocol_known_issue_config = None
@@ -162,6 +174,15 @@ except ImportError:
     process_dify_knowledge_request = None
     create_dify_knowledge_search_handler = None
     DIFY_KNOWLEDGE_LIBRARY_AVAILABLE = False
+    # 🆕 備用 Chat Analytics 服務
+    ChatUsageStatisticsHandler = None
+    ChatUsageRecorder = None
+    ChatAnalyticsAPIHandler = None
+    handle_chat_usage_statistics_api = None
+    handle_record_chat_usage_api = None
+    create_chat_statistics_handler = None
+    create_chat_usage_recorder = None
+    CHAT_ANALYTICS_LIBRARY_AVAILABLE = False
     # 🆕 備用 AI OCR 服務
     AIOCRAPIHandler = None
     OCRTestClassViewSetManager = None
@@ -1456,102 +1477,28 @@ def dify_ocr_chat(request):
 @permission_classes([AllowAny])
 def chat_usage_statistics(request):
     """
-    獲取聊天使用統計數據
+    獲取聊天使用統計數據 - 使用 Chat Analytics Library 統一實現
+    
+    🔄 重構後：直接使用 library/chat_analytics/ 處理
     """
     try:
-        from django.db.models import Count, Avg
-        from django.utils import timezone
-        from datetime import datetime, timedelta
-        from .models import ChatUsage
-        
-        # 獲取日期範圍參數
-        days = int(request.GET.get('days', 30))  # 默認30天
-        
-        # 修正日期計算：使用日期開始時間，而不是當前具體時間
-        current_time = timezone.now()
-        end_date = current_time.replace(hour=23, minute=59, second=59, microsecond=999999)  # 今天結束時間
-        start_date = (current_time - timedelta(days=days-1)).replace(hour=0, minute=0, second=0, microsecond=0)  # 開始日期的00:00:00
-        
-        # 基礎查詢集
-        base_queryset = ChatUsage.objects.filter(
-            created_at__gte=start_date,
-            created_at__lte=end_date
-        )
-        
-        # 1. 各聊天類型使用次數統計 (圓餅圖數據)
-        chat_type_stats = base_queryset.values('chat_type').annotate(
-            count=Count('id'),
-            avg_response_time=Avg('response_time')
-        ).order_by('-count')
-        
-        pie_chart_data = []
-        type_display_map = {
-            'know_issue_chat': 'Protocol RAG',
-            'log_analyze_chat': 'AI OCR', 
-            'rvt_assistant_chat': 'RVT Assistant'
-        }
-        
-        for stat in chat_type_stats:
-            pie_chart_data.append({
-                'name': type_display_map.get(stat['chat_type'], stat['chat_type']),
-                'value': stat['count'],
-                'type': stat['chat_type'],
-                'avg_response_time': round(stat['avg_response_time'] or 0, 2)
-            })
-        
-        # 2. 每日使用次數統計 (曲線圖數據)
-        daily_stats = []
-        for i in range(days):
-            # 每日統計使用日期的開始和結束時間
-            current_date = (start_date + timedelta(days=i)).replace(hour=0, minute=0, second=0, microsecond=0)
-            next_date = current_date.replace(hour=23, minute=59, second=59, microsecond=999999)
-            
-            day_usage = base_queryset.filter(
-                created_at__gte=current_date,
-                created_at__lte=next_date  # 改為 <= 因為已經設置到當天結束時間
-            )
-            
-            # 各類型當日使用次數
-            know_issue_count = day_usage.filter(chat_type='know_issue_chat').count()
-            log_analyze_count = day_usage.filter(chat_type='log_analyze_chat').count()
-            rvt_assistant_count = day_usage.filter(chat_type='rvt_assistant_chat').count()
-            total_count = day_usage.count()
-            
-            daily_stats.append({
-                'date': current_date.strftime('%Y-%m-%d'),
-                'total': total_count,
-                'know_issue_chat': know_issue_count,
-                'log_analyze_chat': log_analyze_count,
-                'rvt_assistant_chat': rvt_assistant_count
-            })
-        
-        # 3. 總體統計
-        total_usage = base_queryset.count()
-        total_users = base_queryset.values('user').distinct().count()
-        total_files = base_queryset.filter(has_file_upload=True).count()
-        avg_response_time = base_queryset.aggregate(avg=Avg('response_time'))['avg']
-        
-        summary_stats = {
-            'total_chats': total_usage,
-            'total_users': total_users,
-            'total_file_uploads': total_files,
-            'avg_response_time': round(avg_response_time or 0, 2),
-            'date_range': {
-                'start': start_date.strftime('%Y-%m-%d'),
-                'end': end_date.strftime('%Y-%m-%d'),
-                'days': days
-            }
-        }
-        
-        return Response({
-            'success': True,
-            'data': {
-                'pie_chart': pie_chart_data,
-                'daily_chart': daily_stats,
-                'summary': summary_stats
-            }
-        }, status=status.HTTP_200_OK)
-        
+        if CHAT_ANALYTICS_LIBRARY_AVAILABLE and handle_chat_usage_statistics_api:
+            # 使用 Chat Analytics library 中的統一 API 處理器
+            return handle_chat_usage_statistics_api(request)
+        else:
+            # 使用備用實現
+            logger.warning("Chat Analytics Library 不可用，使用備用實現")
+            try:
+                from library.chat_analytics.fallback_handlers import fallback_chat_usage_statistics_api
+                return fallback_chat_usage_statistics_api(request)
+            except ImportError:
+                # 最終備用方案
+                logger.error("Chat Analytics Library 完全不可用")
+                return Response({
+                    'success': False,
+                    'error': 'Chat analytics service temporarily unavailable'
+                }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+                
     except Exception as e:
         logger.error(f"Chat usage statistics error: {str(e)}")
         return Response({
@@ -1565,52 +1512,28 @@ def chat_usage_statistics(request):
 @permission_classes([AllowAny])
 def record_chat_usage(request):
     """
-    記錄聊天使用情況
+    記錄聊天使用情況 - 使用 Chat Analytics Library 統一實現
+    
+    🔄 重構後：直接使用 library/chat_analytics/ 處理
     """
     try:
-        from .models import ChatUsage
-        
-        data = request.data
-        chat_type = data.get('chat_type')
-        message_count = data.get('message_count', 1)
-        has_file_upload = data.get('has_file_upload', False)
-        response_time = data.get('response_time')
-        session_id = data.get('session_id', '')
-        
-        # 驗證聊天類型
-        valid_types = ['know_issue_chat', 'log_analyze_chat', 'rvt_assistant_chat']
-        if chat_type not in valid_types:
-            return Response({
-                'success': False,
-                'error': '無效的聊天類型'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # 獲取客戶端信息
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            ip_address = x_forwarded_for.split(',')[0]
+        if CHAT_ANALYTICS_LIBRARY_AVAILABLE and handle_record_chat_usage_api:
+            # 使用 Chat Analytics library 中的統一 API 處理器
+            return handle_record_chat_usage_api(request)
         else:
-            ip_address = request.META.get('REMOTE_ADDR')
-        
-        user_agent = request.META.get('HTTP_USER_AGENT', '')
-        
-        # 創建使用記錄
-        usage_record = ChatUsage.objects.create(
-            user=request.user if request.user.is_authenticated else None,
-            session_id=session_id,
-            chat_type=chat_type,
-            message_count=message_count,
-            has_file_upload=has_file_upload,
-            response_time=response_time,
-            ip_address=ip_address,
-            user_agent=user_agent
-        )
-        
-        return Response({
-            'success': True,
-            'record_id': usage_record.id
-        }, status=status.HTTP_201_CREATED)
-        
+            # 使用備用實現
+            logger.warning("Chat Analytics Library 不可用，使用備用實現")
+            try:
+                from library.chat_analytics.fallback_handlers import fallback_record_chat_usage_api
+                return fallback_record_chat_usage_api(request)
+            except ImportError:
+                # 最終備用方案
+                logger.error("Chat Analytics Library 完全不可用")
+                return Response({
+                    'success': False,
+                    'error': 'Chat analytics service temporarily unavailable'
+                }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+                
     except Exception as e:
         logger.error(f"Record chat usage error: {str(e)}")
         return Response({
