@@ -29,7 +29,7 @@ class OCRTestClassViewSetManager:
     def get_serializer_class(self, action):
         """根據操作類型選擇合適的序列化器"""
         try:
-            from backend.api.serializers import OCRTestClassSerializer
+            from api.serializers import OCRTestClassSerializer
             return OCRTestClassSerializer
         except ImportError as e:
             self.logger.error(f"無法導入 OCR 測試類別序列化器: {e}")
@@ -103,7 +103,7 @@ class OCRStorageBenchmarkViewSetManager:
     def get_serializer_class(self, action):
         """根據操作類型選擇合適的序列化器"""
         try:
-            from backend.api.serializers import (
+            from api.serializers import (
                 OCRStorageBenchmarkSerializer,
                 OCRStorageBenchmarkListSerializer
             )

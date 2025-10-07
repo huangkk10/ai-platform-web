@@ -29,7 +29,7 @@ class RVTGuideViewSetManager:
         """
         根據操作類型選擇合適的序列化器
         """
-        from backend.api.serializers import RVTGuideSerializer, RVTGuideListSerializer
+        from api.serializers import RVTGuideSerializer, RVTGuideListSerializer
         
         if action == 'list':
             # 列表視圖使用輕量級序列化器以提升性能
@@ -131,7 +131,7 @@ class RVTGuideViewSetManager:
             Response: 統計資料響應
         """
         try:
-            from backend.api.serializers import RVTGuideListSerializer
+            from api.serializers import RVTGuideListSerializer
             
             # 基本統計
             total_guides = queryset.count()

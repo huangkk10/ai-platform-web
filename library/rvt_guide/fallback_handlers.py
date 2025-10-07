@@ -156,7 +156,7 @@ class FallbackViewSetManager:
     def get_serializer_class(self, action):
         """備用序列化器選擇邏輯"""
         try:
-            from backend.api.serializers import RVTGuideSerializer, RVTGuideListSerializer
+            from api.serializers import RVTGuideSerializer, RVTGuideListSerializer
             
             if action == 'list':
                 return RVTGuideListSerializer

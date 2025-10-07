@@ -187,7 +187,7 @@ class RVTGuideVectorService:
         """
         try:
             if queryset is None:
-                from backend.api.models import RVTGuide
+                from api.models import RVTGuide
                 queryset = RVTGuide.objects.all()
             
             self.logger.info(f"開始重建 {queryset.count()} 個 RVT Guide 的向量")

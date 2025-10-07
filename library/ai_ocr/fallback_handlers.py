@@ -169,7 +169,7 @@ class FallbackViewSetManager:
     def get_serializer_class(self, action):
         """備用序列化器選擇邏輯"""
         try:
-            from backend.api.serializers import (
+            from api.serializers import (
                 OCRTestClassSerializer,
                 OCRStorageBenchmarkSerializer,
                 OCRStorageBenchmarkListSerializer
