@@ -273,7 +273,29 @@ class OCRStorageBenchmarkViewSetManager:
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     def handle_process_ocr(self, ocr_record):
-        """處理 OCR 識別"""
+        """
+        處理 OCR 識別 - 使用統一的 OCR 處理器
+        
+        🔄 重構後：使用 library.ai_ocr.ocr_processor 模組
+        """
+        try:
+            # 嘗試導入 OCR 處理器
+            from .ocr_processor import process_ocr_record
+            
+            # 使用統一的 OCR 處理器
+            return process_ocr_record(ocr_record)
+            
+        except ImportError as e:
+            # 如果 OCR 處理器不可用，使用備用實現
+            self.logger.warning(f"OCR 處理器不可用，使用備用實現: {e}")
+            return self._fallback_handle_process_ocr(ocr_record)
+        except Exception as e:
+            # 其他異常也回退到備用實現
+            self.logger.error(f"OCR 處理器執行失敗，使用備用實現: {e}")
+            return self._fallback_handle_process_ocr(ocr_record)
+    
+    def _fallback_handle_process_ocr(self, ocr_record):
+        """備用的 OCR 處理實現"""
         try:
             # 檢查是否有原始圖像
             if not ocr_record.original_image_data:
@@ -287,60 +309,38 @@ class OCRStorageBenchmarkViewSetManager:
             
             start_time = time.time()
             
-            # 模擬 OCR 處理
+            # 簡化的 OCR 處理
             if not ocr_record.ocr_raw_text:
-                # 根據附件內容生成模擬 OCR 結果
-                mock_ocr_text = f"""
-                專案名稱: {ocr_record.project_name or 'Storage Benchmark Score'}
-                測試得分: {ocr_record.benchmark_score or '6883'}
-                平均帶寬: {ocr_record.average_bandwidth or '1174.89 MB/s'}
-                裝置型號: {ocr_record.device_model or 'KINGSTON SFYR2S1TO'}
-                韌體版本: {ocr_record.firmware_version or 'SGW0904A'}
-                測試時間: {ocr_record.test_datetime or '2025-09-06 16:13 +08:00'}
-                3DMark 版本: {ocr_record.benchmark_version or '2.28.8228 (測試專用版)'}
-                """
-                ocr_record.ocr_raw_text = mock_ocr_text.strip()
+                mock_ocr_text = f"專案: {ocr_record.project_name or 'Unknown'}, 得分: {ocr_record.benchmark_score or '0'}"
+                ocr_record.ocr_raw_text = mock_ocr_text
             
-            # 模擬 AI 結構化處理
             if not ocr_record.ai_structured_data:
                 ocr_record.ai_structured_data = {
-                    "project_name": ocr_record.project_name or "Storage Benchmark Score",
-                    "benchmark_score": ocr_record.benchmark_score or 6883,
-                    "average_bandwidth": ocr_record.average_bandwidth or "1174.89 MB/s",
-                    "device_model": ocr_record.device_model or "KINGSTON SFYR2S1TO",
-                    "firmware_version": ocr_record.firmware_version or "SGW0904A",
-                    "test_datetime": str(ocr_record.test_datetime or "2025-09-06 16:13 +08:00"),
-                    "benchmark_version": ocr_record.benchmark_version or "2.28.8228 (測試專用版)",
-                    "extracted_fields": [
-                        "project_name", "benchmark_score", "average_bandwidth", 
-                        "device_model", "firmware_version", "test_datetime", "benchmark_version"
-                    ],
-                    "confidence": 0.95
+                    "project_name": ocr_record.project_name or "Unknown",
+                    "confidence": 0.80,  # 備用實現置信度較低
+                    "note": "使用備用 OCR 處理器"
                 }
             
             # 設置處理結果
             processing_time = time.time() - start_time
             ocr_record.ocr_processing_time = processing_time
-            ocr_record.ocr_confidence = 0.95
+            ocr_record.ocr_confidence = 0.80
             ocr_record.processing_status = 'completed'
             ocr_record.save()
             
-            self.logger.info(f"OCR 處理完成: 記錄 {ocr_record.id}, 處理時間 {processing_time:.2f}s")
+            self.logger.info(f"備用 OCR 處理完成: 記錄 {ocr_record.id}")
             
             return Response({
-                'message': 'OCR 處理完成',
+                'message': 'OCR 處理完成（備用模式）',
                 'processing_time': processing_time,
-                'confidence': 0.95,
-                'raw_text_preview': (
-                    ocr_record.ocr_raw_text[:200] + "..." 
-                    if len(ocr_record.ocr_raw_text) > 200 
-                    else ocr_record.ocr_raw_text
-                ),
-                'structured_data': ocr_record.ai_structured_data
+                'confidence': 0.80,
+                'raw_text_preview': ocr_record.ocr_raw_text,
+                'structured_data': ocr_record.ai_structured_data,
+                'note': '使用備用 OCR 處理器，功能可能受限'
             }, status=status.HTTP_200_OK)
             
         except Exception as e:
-            self.logger.error(f"OCR 處理失敗: {str(e)}")
+            self.logger.error(f"備用 OCR 處理失敗: {str(e)}")
             ocr_record.processing_status = 'failed'
             ocr_record.save()
             return Response({

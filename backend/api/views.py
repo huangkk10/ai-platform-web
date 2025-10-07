@@ -32,7 +32,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../'))
 # 導入 Dify 配置管理
 try:
     from library.config.dify_config_manager import get_protocol_known_issue_config, get_report_analyzer_config
-    from library.dify_integration import make_dify_request, process_dify_answer, dify_protocol_chat_api
+    from library.dify_integration import make_dify_request, process_dify_answer, dify_protocol_chat_api, fallback_protocol_chat_api
     # 🆕 導入資料庫搜索服務
     from library.data_processing.database_search import (
         DatabaseSearchService,
@@ -60,7 +60,12 @@ try:
         fallback_dify_ocr_storage_benchmark_search,
         handle_upload_image_fallback,
         dify_ocr_chat_api,
-        fallback_dify_chat_with_file
+        fallback_dify_chat_with_file,
+        # 🆕 導入 OCR 處理器
+        OCRProcessor,
+        process_ocr_record,
+        create_ocr_processor,
+        fallback_process_ocr_record
     )
     # 🆕 導入認證服務 library
     from library.auth import (
@@ -90,6 +95,7 @@ except ImportError:
     make_dify_request = None
     process_dify_answer = None
     dify_protocol_chat_api = None
+    fallback_protocol_chat_api = None
     # 備用搜索函數 (保持原有邏輯)
     DatabaseSearchService = None
     search_know_issue_knowledge = None
@@ -125,6 +131,11 @@ except ImportError:
     fallback_dify_ocr_storage_benchmark_search = None
     handle_upload_image_fallback = None
     dify_ocr_chat_api = None
+    # 🆕 備用 OCR 處理器
+    OCRProcessor = None
+    process_ocr_record = None
+    create_ocr_processor = None
+    fallback_process_ocr_record = None
     AI_OCR_LIBRARY_AVAILABLE = False
     # 備用函數設定為 None，將使用本地備用實現
     fallback_dify_rvt_guide_search = None
@@ -1291,74 +1302,67 @@ class OCRStorageBenchmarkViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def process_ocr(self, request, pk=None):
-        """處理 OCR 識別"""
+        """
+        處理 OCR 識別 - 使用 AI OCR Library 統一實現
+        
+        🔄 重構後：直接使用 library/ai_ocr/ocr_processor.py 處理
+        """
         try:
             ocr_record = self.get_object()
             
+            if AI_OCR_LIBRARY_AVAILABLE and process_ocr_record:
+                # 使用 AI OCR library 中的統一處理器
+                return process_ocr_record(ocr_record)
+            elif self._manager:
+                # 使用 ViewSet 管理器中的處理方法
+                return self._manager.handle_process_ocr(ocr_record)
+            else:
+                # 最終備用實現
+                logger.warning("AI OCR Library 和管理器都不可用，使用最終備用實現")
+                return self._final_fallback_process_ocr(ocr_record)
+                
+        except Exception as e:
+            logger.error(f"OCR 處理失敗: {str(e)}")
+            return Response({
+                'error': f'OCR 處理失敗: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def _final_fallback_process_ocr(self, ocr_record):
+        """最終備用的 OCR 處理實現"""
+        try:
             # 檢查是否有原始圖像
             if not ocr_record.original_image_data:
                 return Response({
                     'error': '請先上傳原始圖像'
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            # 更新處理狀態
-            ocr_record.processing_status = 'processing'
-            ocr_record.save()
-            
-            # 這裡可以集成實際的 OCR 服務
-            # 暫時返回模擬結果
+            # 簡單模擬處理
             import time
             start_time = time.time()
             
-            # 模擬 OCR 處理
-            if not ocr_record.ocr_raw_text:
-                # 根據附件內容生成模擬 OCR 結果
-                mock_ocr_text = f"""
-                專案名稱: {ocr_record.project_name or 'Storage Benchmark Score'}
-                測試得分: {ocr_record.benchmark_score or '6883'}
-                平均帶寬: {ocr_record.average_bandwidth or '1174.89 MB/s'}
-                裝置型號: {ocr_record.device_model or 'KINGSTON SFYR2S1TO'}
-                韌體版本: {ocr_record.firmware_version or 'SGW0904A'}
-                測試時間: {ocr_record.test_datetime or '2025-09-06 16:13 +08:00'}
-                3DMark 版本: {ocr_record.benchmark_version or '2.28.8228 (測試專用版)'}
-                """
-                ocr_record.ocr_raw_text = mock_ocr_text.strip()
+            if hasattr(ocr_record, 'processing_status'):
+                ocr_record.processing_status = 'completed'
             
-            # 模擬 AI 結構化處理
-            if not ocr_record.ai_structured_data:
-                ocr_record.ai_structured_data = {
-                    "project_name": ocr_record.project_name or "Storage Benchmark Score",
-                    "benchmark_score": ocr_record.benchmark_score or 6883,
-                    "average_bandwidth": ocr_record.average_bandwidth or "1174.89 MB/s",
-                    "device_model": ocr_record.device_model or "KINGSTON SFYR2S1TO",
-                    "firmware_version": ocr_record.firmware_version or "SGW0904A",
-                    "test_datetime": str(ocr_record.test_datetime or "2025-09-06 16:13 +08:00"),
-                    "benchmark_version": ocr_record.benchmark_version or "2.28.8228 (測試專用版)",
-                    "extracted_fields": ["project_name", "benchmark_score", "average_bandwidth", "device_model", "firmware_version", "test_datetime", "benchmark_version"],
-                    "confidence": 0.95
-                }
-            
-            # 設置處理結果
             processing_time = time.time() - start_time
-            ocr_record.ocr_processing_time = processing_time
-            ocr_record.ocr_confidence = 0.95
-            ocr_record.processing_status = 'completed'
+            
+            if hasattr(ocr_record, 'ocr_processing_time'):
+                ocr_record.ocr_processing_time = processing_time
+            if hasattr(ocr_record, 'ocr_confidence'):
+                ocr_record.ocr_confidence = 0.70  # 最終備用實現置信度最低
+                
             ocr_record.save()
             
             return Response({
-                'message': 'OCR 處理完成',
+                'message': 'OCR 處理完成（最終備用模式）',
                 'processing_time': processing_time,
-                'confidence': 0.95,
-                'raw_text_preview': ocr_record.ocr_raw_text[:200] + "..." if len(ocr_record.ocr_raw_text) > 200 else ocr_record.ocr_raw_text,
-                'structured_data': ocr_record.ai_structured_data
+                'confidence': 0.70,
+                'note': '使用最終備用處理模式，功能受限，建議檢查系統配置'
             }, status=status.HTTP_200_OK)
             
         except Exception as e:
-            logger.error(f"OCR 處理失敗: {str(e)}")
-            ocr_record.processing_status = 'failed'
-            ocr_record.save()
+            logger.error(f"最終備用 OCR 處理也失敗: {str(e)}")
             return Response({
-                'error': f'OCR 處理失敗: {str(e)}'
+                'error': f'OCR 處理完全失敗: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
@@ -1512,28 +1516,17 @@ def dify_chat(request):
             # 使用 library 中的 Protocol Chat 實現
             return dify_protocol_chat_api(request)
         else:
-            # 備用實現：簡化版本
-            logger.warning("Dify Protocol Chat Library 不可用，使用備用實現")
-            
-            data = request.data
-            message = data.get('message', '').strip()
-            
-            if not message:
+            # 使用 library 中的備用實現
+            if fallback_protocol_chat_api:
+                return fallback_protocol_chat_api(request)
+            else:
+                # 最終備用方案：完全不可用時
+                logger.error("所有 Protocol Chat 服務都不可用")
                 return Response({
                     'success': False,
-                    'error': '訊息內容不能為空'
-                }, status=status.HTTP_400_BAD_REQUEST)
-            
-            # 基本處理：模擬成功響應
-            return Response({
-                'success': True,
-                'answer': f'已收到您的 Protocol RAG 查詢：{message[:50]}{"..." if len(message) > 50 else ""}。由於 library 不可用，這是備用回應。',
-                'conversation_id': 'fallback_conversation',
-                'message_id': 'fallback_message',
-                'response_time': 0.1,
-                'metadata': {'source': 'fallback_implementation'},
-                'usage': {}
-            }, status=status.HTTP_200_OK)
+                    'error': 'Protocol Chat 服務暫時完全不可用，請稍後再試或聯絡管理員',
+                    'service_status': 'completely_unavailable'
+                }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
             
     except Exception as e:
         logger.error(f"Dify protocol chat API error: {str(e)}")

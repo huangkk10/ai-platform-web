@@ -52,6 +52,14 @@ try:
         create_fallback_ai_ocr_search_service,
         handle_upload_image_fallback
     )
+    # 🆕 導入 OCR 處理器
+    from .ocr_processor import (
+        OCRProcessor,
+        OCRProcessingError,
+        process_ocr_record,
+        create_ocr_processor,
+        fallback_process_ocr_record
+    )
     
     AI_OCR_LIBRARY_AVAILABLE = True
     
@@ -83,6 +91,13 @@ except ImportError as e:
     fallback_dify_chat_with_file = None
     fallback_dify_ocr_storage_benchmark_search = None
     handle_dify_ocr_storage_benchmark_search_fallback = None
+    
+    # 🆕 OCR 處理器也設為 None
+    OCRProcessor = None
+    OCRProcessingError = None
+    process_ocr_record = None
+    create_ocr_processor = None
+    fallback_process_ocr_record = None
     
     AI_OCR_LIBRARY_AVAILABLE = False
 
@@ -146,6 +161,13 @@ __all__ = [
     'create_fallback_ai_ocr_chat_service',
     'create_fallback_ai_ocr_search_service',
     'handle_upload_image_fallback',
+    
+    # 🆕 OCR 處理器
+    'OCRProcessor',
+    'OCRProcessingError',
+    'process_ocr_record',
+    'create_ocr_processor',
+    'fallback_process_ocr_record',
     
     # 狀態
     'AI_OCR_LIBRARY_AVAILABLE',

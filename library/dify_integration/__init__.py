@@ -12,6 +12,7 @@ from .file_manager import DifyFileManager
 from .report_analyzer_client import ReportAnalyzerClient, create_report_analyzer_client, quick_file_analysis
 from .request_manager import DifyRequestManager, DifyResponseHandler, make_dify_request, process_dify_answer, handle_conversation_error
 from .protocol_chat_handler import ProtocolChatHandler, create_protocol_chat_handler, handle_protocol_chat_api
+from .fallback_handlers import fallback_protocol_chat_api, create_fallback_protocol_chat_response, handle_fallback_protocol_chat_request
 
 __all__ = [
     # 原有模組
@@ -43,7 +44,12 @@ __all__ = [
     'ProtocolChatHandler',
     'create_protocol_chat_handler',
     'handle_protocol_chat_api',
-    'dify_protocol_chat_api'
+    'dify_protocol_chat_api',
+    
+    # Protocol Chat 備用模組
+    'fallback_protocol_chat_api',
+    'create_fallback_protocol_chat_response',
+    'handle_fallback_protocol_chat_request'
 ]
 
 
