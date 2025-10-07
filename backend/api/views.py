@@ -75,6 +75,17 @@ try:
         final_fallback_process_ocr,
         emergency_fallback_process_ocr
     )
+    # 🆕 導入 AI Utils library (API 重試機制)
+    from library.ai_utils import (
+        retry_api_request,
+        APIRetryHandler,
+        APIRetryConfig,
+        create_retry_handler,
+        retryable_api,
+        DEFAULT_CONFIG,
+        AGGRESSIVE_CONFIG,
+        CONSERVATIVE_CONFIG
+    )
     # 🆕 導入認證服務 library
     from library.auth import (
         AuthenticationService,
@@ -244,6 +255,15 @@ except ImportError:
     final_fallback_process_ocr = None
     emergency_fallback_process_ocr = None
     AI_OCR_LIBRARY_AVAILABLE = False
+    # 🆕 備用 AI Utils 服務 (API 重試機制)
+    retry_api_request = None
+    APIRetryHandler = None
+    APIRetryConfig = None
+    create_retry_handler = None
+    retryable_api = None
+    DEFAULT_CONFIG = None
+    AGGRESSIVE_CONFIG = None
+    CONSERVATIVE_CONFIG = None
     # 備用函數設定為 None，將使用本地備用實現
     fallback_dify_rvt_guide_search = None
     fallback_rvt_guide_chat = None
@@ -262,74 +282,31 @@ logger = logging.getLogger(__name__)
 # 無需本地備用函數，library 已提供完整的多層備用機制
 
 
-def retry_api_request(func, max_retries=3, retry_delay=1, backoff_factor=2):
-    """
-    API 請求重試機制
-    
-    Args:
-        func: 要執行的函數
-        max_retries: 最大重試次數
-        retry_delay: 初始重試延遲（秒）
-        backoff_factor: 退避係數
-    
-    Returns:
-        函數執行結果或拋出最後一個異常
-    """
-    import requests
-    import time
-    
-    last_exception = None
-    delay = retry_delay
-    
-    for attempt in range(max_retries + 1):
-        try:
-            result = func()
-            if attempt > 0:
-                logger.info(f"重試成功，嘗試次數: {attempt + 1}")
-            return result
-            
-        except requests.exceptions.Timeout as e:
-            last_exception = e
-            if attempt < max_retries:
-                logger.warning(f"請求超時，第 {attempt + 1} 次重試，延遲 {delay} 秒")
-                time.sleep(delay)
-                delay *= backoff_factor
-                continue
-                
-        except requests.exceptions.ConnectionError as e:
-            last_exception = e
-            if attempt < max_retries:
-                logger.warning(f"連接錯誤，第 {attempt + 1} 次重試，延遲 {delay} 秒")
-                time.sleep(delay)
-                delay *= backoff_factor
-                continue
-                
-        except requests.exceptions.RequestException as e:
-            # 檢查是否是可重試的 HTTP 錯誤
-            if hasattr(e, 'response') and e.response is not None:
-                status_code = e.response.status_code
-                
-                # HTTP 400: Bad Request - 可能是暫時性問題
-                # HTTP 429: Too Many Requests - 速率限制
-                # HTTP 502, 503, 504: 服務器錯誤
-                if status_code in [400, 429, 502, 503, 504]:
-                    last_exception = e
-                    if attempt < max_retries:
-                        logger.warning(f"HTTP {status_code} 錯誤，第 {attempt + 1} 次重試，延遲 {delay} 秒")
-                        time.sleep(delay)
-                        delay *= backoff_factor
-                        continue
-                        
-            # 其他 HTTP 錯誤不重試
-            raise e
-            
-        except Exception as e:
-            # 其他異常不重試
-            raise e
-    
-    # 所有重試都失敗，拋出最後一個異常
-    logger.error(f"重試 {max_retries} 次後仍然失敗")
-    raise last_exception
+# ============= 🎯 已重構：API 重試機制已移到 library =============
+# retry_api_request 函數已重構到 library/ai_utils/api_retry.py
+# - 提供更完整的重試策略（固定、線性、指數、斐波那契）
+# - 智能錯誤分類和重試判斷
+# - 裝飾器支援和預定義配置
+# - 詳細的日誌記錄和監控
+# 
+# 🔄 重構後使用方式：
+# from library.ai_utils import retry_api_request, retryable_api, APIRetryConfig
+#
+# # 方式1：直接調用
+# result = retry_api_request(my_function, max_retries=3, retry_delay=1.0)
+#
+# # 方式2：使用裝飾器  
+# @retryable_api(config)
+# def my_api_function():
+#     pass
+#
+# # 方式3：使用預定義配置
+# from library.ai_utils import AGGRESSIVE_CONFIG, create_retry_handler
+# handler = create_retry_handler(AGGRESSIVE_CONFIG)
+# result = handler.retry_request(my_function)
+
+# 🔄 向後兼容：保留原函數簽名，實際調用 library 實現
+# retry_api_request 函數現在從 library.ai_utils 導入，無需本地實現
 
 
 @method_decorator(csrf_exempt, name='dispatch')
