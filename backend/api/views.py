@@ -57,7 +57,10 @@ try:
         AI_OCR_LIBRARY_AVAILABLE,
         create_ai_ocr_api_handler,
         search_ocr_storage_benchmark_unified,
-        fallback_dify_ocr_storage_benchmark_search
+        fallback_dify_ocr_storage_benchmark_search,
+        handle_upload_image_fallback,
+        dify_ocr_chat_api,
+        fallback_dify_chat_with_file
     )
     # 🆕 導入認證服務 library
     from library.auth import (
@@ -119,6 +122,8 @@ except ImportError:
     create_ai_ocr_api_handler = None
     search_ocr_storage_benchmark_unified = None
     fallback_dify_ocr_storage_benchmark_search = None
+    handle_upload_image_fallback = None
+    dify_ocr_chat_api = None
     AI_OCR_LIBRARY_AVAILABLE = False
     # 備用函數設定為 None，將使用本地備用實現
     fallback_dify_rvt_guide_search = None
@@ -1238,44 +1243,21 @@ class OCRStorageBenchmarkViewSet(viewsets.ModelViewSet):
         if self._manager:
             return self._manager.upload_image(self, request, pk)
         else:
-            # 備用實現
+            # 使用 library 中的備用實現
             try:
                 ocr_record = self.get_object()
+                uploaded_file = request.FILES.get('image')
                 
-                if 'image' not in request.FILES:
+                if handle_upload_image_fallback:
+                    # 使用 AI OCR library 中的備用實現
+                    return handle_upload_image_fallback(ocr_record, uploaded_file)
+                else:
+                    # 最終備用方案
+                    logger.error("AI OCR Library 完全不可用，無法上傳圖像")
                     return Response({
-                        'error': '請選擇要上傳的圖像文件'
-                    }, status=status.HTTP_400_BAD_REQUEST)
-                
-                uploaded_file = request.FILES['image']
-                
-                # 檢查文件類型
-                allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif']
-                if uploaded_file.content_type not in allowed_types:
-                    return Response({
-                        'error': f'不支援的文件類型。支援的類型: {", ".join(allowed_types)}'
-                    }, status=status.HTTP_400_BAD_REQUEST)
-                
-                # 檢查文件大小 (限制 10MB)
-                max_size = 10 * 1024 * 1024  # 10MB
-                if uploaded_file.size > max_size:
-                    return Response({
-                        'error': f'文件大小超過限制 ({max_size // (1024*1024)}MB)'
-                    }, status=status.HTTP_400_BAD_REQUEST)
-                
-                # 讀取並保存圖像資料
-                ocr_record.original_image_data = uploaded_file.read()
-                ocr_record.original_image_filename = uploaded_file.name
-                ocr_record.original_image_content_type = uploaded_file.content_type
-                ocr_record.save()
-                
-                return Response({
-                    'message': '圖像上傳成功',
-                    'filename': uploaded_file.name,
-                    'size_kb': len(ocr_record.original_image_data) // 1024,
-                    'content_type': uploaded_file.content_type
-                }, status=status.HTTP_200_OK)
-                
+                        'error': 'AI OCR 圖像上傳服務暫時不可用，請稍後再試或聯絡管理員'
+                    }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+                    
             except Exception as e:
                 logger.error(f"圖像上傳失敗: {str(e)}")
                 return Response({
@@ -1503,30 +1485,9 @@ def dify_chat_with_file(request):
             # 使用 AI OCR library 中的 API 處理器
             return AIOCRAPIHandler.handle_dify_chat_with_file_api(request)
         else:
-            # 備用實現：簡化版本
-            logger.warning("AI OCR Library 不可用，使用備用實現")
-            
-            message = request.data.get('message', '').strip()
-            conversation_id = request.data.get('conversation_id', '')
-            uploaded_file = request.FILES.get('file')
-            
-            if not message and not uploaded_file:
-                return Response({
-                    'success': False,
-                    'error': '需要提供訊息內容或圖片文件'
-                }, status=status.HTTP_400_BAD_REQUEST)
-            
-            # 基本處理：模擬成功響應
-            return Response({
-                'success': True,
-                'answer': f'已收到您的請求。訊息: {message[:100]}{"..." if len(message) > 100 else ""}' + 
-                         (f'，以及檔案: {uploaded_file.name}' if uploaded_file else ''),
-                'conversation_id': conversation_id or 'fallback_conversation',
-                'message_id': 'fallback_message',
-                'response_time': 0.1,
-                'metadata': {'source': 'fallback_implementation'},
-                'usage': {}
-            }, status=status.HTTP_200_OK)
+            # 使用 library 中的備用實現
+            logger.warning("AI OCR Library 不可用，使用 library 備用實現")
+            return fallback_dify_chat_with_file(request)
             
     except Exception as e:
         logger.error(f"Dify chat with file API error: {str(e)}")
@@ -1725,169 +1686,20 @@ def dify_config_info(request):
 @permission_classes([AllowAny])
 def dify_ocr_chat(request):
     """
-    Dify OCR Chat API - 使用 AI OCR Library 實現
+    Dify OCR Chat API - 使用 AI OCR Library 統一實現
     
-    🔄 重構後：直接使用 library/ai_ocr/api_handlers.py 處理
+    🔄 重構後：直接使用 library 中的便利函數
     """
-    try:
-        if AI_OCR_LIBRARY_AVAILABLE and AIOCRAPIHandler:
-            # 使用 AI OCR library 中的 API 處理器
-            return AIOCRAPIHandler.handle_dify_ocr_chat_api(request)
-        else:
-            # 備用實現：簡化版本
-            logger.warning("AI OCR Library 不可用，使用備用實現")
-            
-            import requests
-            
-            data = request.data
-            message = data.get('message', '').strip()
-            conversation_id = data.get('conversation_id', '')
-            
-            if not message:
-                return Response({
-                    'success': False,
-                    'error': '訊息內容不能為空'
-                }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # 使用 Report Analyzer 3 配置（專門用於 AI OCR）
-        try:
-            dify_config = get_report_analyzer_config()
-        except Exception as config_error:
-            logger.error(f"Failed to load Report Analyzer 3 config: {config_error}")
-            return Response({
-                'success': False,
-                'error': f'AI OCR 配置載入失敗: {str(config_error)}'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-        # 檢查必要配置
-        api_url = dify_config.api_url
-        api_key = dify_config.api_key
-        
-        if not api_url or not api_key:
-            return Response({
-                'success': False,
-                'error': 'AI OCR API 配置不完整'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-        # 準備請求
-        headers = {
-            'Authorization': f'Bearer {api_key}',
-            'Content-Type': 'application/json'
-        }
-        
-        payload = {
-            'inputs': {},
-            'query': message,
-            'response_mode': 'blocking',
-            'user': f"ocr_user_{request.user.id if request.user.is_authenticated else 'guest'}"
-        }
-        
-        if conversation_id:
-            payload['conversation_id'] = conversation_id
-        
-        start_time = time.time()
-        
-        # 發送請求到 Dify Report Analyzer 3
-        try:
-            response = requests.post(
-                api_url,
-                headers=headers,
-                json=payload,
-                timeout=120  # AI OCR 分析可能需要較長時間
-            )
-        except requests.exceptions.Timeout:
-            return Response({
-                'success': False,
-                'error': 'AI OCR 分析超時，請稍後再試'
-            }, status=status.HTTP_408_REQUEST_TIMEOUT)
-        except requests.exceptions.ConnectionError:
-            return Response({
-                'success': False,
-                'error': 'AI OCR 連接失敗，請檢查網路連接'
-            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-        except Exception as req_error:
-            return Response({
-                'success': False,
-                'error': f'AI OCR API 請求錯誤: {str(req_error)}'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-        elapsed = time.time() - start_time
-        
-        if response.status_code == 200:
-            result = response.json()
-            
-            # 記錄成功的聊天
-            logger.info(f"AI OCR chat success for user {request.user.username if request.user.is_authenticated else 'guest'}: {message[:50]}...")
-            
-            # 直接使用原始的 AI 回答，不進行增強處理
-            answer = result.get('answer', '')
-            metadata = result.get('metadata', {})
-            
-            return Response({
-                'success': True,
-                'answer': answer,
-                'conversation_id': result.get('conversation_id', ''),
-                'message_id': result.get('message_id', ''),
-                'response_time': elapsed,
-                'metadata': metadata,
-                'usage': result.get('usage', {})
-            }, status=status.HTTP_200_OK)
-        else:
-            # 特殊處理 404 錯誤（對話不存在）
-            if response.status_code == 404:
-                try:
-                    response_data = response.json()
-                    if 'Conversation Not Exists' in response_data.get('message', ''):
-                        logger.warning(f"AI OCR conversation {conversation_id} not exists, retrying without conversation_id")
-                        
-                        # 重新發送請求，不帶 conversation_id
-                        retry_payload = {
-                            'inputs': {},
-                            'query': message,
-                            'response_mode': 'blocking',
-                            'user': f"ocr_user_{request.user.id if request.user.is_authenticated else 'guest'}"
-                        }
-                        
-                        retry_response = requests.post(
-                            api_url,
-                            headers=headers,
-                            json=retry_payload,
-                            timeout=120
-                        )
-                        
-                        if retry_response.status_code == 200:
-                            retry_result = retry_response.json()
-                            logger.info(f"AI OCR chat retry success for user {request.user.username if request.user.is_authenticated else 'guest'}")
-                            
-                            return Response({
-                                'success': True,
-                                'answer': retry_result.get('answer', ''),
-                                'conversation_id': retry_result.get('conversation_id', ''),
-                                'message_id': retry_result.get('message_id', ''),
-                                'response_time': elapsed,
-                                'metadata': retry_result.get('metadata', {}),
-                                'usage': retry_result.get('usage', {}),
-                                'warning': '原對話已過期，已開始新對話'
-                            }, status=status.HTTP_200_OK)
-                        
-                except Exception as retry_error:
-                    logger.error(f"AI OCR retry request failed: {str(retry_error)}")
-            
-            error_msg = f"AI OCR API 錯誤: {response.status_code} - {response.text}"
-            logger.error(f"AI OCR chat error for user {request.user.username if request.user.is_authenticated else 'guest'}: {error_msg}")
-            
-            return Response({
-                'success': False,
-                'error': error_msg,
-                'response_time': elapsed
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            
-    except Exception as e:
-        logger.error(f"AI OCR chat API error: {str(e)}")
+    if dify_ocr_chat_api:
+        # 使用 library 中的統一實現
+        return dify_ocr_chat_api(request)
+    else:
+        # 最終備用方案
+        logger.error("AI OCR Library 完全不可用")
         return Response({
             'success': False,
-            'error': f'AI OCR 服務器錯誤: {str(e)}'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            'error': 'AI OCR 聊天服務暫時不可用，請稍後再試或聯絡管理員'
+        }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
 
 @api_view(['GET'])

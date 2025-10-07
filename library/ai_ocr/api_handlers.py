@@ -415,3 +415,35 @@ class AIOCRAPIHandler:
                 'error_code': 2001,
                 'error_msg': 'Internal server error'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ============= 便利函數：直接使用的 API 端點 =============
+
+def dify_ocr_chat_api(request):
+    """
+    便利函數：Dify OCR 聊天 API
+    
+    可以直接在 views.py 中使用：
+    from library.ai_ocr.api_handlers import dify_ocr_chat_api
+    """
+    return AIOCRAPIHandler.handle_dify_ocr_chat_api(request)
+
+
+def dify_chat_with_file_api(request):
+    """
+    便利函數：Dify 檔案分析 API
+    
+    可以直接在 views.py 中使用：
+    from library.ai_ocr.api_handlers import dify_chat_with_file_api
+    """
+    return AIOCRAPIHandler.handle_dify_chat_with_file_api(request)
+
+
+def dify_ocr_storage_benchmark_search_api(request):
+    """
+    便利函數：OCR Storage Benchmark 搜索 API
+    
+    可以直接在 views.py 中使用：
+    from library.ai_ocr.api_handlers import dify_ocr_storage_benchmark_search_api
+    """
+    return AIOCRAPIHandler.handle_dify_ocr_storage_benchmark_search_api(request)

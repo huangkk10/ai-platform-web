@@ -224,13 +224,55 @@ class FallbackViewSetManager:
             return queryset
     
     def handle_upload_image(self, ocr_record, uploaded_file):
-        """備用圖像上傳處理"""
+        """
+        備用圖像上傳處理 - 從 views.py 遷移的完整實現
+        
+        當主要的 AI OCR 圖像上傳服務不可用時使用此備用實現
+        """
         logger.warning("使用 AI OCR 圖像上傳備用實現")
         
-        return Response({
-            'error': 'AI OCR 圖像上傳服務暫時不可用，請稍後再試',
-            'fallback': True
-        }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        try:
+            if not uploaded_file:
+                return Response({
+                    'error': '請選擇要上傳的圖像文件'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 檢查文件類型
+            allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif']
+            if uploaded_file.content_type not in allowed_types:
+                return Response({
+                    'error': f'不支援的文件類型。支援的類型: {", ".join(allowed_types)}'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 檢查文件大小 (限制 10MB)
+            max_size = 10 * 1024 * 1024  # 10MB
+            if uploaded_file.size > max_size:
+                return Response({
+                    'error': f'文件大小超過限制 ({max_size // (1024*1024)}MB)'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 讀取並保存圖像資料
+            ocr_record.original_image_data = uploaded_file.read()
+            ocr_record.original_image_filename = uploaded_file.name
+            ocr_record.original_image_content_type = uploaded_file.content_type
+            ocr_record.save()
+            
+            logger.info(f"備用實現成功上傳圖像: {uploaded_file.name}, 大小: {len(ocr_record.original_image_data)} bytes")
+            
+            return Response({
+                'message': '圖像上傳成功（使用備用服務）',
+                'filename': uploaded_file.name,
+                'size_kb': len(ocr_record.original_image_data) // 1024,
+                'content_type': uploaded_file.content_type,
+                'fallback': True
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"備用圖像上傳失敗: {str(e)}")
+            return Response({
+                'error': f'圖像上傳失敗: {str(e)}',
+                'fallback': True
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     def handle_verify_record(self, ocr_record, verification_notes, user):
         """備用記錄驗證處理"""
@@ -411,3 +453,95 @@ def create_fallback_ai_ocr_chat_service():
 def create_fallback_ai_ocr_search_service():
     """便利函數：創建備用 AI OCR 搜索服務"""
     return FallbackSearchService()
+
+
+def handle_upload_image_fallback(ocr_record, uploaded_file):
+    """
+    便利函數：處理圖像上傳的備用實現
+    
+    Args:
+        ocr_record: OCRStorageBenchmark 實例
+        uploaded_file: 上傳的文件對象
+        
+    Returns:
+        Response: DRF Response 對象
+    """
+    manager = FallbackViewSetManager()
+    return manager.handle_upload_image(ocr_record, uploaded_file)
+
+
+def fallback_dify_chat_with_file(request):
+    """
+    便利函數：Dify Chat with File 備用實現
+    
+    當主要的 AI OCR Library 不可用時使用此備用實現
+    提供基本的文件聊天功能模擬
+    
+    Args:
+        request: Django HTTP request 對象
+        
+    Returns:
+        Response: DRF Response 對象
+    """
+    try:
+        logger.warning("AI OCR Library 不可用，使用 dify_chat_with_file 備用實現")
+        
+        # 解析請求數據
+        message = request.data.get('message', '').strip()
+        conversation_id = request.data.get('conversation_id', '')
+        uploaded_file = request.FILES.get('file')
+        
+        # 驗證輸入
+        if not message and not uploaded_file:
+            return Response({
+                'success': False,
+                'error': '需要提供訊息內容或圖片文件'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # 構建回應內容
+        answer_parts = []
+        if message:
+            # 處理訊息內容，限制長度避免回應過長
+            message_part = message[:100] + ("..." if len(message) > 100 else "")
+            answer_parts.append(f'已收到您的請求。訊息: {message_part}')
+        
+        if uploaded_file:
+            # 處理文件信息
+            file_info = f'檔案: {uploaded_file.name}'
+            if hasattr(uploaded_file, 'size'):
+                file_size_mb = uploaded_file.size / (1024 * 1024)
+                file_info += f' (大小: {file_size_mb:.2f}MB)'
+            if hasattr(uploaded_file, 'content_type'):
+                file_info += f' (類型: {uploaded_file.content_type})'
+            answer_parts.append(file_info)
+        
+        # 組合最終回應
+        final_answer = '，以及'.join(answer_parts) if len(answer_parts) > 1 else answer_parts[0]
+        
+        # 基本處理：模擬成功響應
+        response_data = {
+            'success': True,
+            'answer': final_answer,
+            'conversation_id': conversation_id or 'fallback_conversation',
+            'message_id': 'fallback_message',
+            'response_time': 0.1,
+            'metadata': {
+                'source': 'fallback_implementation',
+                'has_file': uploaded_file is not None,
+                'has_message': bool(message)
+            },
+            'usage': {},
+            'warning': '正在使用備用服務，部分功能可能受限'
+        }
+        
+        logger.info(f"Chat with file 備用實現成功處理請求: message={bool(message)}, file={uploaded_file.name if uploaded_file else None}")
+        
+        return Response(response_data, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Chat with file 備用實現失敗: {str(e)}")
+        return Response({
+            'success': False,
+            'error': f'備用服務處理失敗: {str(e)}',
+            'fallback': True
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

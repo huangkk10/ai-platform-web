@@ -14,7 +14,12 @@ AI OCR Library - 統一導入模組
 
 # 核心組件導入
 try:
-    from .api_handlers import AIOCRAPIHandler
+    from .api_handlers import (
+        AIOCRAPIHandler,
+        dify_ocr_chat_api,
+        dify_chat_with_file_api,
+        dify_ocr_storage_benchmark_search_api
+    )
     from .viewset_manager import (
         OCRTestClassViewSetManager,
         OCRStorageBenchmarkViewSetManager,
@@ -44,7 +49,8 @@ try:
         create_fallback_ocr_test_class_viewset_manager,
         create_fallback_ocr_storage_benchmark_viewset_manager,
         create_fallback_ai_ocr_chat_service,
-        create_fallback_ai_ocr_search_service
+        create_fallback_ai_ocr_search_service,
+        handle_upload_image_fallback
     )
     
     AI_OCR_LIBRARY_AVAILABLE = True
@@ -57,6 +63,9 @@ except ImportError as e:
     
     # 設定所有組件為 None
     AIOCRAPIHandler = None
+    dify_ocr_chat_api = None
+    dify_chat_with_file_api = None
+    dify_ocr_storage_benchmark_search_api = None
     OCRTestClassViewSetManager = None
     OCRStorageBenchmarkViewSetManager = None
     AIOCRChatService = None
@@ -105,6 +114,9 @@ def get_ai_ocr_library_status():
 __all__ = [
     # 核心組件
     'AIOCRAPIHandler',
+    'dify_ocr_chat_api',
+    'dify_chat_with_file_api', 
+    'dify_ocr_storage_benchmark_search_api',
     'OCRTestClassViewSetManager',
     'OCRStorageBenchmarkViewSetManager',
     'AIOCRChatService',
@@ -133,6 +145,7 @@ __all__ = [
     'create_fallback_ocr_storage_benchmark_viewset_manager',
     'create_fallback_ai_ocr_chat_service',
     'create_fallback_ai_ocr_search_service',
+    'handle_upload_image_fallback',
     
     # 狀態
     'AI_OCR_LIBRARY_AVAILABLE',
