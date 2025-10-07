@@ -152,6 +152,19 @@ try:
         create_chat_usage_recorder,
         CHAT_ANALYTICS_LIBRARY_AVAILABLE
     )
+    # 🆕 導入 Task Management library
+    from library.task_management import (
+        TaskViewSetManager,
+        TaskQueryManager,
+        TaskAssignmentHandler,
+        TaskStatusManager,
+        create_task_viewset_manager,
+        create_task_query_manager,
+        get_user_related_tasks,
+        handle_task_assignment,
+        handle_status_change,
+        TASK_MANAGEMENT_LIBRARY_AVAILABLE
+    )
     AUTH_LIBRARY_AVAILABLE = True
     RVT_GUIDE_LIBRARY_AVAILABLE = True
     KNOW_ISSUE_LIBRARY_AVAILABLE = True
@@ -231,6 +244,17 @@ except ImportError:
     create_chat_statistics_handler = None
     create_chat_usage_recorder = None
     CHAT_ANALYTICS_LIBRARY_AVAILABLE = False
+    # 🆕 備用 Task Management 服務
+    TaskViewSetManager = None
+    TaskQueryManager = None
+    TaskAssignmentHandler = None
+    TaskStatusManager = None
+    create_task_viewset_manager = None
+    create_task_query_manager = None
+    get_user_related_tasks = None
+    handle_task_assignment = None
+    handle_status_change = None
+    TASK_MANAGEMENT_LIBRARY_AVAILABLE = False
     # 🆕 備用 AI OCR 服務
     AIOCRAPIHandler = None
     OCRTestClassViewSetManager = None
@@ -554,57 +578,227 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class TaskViewSet(viewsets.ModelViewSet):
-    """任務 ViewSet"""
+    """
+    任務 ViewSet - 使用 Task Management Library 統一實現
+    
+    🔄 重構後：主要邏輯委託給 library/task_management/
+    """
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
     permission_classes = [permissions.IsAuthenticated]
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # 初始化 Task Management ViewSet Manager
+        if TASK_MANAGEMENT_LIBRARY_AVAILABLE and TaskViewSetManager:
+            self._manager = create_task_viewset_manager()
+        else:
+            self._manager = None
+            logger.warning("Task Management Library 不可用，TaskViewSet 使用備用實現")
 
     def get_queryset(self):
-        # 只返回使用者相關的任務
-        user = self.request.user
-        return Task.objects.filter(
-            models.Q(assignee=user) | 
-            models.Q(creator=user) | 
-            models.Q(project__owner=user) |
-            models.Q(project__members=user)
-        ).distinct()
+        """委託給 Task Management Library 實現"""
+        if self._manager:
+            return self._manager.get_user_tasks(self.request.user, self.request.query_params)
+        else:
+            # 備用實現
+            logger.warning("使用備用任務查詢實現")
+            try:
+                if TASK_MANAGEMENT_LIBRARY_AVAILABLE:
+                    from library.task_management import fallback_task_query
+                    result = fallback_task_query(self.request.user, self.request.query_params)
+                    if result is not None:
+                        return result
+                
+                # 最終備用方案
+                user = self.request.user
+                return Task.objects.filter(
+                    models.Q(assignee=user) | 
+                    models.Q(creator=user) | 
+                    models.Q(project__owner=user) |
+                    models.Q(project__members=user)
+                ).distinct().order_by('-created_at')
+                
+            except Exception as e:
+                logger.error(f"任務查詢備用實現失敗: {str(e)}")
+                return Task.objects.filter(assignee=self.request.user).order_by('-created_at')
 
     def perform_create(self, serializer):
-        # 設定當前使用者為任務建立者
-        serializer.save(creator=self.request.user)
+        """委託給 Task Management Library 實現"""
+        if self._manager:
+            return self._manager.perform_create(serializer, self.request.user)
+        else:
+            # 備用實現
+            serializer.save(creator=self.request.user)
 
     @action(detail=True, methods=['post'], url_path='assign')
     def assign_task(self, request, pk=None):
-        """指派任務給使用者"""
-        task = self.get_object()
-        user_id = request.data.get('user_id')
-        
+        """
+        指派任務給使用者 - 🔄 重構後使用 Task Management Library 統一實現
+        """
         try:
-            user = User.objects.get(id=user_id)
-            task.assignee = user
-            task.save()
-            return Response({'message': f'Task assigned to {user.username}'})
-        except User.DoesNotExist:
+            task = self.get_object()
+            user_id = request.data.get('user_id')
+            
+            if not user_id:
+                return Response({
+                    'error': 'user_id is required'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            if self._manager:
+                # 使用 Task Management library 中的指派處理器
+                return self._manager.handle_task_assignment(task, user_id, self.request.user)
+            else:
+                # 使用 library 中的備用實現
+                logger.warning("ViewSet Manager 不可用，使用 library 指派備用實現")
+                try:
+                    user = User.objects.get(id=user_id)
+                    if TASK_MANAGEMENT_LIBRARY_AVAILABLE:
+                        from library.task_management import fallback_task_assignment
+                        return fallback_task_assignment(task, user, self.request.user)
+                    else:
+                        # 最終備用方案
+                        task.assignee = user
+                        task.save()
+                        return Response({
+                            'message': f'Task assigned to {user.username}',
+                            'emergency_fallback': True
+                        })
+                except User.DoesNotExist:
+                    return Response(
+                        {'error': 'User not found'}, 
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+        except Exception as e:
+            logger.error(f"任務指派失敗: {str(e)}")
             return Response(
-                {'error': 'User not found'}, 
-                status=status.HTTP_404_NOT_FOUND
+                {'error': f'任務指派失敗: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
     @action(detail=True, methods=['post'], url_path='change-status')
     def change_status(self, request, pk=None):
-        """變更任務狀態"""
-        task = self.get_object()
-        new_status = request.data.get('status')
-        
-        if new_status in dict(Task.STATUS_CHOICES):
-            task.status = new_status
-            task.save()
-            return Response({'message': f'Task status changed to {new_status}'})
-        else:
+        """
+        變更任務狀態 - 🔄 重構後使用 Task Management Library 統一實現
+        """
+        try:
+            task = self.get_object()
+            new_status = request.data.get('status')
+            
+            if not new_status:
+                return Response({
+                    'error': 'status is required'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            if self._manager:
+                # 使用 Task Management library 中的狀態管理器
+                return self._manager.handle_status_change(task, new_status, self.request.user)
+            else:
+                # 使用 library 中的備用實現
+                logger.warning("ViewSet Manager 不可用，使用 library 狀態備用實現")
+                try:
+                    if TASK_MANAGEMENT_LIBRARY_AVAILABLE:
+                        from library.task_management import fallback_status_change
+                        return fallback_status_change(task, new_status, self.request.user)
+                    else:
+                        # 最終備用方案
+                        if new_status in dict(Task.STATUS_CHOICES):
+                            old_status = task.status
+                            task.status = new_status
+                            task.save()
+                            return Response({
+                                'message': f'Task status changed from {old_status} to {new_status}',
+                                'emergency_fallback': True
+                            })
+                        else:
+                            return Response(
+                                {'error': 'Invalid status'}, 
+                                status=status.HTTP_400_BAD_REQUEST
+                            )
+                except Exception as e:
+                    logger.error(f"狀態變更備用實現失敗: {str(e)}")
+                    return Response(
+                        {'error': f'狀態變更失敗: {str(e)}'}, 
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
+        except Exception as e:
+            logger.error(f"任務狀態變更失敗: {str(e)}")
             return Response(
-                {'error': 'Invalid status'}, 
-                status=status.HTTP_400_BAD_REQUEST
+                {'error': f'任務狀態變更失敗: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+    
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def statistics(self, request):
+        """
+        獲取任務統計資料 - 🆕 新增功能，使用 Task Management Library
+        """
+        try:
+            if self._manager:
+                statistics = self._manager.get_task_statistics(self.request.user)
+                return Response({
+                    'success': True,
+                    'data': statistics
+                }, status=status.HTTP_200_OK)
+            else:
+                # 使用備用實現
+                try:
+                    if TASK_MANAGEMENT_LIBRARY_AVAILABLE:
+                        from library.task_management import fallback_task_statistics
+                        statistics = fallback_task_statistics(self.request.user)
+                        return Response({
+                            'success': True,
+                            'data': statistics
+                        }, status=status.HTTP_200_OK)
+                    else:
+                        # 最終備用方案
+                        user_tasks = self.get_queryset()
+                        return Response({
+                            'success': True,
+                            'data': {
+                                'total_tasks': user_tasks.count(),
+                                'emergency_fallback': True
+                            }
+                        }, status=status.HTTP_200_OK)
+                except Exception as e:
+                    logger.error(f"統計備用實現失敗: {str(e)}")
+                    return Response({
+                        'success': False,
+                        'error': str(e)
+                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except Exception as e:
+            logger.error(f"任務統計獲取失敗: {str(e)}")
+            return Response({
+                'success': False,
+                'error': f'統計資料獲取失敗: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    @action(detail=True, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def available_transitions(self, request, pk=None):
+        """
+        獲取任務可用的狀態轉換 - 🆕 新增功能
+        """
+        try:
+            task = self.get_object()
+            
+            if self._manager:
+                transitions = self._manager.get_available_status_transitions(task)
+            else:
+                # 備用實現：返回所有可用狀態
+                transitions = [choice[0] for choice in Task.STATUS_CHOICES if choice[0] != task.status]
+            
+            return Response({
+                'success': True,
+                'current_status': task.status,
+                'available_transitions': transitions
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"獲取可用轉換失敗: {str(e)}")
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 
