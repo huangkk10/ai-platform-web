@@ -65,7 +65,11 @@ try:
         OCRProcessor,
         process_ocr_record,
         create_ocr_processor,
-        fallback_process_ocr_record
+        fallback_process_ocr_record,
+        # 🆕 導入查詢管理器
+        OCRStorageBenchmarkQueryManager,
+        create_ocr_queryset_manager,
+        fallback_ocr_storage_benchmark_queryset_filter
     )
     # 🆕 導入認證服務 library
     from library.auth import (
@@ -199,6 +203,10 @@ except ImportError:
     process_ocr_record = None
     create_ocr_processor = None
     fallback_process_ocr_record = None
+    # 🆕 備用查詢管理器
+    OCRStorageBenchmarkQueryManager = None
+    create_ocr_queryset_manager = None
+    fallback_ocr_storage_benchmark_queryset_filter = None
     AI_OCR_LIBRARY_AVAILABLE = False
     # 備用函數設定為 None，將使用本地備用實現
     fallback_dify_rvt_guide_search = None
@@ -1227,77 +1235,51 @@ class OCRStorageBenchmarkViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         """委託給 AI OCR Library 實現"""
+        # 🔄 重構後：統一使用 AI OCR Library 中的查詢管理邏輯
+        base_queryset = OCRStorageBenchmark.objects.select_related('test_class', 'uploaded_by').all()
+        
         if self._manager:
-            return self._manager.get_queryset(self)
+            # 優先使用 ViewSet Manager 中的查詢邏輯（已整合查詢管理器）
+            return self._manager.get_filtered_queryset(base_queryset, self.request.query_params)
         else:
-            # 備用實現：簡化版查詢邏輯
-            queryset = OCRStorageBenchmark.objects.select_related('test_class', 'uploaded_by').all()
-            
-            # 基本搜索和過濾
-            search = self.request.query_params.get('search', None)
-            if search:
-                queryset = queryset.filter(
-                    models.Q(project_name__icontains=search) |
-                    models.Q(device_model__icontains=search) |
-                    models.Q(firmware_version__icontains=search)
-                )
-            
-            project_name = self.request.query_params.get('project_name', None)
-            if project_name:
-                queryset = queryset.filter(project_name__icontains=project_name)
-            
-            device_model = self.request.query_params.get('device_model', None)
-            if device_model:
-                queryset = queryset.filter(device_model__icontains=device_model)
-                
-            test_class_id = self.request.query_params.get('test_class', None)
-            if test_class_id:
-                queryset = queryset.filter(test_class_id=test_class_id)
-        
-        # 分數範圍篩選
-        min_score = self.request.query_params.get('min_score', None)
-        max_score = self.request.query_params.get('max_score', None)
-        if min_score:
+            # 🚨 備用實現：直接使用 library 中的查詢管理器
             try:
-                queryset = queryset.filter(benchmark_score__gte=int(min_score))
-            except ValueError:
-                pass
-        if max_score:
-            try:
-                queryset = queryset.filter(benchmark_score__lte=int(max_score))
-            except ValueError:
-                pass
-        
-        # 時間範圍篩選
-        start_date = self.request.query_params.get('start_date', None)
-        end_date = self.request.query_params.get('end_date', None)
-        if start_date:
-            try:
-                from datetime import datetime
-                start_datetime = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-                queryset = queryset.filter(test_datetime__gte=start_datetime)
-            except (ValueError, TypeError):
-                pass
-        if end_date:
-            try:
-                from datetime import datetime
-                end_datetime = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
-                queryset = queryset.filter(test_datetime__lte=end_datetime)
-            except (ValueError, TypeError):
-                pass
-        
-        # 一般關鍵字搜尋
-        search = self.request.query_params.get('search', None)
-        if search:
-            queryset = queryset.filter(
-                models.Q(project_name__icontains=search) |
-                models.Q(device_model__icontains=search) |
-                models.Q(firmware_version__icontains=search) |
-                models.Q(ocr_raw_text__icontains=search) |
-                models.Q(verification_notes__icontains=search)
-            )
-        
-        return queryset.order_by('-test_datetime', '-created_at')
+                if AI_OCR_LIBRARY_AVAILABLE:
+                    from library.ai_ocr import (
+                        create_ocr_queryset_manager,
+                        fallback_ocr_storage_benchmark_queryset_filter
+                    )
+                    
+                    # 嘗試創建查詢管理器
+                    query_manager = create_ocr_queryset_manager()
+                    if query_manager:
+                        return query_manager.get_filtered_queryset(base_queryset, self.request.query_params)
+                    else:
+                        # 使用備用函數
+                        return fallback_ocr_storage_benchmark_queryset_filter(
+                            base_queryset, self.request.query_params
+                        )
+                else:
+                    # AI OCR Library 完全不可用時的最終備用
+                    logger.warning("AI OCR Library 完全不可用，使用最基本查詢邏輯")
+                    search = self.request.query_params.get('search', None)
+                    if search:
+                        base_queryset = base_queryset.filter(
+                            models.Q(project_name__icontains=search) |
+                            models.Q(device_model__icontains=search)
+                        )
+                    return base_queryset.order_by('-test_datetime', '-created_at')
+                    
+            except Exception as e:
+                logger.error(f"使用 library 查詢管理器失敗: {str(e)}")
+                # 最終備用方案
+                search = self.request.query_params.get('search', None)
+                if search:
+                    base_queryset = base_queryset.filter(
+                        models.Q(project_name__icontains=search) |
+                        models.Q(device_model__icontains=search)
+                    )
+                return base_queryset.order_by('-test_datetime', '-created_at')
     
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def upload_image(self, request, pk=None):

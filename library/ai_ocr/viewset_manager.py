@@ -91,6 +91,14 @@ class OCRStorageBenchmarkViewSetManager:
     
     def __init__(self):
         self.logger = logger
+        # 🆕 初始化查詢管理器
+        self.queryset_manager = None
+        try:
+            from .queryset_manager import create_ocr_queryset_manager
+            self.queryset_manager = create_ocr_queryset_manager()
+        except ImportError as e:
+            self.logger.warning(f"無法導入查詢管理器: {e}")
+            self.queryset_manager = None
         
     def get_serializer_class(self, action):
         """根據操作類型選擇合適的序列化器"""
@@ -118,93 +126,45 @@ class OCRStorageBenchmarkViewSetManager:
             raise
     
     def get_filtered_queryset(self, base_queryset, query_params):
-        """支援搜尋和篩選"""
+        """
+        支援搜尋和篩選 - 🔄 重構後使用查詢管理器統一實現
+        
+        Args:
+            base_queryset: 基礎查詢集
+            query_params: Django request.query_params 對象
+            
+        Returns:
+            經過過濾的查詢集
+        """
         try:
-            queryset = base_queryset.select_related('test_class', 'uploaded_by')
-            
-            # 專案名稱搜尋
-            project_name = query_params.get('project_name', None)
-            if project_name:
-                queryset = queryset.filter(project_name__icontains=project_name)
-            
-            # 裝置型號搜尋
-            device_model = query_params.get('device_model', None)
-            if device_model:
-                queryset = queryset.filter(device_model__icontains=device_model)
-            
-            # OCR 測試類別篩選
-            test_class_id = query_params.get('test_class', None)
-            if test_class_id:
-                queryset = queryset.filter(test_class_id=test_class_id)
-            
-            # 處理狀態篩選
-            processing_status = query_params.get('processing_status', None)
-            if processing_status:
-                queryset = queryset.filter(processing_status=processing_status)
-            
-            # 測試環境篩選
-            test_environment = query_params.get('test_environment', None)
-            if test_environment:
-                queryset = queryset.filter(test_environment=test_environment)
-            
-            # 測試類型篩選
-            test_type = query_params.get('test_type', None)
-            if test_type:
-                queryset = queryset.filter(test_type=test_type)
-            
-            # 上傳者篩選
-            uploaded_by = query_params.get('uploaded_by', None)
-            if uploaded_by:
-                queryset = queryset.filter(uploaded_by__username__icontains=uploaded_by)
-            
-            # 分數範圍篩選
-            min_score = query_params.get('min_score', None)
-            max_score = query_params.get('max_score', None)
-            if min_score:
+            # 🆕 優先使用專門的查詢管理器
+            if self.queryset_manager:
+                return self.queryset_manager.get_filtered_queryset(base_queryset, query_params)
+            else:
+                # 🚨 備用實現：如果查詢管理器不可用
+                self.logger.warning("查詢管理器不可用，使用備用實現")
                 try:
-                    queryset = queryset.filter(benchmark_score__gte=int(min_score))
-                except ValueError:
-                    pass
-            if max_score:
-                try:
-                    queryset = queryset.filter(benchmark_score__lte=int(max_score))
-                except ValueError:
-                    pass
-            
-            # 時間範圍篩選
-            start_date = query_params.get('start_date', None)
-            end_date = query_params.get('end_date', None)
-            if start_date:
-                try:
-                    from datetime import datetime
-                    start_datetime = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-                    queryset = queryset.filter(test_datetime__gte=start_datetime)
-                except (ValueError, TypeError):
-                    pass
-            if end_date:
-                try:
-                    from datetime import datetime
-                    end_datetime = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
-                    queryset = queryset.filter(test_datetime__lte=end_datetime)
-                except (ValueError, TypeError):
-                    pass
-            
-            # 一般關鍵字搜尋
-            search = query_params.get('search', None)
-            if search:
-                queryset = queryset.filter(
-                    models.Q(project_name__icontains=search) |
-                    models.Q(device_model__icontains=search) |
-                    models.Q(firmware_version__icontains=search) |
-                    models.Q(ocr_raw_text__icontains=search) |
-                    models.Q(verification_notes__icontains=search)
-                )
-            
-            return queryset.order_by('-test_datetime', '-created_at')
+                    # 嘗試使用 library 中的備用函數
+                    from .queryset_manager import fallback_ocr_storage_benchmark_queryset_filter
+                    return fallback_ocr_storage_benchmark_queryset_filter(base_queryset, query_params)
+                except ImportError:
+                    # 最終備用方案：最基本的搜尋和過濾
+                    self.logger.warning("查詢管理器 library 完全不可用，使用最基本實現")
+                    queryset = base_queryset.select_related('test_class', 'uploaded_by')
+                    
+                    # 最基本的搜尋功能
+                    search = query_params.get('search', None)
+                    if search:
+                        queryset = queryset.filter(
+                            models.Q(project_name__icontains=search) |
+                            models.Q(device_model__icontains=search)
+                        )
+                    
+                    return queryset.order_by('-test_datetime', '-created_at')
             
         except Exception as e:
             self.logger.error(f"查詢過濾失敗: {e}")
-            return base_queryset
+            return base_queryset.order_by('-test_datetime', '-created_at')
     
     def handle_upload_image(self, ocr_record, uploaded_file):
         """處理圖像上傳"""

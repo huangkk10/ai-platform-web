@@ -60,6 +60,12 @@ try:
         create_ocr_processor,
         fallback_process_ocr_record
     )
+    # 🆕 導入查詢集管理器
+    from .queryset_manager import (
+        OCRStorageBenchmarkQueryManager,
+        create_ocr_queryset_manager,
+        fallback_ocr_storage_benchmark_queryset_filter
+    )
     
     AI_OCR_LIBRARY_AVAILABLE = True
     
@@ -98,6 +104,11 @@ except ImportError as e:
     process_ocr_record = None
     create_ocr_processor = None
     fallback_process_ocr_record = None
+    
+    # 🆕 查詢集管理器也設為 None
+    OCRStorageBenchmarkQueryManager = None
+    create_ocr_queryset_manager = None
+    fallback_ocr_storage_benchmark_queryset_filter = None
     
     AI_OCR_LIBRARY_AVAILABLE = False
 
@@ -168,6 +179,11 @@ __all__ = [
     'process_ocr_record',
     'create_ocr_processor',
     'fallback_process_ocr_record',
+    
+    # 🆕 查詢集管理器
+    'OCRStorageBenchmarkQueryManager',
+    'create_ocr_queryset_manager',
+    'fallback_ocr_storage_benchmark_queryset_filter',
     
     # 狀態
     'AI_OCR_LIBRARY_AVAILABLE',
