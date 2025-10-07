@@ -26,6 +26,9 @@ docs/credentials/
 *.p12
 *.pfx
 *.pyc
+*.png
+*.txt
+*.jpg
 
 # Docker
 .docker/
