@@ -72,4 +72,11 @@ urlpatterns = [
     path('system/simple-status/', views.simple_system_status, name='simple_system_status'),
     path('system/basic-status/', views.basic_system_status, name='basic_system_status'),
     path('system/logs/', views.system_logs, name='system_logs'),
+    
+    # 對話管理 API - Conversation Management
+    path('conversations/', views.conversation_list, name='conversation_list'),
+    path('conversations/<int:conversation_id>/', views.conversation_detail, name='conversation_detail'),
+    path('conversations/record/', views.record_conversation, name='record_conversation'),
+    path('conversations/sessions/<str:session_id>/', views.update_conversation_session, name='update_conversation_session'),
+    path('conversations/stats/', views.conversation_stats, name='conversation_stats'),
 ]

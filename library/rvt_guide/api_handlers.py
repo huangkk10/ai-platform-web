@@ -203,6 +203,41 @@ class RVTGuideAPIHandler:
                 # 記錄成功的聊天
                 logger.info(f"RVT Guide chat success for user {request.user.username if request.user.is_authenticated else 'guest'}: response_time={elapsed:.2f}s")
                 
+                # 🆕 記錄對話到資料庫
+                try:
+                    from library.conversation_management import (
+                        CONVERSATION_MANAGEMENT_AVAILABLE, 
+                        record_complete_exchange
+                    )
+                    
+                    if CONVERSATION_MANAGEMENT_AVAILABLE:
+                        # 記錄完整的對話交互
+                        conversation_result = record_complete_exchange(
+                            request=request,
+                            session_id=result.get('conversation_id', ''),
+                            user_message=message,
+                            assistant_message=answer,
+                            response_time=elapsed,
+                            token_usage=result.get('usage', {}),
+                            metadata={
+                                'dify_message_id': result.get('message_id', ''),
+                                'dify_metadata': result.get('metadata', {}),
+                                'workspace': rvt_config.get('workspace', 'RVT_Guide'),
+                                'app_name': rvt_config.get('app_name', 'RVT Guide')
+                            }
+                        )
+                        
+                        if conversation_result.get('success'):
+                            logger.info(f"RVT conversation recorded successfully: session={result.get('conversation_id', '')}")
+                        else:
+                            logger.warning(f"Failed to record RVT conversation: {conversation_result.get('error', 'Unknown error')}")
+                    else:
+                        logger.warning("Conversation Management Library not available, skipping conversation recording")
+                        
+                except Exception as conv_error:
+                    # 對話記錄失敗不應影響主要功能
+                    logger.error(f"Error recording RVT conversation: {str(conv_error)}")
+                
                 return Response({
                     'success': True,
                     'answer': answer,

@@ -2055,3 +2055,179 @@ def basic_system_status(request):
         return Response({
             'error': f'獲取基本系統狀態失敗: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ============= 對話管理 API 端點 =============
+
+@csrf_exempt
+@api_view(['GET'])
+@permission_classes([AllowAny])  # 支援訪客
+def conversation_list(request):
+    """
+    對話列表 API - 使用 Conversation Management Library
+    GET /api/conversations/
+    
+    支援查詢參數:
+    - page: 頁碼 (預設 1)
+    - page_size: 每頁大小 (預設 20, 最大 100)
+    - chat_type: 聊天類型篩選 (可選)
+    """
+    try:
+        from library.conversation_management import (
+            CONVERSATION_MANAGEMENT_AVAILABLE,
+            ConversationAPIHandler
+        )
+        
+        if CONVERSATION_MANAGEMENT_AVAILABLE:
+            return ConversationAPIHandler.handle_conversation_list_api(request)
+        else:
+            return Response({
+                'success': False,
+                'error': 'Conversation Management Library not available'
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            
+    except Exception as e:
+        logger.error(f"Conversation list API error: {str(e)}")
+        return Response({
+            'success': False,
+            'error': f'對話列表獲取失敗: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@csrf_exempt
+@api_view(['GET'])
+@permission_classes([AllowAny])  # 支援訪客
+def conversation_detail(request, conversation_id):
+    """
+    對話詳情 API - 使用 Conversation Management Library
+    GET /api/conversations/{id}/
+    
+    支援查詢參數:
+    - page: 頁碼 (預設 1)
+    - page_size: 每頁大小 (預設 50, 最大 100)
+    """
+    try:
+        from library.conversation_management import (
+            CONVERSATION_MANAGEMENT_AVAILABLE,
+            ConversationAPIHandler
+        )
+        
+        if CONVERSATION_MANAGEMENT_AVAILABLE:
+            return ConversationAPIHandler.handle_conversation_detail_api(request, conversation_id)
+        else:
+            return Response({
+                'success': False,
+                'error': 'Conversation Management Library not available'
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            
+    except Exception as e:
+        logger.error(f"Conversation detail API error: {str(e)}")
+        return Response({
+            'success': False,
+            'error': f'對話詳情獲取失敗: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([AllowAny])  # 支援訪客
+def record_conversation(request):
+    """
+    記錄對話 API - 使用 Conversation Management Library
+    POST /api/conversations/record/
+    
+    預期 payload:
+    {
+        "session_id": "dify_conv_12345",
+        "user_message": "用戶問題",
+        "assistant_message": "AI回覆",
+        "response_time": 2.3,
+        "token_usage": {"total_tokens": 150},
+        "metadata": {}
+    }
+    """
+    try:
+        from library.conversation_management import (
+            CONVERSATION_MANAGEMENT_AVAILABLE,
+            ConversationAPIHandler
+        )
+        
+        if CONVERSATION_MANAGEMENT_AVAILABLE:
+            return ConversationAPIHandler.handle_record_conversation_api(request)
+        else:
+            return Response({
+                'success': False,
+                'error': 'Conversation Management Library not available'
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            
+    except Exception as e:
+        logger.error(f"Record conversation API error: {str(e)}")
+        return Response({
+            'success': False,
+            'error': f'對話記錄失敗: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@csrf_exempt
+@api_view(['PATCH'])
+@permission_classes([AllowAny])  # 支援訪客
+def update_conversation_session(request, session_id):
+    """
+    更新會話 API - 使用 Conversation Management Library
+    PATCH /api/conversations/sessions/{session_id}/
+    
+    預期 payload:
+    {
+        "title": "新標題"
+    }
+    """
+    try:
+        from library.conversation_management import (
+            CONVERSATION_MANAGEMENT_AVAILABLE,
+            ConversationAPIHandler
+        )
+        
+        if CONVERSATION_MANAGEMENT_AVAILABLE:
+            return ConversationAPIHandler.handle_update_session_api(request, session_id)
+        else:
+            return Response({
+                'success': False,
+                'error': 'Conversation Management Library not available'
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            
+    except Exception as e:
+        logger.error(f"Update conversation session API error: {str(e)}")
+        return Response({
+            'success': False,
+            'error': f'會話更新失敗: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@csrf_exempt
+@api_view(['GET'])
+@permission_classes([AllowAny])  # 支援訪客
+def conversation_stats(request):
+    """
+    對話統計 API - 使用 Conversation Management Library
+    GET /api/conversations/stats/
+    """
+    try:
+        from library.conversation_management import (
+            CONVERSATION_MANAGEMENT_AVAILABLE,
+            ConversationAPIHandler
+        )
+        
+        if CONVERSATION_MANAGEMENT_AVAILABLE:
+            return ConversationAPIHandler.handle_conversation_stats_api(request)
+        else:
+            return Response({
+                'success': False,
+                'error': 'Conversation Management Library not available'
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            
+    except Exception as e:
+        logger.error(f"Conversation stats API error: {str(e)}")
+        return Response({
+            'success': False,
+            'error': f'對話統計獲取失敗: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

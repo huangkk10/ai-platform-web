@@ -579,3 +579,191 @@ class RVTGuide(models.Model):
         """獲取用於搜索的完整內容"""
         search_text = f"{self.title} {self.content}"
         return search_text
+
+
+class ConversationSession(models.Model):
+    """對話會話模型 - 記錄每個對話會話的基本資訊"""
+    
+    # 對話識別
+    session_id = models.CharField(max_length=255, unique=True, verbose_name="會話ID")
+    
+    # 用戶關聯（支援訪客）
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, verbose_name="用戶")
+    guest_identifier = models.CharField(max_length=255, blank=True, verbose_name="訪客標識")
+    is_guest_session = models.BooleanField(default=False, verbose_name="是否為訪客會話")
+    
+    # 對話分類
+    chat_type = models.CharField(max_length=50, default='rvt_assistant_chat', verbose_name="聊天類型")
+    
+    # 對話資訊
+    title = models.CharField(max_length=500, blank=True, verbose_name="對話標題")
+    summary = models.TextField(blank=True, verbose_name="對話摘要")
+    
+    # 統計資訊
+    message_count = models.PositiveIntegerField(default=0, verbose_name="訊息總數")
+    total_tokens = models.PositiveIntegerField(default=0, verbose_name="Token總使用量")
+    total_response_time = models.FloatField(default=0, verbose_name="總回應時間(秒)")
+    
+    # 狀態管理
+    is_active = models.BooleanField(default=True, verbose_name="是否活躍")
+    is_archived = models.BooleanField(default=False, verbose_name="是否已歸檔")
+    
+    # 時間戳記
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="建立時間")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新時間")
+    last_message_at = models.DateTimeField(null=True, blank=True, verbose_name="最後訊息時間")
+    
+    # 訪客資料自動清除（可選）
+    auto_delete_at = models.DateTimeField(null=True, blank=True, verbose_name="自動刪除時間")
+    
+    class Meta:
+        ordering = ['-last_message_at', '-created_at']
+        verbose_name = "對話會話"
+        verbose_name_plural = "對話會話"
+        db_table = 'conversation_sessions'
+        indexes = [
+            models.Index(fields=['user', '-created_at'], name='conv_user_created_idx'),
+            models.Index(fields=['session_id'], name='conv_session_id_idx'),
+            models.Index(fields=['chat_type', 'is_active'], name='conv_type_active_idx'),
+            models.Index(fields=['-last_message_at'], name='conv_last_msg_idx'),
+            models.Index(fields=['guest_identifier'], name='conv_guest_id_idx'),
+        ]
+    
+    def __str__(self):
+        if self.user:
+            user_display = self.user.username
+        elif self.guest_identifier:
+            user_display = f"訪客({self.guest_identifier[:8]})"
+        else:
+            user_display = "未知用戶"
+        
+        title_display = self.title or f"{self.get_chat_type_display()}"
+        return f"{user_display} - {title_display}"
+    
+    def get_chat_type_display(self):
+        """獲取聊天類型顯示名稱"""
+        type_mapping = {
+            'rvt_assistant_chat': 'RVT Assistant',
+            'know_issue_chat': 'Protocol RAG',
+            'log_analyze_chat': 'AI OCR',
+        }
+        return type_mapping.get(self.chat_type, self.chat_type)
+    
+    def update_stats(self):
+        """更新統計資訊"""
+        from django.db.models import Count, Sum
+        from django.utils import timezone
+        from django.db.models.functions import Cast
+        from django.db.models import IntegerField
+        
+        # 基本統計
+        basic_stats = self.chatmessage_set.aggregate(
+            count=Count('id'),
+            total_time=Sum('response_time')
+        )
+        
+        # 分別計算 token 統計（避免 JSONB 欄位問題）
+        total_tokens = 0
+        try:
+            messages_with_tokens = self.chatmessage_set.exclude(token_usage__isnull=True)
+            for msg in messages_with_tokens:
+                if msg.token_usage and isinstance(msg.token_usage, dict):
+                    tokens = msg.token_usage.get('total_tokens', 0)
+                    if isinstance(tokens, (int, float)):
+                        total_tokens += int(tokens)
+        except Exception as e:
+            # 如果 token 統計失敗，記錄但不影響其他統計
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Token統計計算失敗: {str(e)}")
+            total_tokens = 0
+        
+        self.message_count = basic_stats['count'] or 0
+        self.total_tokens = total_tokens
+        self.total_response_time = basic_stats['total_time'] or 0
+        self.last_message_at = timezone.now()
+        self.save(update_fields=['message_count', 'total_tokens', 'total_response_time', 'last_message_at'])
+
+
+class ChatMessage(models.Model):
+    """對話訊息模型 - 記錄每條訊息的詳細內容"""
+    
+    ROLE_CHOICES = [
+        ('user', '用戶訊息'),
+        ('assistant', 'AI回覆'),
+        ('system', '系統訊息'),
+    ]
+    
+    CONTENT_TYPE_CHOICES = [
+        ('text', '純文字'),
+        ('markdown', 'Markdown'),
+        ('json', 'JSON'),
+    ]
+    
+    # 對話關聯
+    conversation = models.ForeignKey(ConversationSession, on_delete=models.CASCADE, verbose_name="所屬對話")
+    
+    # 訊息識別
+    message_id = models.CharField(max_length=255, blank=True, verbose_name="訊息ID")
+    
+    # 訊息分類
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, verbose_name="訊息角色")
+    
+    # 訊息內容
+    content = models.TextField(verbose_name="訊息內容")
+    content_type = models.CharField(max_length=50, choices=CONTENT_TYPE_CHOICES, default='text', verbose_name="內容類型")
+    
+    # 順序管理
+    sequence_number = models.PositiveIntegerField(verbose_name="順序號碼")
+    
+    # AI 相關資料（僅 assistant 訊息）
+    response_time = models.FloatField(null=True, blank=True, verbose_name="回應時間(秒)")
+    token_usage = models.JSONField(null=True, blank=True, verbose_name="Token使用統計")
+    confidence_score = models.FloatField(null=True, blank=True, verbose_name="信心分數")
+    
+    # Dify 元資料
+    metadata = models.JSONField(null=True, blank=True, verbose_name="元資料")
+    
+    # 編輯功能
+    is_edited = models.BooleanField(default=False, verbose_name="是否已編輯")
+    original_content = models.TextField(blank=True, verbose_name="原始內容")
+    edit_history = models.JSONField(null=True, blank=True, verbose_name="編輯歷史")
+    
+    # 標記功能
+    is_bookmarked = models.BooleanField(default=False, verbose_name="是否收藏")
+    is_helpful = models.BooleanField(null=True, blank=True, verbose_name="是否有幫助")
+    
+    # 時間戳記
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="建立時間")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新時間")
+    
+    class Meta:
+        ordering = ['conversation', 'sequence_number']
+        verbose_name = "對話訊息"
+        verbose_name_plural = "對話訊息"
+        db_table = 'chat_messages'
+        unique_together = [['conversation', 'sequence_number']]
+        indexes = [
+            models.Index(fields=['conversation', 'sequence_number'], name='msg_conv_seq_idx'),
+            models.Index(fields=['role', '-created_at'], name='msg_role_created_idx'),
+            models.Index(fields=['-created_at'], name='msg_created_idx'),
+            models.Index(fields=['content'], name='msg_content_search_idx'),  # 全文搜索
+        ]
+    
+    def __str__(self):
+        content_preview = self.content[:50] + "..." if len(self.content) > 50 else self.content
+        return f"{self.get_role_display()} #{self.sequence_number}: {content_preview}"
+    
+    def save(self, *args, **kwargs):
+        # 自動設定 sequence_number
+        if not self.sequence_number:
+            last_seq = ChatMessage.objects.filter(conversation=self.conversation).aggregate(
+                models.Max('sequence_number')
+            )['sequence_number__max'] or 0
+            self.sequence_number = last_seq + 1
+        
+        super().save(*args, **kwargs)
+        
+        # 更新對話統計
+        if self.conversation_id:
+            self.conversation.update_stats()
