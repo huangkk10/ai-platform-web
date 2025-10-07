@@ -82,7 +82,21 @@ try:
         ValidationService,
         AuthResponseFormatter,
         LoginHandler,
-        DRFAuthHandler
+        DRFAuthHandler,
+        # 🆕 導入權限管理和 ViewSet 管理器
+        PermissionService,
+        UserPermissionManager,
+        UserProfileViewSetManager,
+        UserProfileAPIHandler,
+        get_user_profile_queryset,
+        create_user_profile_viewset_manager,
+        # 🆕 導入備用處理器
+        UserProfileFallbackHandler,
+        UserProfileViewSetFallbackManager,
+        create_user_profile_fallback_manager,
+        handle_user_profile_fallback,
+        get_user_profile_queryset_fallback,
+        get_user_profile_serializer_fallback
     )
     # 🆕 導入 RVT Guide library
     from library.rvt_guide import (
@@ -160,6 +174,20 @@ except ImportError:
     AuthResponseFormatter = None
     LoginHandler = None
     DRFAuthHandler = None
+    # 🆕 備用權限管理和 ViewSet 管理器
+    PermissionService = None
+    UserPermissionManager = None
+    UserProfileViewSetManager = None
+    UserProfileAPIHandler = None
+    get_user_profile_queryset = None
+    create_user_profile_viewset_manager = None
+    # 🆕 備用處理器
+    UserProfileFallbackHandler = None
+    UserProfileViewSetFallbackManager = None
+    create_user_profile_fallback_manager = None
+    handle_user_profile_fallback = None
+    get_user_profile_queryset_fallback = None
+    get_user_profile_serializer_fallback = None
     # 備用 RVT Guide 服務
     RVTGuideAPIHandler = None
     RVTGuideViewSetManager = None
@@ -357,182 +385,143 @@ class UserViewSet(viewsets.ModelViewSet):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class UserProfileViewSet(viewsets.ModelViewSet):
-    """使用者個人檔案 ViewSet"""
+    """
+    使用者個人檔案 ViewSet - 使用 library/auth 統一實現
+    
+    🔄 重構後：主要邏輯委託給 library/auth，備用實現也統一由 library 管理
+    """
     queryset = UserProfile.objects.all()
     serializer_class = UserProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # 初始化 ViewSet 管理器和備用管理器
+        if AUTH_LIBRARY_AVAILABLE and UserProfileViewSetManager:
+            self._manager = create_user_profile_viewset_manager()
+            self._fallback_manager = create_user_profile_fallback_manager()
+        else:
+            self._manager = None
+            self._fallback_manager = None
+            logger.warning("Auth Library 完全不可用，UserProfileViewSet 使用緊急備用實現")
 
     def get_queryset(self):
-        user = self.request.user
-        
-        # 超級管理員或 Django superuser 可以看到所有用戶的個人檔案
-        if user.is_superuser or (hasattr(user, 'userprofile') and user.userprofile.is_super_admin):
-            return UserProfile.objects.all()
-        
-        # 普通用戶只能看到自己的個人檔案
-        return UserProfile.objects.filter(user=user)
+        """委託給 Auth Library 實現 - 包含統一的備用機制"""
+        if self._manager:
+            return self._manager.get_queryset_for_user(self.request.user)
+        elif self._fallback_manager:
+            # 使用 library 中的備用實現
+            return self._fallback_manager.get_queryset_fallback(self.request.user)
+        else:
+            # 緊急備用實現（library 完全不可用時）
+            logger.warning("使用緊急備用查詢集實現")
+            user = self.request.user
+            if user.is_superuser:
+                return UserProfile.objects.all()
+            return UserProfile.objects.filter(user=user)
 
     def get_serializer_class(self):
-        """根據不同的 action 使用不同的序列化器"""
+        """委託給 Auth Library 實現 - 包含統一的備用機制"""
+        if self._manager:
+            serializer_class = self._manager.get_serializer_class_for_action(self.action)
+            if serializer_class:
+                return serializer_class
+        elif self._fallback_manager:
+            # 使用 library 中的備用實現
+            serializer_class = self._fallback_manager.get_serializer_class_fallback(self.action)
+            if serializer_class:
+                return serializer_class
+        
+        # 緊急備用實現
+        logger.warning("使用緊急備用序列化器實現")
         if self.action in ['manage_permissions', 'bulk_update_permissions']:
             return UserPermissionSerializer
         return UserProfileSerializer
 
     @action(detail=False, methods=['get'], url_path='me')
     def get_my_profile(self, request):
-        """獲取當前使用者的個人檔案"""
-        try:
-            profile = UserProfile.objects.get(user=request.user)
-            serializer = self.get_serializer(profile)
-            return Response(serializer.data)
-        except UserProfile.DoesNotExist:
-            return Response(
-                {'error': 'Profile not found'}, 
-                status=status.HTTP_404_NOT_FOUND
-            )
+        """獲取當前使用者的個人檔案 - 統一使用 library 備用處理器"""
+        if self._manager:
+            return self._manager.handle_get_my_profile(request.user)
+        elif self._fallback_manager:
+            return self._fallback_manager.handle_action_fallback('get_my_profile', request.user)
+        else:
+            # 緊急備用實現
+            logger.warning("使用緊急備用 get_my_profile 實現")
+            try:
+                profile = UserProfile.objects.get(user=request.user)
+                serializer = self.get_serializer(profile)
+                return Response(serializer.data)
+            except UserProfile.DoesNotExist:
+                return Response({'error': 'Profile not found'}, status=status.HTTP_404_NOT_FOUND)
 
     @action(detail=False, methods=['get'], url_path='permissions', 
             permission_classes=[permissions.IsAuthenticated])
     def list_user_permissions(self, request):
-        """獲取所有用戶的權限列表 - 僅超級管理員可訪問"""
-        user = request.user
-        
-        # 檢查是否為超級管理員
-        if not (user.is_superuser or (hasattr(user, 'userprofile') and user.userprofile.is_super_admin)):
-            return Response(
-                {'error': '權限不足，僅超級管理員可以查看用戶權限列表'}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
-        # 獲取所有用戶檔案
-        profiles = UserProfile.objects.all().select_related('user').order_by('user__username')
-        serializer = UserPermissionSerializer(profiles, many=True)
-        
-        return Response({
-            'success': True,
-            'data': serializer.data,
-            'count': len(serializer.data)
-        })
+        """獲取所有用戶的權限列表 - 統一使用 library 備用處理器"""
+        if self._manager:
+            return self._manager.handle_list_user_permissions(request.user)
+        elif self._fallback_manager:
+            return self._fallback_manager.handle_action_fallback('list_permissions', request.user)
+        else:
+            # 緊急備用實現
+            logger.warning("使用緊急備用 list_permissions 實現")
+            if not request.user.is_superuser:
+                return Response({'error': '權限不足'}, status=status.HTTP_403_FORBIDDEN)
+            
+            profiles = UserProfile.objects.all().select_related('user').order_by('user__username')
+            serializer = UserPermissionSerializer(profiles, many=True)
+            return Response({'success': True, 'data': serializer.data, 'count': len(serializer.data)})
 
     @action(detail=True, methods=['patch'], url_path='permissions')
     def manage_permissions(self, request, pk=None):
-        """管理指定用戶的權限 - 僅超級管理員可操作"""
-        user = request.user
-        
-        # 檢查是否為超級管理員
-        if not (user.is_superuser or (hasattr(user, 'userprofile') and user.userprofile.is_super_admin)):
-            return Response(
-                {'error': '權限不足，僅超級管理員可以修改用戶權限'}, 
-                status=status.HTTP_403_FORBIDDEN
+        """管理指定用戶的權限 - 統一使用 library 備用處理器"""
+        if self._manager:
+            return self._manager.handle_manage_permissions(request.user, pk, request.data)
+        elif self._fallback_manager:
+            return self._fallback_manager.handle_action_fallback(
+                'manage_permissions', 
+                request.user, 
+                target_user_id=pk, 
+                update_data=request.data
             )
-        
-        try:
-            # pk 是 User ID，需要通過 user_id 查找 UserProfile
-            profile = UserProfile.objects.get(user_id=pk)
-        except UserProfile.DoesNotExist:
-            return Response(
-                {'error': '用戶檔案不存在'}, 
-                status=status.HTTP_404_NOT_FOUND
-            )
-        
-        # 防止非 Django superuser 修改其他超級管理員的權限
-        if profile.is_super_admin and not user.is_superuser:
-            return Response(
-                {'error': '只有 Django 超級用戶可以修改超級管理員的權限'}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
-        serializer = UserPermissionSerializer(profile, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response({
-                'success': True,
-                'message': f'用戶 {profile.user.username} 的權限已更新',
-                'data': serializer.data
-            })
         else:
-            return Response({
-                'success': False,
-                'errors': serializer.errors
-            }, status=status.HTTP_400_BAD_REQUEST)
+            # 緊急備用實現
+            logger.warning("使用緊急備用 manage_permissions 實現")
+            return Response({'error': '權限管理服務暫時不可用'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
     @action(detail=False, methods=['post'], url_path='bulk-permissions')
     def bulk_update_permissions(self, request):
-        """批量更新用戶權限 - 僅超級管理員可操作"""
-        user = request.user
-        
-        # 檢查是否為超級管理員
-        if not (user.is_superuser or (hasattr(user, 'userprofile') and user.userprofile.is_super_admin)):
-            return Response(
-                {'error': '權限不足，僅超級管理員可以批量修改用戶權限'}, 
-                status=status.HTTP_403_FORBIDDEN
+        """批量更新用戶權限 - 統一使用 library 備用處理器"""
+        if self._manager:
+            return self._manager.handle_bulk_update_permissions(request.user, request.data)
+        elif self._fallback_manager:
+            return self._fallback_manager.handle_action_fallback(
+                'bulk_permissions', 
+                request.user, 
+                request_data=request.data
             )
-        
-        updates = request.data.get('updates', [])
-        if not updates:
-            return Response(
-                {'error': '請提供要更新的用戶權限資料'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        updated_count = 0
-        errors = []
-        
-        for update in updates:
-            profile_id = update.get('profile_id')
-            if not profile_id:
-                errors.append({'error': '缺少 profile_id'})
-                continue
-                
-            try:
-                profile = UserProfile.objects.get(pk=profile_id)
-                
-                # 防止非 Django superuser 修改其他超級管理員的權限
-                if profile.is_super_admin and not user.is_superuser:
-                    errors.append({
-                        'profile_id': profile_id,
-                        'error': '只有 Django 超級用戶可以修改超級管理員的權限'
-                    })
-                    continue
-                
-                serializer = UserPermissionSerializer(profile, data=update, partial=True)
-                if serializer.is_valid():
-                    serializer.save()
-                    updated_count += 1
-                else:
-                    errors.append({
-                        'profile_id': profile_id,
-                        'errors': serializer.errors
-                    })
-                    
-            except UserProfile.DoesNotExist:
-                errors.append({
-                    'profile_id': profile_id,
-                    'error': '用戶檔案不存在'
-                })
-        
-        return Response({
-            'success': True,
-            'message': f'已成功更新 {updated_count} 個用戶的權限',
-            'updated_count': updated_count,
-            'errors': errors
-        })
+        else:
+            # 緊急備用實現
+            logger.warning("使用緊急備用 bulk_permissions 實現")
+            return Response({'error': '批量權限管理服務暫時不可用'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
     @action(detail=False, methods=['get'], url_path='my-permissions')
     def get_my_permissions(self, request):
-        """獲取當前用戶的權限資訊"""
-        try:
-            profile = UserProfile.objects.get(user=request.user)
-            serializer = UserPermissionSerializer(profile)
-            return Response({
-                'success': True,
-                'data': serializer.data
-            })
-        except UserProfile.DoesNotExist:
-            return Response(
-                {'error': '用戶檔案不存在'}, 
-                status=status.HTTP_404_NOT_FOUND
-            )
+        """獲取當前用戶的權限資訊 - 統一使用 library 備用處理器"""
+        if self._manager:
+            return self._manager.handle_get_my_permissions(request.user)
+        elif self._fallback_manager:
+            return self._fallback_manager.handle_action_fallback('get_my_permissions', request.user)
+        else:
+            # 緊急備用實現
+            logger.warning("使用緊急備用 get_my_permissions 實現")
+            try:
+                profile = UserProfile.objects.get(user=request.user)
+                serializer = UserPermissionSerializer(profile)
+                return Response({'success': True, 'data': serializer.data})
+            except UserProfile.DoesNotExist:
+                return Response({'error': '用戶檔案不存在'}, status=status.HTTP_404_NOT_FOUND)
 
 
 @method_decorator(csrf_exempt, name='dispatch')
