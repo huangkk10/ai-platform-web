@@ -44,7 +44,7 @@ const saveMessagesToStorage = (messages, userId) => {
       userId: userId || 'guest'
     };
     localStorage.setItem(storageKey, JSON.stringify(data));
-    console.log(`💾 保存对话记录 - 用户: ${userId || 'guest'}, 消息数: ${messages.length}`);
+    // console.log(`💾 保存对话记录 - 用户: ${userId || 'guest'}, 消息数: ${messages.length}`);
   } catch (error) {
     console.warn('保存對話記錄失敗:', error);
   }
@@ -55,7 +55,7 @@ const loadMessagesFromStorage = (userId) => {
     const storageKey = getUserStorageKey(userId);
     const stored = localStorage.getItem(storageKey);
     if (!stored) {
-      console.log(`📂 未找到对话记录 - 用户: ${userId || 'guest'}`);
+      // console.log(`📂 未找到对话记录 - 用户: ${userId || 'guest'}`);
       return null;
     }
     
@@ -66,14 +66,14 @@ const loadMessagesFromStorage = (userId) => {
     
     // 检查数据是否属于正确的用户
     if (data.userId !== (userId || 'guest')) {
-      console.log(`🔄 用户不匹配，清除旧数据 - 存储用户: ${data.userId}, 当前用户: ${userId || 'guest'}`);
+      // console.log(`🔄 用户不匹配，清除旧数据 - 存储用户: ${data.userId}, 当前用户: ${userId || 'guest'}`);
       localStorage.removeItem(storageKey);
       return null;
     }
     
     // 檢查是否過期
     if (daysDiff > MAX_STORAGE_DAYS) {
-      console.log(`⏰ 对话记录已过期 - 用户: ${userId || 'guest'}`);
+      // console.log(`⏰ 对话记录已过期 - 用户: ${userId || 'guest'}`);
       localStorage.removeItem(storageKey);
       localStorage.removeItem(getUserConversationKey(userId));
       return null;
@@ -90,7 +90,7 @@ const loadMessagesFromStorage = (userId) => {
       return messages.slice(-MAX_MESSAGES);
     }
     
-    console.log(`📖 载入对话记录 - 用户: ${userId || 'guest'}, 消息数: ${messages.length}`);
+    // console.log(`📖 载入对话记录 - 用户: ${userId || 'guest'}, 消息数: ${messages.length}`);
     return messages;
   } catch (error) {
     console.warn('讀取對話記錄失敗:', error);
@@ -105,7 +105,7 @@ const saveConversationId = (conversationId, userId) => {
     if (conversationId) {
       const conversationKey = getUserConversationKey(userId);
       localStorage.setItem(conversationKey, conversationId);
-      console.log(`💾 保存对话ID - 用户: ${userId || 'guest'}, ID: ${conversationId}`);
+      // console.log(`💾 保存对话ID - 用户: ${userId || 'guest'}, ID: ${conversationId}`);
     }
   } catch (error) {
     console.warn('保存對話ID失敗:', error);
@@ -117,7 +117,7 @@ const loadConversationId = (userId) => {
     const conversationKey = getUserConversationKey(userId);
     const conversationId = localStorage.getItem(conversationKey) || '';
     if (conversationId) {
-      console.log(`📖 载入对话ID - 用户: ${userId || 'guest'}, ID: ${conversationId}`);
+      // console.log(`📖 载入对话ID - 用户: ${userId || 'guest'}, ID: ${conversationId}`);
     }
     return conversationId;
   } catch (error) {
@@ -132,7 +132,7 @@ const clearStoredChat = (userId) => {
     const conversationKey = getUserConversationKey(userId);
     localStorage.removeItem(storageKey);
     localStorage.removeItem(conversationKey);
-    console.log(`🗑️ 清除用户数据 - 用户: ${userId || 'guest'}`);
+    // console.log(`🗑️ 清除用户数据 - 用户: ${userId || 'guest'}`);
   } catch (error) {
     console.warn('清除對話記錄失敗:', error);
   }
@@ -225,12 +225,12 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
   useEffect(() => {
     const newUserId = user?.id || null;
     
-    console.log('🔍 用戶狀態檢查:', {
-      currentUserId,
-      newUserId, 
-      userObject: user,
-      hasChanged: currentUserId !== null && currentUserId !== newUserId
-    });
+    // console.log('🔍 用戶狀態檢查:', {
+    //   currentUserId,
+    //   newUserId, 
+    //   userObject: user,
+    //   hasChanged: currentUserId !== null && currentUserId !== newUserId
+    // });
     
     // 如果是第一次初始化，設置用戶ID並載入用戶特定数据
     if (currentUserId === null) {
@@ -240,11 +240,11 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
       const userConversationId = loadConversationId(newUserId);
       const userMessages = loadMessagesFromStorage(newUserId);
       
-      console.log('🔄 初始化用户数据:', {
-        userId: newUserId || 'guest',
-        hasConversationId: !!userConversationId,
-        hasMessages: !!(userMessages && userMessages.length > 0)
-      });
+      // console.log('🔄 初始化用户数据:', {
+      //   userId: newUserId || 'guest',
+      //   hasConversationId: !!userConversationId,
+      //   hasMessages: !!(userMessages && userMessages.length > 0)
+      // });
       
       if (userConversationId) {
         setConversationId(userConversationId);
@@ -261,11 +261,11 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
     
     // 檢查用戶是否發生變化
     if (currentUserId !== newUserId) {
-      console.log('🔄 用戶切換偵測:', currentUserId, '->', newUserId);
+      // console.log('🔄 用戶切換偵測:', currentUserId, '->', newUserId);
       
       // 🚨 立即取消進行中的請求，避免衝突
       if (abortControllerRef.current) {
-        console.log('🛑 取消進行中的請求...');
+        // console.log('🛑 取消進行中的請求...');
         abortControllerRef.current.abort();
         abortControllerRef.current = null;
       }
@@ -279,11 +279,11 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
       const newUserConversationId = loadConversationId(newUserId);
       const newUserMessages = loadMessagesFromStorage(newUserId);
       
-      console.log('� 切换到新用户数据:', {
-        userId: newUserId || 'guest',
-        hasConversationId: !!newUserConversationId,
-        hasMessages: !!(newUserMessages && newUserMessages.length > 0)
-      });
+      // console.log('🔄 切换到新用户数据:', {
+      //   userId: newUserId || 'guest',
+      //   hasConversationId: !!newUserConversationId,
+      //   hasMessages: !!(newUserMessages && newUserMessages.length > 0)
+      // });
       
       // 设置新用户的对话ID和消息
       setConversationId(newUserConversationId || '');
@@ -294,18 +294,14 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
         setMessages([{ ...DEFAULT_WELCOME_MESSAGE, timestamp: new Date() }]);
       }
       
-      // 顯示用戶切換提示
+      // 顯示用戶切換提示（只在登入時顯示）
       if (newUserId) {
         message.info({
           content: `🔄 偵測到用戶切換，已載入您的對話記錄。歡迎 ${user?.username || '新用戶'}！`,
           duration: 3
         });
-      } else {
-        message.info({
-          content: '🔄 用戶登出，已切換至訪客模式。',
-          duration: 3
-        });
       }
+      // 登出時不顯示提示訊息
       
       // 更新當前用戶ID
       setCurrentUserId(newUserId);
@@ -358,15 +354,13 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
     }
   };
 
-
-
   const handleSendMessage = async () => {
     if (!inputMessage.trim()) return;
 
     // 🚨 檢查用戶是否在發送消息時發生切換
     const sendTimeUserId = user?.id || null;
     if (currentUserId !== null && currentUserId !== sendTimeUserId) {
-      console.log('🔄 發送時偵測到用戶切換，重置對話狀態');
+      // console.log('🔄 發送時偵測到用戶切換，重置對話狀態');
       
       // 立即更新用戶ID和清除狀態
       setCurrentUserId(sendTimeUserId);
@@ -380,15 +374,15 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
 
     // 现在每个用户都有独立的存储，不需要额外的安全检查
 
-    console.log('📤 發送消息:', {
-      message: inputMessage.trim(),
-      currentUserId,
-      sendTimeUserId,
-      user: user?.username || 'guest',
-      userObject: user,
-      conversationId,
-      timestamp: new Date().toISOString()
-    });
+    // console.log('📤 發送消息:', {
+    //   message: inputMessage.trim(),
+    //   currentUserId,
+    //   sendTimeUserId,
+    //   user: user?.username || 'guest',
+    //   userObject: user,
+    //   conversationId,
+    //   timestamp: new Date().toISOString()
+    // });
 
     const userMessage = {
       id: Date.now(),
@@ -407,8 +401,8 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
     abortControllerRef.current = abortController;
 
     try {
-      console.log('🌐 準備發送 API 請求到:', '/api/rvt-guide/chat/');
-      console.log('🔑 使用對話ID:', conversationId || '(空 - 將創建新對話)');
+      // console.log('🌐 準備發送 API 請求到:', '/api/rvt-guide/chat/');
+      // console.log('🔑 使用對話ID:', conversationId || '(空 - 將創建新對話)');
       
       // 使用 RVT Guide Chat API (注意：此API有@csrf_exempt，不需要CSRF令牌)
       const response = await fetch('/api/rvt-guide/chat/', {
@@ -426,17 +420,17 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
       });
 
       // 檢查回應狀態
-      console.log('📡 API 回應狀態:', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        headers: Object.fromEntries(response.headers.entries())
-      });
+      // console.log('📡 API 回應狀態:', {
+      //   status: response.status,
+      //   statusText: response.statusText,
+      //   ok: response.ok,
+      //   headers: Object.fromEntries(response.headers.entries())
+      // });
       
       if (!response.ok) {
         if (response.status === 404) {
           // 404 錯誤 - 立即清除對話ID並重試
-          console.log('🔄 404錯誤，清除對話ID並準備重試');
+          // console.log('🔄 404錯誤，清除對話ID並準備重試');
           setConversationId('');
           const conversationKey = getUserConversationKey(currentUserId);
           localStorage.removeItem(conversationKey);
@@ -515,7 +509,7 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
           
           // 檢查是否是用戶切換導致的問題
           const currentUser = user?.username || '訪客';
-          console.log('🔄 對話過期偵測，當前用戶:', currentUser, '- 將重新開始對話');
+          // console.log('🔄 對話過期偵測，當前用戶:', currentUser, '- 將重新開始對話');
           
           // 提示用戶重新發送，同時清除對話ID讓下次請求自動創建新對話
           throw new Error(`🔄 用戶切換後對話已重置，請重新發送您的問題。\n\n💡 提示：下一條消息將自動開始新對話\n當前用戶: ${currentUser}`);
@@ -549,13 +543,13 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
       
       // 🔄 404 錯誤自動重試邏輯
       if (error.message.includes('conversation_expired_404')) {
-        console.log('🔄 執行404自動重試...', {
-          currentUser: user?.username || '訪客',
-          userId: user?.id || null,
-          conversationId: conversationId,
-          requestUrl: '/api/rvt-guide/chat/',
-          retryTime: new Date().toISOString()
-        });
+        // console.log('🔄 執行404自動重試...', {
+        //   currentUser: user?.username || '訪客',
+        //   userId: user?.id || null,
+        //   conversationId: conversationId,
+        //   requestUrl: '/api/rvt-guide/chat/',
+        //   retryTime: new Date().toISOString()
+        // });
         
         try {
           // 等待一小段時間讓認證狀態穩定
@@ -575,20 +569,20 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
             })
           });
 
-          console.log('🔄 重試回應詳情:', {
-            status: retryResponse.status,
-            statusText: retryResponse.statusText,
-            ok: retryResponse.ok,
-            headers: Object.fromEntries(retryResponse.headers.entries()),
-            url: retryResponse.url
-          });
+          // console.log('🔄 重試回應詳情:', {
+          //   status: retryResponse.status,
+          //   statusText: retryResponse.statusText,
+          //   ok: retryResponse.ok,
+          //   headers: Object.fromEntries(retryResponse.headers.entries()),
+          //   url: retryResponse.url
+          // });
 
           if (retryResponse.ok) {
             const retryData = await retryResponse.json();
-            console.log('🔄 重試回應數據:', retryData);
+            // console.log('🔄 重試回應數據:', retryData);
             
             if (retryData.success) {
-              console.log('✅ 自動重試成功');
+              // console.log('✅ 自動重試成功');
               
               // 更新對話ID
               setConversationId(retryData.conversation_id);
@@ -618,15 +612,15 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
               // 成功重試，直接返回不顯示錯誤
               return;
             } else {
-              console.log('❌ 重試時 API 返回 success: false:', retryData);
+              // console.log('❌ 重試時 API 返回 success: false:', retryData);
             }
           } else {
-            console.log('❌ 重試請求失敗:', retryResponse.status, retryResponse.statusText);
+            // console.log('❌ 重試請求失敗:', retryResponse.status, retryResponse.statusText);
             
             // 如果重試也返回404，說明可能是認證問題
             if (retryResponse.status === 404) {
               const errorText = await retryResponse.text();
-              console.log('❌ 重試404錯誤內容:', errorText);
+              // console.log('❌ 重試404錯誤內容:', errorText);
             }
           }
         } catch (retryError) {
