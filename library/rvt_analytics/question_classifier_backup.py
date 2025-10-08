@@ -17,7 +17,7 @@ from typing import List, Dict, Optional, Tuple
 try:
     from .chat_vector_service import get_chat_vector_service, search_similar_chat_messages
     from .chat_clustering_service import get_clustering_service, get_cluster_categories
-    VECTOR_SERVICE_AVAILABLE = False  # 臨時禁用以提升載入速度
+    VECTOR_SERVICE_AVAILABLE = True
 except ImportError:
     VECTOR_SERVICE_AVAILABLE = False
     logging.warning("向量化服務不可用，將使用傳統規則分類")

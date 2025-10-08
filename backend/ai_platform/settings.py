@@ -28,6 +28,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'api',  # Our API app
+    'django_celery_beat',  # Celery Beat 排程
+    'django_celery_results',  # Celery 結果存儲
 ]
 
 MIDDLEWARE = [
@@ -221,4 +223,61 @@ LOGGING = {
         'handlers': ['console'],
         'level': 'INFO',
     },
+}
+
+# ============================
+# Celery 配置
+# ============================
+
+# Redis 配置
+REDIS_HOST = config('REDIS_HOST', default='redis')  # Docker 服務名
+REDIS_PORT = config('REDIS_PORT', default=6379, cast=int)
+REDIS_DB = config('REDIS_DB', default=0, cast=int)
+REDIS_PASSWORD = config('REDIS_PASSWORD', default='')
+
+# Celery 配置
+CELERY_BROKER_URL = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/1"
+CELERY_RESULT_BACKEND = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/2"
+
+# Celery 任務配置
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'Asia/Taipei'
+CELERY_ENABLE_UTC = False
+
+# Celery Beat 配置 (定時任務)
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+CELERY_BEAT_SCHEDULE_FILENAME = 'celerybeat-schedule'
+
+# 任務路由和佇列配置
+CELERY_TASK_ROUTES = {
+    'library.rvt_analytics.tasks.*': {'queue': 'analytics'},
+    'library.rvt_guide.tasks.*': {'queue': 'rvt_guide'},
+}
+
+CELERY_TASK_DEFAULT_QUEUE = 'default'
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_TASK_ACKS_LATE = True
+CELERY_WORKER_MAX_TASKS_PER_CHILD = 1000
+
+# 任務結果過期時間 (1小時)
+CELERY_RESULT_EXPIRES = 3600
+
+# ============================
+# Redis Cache 配置
+# ============================
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/0",
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            'SERIALIZER': 'django_redis.serializers.json.JSONSerializer',
+            'COMPRESSOR': 'django_redis.compressors.zlib.ZlibCompressor',
+        },
+        'KEY_PREFIX': 'ai_platform',
+        'TIMEOUT': 3600,  # 1小時默認過期時間
+    }
 }

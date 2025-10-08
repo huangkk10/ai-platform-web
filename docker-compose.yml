@@ -48,6 +48,26 @@ services:
     networks:
       - custom_network
 
+  redis:
+    image: redis:7-alpine
+    container_name: ai-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    environment:
+      - TZ=Asia/Taipei
+    volumes:
+      - redis_data:/data
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - custom_network
+
   django:
     build:
       context: ./backend
@@ -62,6 +82,11 @@ services:
       - DB_NAME=ai_platform
       - DB_USER=postgres
       - DB_PASSWORD=postgres123
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
     ports:
       - "8000:8000"
     volumes:
@@ -72,6 +97,90 @@ services:
       - media_files:/app/media
     depends_on:
       - postgres
+      - redis
+    networks:
+      - custom_network
+
+  celery_worker:
+    build:
+      context: ./backend
+    container_name: ai-celery-worker
+    restart: unless-stopped
+    command: celery -A ai_platform worker --loglevel=info --concurrency=2
+    environment:
+      - TZ=Asia/Taipei
+      - DEBUG=1
+      - DB_HOST=postgres_db
+      - DB_PORT=5432
+      - DB_NAME=ai_platform
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres123
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    volumes:
+      - ./backend:/app
+      - ./library:/app/library
+      - ./config:/app/config
+      - static_files:/app/static
+      - media_files:/app/media
+    depends_on:
+      - postgres
+      - redis
+      - django
+    networks:
+      - custom_network
+
+  celery_beat:
+    build:
+      context: ./backend
+    container_name: ai-celery-beat
+    restart: unless-stopped
+    command: celery -A ai_platform beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    environment:
+      - TZ=Asia/Taipei
+      - DEBUG=1
+      - DB_HOST=postgres_db
+      - DB_PORT=5432
+      - DB_NAME=ai_platform
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres123
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    volumes:
+      - ./backend:/app
+      - ./library:/app/library
+      - ./config:/app/config
+      - static_files:/app/static
+      - media_files:/app/media
+      - celery_beat_data:/app/celerybeat-schedule  # 持久化 Beat 排程
+    depends_on:
+      - postgres
+      - redis
+      - django
+    networks:
+      - custom_network
+
+  celery_flower:
+    build:
+      context: ./backend
+    container_name: ai-celery-flower
+    restart: unless-stopped
+    command: celery -A ai_platform flower --port=5555
+    environment:
+      - TZ=Asia/Taipei
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+      - celery_worker
     networks:
       - custom_network
 
@@ -121,6 +230,10 @@ volumes:
   postgres_data:
     driver: local
   pgadmin_data:
+    driver: local
+  redis_data:
+    driver: local
+  celery_beat_data:
     driver: local
   static_files:
     driver: local
