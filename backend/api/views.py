@@ -1674,12 +1674,13 @@ def dify_chat_with_file(request):
 
 @csrf_exempt
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])  # 修復：要求認證
 def dify_chat(request):
     """
     Dify Chat API - 使用 Protocol Known Issue 配置（用於 Protocol RAG）
     
     🔄 重構後：直接使用 library/dify_integration/protocol_chat_handler.py 處理
+    🔒 權限修復：要求用戶認證後才能使用 Protocol RAG
     """
     try:
         if dify_protocol_chat_api:

@@ -6,6 +6,7 @@ import { Layout, Button } from 'antd';
 import { DeleteOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import Sidebar from './components/Sidebar';
 import TopHeader from './components/TopHeader';
+import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './contexts/AuthContext';
 import { ChatProvider, useChatContext } from './contexts/ChatContext';
 import DashboardPage from './pages/DashboardPage';
@@ -145,13 +146,41 @@ function AppLayout() {
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/query" element={<QueryPage />} />
             <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/knowledge/know-issue" element={<KnowIssuePage />} />
-            <Route path="/knowledge/rvt-log" element={<RvtGuidePage />} />
-            <Route path="/knowledge/rvt-guide/create" element={<RvtGuideEditPage />} />
-            <Route path="/knowledge/rvt-guide/edit/:id" element={<RvtGuideEditPage />} />
-            <Route path="/knowledge/ocr-storage-benchmark" element={<OcrStorageBenchmarkPage />} />
-            <Route path="/know-issue-chat" element={<KnowIssueChatPage collapsed={collapsed} />} />
-            <Route path="/log-analyze-chat" element={<LogAnalyzeChatPage collapsed={collapsed} />} />
+            <Route path="/knowledge/know-issue" element={
+              <ProtectedRoute permission="kbProtocolRAG" fallbackTitle="Knowledge Base 存取受限">
+                <KnowIssuePage />
+              </ProtectedRoute>
+            } />
+            <Route path="/knowledge/rvt-log" element={
+              <ProtectedRoute permission="kbRVTAssistant" fallbackTitle="Knowledge Base 存取受限">
+                <RvtGuidePage />
+              </ProtectedRoute>
+            } />
+            <Route path="/knowledge/rvt-guide/create" element={
+              <ProtectedRoute permission="kbRVTAssistant" fallbackTitle="Knowledge Base 存取受限">
+                <RvtGuideEditPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/knowledge/rvt-guide/edit/:id" element={
+              <ProtectedRoute permission="kbRVTAssistant" fallbackTitle="Knowledge Base 存取受限">
+                <RvtGuideEditPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/knowledge/ocr-storage-benchmark" element={
+              <ProtectedRoute permission="kbAIOCR" fallbackTitle="Knowledge Base 存取受限">
+                <OcrStorageBenchmarkPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/know-issue-chat" element={
+              <ProtectedRoute permission="webProtocolRAG" fallbackTitle="Protocol RAG 存取受限" fallbackMessage="您需要 Protocol RAG 權限才能使用此功能">
+                <KnowIssueChatPage collapsed={collapsed} />
+              </ProtectedRoute>
+            } />
+            <Route path="/log-analyze-chat" element={
+              <ProtectedRoute permission="webAIOCR" fallbackTitle="AI OCR 存取受限" fallbackMessage="您需要 AI OCR 權限才能使用此功能">
+                <LogAnalyzeChatPage collapsed={collapsed} />
+              </ProtectedRoute>
+            } />
             <Route path="/rvt-assistant-chat" element={<RvtAssistantChatPage collapsed={collapsed} />} />
             <Route path="/log-analyze" element={<LogAnalyzePage />} />
             <Route path="/admin/test-class-management" element={<TestClassManagementPage />} />

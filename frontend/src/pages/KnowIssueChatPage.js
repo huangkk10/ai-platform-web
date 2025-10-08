@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Layout, Input, Button, Card, Avatar, message, Spin, Typography, Tag, Table } from 'antd';
 import { SendOutlined, MinusSquareFilled, UserOutlined, RobotOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { useChatContext } from '../contexts/ChatContext';
+import { useAuth } from '../contexts/AuthContext';
 import { recordChatUsage, CHAT_TYPES } from '../utils/chatUsage';
 import './KnowIssueChatPage.css';
 
@@ -97,6 +98,7 @@ const clearStoredChat = () => {
 
 const KnowIssueChatPage = ({ collapsed = false }) => {
   const { registerClearFunction, clearClearFunction } = useChatContext();
+  const { user, isAuthenticated, hasPermission, initialized } = useAuth();
   // ... state variables ...
 
   // 動態載入提示組件
@@ -653,6 +655,34 @@ const KnowIssueChatPage = ({ collapsed = false }) => {
     
     return result;
   };
+
+  // 🔒 權限檢查：只有認證用戶且有 webProtocolRAG 權限才能使用
+  if (!initialized) {
+    return (
+      <div style={{ padding: '24px', textAlign: 'center' }}>
+        <Spin size="large" />
+        <div style={{ marginTop: '16px' }}>載入中...</div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !hasPermission('webProtocolRAG')) {
+    return (
+      <div style={{ padding: '24px' }}>
+        <Card>
+          <div style={{ textAlign: 'center', padding: '50px 0' }}>
+            <Typography.Title level={3}>存取受限</Typography.Title>
+            <Typography.Paragraph>
+              {!isAuthenticated 
+                ? '請先登入才能使用 Protocol RAG 功能'
+                : '您沒有使用 Protocol RAG 的權限，請聯絡管理員'
+              }
+            </Typography.Paragraph>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <Layout style={{ height: '100vh', background: '#f5f5f5' }} className="chat-page know-issue-chat-page">
