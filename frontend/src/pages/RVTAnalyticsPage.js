@@ -64,11 +64,17 @@ const RVTAnalyticsPage = () => {
   const [selectedDays, setSelectedDays] = useState(30);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [dateRange, setDateRange] = useState([]);
+  const [networkError, setNetworkError] = useState(false);
 
   useEffect(() => {
     // 只有管理員才能訪問分析功能
     if (user?.is_staff || user?.is_superuser) {
-      fetchAnalyticsData();
+      // 延遲加載，避免頁面載入時立即發送請求
+      const timer = setTimeout(() => {
+        fetchAnalyticsData();
+      }, 100);
+      
+      return () => clearTimeout(timer);
     }
   }, [user, selectedDays, selectedUserId]);
 
@@ -91,47 +97,86 @@ const RVTAnalyticsPage = () => {
 
   const fetchAnalyticsData = async () => {
     setLoading(true);
+    setNetworkError(false);
     try {
       // 並行獲取所有分析數據
       const [overviewResponse, questionResponse, satisfactionResponse] = await Promise.all([
         fetch(`/api/rvt-analytics/overview/?days=${selectedDays}${selectedUserId ? `&user_id=${selectedUserId}` : ''}`, {
-          credentials: 'include'
+          credentials: 'include',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          }
         }),
         fetch(`/api/rvt-analytics/questions/?days=${selectedDays <= 30 ? selectedDays : 7}`, {
-          credentials: 'include'
+          credentials: 'include',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          }
         }),
         fetch(`/api/rvt-analytics/satisfaction/?days=${selectedDays}&detail=true`, {
-          credentials: 'include'
+          credentials: 'include',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          }
         })
       ]);
 
+      // 檢查 HTTP 狀態碼
+      if (!overviewResponse.ok) {
+        throw new Error(`概覽 API 錯誤: ${overviewResponse.status} ${overviewResponse.statusText}`);
+      }
+      if (!questionResponse.ok) {
+        console.warn(`問題分析 API 錯誤: ${questionResponse.status} ${questionResponse.statusText}`);
+      }
+      if (!satisfactionResponse.ok) {
+        console.warn(`滿意度 API 錯誤: ${satisfactionResponse.status} ${satisfactionResponse.statusText}`);
+      }
+
       const [overview, questions, satisfaction] = await Promise.all([
         overviewResponse.json(),
-        questionResponse.json(), 
-        satisfactionResponse.json()
+        questionResponse.ok ? questionResponse.json() : { success: false, error: `HTTP ${questionResponse.status}` },
+        satisfactionResponse.ok ? satisfactionResponse.json() : { success: false, error: `HTTP ${satisfactionResponse.status}` }
       ]);
 
       if (overview.success) {
         setOverviewData(overview.data);
+        message.success('分析數據載入成功！');
       } else {
-        message.error(`概覽數據載入失敗: ${overview.error}`);
+        message.error(`概覽數據載入失敗: ${overview.error || '未知錯誤'}`);
       }
 
       if (questions.success) {
         setQuestionData(questions.data);
       } else {
-        console.warn(`問題分析載入失敗: ${questions.error}`);
+        console.warn(`問題分析載入失敗: ${questions.error || '未知錯誤'}`);
+        message.warning('問題分析數據載入失敗，僅顯示基本統計');
       }
 
       if (satisfaction.success) {
         setSatisfactionData(satisfaction.data);
       } else {
-        console.warn(`滿意度分析載入失敗: ${satisfaction.error}`);
+        console.warn(`滿意度分析載入失敗: ${satisfaction.error || '未知錯誤'}`);
+        message.warning('滿意度分析數據載入失敗，僅顯示基本統計');
       }
 
     } catch (error) {
       console.error('Analytics data fetch error:', error);
-      message.error('分析數據載入失敗');
+      setNetworkError(true);
+      
+      // 檢查錯誤類型
+      if (error.message.includes('502') || error.message.includes('Bad Gateway')) {
+        message.error('服務器暫時不可用 (502)，請稍後重試');
+      } else if (error.message.includes('404')) {
+        message.error('API 端點未找到 (404)，請檢查服務器配置');
+      } else if (error.message.includes('403')) {
+        message.error('權限不足 (403)，請重新登入');
+      } else {
+        message.error(`分析數據載入失敗: ${error.message}`);
+      }
+      
     } finally {
       setLoading(false);
     }
@@ -856,6 +901,31 @@ const RVTAnalyticsPage = () => {
       </Row>
 
       <Spin spinning={loading}>
+        {/* 網絡錯誤提示 */}
+        {networkError && (
+          <Alert
+            message="連接錯誤"
+            description={
+              <div>
+                <p>無法載入分析數據，可能的原因：</p>
+                <ul style={{ marginBottom: '12px', paddingLeft: '20px' }}>
+                  <li>網絡連接不穩定</li>
+                  <li>服務器暫時不可用</li>
+                  <li>需要重新登入</li>
+                </ul>
+                <Button type="primary" size="small" onClick={fetchAnalyticsData}>
+                  重新載入
+                </Button>
+              </div>
+            }
+            type="error"
+            showIcon
+            closable
+            onClose={() => setNetworkError(false)}
+            style={{ marginBottom: '24px' }}
+          />
+        )}
+        
         {/* 概覽卡片 */}
         {renderOverviewCards()}
 

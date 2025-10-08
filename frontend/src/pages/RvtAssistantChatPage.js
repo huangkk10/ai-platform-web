@@ -11,6 +11,7 @@ import {
   DislikeFilled
 } from '@ant-design/icons';
 import { useChatContext } from '../contexts/ChatContext';
+import { useAuth } from '../contexts/AuthContext';
 import { recordChatUsage, CHAT_TYPES } from '../utils/chatUsage';
 import MarkdownIt from 'markdown-it';
 import DOMPurify from 'dompurify';
@@ -20,42 +21,61 @@ const { Content } = Layout;
 const { TextArea } = Input;
 const { Text, Title } = Typography;
 
-// localStorage 相關常數
-const STORAGE_KEY = 'rvt-assistant-chat-messages';
-const CONVERSATION_ID_KEY = 'rvt-assistant-chat-conversation-id';
+// localStorage 相關常數 - 基于用户ID隔离
+const STORAGE_KEY_PREFIX = 'rvt-assistant-chat-messages';
+const CONVERSATION_ID_KEY_PREFIX = 'rvt-assistant-chat-conversation-id';
 const MAX_STORAGE_DAYS = 7; // 最多保存 7 天
 const MAX_MESSAGES = 200; // 最多保存 200 條消息
 
-// localStorage 工具函數
-const saveMessagesToStorage = (messages) => {
+// 获取用户特定的存储键
+const getUserStorageKey = (userId) => `${STORAGE_KEY_PREFIX}-${userId || 'guest'}`;
+const getUserConversationKey = (userId) => `${CONVERSATION_ID_KEY_PREFIX}-${userId || 'guest'}`;
+
+// localStorage 工具函數 - 基于用户ID
+const saveMessagesToStorage = (messages, userId) => {
   try {
+    const storageKey = getUserStorageKey(userId);
     const data = {
       messages: messages.map(msg => ({
         ...msg,
         timestamp: msg.timestamp instanceof Date ? msg.timestamp.toISOString() : msg.timestamp
       })),
-      savedAt: new Date().toISOString()
+      savedAt: new Date().toISOString(),
+      userId: userId || 'guest'
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    localStorage.setItem(storageKey, JSON.stringify(data));
+    console.log(`💾 保存对话记录 - 用户: ${userId || 'guest'}, 消息数: ${messages.length}`);
   } catch (error) {
     console.warn('保存對話記錄失敗:', error);
   }
 };
 
-const loadMessagesFromStorage = () => {
+const loadMessagesFromStorage = (userId) => {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return null;
+    const storageKey = getUserStorageKey(userId);
+    const stored = localStorage.getItem(storageKey);
+    if (!stored) {
+      console.log(`📂 未找到对话记录 - 用户: ${userId || 'guest'}`);
+      return null;
+    }
     
     const data = JSON.parse(stored);
     const savedAt = new Date(data.savedAt);
     const now = new Date();
     const daysDiff = (now - savedAt) / (1000 * 60 * 60 * 24);
     
+    // 检查数据是否属于正确的用户
+    if (data.userId !== (userId || 'guest')) {
+      console.log(`🔄 用户不匹配，清除旧数据 - 存储用户: ${data.userId}, 当前用户: ${userId || 'guest'}`);
+      localStorage.removeItem(storageKey);
+      return null;
+    }
+    
     // 檢查是否過期
     if (daysDiff > MAX_STORAGE_DAYS) {
-      localStorage.removeItem(STORAGE_KEY);
-      localStorage.removeItem(CONVERSATION_ID_KEY);
+      console.log(`⏰ 对话记录已过期 - 用户: ${userId || 'guest'}`);
+      localStorage.removeItem(storageKey);
+      localStorage.removeItem(getUserConversationKey(userId));
       return null;
     }
     
@@ -70,37 +90,49 @@ const loadMessagesFromStorage = () => {
       return messages.slice(-MAX_MESSAGES);
     }
     
+    console.log(`📖 载入对话记录 - 用户: ${userId || 'guest'}, 消息数: ${messages.length}`);
     return messages;
   } catch (error) {
     console.warn('讀取對話記錄失敗:', error);
-    localStorage.removeItem(STORAGE_KEY);
+    const storageKey = getUserStorageKey(userId);
+    localStorage.removeItem(storageKey);
     return null;
   }
 };
 
-const saveConversationId = (conversationId) => {
+const saveConversationId = (conversationId, userId) => {
   try {
     if (conversationId) {
-      localStorage.setItem(CONVERSATION_ID_KEY, conversationId);
+      const conversationKey = getUserConversationKey(userId);
+      localStorage.setItem(conversationKey, conversationId);
+      console.log(`💾 保存对话ID - 用户: ${userId || 'guest'}, ID: ${conversationId}`);
     }
   } catch (error) {
     console.warn('保存對話ID失敗:', error);
   }
 };
 
-const loadConversationId = () => {
+const loadConversationId = (userId) => {
   try {
-    return localStorage.getItem(CONVERSATION_ID_KEY) || '';
+    const conversationKey = getUserConversationKey(userId);
+    const conversationId = localStorage.getItem(conversationKey) || '';
+    if (conversationId) {
+      console.log(`📖 载入对话ID - 用户: ${userId || 'guest'}, ID: ${conversationId}`);
+    }
+    return conversationId;
   } catch (error) {
     console.warn('讀取對話ID失敗:', error);
     return '';
   }
 };
 
-const clearStoredChat = () => {
+const clearStoredChat = (userId) => {
   try {
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem(CONVERSATION_ID_KEY);
+    const storageKey = getUserStorageKey(userId);
+    const conversationKey = getUserConversationKey(userId);
+    localStorage.removeItem(storageKey);
+    localStorage.removeItem(conversationKey);
+    console.log(`🗑️ 清除用户数据 - 用户: ${userId || 'guest'}`);
   } catch (error) {
     console.warn('清除對話記錄失敗:', error);
   }
@@ -116,6 +148,7 @@ const DEFAULT_WELCOME_MESSAGE = {
 
 const RvtAssistantChatPage = ({ collapsed = false }) => {
   const { registerClearFunction, clearClearFunction } = useChatContext();
+  const { user } = useAuth();
   
   // 初始化 Markdown 解析器
   const md = useMemo(() => {
@@ -160,8 +193,8 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
     );
   };
 
-  const getInitialMessages = () => {
-    const storedMessages = loadMessagesFromStorage();
+  const getInitialMessages = (userId) => {
+    const storedMessages = loadMessagesFromStorage(userId);
     if (storedMessages && storedMessages.length > 0) {
       return storedMessages;
     }
@@ -169,13 +202,14 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
     return [{ ...DEFAULT_WELCOME_MESSAGE, timestamp: new Date() }];
   };
   
-  const [messages, setMessages] = useState(getInitialMessages);
+  const [messages, setMessages] = useState(() => getInitialMessages(user?.id));
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingStartTime, setLoadingStartTime] = useState(null);
-  const [conversationId, setConversationId] = useState(loadConversationId);
+  const [conversationId, setConversationId] = useState(''); // 初始化為空，讓用戶切換檢測邏輯決定
   const [rvtConfig, setRvtConfig] = useState(null);
   const [feedbackStates, setFeedbackStates] = useState({}); // 存儲每個消息的反饋狀態
+  const [currentUserId, setCurrentUserId] = useState(null); // 追蹤當前用戶ID，初始化為null避免錯誤偵測
   const messagesEndRef = useRef(null);
   const abortControllerRef = useRef(null);
 
@@ -187,19 +221,116 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
     scrollToBottom();
   }, [messages]);
 
-  // 自動保存消息到 localStorage
+  // 監聽用戶狀態變化，在用戶切換時重置對話
   useEffect(() => {
-    if (messages.length > 0) {
-      saveMessagesToStorage(messages);
+    const newUserId = user?.id || null;
+    
+    console.log('🔍 用戶狀態檢查:', {
+      currentUserId,
+      newUserId, 
+      userObject: user,
+      hasChanged: currentUserId !== null && currentUserId !== newUserId
+    });
+    
+    // 如果是第一次初始化，設置用戶ID並載入用戶特定数据
+    if (currentUserId === null) {
+      setCurrentUserId(newUserId);
+      
+      // 載入當前用戶的對話ID和消息
+      const userConversationId = loadConversationId(newUserId);
+      const userMessages = loadMessagesFromStorage(newUserId);
+      
+      console.log('🔄 初始化用户数据:', {
+        userId: newUserId || 'guest',
+        hasConversationId: !!userConversationId,
+        hasMessages: !!(userMessages && userMessages.length > 0)
+      });
+      
+      if (userConversationId) {
+        setConversationId(userConversationId);
+      }
+      
+      if (userMessages && userMessages.length > 0) {
+        setMessages(userMessages);
+      } else {
+        setMessages([{ ...DEFAULT_WELCOME_MESSAGE, timestamp: new Date() }]);
+      }
+      
+      return;
     }
-  }, [messages]);
+    
+    // 檢查用戶是否發生變化
+    if (currentUserId !== newUserId) {
+      console.log('🔄 用戶切換偵測:', currentUserId, '->', newUserId);
+      
+      // 🚨 立即取消進行中的請求，避免衝突
+      if (abortControllerRef.current) {
+        console.log('🛑 取消進行中的請求...');
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+      
+      // 停止載入狀態
+      setLoading(false);
+      setLoadingStartTime(null);
+      setFeedbackStates({});
+      
+      // 载入新用户的数据
+      const newUserConversationId = loadConversationId(newUserId);
+      const newUserMessages = loadMessagesFromStorage(newUserId);
+      
+      console.log('� 切换到新用户数据:', {
+        userId: newUserId || 'guest',
+        hasConversationId: !!newUserConversationId,
+        hasMessages: !!(newUserMessages && newUserMessages.length > 0)
+      });
+      
+      // 设置新用户的对话ID和消息
+      setConversationId(newUserConversationId || '');
+      
+      if (newUserMessages && newUserMessages.length > 0) {
+        setMessages(newUserMessages);
+      } else {
+        setMessages([{ ...DEFAULT_WELCOME_MESSAGE, timestamp: new Date() }]);
+      }
+      
+      // 顯示用戶切換提示
+      if (newUserId) {
+        message.info({
+          content: `🔄 偵測到用戶切換，已載入您的對話記錄。歡迎 ${user?.username || '新用戶'}！`,
+          duration: 3
+        });
+      } else {
+        message.info({
+          content: '🔄 用戶登出，已切換至訪客模式。',
+          duration: 3
+        });
+      }
+      
+      // 更新當前用戶ID
+      setCurrentUserId(newUserId);
+    }
+  }, [user?.id, currentUserId, user?.username]);
 
-  // 保存對話 ID
+  // 自動保存消息到 localStorage (基于当前用户)
   useEffect(() => {
-    if (conversationId) {
-      saveConversationId(conversationId);
+    if (messages.length > 0 && currentUserId !== null) {
+      saveMessagesToStorage(messages, currentUserId);
     }
-  }, [conversationId]);
+  }, [messages, currentUserId]);
+
+  // 保存對話 ID (基于当前用户)
+  useEffect(() => {
+    if (currentUserId !== null) {
+      if (conversationId) {
+        saveConversationId(conversationId, currentUserId);
+      } else {
+        // 如果對話ID被清空，也要清除localStorage
+        const conversationKey = getUserConversationKey(currentUserId);
+        localStorage.removeItem(conversationKey);
+      }
+    }
+  }, [conversationId, currentUserId]);
 
   // 載入 RVT Guide 配置資訊
   useEffect(() => {
@@ -227,8 +358,37 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
     }
   };
 
+
+
   const handleSendMessage = async () => {
     if (!inputMessage.trim()) return;
+
+    // 🚨 檢查用戶是否在發送消息時發生切換
+    const sendTimeUserId = user?.id || null;
+    if (currentUserId !== null && currentUserId !== sendTimeUserId) {
+      console.log('🔄 發送時偵測到用戶切換，重置對話狀態');
+      
+      // 立即更新用戶ID和清除狀態
+      setCurrentUserId(sendTimeUserId);
+      setConversationId('');
+      const conversationKey = getUserConversationKey(sendTimeUserId);
+      localStorage.removeItem(conversationKey);
+      
+      message.warning('偵測到用戶切換，請重新發送您的消息。');
+      return;
+    }
+
+    // 现在每个用户都有独立的存储，不需要额外的安全检查
+
+    console.log('📤 發送消息:', {
+      message: inputMessage.trim(),
+      currentUserId,
+      sendTimeUserId,
+      user: user?.username || 'guest',
+      userObject: user,
+      conversationId,
+      timestamp: new Date().toISOString()
+    });
 
     const userMessage = {
       id: Date.now(),
@@ -247,22 +407,41 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
     abortControllerRef.current = abortController;
 
     try {
-      // 使用 RVT Guide Chat API
+      console.log('🌐 準備發送 API 請求到:', '/api/rvt-guide/chat/');
+      console.log('🔑 使用對話ID:', conversationId || '(空 - 將創建新對話)');
+      
+      // 使用 RVT Guide Chat API (注意：此API有@csrf_exempt，不需要CSRF令牌)
       const response = await fetch('/api/rvt-guide/chat/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
         },
         credentials: 'include',
         signal: abortController.signal, // 添加 abort signal
         body: JSON.stringify({
           message: userMessage.content,
-          conversation_id: conversationId
+          conversation_id: conversationId || ''  // 使用正確的 state 變數
         })
       });
 
       // 檢查回應狀態
+      console.log('📡 API 回應狀態:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+      
       if (!response.ok) {
+        if (response.status === 404) {
+          // 404 錯誤 - 立即清除對話ID並重試
+          console.log('🔄 404錯誤，清除對話ID並準備重試');
+          setConversationId('');
+          const conversationKey = getUserConversationKey(currentUserId);
+          localStorage.removeItem(conversationKey);
+          throw new Error('conversation_expired_404');
+        }
         if (response.status === 403 || response.status === 401) {
           throw new Error('guest_auth_issue');
         }
@@ -331,17 +510,30 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
             errorMessage.includes('404')) {
           // 清除無效的對話ID
           setConversationId('');
-          localStorage.removeItem(CONVERSATION_ID_KEY);
+          const conversationKey = getUserConversationKey(currentUserId);
+          localStorage.removeItem(conversationKey);
           
-          // 提示用戶重新發送
-          throw new Error('對話已過期，請重新發送您的問題。系統將自動開始新對話。');
+          // 檢查是否是用戶切換導致的問題
+          const currentUser = user?.username || '訪客';
+          console.log('🔄 對話過期偵測，當前用戶:', currentUser, '- 將重新開始對話');
+          
+          // 提示用戶重新發送，同時清除對話ID讓下次請求自動創建新對話
+          throw new Error(`🔄 用戶切換後對話已重置，請重新發送您的問題。\n\n💡 提示：下一條消息將自動開始新對話\n當前用戶: ${currentUser}`);
         }
         
         throw new Error(errorMessage);
       }
 
     } catch (error) {
-      console.error('Error calling RVT Guide Chat API:', error);
+      console.error('❌ RVT Guide Chat API 錯誤:', {
+        error,
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+        currentUserId,
+        conversationId,
+        userLoggedIn: !!user?.id
+      });
       
       // 檢查是否是用戶主動取消
       if (error.name === 'AbortError') {
@@ -353,6 +545,98 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
         };
         setMessages(prev => [...prev, cancelMessage]);
         return;
+      }
+      
+      // 🔄 404 錯誤自動重試邏輯
+      if (error.message.includes('conversation_expired_404')) {
+        console.log('🔄 執行404自動重試...', {
+          currentUser: user?.username || '訪客',
+          userId: user?.id || null,
+          conversationId: conversationId,
+          requestUrl: '/api/rvt-guide/chat/',
+          retryTime: new Date().toISOString()
+        });
+        
+        try {
+          // 等待一小段時間讓認證狀態穩定
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // 用空的conversation_id重新發送請求
+          const retryResponse = await fetch('/api/rvt-guide/chat/', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+              message: userMessage.content,
+              conversation_id: '' // 空對話ID，創建新對話
+            })
+          });
+
+          console.log('🔄 重試回應詳情:', {
+            status: retryResponse.status,
+            statusText: retryResponse.statusText,
+            ok: retryResponse.ok,
+            headers: Object.fromEntries(retryResponse.headers.entries()),
+            url: retryResponse.url
+          });
+
+          if (retryResponse.ok) {
+            const retryData = await retryResponse.json();
+            console.log('🔄 重試回應數據:', retryData);
+            
+            if (retryData.success) {
+              console.log('✅ 自動重試成功');
+              
+              // 更新對話ID
+              setConversationId(retryData.conversation_id);
+              saveConversationId(retryData.conversation_id);
+              
+              const assistantMessage = {
+                id: Date.now() + 1,
+                type: 'assistant',
+                content: `🔄 已自動重新開始對話\n\n${retryData.answer}`,
+                timestamp: new Date(),
+                metadata: retryData.metadata,
+                usage: retryData.usage,
+                response_time: retryData.response_time,
+                message_id: retryData.message_id
+              };
+
+              setMessages(prev => [...prev, assistantMessage]);
+              
+              // 記錄使用情況
+              recordChatUsage(CHAT_TYPES.RVT_ASSISTANT, {
+                messageCount: 1,
+                hasFileUpload: false,
+                responseTime: retryData.response_time,
+                sessionId: retryData.conversation_id
+              });
+              
+              // 成功重試，直接返回不顯示錯誤
+              return;
+            } else {
+              console.log('❌ 重試時 API 返回 success: false:', retryData);
+            }
+          } else {
+            console.log('❌ 重試請求失敗:', retryResponse.status, retryResponse.statusText);
+            
+            // 如果重試也返回404，說明可能是認證問題
+            if (retryResponse.status === 404) {
+              const errorText = await retryResponse.text();
+              console.log('❌ 重試404錯誤內容:', errorText);
+            }
+          }
+        } catch (retryError) {
+          console.error('❌ 自動重試失敗詳情:', {
+            error: retryError,
+            message: retryError.message,
+            name: retryError.name,
+            stack: retryError.stack
+          });
+        }
       }
       
       let errorText = '未知錯誤';
@@ -380,6 +664,8 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
         errorText = '訪客可以使用 RVT Assistant，無需登入。請稍後再試';
       } else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
         errorText = '用戶會話可能已過期，但可以繼續使用 RVT Assistant';
+      } else if (error.message.includes('conversation_expired_404')) {
+        errorText = '🔄 對話已自動重置，請重新發送您的消息。';
       } else if (error.message.includes('對話已過期') || error.message.includes('重新發送您的問題')) {
         errorText = error.message;
       } else {
@@ -457,9 +743,9 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
     setMessages([defaultMessage]);
     setConversationId('');
     
-    // 清除 localStorage 中的記錄
-    clearStoredChat();
-  }, []);
+    // 清除当前用户的 localStorage 記錄
+    clearStoredChat(currentUserId);
+  }, [currentUserId]);
 
   // 將 clearChat 函數傳遞給父組件
   React.useEffect(() => {
