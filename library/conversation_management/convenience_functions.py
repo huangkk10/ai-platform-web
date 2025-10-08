@@ -285,12 +285,18 @@ def record_complete_exchange(
             return user_result
         
         # 記錄AI回覆
+        # 從 metadata 中提取 dify_message_id 作為 message_id
+        dify_message_id = ""
+        if metadata and isinstance(metadata, dict):
+            dify_message_id = metadata.get('dify_message_id', '')
+        
         assistant_result = ConversationRecorder.record_assistant_message(
             conversation_session=session,
             content=assistant_message,
             response_time=response_time,
             token_usage=token_usage,
-            metadata=metadata
+            metadata=metadata,
+            message_id=dify_message_id  # 添加 message_id 參數
         )
         
         if not assistant_result["success"]:

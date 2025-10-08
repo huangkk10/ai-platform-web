@@ -15,6 +15,7 @@ class DisableCSRFMiddleware(MiddlewareMixin):
         '/api/dify/',
         '/api/rvt-guide/',
         '/api/rvt-guides/',  # RVT Guide CRUD API
+        '/api/rvt-analytics/',  # RVT Analytics API (反饋和分析功能)
         '/api/users/',  # 用戶管理 API
         '/api/profiles/',  # 用戶檔案和權限管理 API
         '/api/projects/',  # 專案管理 API

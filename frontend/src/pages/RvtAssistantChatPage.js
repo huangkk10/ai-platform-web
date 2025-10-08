@@ -1,10 +1,14 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Layout, Input, Button, Card, Avatar, message, Spin, Typography, Tag, Table } from 'antd';
+import { Layout, Input, Button, Card, Avatar, message, Spin, Typography, Tag, Table, Tooltip } from 'antd';
 import { 
   SendOutlined, 
   MinusSquareFilled,
   UserOutlined, 
-  ToolOutlined 
+  ToolOutlined,
+  LikeOutlined,
+  DislikeOutlined,
+  LikeFilled,
+  DislikeFilled
 } from '@ant-design/icons';
 import { useChatContext } from '../contexts/ChatContext';
 import { recordChatUsage, CHAT_TYPES } from '../utils/chatUsage';
@@ -171,6 +175,7 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
   const [loadingStartTime, setLoadingStartTime] = useState(null);
   const [conversationId, setConversationId] = useState(loadConversationId);
   const [rvtConfig, setRvtConfig] = useState(null);
+  const [feedbackStates, setFeedbackStates] = useState({}); // 存儲每個消息的反饋狀態
   const messagesEndRef = useRef(null);
   const abortControllerRef = useRef(null);
 
@@ -302,7 +307,8 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
           timestamp: new Date(),
           metadata: data.metadata,
           usage: data.usage,
-          response_time: data.response_time
+          response_time: data.response_time,
+          message_id: data.message_id // 從 API 回應中獲取 message_id
         };
 
         setMessages(prev => [...prev, assistantMessage]);
@@ -411,6 +417,39 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
     }
   };
 
+  const handleMessageFeedback = async (messageId, isHelpful) => {
+    try {
+      const response = await fetch('/api/rvt-analytics/feedback/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          message_id: messageId,
+          is_helpful: isHelpful
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        // 更新反饋狀態
+        setFeedbackStates(prev => ({
+          ...prev,
+          [messageId]: isHelpful
+        }));
+        
+        message.success(isHelpful ? '感謝您的正面反饋！' : '感謝您的反饋，我們會持續改進！');
+      } else {
+        message.error(`反饋提交失敗: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('提交反饋失敗:', error);
+      message.error('反饋提交失敗，請稍後再試');
+    }
+  };
+
   const clearChat = useCallback(() => {
     // 使用預設歡迎消息常量
     const defaultMessage = { ...DEFAULT_WELCOME_MESSAGE, timestamp: new Date() };
@@ -500,6 +539,44 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
                   <div className="message-text chat-message-content">
                     {formatMessage(msg.content)}
                   </div>
+                  
+                  {/* AI 回覆的反饋按鈕 */}
+                  {msg.type === 'assistant' && msg.message_id && (
+                    <div className="message-feedback" style={{ 
+                      marginTop: '8px', 
+                      display: 'flex', 
+                      gap: '8px', 
+                      alignItems: 'center' 
+                    }}>
+                      <Tooltip title="回應良好" placement="top">
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={feedbackStates[msg.message_id] === true ? <LikeFilled /> : <LikeOutlined />}
+                          onClick={() => handleMessageFeedback(msg.message_id, true)}
+                          style={{ 
+                            color: feedbackStates[msg.message_id] === true ? '#52c41a' : '#8c8c8c',
+                            backgroundColor: 'transparent',
+                            border: 'none'
+                          }}
+                        />
+                      </Tooltip>
+                      <Tooltip title="回應不佳" placement="top">
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={feedbackStates[msg.message_id] === false ? <DislikeFilled /> : <DislikeOutlined />}
+                          onClick={() => handleMessageFeedback(msg.message_id, false)}
+                          style={{ 
+                            color: feedbackStates[msg.message_id] === false ? '#ff4d4f' : '#8c8c8c',
+                            backgroundColor: 'transparent',
+                            border: 'none'
+                          }}
+                        />
+                      </Tooltip>
+                    </div>
+                  )}
+                  
                   <div className="message-time">
                     {msg.timestamp.toLocaleTimeString('zh-TW', { 
                       hour: '2-digit', 

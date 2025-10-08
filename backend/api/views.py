@@ -152,6 +152,26 @@ try:
         create_chat_usage_recorder,
         CHAT_ANALYTICS_LIBRARY_AVAILABLE
     )
+    # 🆕 導入 RVT Analytics library
+    from library.rvt_analytics import (
+        MessageFeedbackHandler,
+        QuestionClassifier,
+        SatisfactionAnalyzer,
+        StatisticsManager,
+        RVTAnalyticsAPIHandler,
+        record_message_feedback,
+        classify_question,
+        analyze_user_satisfaction,
+        get_rvt_analytics_stats,
+        handle_feedback_api,
+        handle_analytics_api,
+        RVT_ANALYTICS_AVAILABLE,
+        MESSAGE_FEEDBACK_AVAILABLE,
+        QUESTION_CLASSIFIER_AVAILABLE,
+        SATISFACTION_ANALYZER_AVAILABLE,
+        STATISTICS_MANAGER_AVAILABLE,
+        API_HANDLERS_AVAILABLE
+    )
     # 🆕 導入 Task Management library
     from library.task_management import (
         TaskViewSetManager,
@@ -244,6 +264,24 @@ except ImportError:
     create_chat_statistics_handler = None
     create_chat_usage_recorder = None
     CHAT_ANALYTICS_LIBRARY_AVAILABLE = False
+    # 🆕 備用 RVT Analytics 服務
+    MessageFeedbackHandler = None
+    QuestionClassifier = None
+    SatisfactionAnalyzer = None
+    StatisticsManager = None
+    RVTAnalyticsAPIHandler = None
+    record_message_feedback = None
+    classify_question = None
+    analyze_user_satisfaction = None
+    get_rvt_analytics_stats = None
+    handle_feedback_api = None
+    handle_analytics_api = None
+    RVT_ANALYTICS_AVAILABLE = False
+    MESSAGE_FEEDBACK_AVAILABLE = False
+    QUESTION_CLASSIFIER_AVAILABLE = False
+    SATISFACTION_ANALYZER_AVAILABLE = False
+    STATISTICS_MANAGER_AVAILABLE = False
+    API_HANDLERS_AVAILABLE = False
     # 🆕 備用 Task Management 服務
     TaskViewSetManager = None
     TaskQueryManager = None
@@ -2231,3 +2269,285 @@ def conversation_stats(request):
             'success': False,
             'error': f'對話統計獲取失敗: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ============= RVT Analytics API 端點 =============
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([AllowAny])  # 支援訪客使用反饋功能
+def rvt_analytics_feedback(request):
+    """
+    RVT Assistant 消息反饋 API - 使用 RVT Analytics Library
+    POST /api/rvt-analytics/feedback/
+    
+    預期 payload:
+    {
+        "message_id": "uuid-string",
+        "is_helpful": true/false
+    }
+    """
+    try:
+        if RVT_ANALYTICS_AVAILABLE and handle_feedback_api:
+            return handle_feedback_api(request)
+        else:
+            # 使用備用實現
+            logger.warning("RVT Analytics Library 不可用，使用備用反饋處理")
+            try:
+                import json
+                data = json.loads(request.body)
+                message_id = data.get('message_id')
+                is_helpful = data.get('is_helpful')
+                
+                if not message_id or is_helpful is None:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'message_id and is_helpful are required'
+                    }, status=400)
+                
+                # 簡化的備用處理 - 直接更新數據庫
+                from .models import ChatMessage
+                try:
+                    message = ChatMessage.objects.get(message_id=message_id)
+                    message.is_helpful = is_helpful
+                    message.save(update_fields=['is_helpful', 'updated_at'])
+                    
+                    return JsonResponse({
+                        'success': True,
+                        'message': '反饋已記錄',
+                        'fallback': True,
+                        'data': {
+                            'message_id': message_id,
+                            'is_helpful': is_helpful
+                        }
+                    }, status=200)
+                    
+                except ChatMessage.DoesNotExist:
+                    return JsonResponse({
+                        'success': False,
+                        'error': '消息不存在'
+                    }, status=404)
+                    
+            except Exception as e:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'備用反饋處理失敗: {str(e)}'
+                }, status=500)
+            
+    except Exception as e:
+        logger.error(f"RVT Analytics feedback API error: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': f'反饋處理失敗: {str(e)}'
+        }, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def rvt_analytics_overview(request):
+    """
+    RVT Analytics 概覽 API - 使用 RVT Analytics Library
+    GET /api/rvt-analytics/overview/
+    
+    Query parameters:
+    - days: 統計天數 (default: 30)
+    - user_id: 特定用戶ID (admin only)
+    """
+    try:
+        if RVT_ANALYTICS_AVAILABLE and RVTAnalyticsAPIHandler:
+            return RVTAnalyticsAPIHandler.handle_analytics_overview_api(request)
+        else:
+            # 備用實現
+            logger.warning("RVT Analytics Library 不可用，使用備用概覽實現")
+            try:
+                days = int(request.GET.get('days', 30))
+                user_id = request.GET.get('user_id')
+                
+                # 權限檢查
+                if user_id and not request.user.is_staff:
+                    return JsonResponse({
+                        'success': False,
+                        'error': '無權限查看其他用戶數據'
+                    }, status=403)
+                
+                # 簡化的統計
+                from django.utils import timezone
+                from datetime import timedelta
+                from .models import ConversationSession, ChatMessage
+                
+                start_date = timezone.now() - timedelta(days=days)
+                
+                # 基本統計
+                total_conversations = ConversationSession.objects.filter(
+                    created_at__gte=start_date
+                ).count()
+                
+                total_messages = ChatMessage.objects.filter(
+                    created_at__gte=start_date,
+                    role='assistant'
+                ).count()
+                
+                helpful_count = ChatMessage.objects.filter(
+                    created_at__gte=start_date,
+                    role='assistant',
+                    is_helpful=True
+                ).count()
+                
+                return JsonResponse({
+                    'success': True,
+                    'fallback': True,
+                    'data': {
+                        'period': f'{days} 天',
+                        'overview': {
+                            'total_conversations': total_conversations,
+                            'total_messages': total_messages,
+                            'helpful_messages': helpful_count
+                        }
+                    }
+                }, status=200)
+                
+            except Exception as e:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'備用概覽處理失敗: {str(e)}'
+                }, status=500)
+            
+    except Exception as e:
+        logger.error(f"RVT Analytics overview API error: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': f'概覽獲取失敗: {str(e)}'
+        }, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])  # 需要管理員權限，但先設為登入即可
+def rvt_analytics_questions(request):
+    """
+    RVT Analytics 問題分析 API - 使用 RVT Analytics Library
+    GET /api/rvt-analytics/questions/
+    
+    Query parameters:
+    - days: 統計天數 (default: 7)
+    - category: 問題分類過濾
+    """
+    try:
+        if RVT_ANALYTICS_AVAILABLE and RVTAnalyticsAPIHandler:
+            return RVTAnalyticsAPIHandler.handle_question_analysis_api(request)
+        else:
+            # 備用實現
+            logger.warning("RVT Analytics Library 不可用，使用備用問題分析實現")
+            try:
+                days = int(request.GET.get('days', 7))
+                
+                # 簡化的問題分析
+                from django.utils import timezone
+                from datetime import timedelta
+                from .models import ChatMessage
+                from collections import Counter
+                
+                start_date = timezone.now() - timedelta(days=days)
+                
+                user_messages = ChatMessage.objects.filter(
+                    role='user',
+                    created_at__gte=start_date
+                ).values_list('content', flat=True)
+                
+                # 簡單的關鍵字統計
+                keywords = []
+                for message in user_messages:
+                    words = message.lower().split()
+                    keywords.extend([w for w in words if len(w) > 3])
+                
+                keyword_counts = Counter(keywords).most_common(10)
+                
+                return JsonResponse({
+                    'success': True,
+                    'fallback': True,
+                    'data': {
+                        'total_questions': len(user_messages),
+                        'top_keywords': keyword_counts,
+                        'period': f'{days} 天'
+                    }
+                }, status=200)
+                
+            except Exception as e:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'備用問題分析失敗: {str(e)}'
+                }, status=500)
+            
+    except Exception as e:
+        logger.error(f"RVT Analytics questions API error: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': f'問題分析失敗: {str(e)}'
+        }, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])  # 需要管理員權限，但先設為登入即可
+def rvt_analytics_satisfaction(request):
+    """
+    RVT Analytics 滿意度分析 API - 使用 RVT Analytics Library
+    GET /api/rvt-analytics/satisfaction/
+    
+    Query parameters:
+    - days: 統計天數 (default: 30)
+    - detail: 是否包含詳細分析 (true/false)
+    """
+    try:
+        if RVT_ANALYTICS_AVAILABLE and RVTAnalyticsAPIHandler:
+            return RVTAnalyticsAPIHandler.handle_satisfaction_analysis_api(request)
+        else:
+            # 備用實現
+            logger.warning("RVT Analytics Library 不可用，使用備用滿意度分析實現")
+            try:
+                days = int(request.GET.get('days', 30))
+                
+                # 簡化的滿意度分析
+                from django.utils import timezone
+                from datetime import timedelta
+                from .models import ChatMessage
+                
+                start_date = timezone.now() - timedelta(days=days)
+                
+                assistant_messages = ChatMessage.objects.filter(
+                    role='assistant',
+                    created_at__gte=start_date
+                )
+                
+                total_messages = assistant_messages.count()
+                helpful_messages = assistant_messages.filter(is_helpful=True).count()
+                unhelpful_messages = assistant_messages.filter(is_helpful=False).count()
+                
+                satisfaction_rate = None
+                if helpful_messages + unhelpful_messages > 0:
+                    satisfaction_rate = helpful_messages / (helpful_messages + unhelpful_messages)
+                
+                return JsonResponse({
+                    'success': True,
+                    'fallback': True,
+                    'data': {
+                        'basic_stats': {
+                            'total_messages': total_messages,
+                            'helpful_count': helpful_messages,
+                            'unhelpful_count': unhelpful_messages,
+                            'satisfaction_rate': round(satisfaction_rate, 3) if satisfaction_rate else None
+                        },
+                        'analysis_period': f'{days} 天'
+                    }
+                }, status=200)
+                
+            except Exception as e:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'備用滿意度分析失敗: {str(e)}'
+                }, status=500)
+            
+    except Exception as e:
+        logger.error(f"RVT Analytics satisfaction API error: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': f'滿意度分析失敗: {str(e)}'
+        }, status=500)

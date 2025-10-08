@@ -121,6 +121,7 @@ class ConversationRecorder:
         response_time: Optional[float] = None,
         token_usage: Optional[Dict] = None,
         metadata: Optional[Dict] = None,
+        message_id: str = "",
         **kwargs
     ) -> Dict[str, Any]:
         """
@@ -141,6 +142,7 @@ class ConversationRecorder:
             conversation_session=conversation_session,
             role='assistant',
             content=content,
+            message_id=message_id,
             response_time=response_time,
             token_usage=token_usage,
             metadata=metadata,

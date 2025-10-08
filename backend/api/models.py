@@ -603,6 +603,7 @@ class ConversationSession(models.Model):
     message_count = models.PositiveIntegerField(default=0, verbose_name="訊息總數")
     total_tokens = models.PositiveIntegerField(default=0, verbose_name="Token總使用量")
     total_response_time = models.FloatField(default=0, verbose_name="總回應時間(秒)")
+    satisfaction_score = models.FloatField(null=True, blank=True, verbose_name="滿意度分數")
     
     # 狀態管理
     is_active = models.BooleanField(default=True, verbose_name="是否活躍")
@@ -732,6 +733,9 @@ class ChatMessage(models.Model):
     # 標記功能
     is_bookmarked = models.BooleanField(default=False, verbose_name="是否收藏")
     is_helpful = models.BooleanField(null=True, blank=True, verbose_name="是否有幫助")
+    
+    # 問題分類（僅用戶訊息）
+    question_category = models.CharField(max_length=100, null=True, blank=True, verbose_name="問題分類")
     
     # 時間戳記
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="建立時間")

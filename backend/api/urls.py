@@ -79,4 +79,10 @@ urlpatterns = [
     path('conversations/record/', views.record_conversation, name='record_conversation'),
     path('conversations/sessions/<str:session_id>/', views.update_conversation_session, name='update_conversation_session'),
     path('conversations/stats/', views.conversation_stats, name='conversation_stats'),
+    
+    # RVT Analytics API - RVT Assistant 分析功能
+    path('rvt-analytics/feedback/', views.rvt_analytics_feedback, name='rvt_analytics_feedback'),
+    path('rvt-analytics/overview/', views.rvt_analytics_overview, name='rvt_analytics_overview'),
+    path('rvt-analytics/questions/', views.rvt_analytics_questions, name='rvt_analytics_questions'),
+    path('rvt-analytics/satisfaction/', views.rvt_analytics_satisfaction, name='rvt_analytics_satisfaction'),
 ]

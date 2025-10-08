@@ -21,6 +21,7 @@ import LogAnalyzeChatPage from './pages/LogAnalyzeChatPage';
 import RvtAssistantChatPage from './pages/RvtAssistantChatPage';
 import LogAnalyzePage from './pages/LogAnalyzePage';
 import RvtGuideEditPage from './pages/RvtGuideEditPage';
+import RVTAnalyticsPage from './pages/RVTAnalyticsPage';
 
 const { Content } = Layout;
 
@@ -73,6 +74,8 @@ function AppLayout() {
         return 'RVT Assistant - 新增 User Guide';
       case '/admin/user-management':
         return '用戶權限管理';
+      case '/admin/rvt-analytics':
+        return 'RVT Assistant 分析報告';
       default:
         // 動態處理編輯頁面的標題
         if (pathname.startsWith('/knowledge/rvt-guide/edit/')) {
@@ -153,6 +156,7 @@ function AppLayout() {
             <Route path="/log-analyze" element={<LogAnalyzePage />} />
             <Route path="/admin/test-class-management" element={<TestClassManagementPage />} />
             <Route path="/admin/user-management" element={<IntegratedUserManagementPage />} />
+            <Route path="/admin/rvt-analytics" element={<RVTAnalyticsPage />} />
           </Routes>
         </Content>
       </Layout>

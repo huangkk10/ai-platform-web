@@ -94,6 +94,9 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       case 'user-management':
         navigate('/admin/user-management');
         break;
+      case 'rvt-analytics':
+        navigate('/admin/rvt-analytics');
+        break;
       default:
         console.log('Unknown menu key:', key);
         break;
@@ -149,6 +152,11 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       // 整合的用戶權限管理 - Django 管理員權限
       if (user && (user.is_staff || user.is_superuser)) {
         children.push({ key: 'user-management', icon: <UserOutlined />, label: '用戶權限管理' });
+      }
+      
+      // RVT Analytics 分析報告 - Django 管理員權限
+      if (user && (user.is_staff || user.is_superuser)) {
+        children.push({ key: 'rvt-analytics', icon: <BarChartOutlined />, label: 'RVT Assistant 分析' });
       }
       
       return children;
