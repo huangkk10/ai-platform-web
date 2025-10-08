@@ -32,6 +32,21 @@ import {
   DownloadOutlined,
   CalendarOutlined
 } from '@ant-design/icons';
+import { 
+  PieChart, 
+  Pie, 
+  Cell, 
+  BarChart, 
+  Bar, 
+  LineChart, 
+  Line, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  Legend, 
+  ResponsiveContainer 
+} from 'recharts';
 import { useAuth } from '../contexts/AuthContext';
 import dayjs from 'dayjs';
 
@@ -179,6 +194,55 @@ const RVTAnalyticsPage = () => {
     );
   };
 
+  // 圖表數據處理函數
+  const prepareCategoryPieData = () => {
+    if (!questionData?.category_distribution) return [];
+    
+    const colors = ['#1890ff', '#52c41a', '#faad14', '#f5222d', '#722ed1', '#13c2c2'];
+    return Object.entries(questionData.category_distribution).map(([category, count], index) => ({
+      name: category,
+      value: count,
+      color: colors[index % colors.length]
+    }));
+  };
+
+  const prepareSatisfactionBarData = () => {
+    if (!satisfactionData?.basic_stats) return [];
+    
+    const { helpful_count, unhelpful_count, unrated_count } = satisfactionData.basic_stats;
+    return [
+      { name: '正面反饋', value: helpful_count || 0, color: '#52c41a' },
+      { name: '負面反饋', value: unhelpful_count || 0, color: '#ff4d4f' },
+      { name: '無反饋', value: unrated_count || 0, color: '#d9d9d9' }
+    ];
+  };
+
+  const prepareResponseTimeData = () => {
+    if (!satisfactionData?.response_time_analysis) return [];
+    
+    const { fast, medium, slow } = satisfactionData.response_time_analysis;
+    return [
+      { name: '快速 (< 3s)', messages: fast?.total_messages || 0, satisfaction: (fast?.satisfaction_rate || 0) * 100 },
+      { name: '中等 (3-10s)', messages: medium?.total_messages || 0, satisfaction: (medium?.satisfaction_rate || 0) * 100 },
+      { name: '較慢 (> 10s)', messages: slow?.total_messages || 0, satisfaction: (slow?.satisfaction_rate || 0) * 100 }
+    ];
+  };
+
+  const preparePopularQuestionsData = () => {
+    if (!questionData?.popular_questions) return [];
+    
+    // 將 popular_questions 數據轉換為圖表格式
+    return questionData.popular_questions
+      .slice(0, 10) // 最多顯示前10個
+      .map((item, index) => ({
+        rank: `#${index + 1}`,
+        question: item.pattern || item.question || '未知問題',
+        count: item.count || 0,
+        examples: item.examples || []
+      }))
+      .sort((a, b) => b.count - a.count); // 按次數降序排列
+  };
+
   const renderQuestionAnalysis = () => {
     if (!questionData) {
       return (
@@ -189,54 +253,422 @@ const RVTAnalyticsPage = () => {
     }
 
     const { total_questions, top_keywords, category_distribution } = questionData;
+    const pieData = prepareCategoryPieData();
+    const popularQuestionsData = preparePopularQuestionsData();
 
     return (
-      <Card title="問題分析" extra={<Tag color="blue">{questionData.period}</Tag>}>
-        <Row gutter={[16, 16]}>
-          <Col xs={24} lg={12}>
-            <Card size="small" title="總問題數量">
-              <Statistic value={total_questions || 0} />
-            </Card>
-          </Col>
-          <Col xs={24} lg={12}>
-            <Card size="small" title="熱門關鍵詞">
-              {top_keywords && top_keywords.length > 0 ? (
-                <List
-                  size="small"
-                  dataSource={top_keywords.slice(0, 5)}
-                  renderItem={([keyword, count], index) => (
-                    <List.Item>
-                      <Space>
-                        <Tag color={['red', 'orange', 'gold', 'green', 'blue'][index]}>
-                          #{index + 1}
-                        </Tag>
-                        <Text strong>{keyword}</Text>
-                        <Text type="secondary">({count} 次)</Text>
-                      </Space>
-                    </List.Item>
+      <Space direction="vertical" style={{ width: '100%' }} size="large">
+        {/* 第一行：問題類型分布和統計信息 */}
+        <Card title="問題分析" extra={<Tag color="blue">{questionData.period}</Tag>}>
+          <Row gutter={[16, 16]}>
+            {/* 問題類型分布圓餅圖 */}
+            <Col xs={24} lg={12}>
+              <Card size="small" title="問題類型分布">
+                {pieData.length > 0 ? (
+                  <div style={{ height: '300px' }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={pieData}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={80}
+                          label={({ name, percent }) => `${name} (${(percent * 100).toFixed(1)}%)`}
+                        >
+                          {pieData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <Empty description="暫無分類數據" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                )}
+              </Card>
+            </Col>
+
+            {/* 統計信息 */}
+            <Col xs={24} lg={12}>
+              <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                <Card size="small" title="總問題數量">
+                  <Statistic value={total_questions || 0} />
+                </Card>
+                
+                <Card size="small" title="熱門關鍵詞">
+                  {top_keywords && top_keywords.length > 0 ? (
+                    <List
+                      size="small"
+                      dataSource={top_keywords.slice(0, 5)}
+                      renderItem={([keyword, count], index) => (
+                        <List.Item>
+                          <Space>
+                            <Tag color={['red', 'orange', 'gold', 'green', 'blue'][index]}>
+                              #{index + 1}
+                            </Tag>
+                            <Text strong>{keyword}</Text>
+                            <Text type="secondary">({count} 次)</Text>
+                          </Space>
+                        </List.Item>
+                      )}
+                    />
+                  ) : (
+                    <Empty description="暫無關鍵詞統計" image={Empty.PRESENTED_IMAGE_SIMPLE} />
                   )}
-                />
-              ) : (
-                <Empty description="暫無關鍵詞統計" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-              )}
+                </Card>
+              </Space>
+            </Col>
+          </Row>
+          
+          {/* 詳細分類統計 */}
+          {category_distribution && Object.keys(category_distribution).length > 0 && (
+            <Card size="small" title="詳細分類統計" style={{ marginTop: 16 }}>
+              <Row gutter={[8, 8]}>
+                {Object.entries(category_distribution).map(([category, count]) => (
+                  <Col key={category}>
+                    <Tag color="processing">
+                      {category}: {count}
+                    </Tag>
+                  </Col>
+                ))}
+              </Row>
             </Card>
-          </Col>
-        </Row>
-        
-        {category_distribution && Object.keys(category_distribution).length > 0 && (
-          <Card size="small" title="問題類型分布" style={{ marginTop: 16 }}>
-            <Row gutter={[8, 8]}>
-              {Object.entries(category_distribution).map(([category, count]) => (
-                <Col key={category}>
-                  <Tag color="processing">
-                    {category}: {count}
-                  </Tag>
-                </Col>
-              ))}
+          )}
+        </Card>
+
+        {/* 第二行：熱門問題排名長條圖 */}
+        <Card 
+          title="🔥 熱門問題排名" 
+          extra={
+            <Space>
+              {questionData?.is_vector_enhanced && (
+                <Tag color="cyan" icon="🚀">
+                  AI向量分析
+                </Tag>
+              )}
+              {questionData?.is_vector_enhanced === false && (
+                <Tag color="orange" icon="📝">
+                  關鍵詞統計
+                </Tag>
+              )}
+              <Tag color="volcano">最受關注</Tag>
+            </Space>
+          }
+        >
+          {popularQuestionsData.length > 0 ? (
+            <Row gutter={[16, 16]}>
+              {/* 長條圖 */}
+              <Col xs={24} lg={14}>
+                <div style={{ height: '400px' }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart 
+                      data={popularQuestionsData} 
+                      layout="horizontal"
+                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis type="number" />
+                      <YAxis 
+                        type="category" 
+                        dataKey="rank" 
+                        width={50}
+                      />
+                      <Tooltip 
+                        content={({ active, payload, label }) => {
+                          if (active && payload && payload.length) {
+                            const data = payload[0].payload;
+                            return (
+                              <div style={{
+                                backgroundColor: '#fff',
+                                padding: '12px',
+                                border: '1px solid #ccc',
+                                borderRadius: '6px',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                maxWidth: '350px'
+                              }}>
+                                <div style={{ marginBottom: '8px' }}>
+                                  <p style={{ margin: 0, fontWeight: 'bold', fontSize: '14px' }}>
+                                    {data.rank} 問題: {data.question}
+                                  </p>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                                    <span style={{ color: '#1890ff', fontWeight: 'bold' }}>
+                                      被問次數: {data.count}
+                                    </span>
+                                    {data.is_vector_based && (
+                                      <span style={{ 
+                                        fontSize: '10px', 
+                                        backgroundColor: '#e6f7ff', 
+                                        color: '#0050b3', 
+                                        padding: '2px 6px', 
+                                        borderRadius: '10px' 
+                                      }}>
+                                        🚀 AI分析
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                
+                                {data.cluster_id !== undefined && (
+                                  <p style={{ margin: '4px 0', fontSize: '11px', color: '#666' }}>
+                                    聚類ID: {data.cluster_id} | 信心度: {data.confidence?.toFixed(3) || 'N/A'}
+                                  </p>
+                                )}
+                                
+                                {data.examples && data.examples.length > 0 && (
+                                  <div style={{ marginTop: '8px' }}>
+                                    <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: '#666', fontWeight: 'bold' }}>
+                                      相關問題範例:
+                                    </p>
+                                    {data.examples.slice(0, 3).map((example, idx) => (
+                                      <p key={idx} style={{ 
+                                        margin: '2px 0', 
+                                        fontSize: '11px', 
+                                        color: '#999',
+                                        maxWidth: '300px',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap',
+                                        paddingLeft: '8px'
+                                      }}>
+                                        • {example}
+                                      </p>
+                                    ))}
+                                    {data.examples.length > 3 && (
+                                      <p style={{ 
+                                        margin: '2px 0', 
+                                        fontSize: '10px', 
+                                        color: '#ccc',
+                                        fontStyle: 'italic'
+                                      }}>
+                                        ... 還有 {data.examples.length - 3} 個相似問題
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Bar 
+                        dataKey="count" 
+                        fill="#1890ff"
+                        radius={[0, 4, 4, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </Col>
+
+              {/* 問題詳細列表 */}
+              <Col xs={24} lg={10}>
+                <Card size="small" title="問題詳情" style={{ height: '400px', overflow: 'auto' }}>
+                  <List
+                    dataSource={popularQuestionsData}
+                    renderItem={(item, index) => (
+                      <List.Item style={{ padding: '12px 0' }}>
+                        <List.Item.Meta
+                          avatar={
+                            <div style={{
+                              width: '32px',
+                              height: '32px',
+                              borderRadius: '50%',
+                              backgroundColor: ['#ff4d4f', '#fa8c16', '#fadb14', '#52c41a', '#1890ff', '#722ed1'][index % 6],
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: '#fff',
+                              fontWeight: 'bold',
+                              fontSize: '12px'
+                            }}>
+                              {item.rank}
+                            </div>
+                          }
+                          title={
+                            <div>
+                              <Text strong style={{ fontSize: '14px' }}>
+                                {item.question}
+                              </Text>
+                              <Tag color="blue" style={{ marginLeft: '8px', fontSize: '11px' }}>
+                                {item.count} 次
+                              </Tag>
+                              {item.is_vector_based && (
+                                <Tag color="cyan" style={{ marginLeft: '4px', fontSize: '10px' }}>
+                                  🚀 AI
+                                </Tag>
+                              )}
+                              {item.cluster_id !== undefined && (
+                                <Tag color="purple" style={{ marginLeft: '4px', fontSize: '10px' }}>
+                                  聚類 {item.cluster_id}
+                                </Tag>
+                              )}
+                            </div>
+                          }
+                          description={
+                            item.examples && item.examples.length > 0 && (
+                              <div style={{ marginTop: '4px' }}>
+                                <Text type="secondary" style={{ fontSize: '12px' }}>
+                                  範例: {item.examples[0]}
+                                  {item.examples.length > 1 && ` 等 ${item.examples.length} 種問法`}
+                                </Text>
+                              </div>
+                            )
+                          }
+                        />
+                      </List.Item>
+                    )}
+                  />
+                </Card>
+              </Col>
+            </Row>
+          ) : (
+            <Empty 
+              description="暫無熱門問題數據" 
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              style={{ padding: '40px 0' }}
+            >
+              <Text type="secondary">
+                隨著用戶使用增加，這裡將顯示最受關注的問題排名
+              </Text>
+            </Empty>
+          )}
+        </Card>
+      </Space>
+    );
+  };
+
+  const renderTrendAnalysis = () => {
+    if (!overviewData?.trends) {
+      return (
+        <Card title="趨勢分析" loading={loading}>
+          <Empty description="暫無趨勢數據" />
+        </Card>
+      );
+    }
+
+    const { trends, performance_metrics } = overviewData;
+
+    // 準備趨勢圖表數據
+    const prepareTrendData = () => {
+      const { daily_conversations = {}, daily_messages = {} } = trends;
+      
+      // 合併對話和消息數據
+      const allDates = new Set([
+        ...Object.keys(daily_conversations),
+        ...Object.keys(daily_messages)
+      ]);
+
+      return Array.from(allDates)
+        .sort()
+        .map(date => ({
+          date: dayjs(date).format('MM/DD'),
+          conversations: daily_conversations[date] || 0,
+          messages: daily_messages[date] || 0
+        }));
+    };
+
+    // 準備響應時間分布數據
+    const prepareResponseTimeDistribution = () => {
+      if (!performance_metrics?.response_time_distribution) return [];
+      
+      const { response_time_distribution } = performance_metrics;
+      return Object.entries(response_time_distribution).map(([range, count]) => ({
+        range,
+        count
+      }));
+    };
+
+    const trendData = prepareTrendData();
+    const responseTimeDistData = prepareResponseTimeDistribution();
+
+    return (
+      <Row gutter={[16, 16]}>
+        {/* 對話和消息趨勢 */}
+        <Col span={24}>
+          <Card title="對話與消息趨勢" extra={<Tag color="blue">{selectedDays} 天趨勢</Tag>}>
+            {trendData.length > 0 ? (
+              <div style={{ height: '300px' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={trendData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Line 
+                      type="monotone" 
+                      dataKey="conversations" 
+                      stroke="#1890ff" 
+                      name="對話數"
+                      strokeWidth={2}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="messages" 
+                      stroke="#52c41a" 
+                      name="消息數"
+                      strokeWidth={2}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <Empty description="暫無趨勢數據" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+            )}
+          </Card>
+        </Col>
+
+        {/* 性能指標 */}
+        <Col xs={24} lg={12}>
+          <Card title="響應性能指標">
+            <Row gutter={16}>
+              <Col span={12}>
+                <Statistic
+                  title="平均響應時間"
+                  value={performance_metrics?.avg_response_time || 0}
+                  suffix="秒"
+                  precision={2}
+                  valueStyle={{ color: '#1890ff' }}
+                />
+              </Col>
+              <Col span={12}>
+                <Statistic
+                  title="最大響應時間"
+                  value={performance_metrics?.max_response_time || 0}
+                  suffix="秒"
+                  precision={2}
+                  valueStyle={{ color: '#ff4d4f' }}
+                />
+              </Col>
             </Row>
           </Card>
-        )}
-      </Card>
+        </Col>
+
+        {/* 響應時間分布 */}
+        <Col xs={24} lg={12}>
+          <Card title="響應時間分布">
+            {responseTimeDistData.length > 0 ? (
+              <div style={{ height: '200px' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={responseTimeDistData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="range" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#722ed1" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <Empty description="暫無響應時間數據" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+            )}
+          </Card>
+        </Col>
+      </Row>
     );
   };
 
@@ -258,48 +690,67 @@ const RVTAnalyticsPage = () => {
       feedback_rate 
     } = basic_stats;
 
+    const barData = prepareSatisfactionBarData();
+    const responseTimeData = prepareResponseTimeData();
+
     return (
       <Card 
         title="滿意度詳細分析" 
         extra={<Tag color="green">{satisfactionData.analysis_period}</Tag>}
       >
         <Row gutter={[16, 16]}>
-          {/* 滿意度概覽 */}
+          {/* 反饋分布柱狀圖 */}
           <Col xs={24} lg={12}>
-            <Card size="small" title="反饋統計">
-              <Row gutter={16}>
-                <Col span={8}>
-                  <Statistic
-                    title="正面反饋"
-                    value={helpful_count || 0}
-                    valueStyle={{ color: '#52c41a' }}
-                    prefix={<LikeOutlined />}
-                  />
-                </Col>
-                <Col span={8}>
-                  <Statistic
-                    title="負面反饋"
-                    value={unhelpful_count || 0}
-                    valueStyle={{ color: '#ff4d4f' }}
-                    prefix={<DislikeOutlined />}
-                  />
-                </Col>
-                <Col span={8}>
-                  <Statistic
-                    title="總消息數"
-                    value={total_messages || 0}
-                    valueStyle={{ color: '#1890ff' }}
-                  />
-                </Col>
-              </Row>
+            <Card size="small" title="反饋分布">
+              <div style={{ height: '250px' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={barData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="value" fill="#1890ff">
+                      {barData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </Card>
           </Col>
 
-          {/* 滿意度進度條 */}
+          {/* 滿意度指標 */}
           <Col xs={24} lg={12}>
             <Card size="small" title="滿意度指標">
               <Space direction="vertical" style={{ width: '100%' }}>
-                <div>
+                <Row gutter={16}>
+                  <Col span={8}>
+                    <Statistic
+                      title="正面反饋"
+                      value={helpful_count || 0}
+                      valueStyle={{ color: '#52c41a' }}
+                      prefix={<LikeOutlined />}
+                    />
+                  </Col>
+                  <Col span={8}>
+                    <Statistic
+                      title="負面反饋"
+                      value={unhelpful_count || 0}
+                      valueStyle={{ color: '#ff4d4f' }}
+                      prefix={<DislikeOutlined />}
+                    />
+                  </Col>
+                  <Col span={8}>
+                    <Statistic
+                      title="總消息數"
+                      value={total_messages || 0}
+                      valueStyle={{ color: '#1890ff' }}
+                    />
+                  </Col>
+                </Row>
+                
+                <div style={{ marginTop: 16 }}>
                   <Text strong>整體滿意度</Text>
                   <Progress
                     percent={satisfaction_rate ? Math.round(satisfaction_rate * 100) : 0}
@@ -318,6 +769,30 @@ const RVTAnalyticsPage = () => {
             </Card>
           </Col>
         </Row>
+
+        {/* 響應時間分析圖表 */}
+        {responseTimeData.length > 0 && (
+          <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+            <Col span={24}>
+              <Card size="small" title="響應時間與滿意度關係">
+                <div style={{ height: '200px' }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={responseTimeData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis yAxisId="left" />
+                      <YAxis yAxisId="right" orientation="right" />
+                      <Tooltip />
+                      <Legend />
+                      <Bar yAxisId="left" dataKey="messages" fill="#8884d8" name="消息數量" />
+                      <Bar yAxisId="right" dataKey="satisfaction" fill="#82ca9d" name="滿意度 %" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </Card>
+            </Col>
+          </Row>
+        )}
 
         {/* 改進建議 */}
         {recommendations && recommendations.length > 0 && (
@@ -419,14 +894,7 @@ const RVTAnalyticsPage = () => {
             } 
             key="trends"
           >
-            <Card title="趨勢分析">
-              <Alert
-                message="功能開發中"
-                description="時間序列趨勢分析功能正在開發中，敬請期待。"
-                type="info"
-                showIcon
-              />
-            </Card>
+            {renderTrendAnalysis()}
           </TabPane>
         </Tabs>
       </Spin>

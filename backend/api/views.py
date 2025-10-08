@@ -172,6 +172,22 @@ try:
         STATISTICS_MANAGER_AVAILABLE,
         API_HANDLERS_AVAILABLE
     )
+    # 🆕 導入聊天向量化和聚類服務
+    try:
+        from library.rvt_analytics.chat_vector_service import (
+            get_chat_vector_service,
+            generate_message_vector,
+            search_similar_chat_messages
+        )
+        from library.rvt_analytics.chat_clustering_service import (
+            get_clustering_service,
+            perform_auto_clustering,
+            get_cluster_categories
+        )
+        CHAT_VECTOR_SERVICES_AVAILABLE = True
+    except ImportError as e:
+        print(f"聊天向量化服務不可用: {e}")
+        CHAT_VECTOR_SERVICES_AVAILABLE = False
     # 🆕 導入 Task Management library
     from library.task_management import (
         TaskViewSetManager,
@@ -2550,4 +2566,280 @@ def rvt_analytics_satisfaction(request):
         return JsonResponse({
             'success': False,
             'error': f'滿意度分析失敗: {str(e)}'
+        }, status=500)
+
+# ==========================================
+# 聊天向量化和聚類分析 API
+# ==========================================
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def chat_vector_search(request):
+    """
+    聊天消息向量相似度搜索 API
+    """
+    try:
+        if not CHAT_VECTOR_SERVICES_AVAILABLE:
+            return JsonResponse({
+                'success': False,
+                'error': '聊天向量化服務不可用'
+            }, status=503)
+        
+        data = json.loads(request.body)
+        query = data.get('query', '').strip()
+        limit = min(int(data.get('limit', 10)), 50)  # 最大限制50
+        threshold = float(data.get('threshold', 0.7))
+        
+        if not query:
+            return JsonResponse({
+                'success': False,
+                'error': '查詢文本不能為空'
+            }, status=400)
+        
+        # 執行向量搜索
+        results = search_similar_chat_messages(query, limit, threshold)
+        
+        return JsonResponse({
+            'success': True,
+            'data': {
+                'query': query,
+                'results': results,
+                'total_found': len(results),
+                'search_params': {
+                    'limit': limit,
+                    'threshold': threshold
+                }
+            }
+        }, status=200)
+        
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': '無效的 JSON 數據'
+        }, status=400)
+    except Exception as e:
+        logger.error(f"Chat vector search API error: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': f'向量搜索失敗: {str(e)}'
+        }, status=500)
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def chat_clustering_analysis(request):
+    """
+    聊天消息聚類分析 API
+    """
+    try:
+        if not CHAT_VECTOR_SERVICES_AVAILABLE:
+            return JsonResponse({
+                'success': False,
+                'error': '聊天聚類服務不可用'
+            }, status=503)
+        
+        data = json.loads(request.body)
+        algorithm = data.get('algorithm', 'kmeans').lower()
+        
+        if algorithm not in ['kmeans', 'dbscan']:
+            return JsonResponse({
+                'success': False,
+                'error': f'不支援的聚類算法: {algorithm}'
+            }, status=400)
+        
+        # 執行聚類分析
+        results = perform_auto_clustering(algorithm)
+        
+        if 'error' in results:
+            return JsonResponse({
+                'success': False,
+                'error': results['error']
+            }, status=500)
+        
+        return JsonResponse({
+            'success': True,
+            'data': results
+        }, status=200)
+        
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': '無效的 JSON 數據'
+        }, status=400)
+    except Exception as e:
+        logger.error(f"Chat clustering analysis API error: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': f'聚類分析失敗: {str(e)}'
+        }, status=500)
+
+@csrf_exempt
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def chat_clustering_stats(request):
+    """
+    獲取聊天聚類統計 API
+    """
+    try:
+        if not CHAT_VECTOR_SERVICES_AVAILABLE:
+            return JsonResponse({
+                'success': False,
+                'error': '聊天聚類服務不可用'
+            }, status=503)
+        
+        # 獲取聚類統計
+        cluster_categories = get_cluster_categories()
+        
+        # 獲取向量服務統計
+        vector_service = get_chat_vector_service()
+        embedding_stats = vector_service.get_embedding_stats()
+        
+        return JsonResponse({
+            'success': True,
+            'data': {
+                'cluster_categories': cluster_categories,
+                'embedding_stats': embedding_stats
+            }
+        }, status=200)
+        
+    except Exception as e:
+        logger.error(f"Chat clustering stats API error: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': f'獲取聚類統計失敗: {str(e)}'
+        }, status=500)
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def vectorize_chat_message(request):
+    """
+    對單個聊天消息進行向量化 API
+    """
+    try:
+        if not CHAT_VECTOR_SERVICES_AVAILABLE:
+            return JsonResponse({
+                'success': False,
+                'error': '聊天向量化服務不可用'
+            }, status=503)
+        
+        data = json.loads(request.body)
+        chat_message_id = data.get('chat_message_id')
+        content = data.get('content', '').strip()
+        conversation_id = data.get('conversation_id')
+        
+        if not chat_message_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'chat_message_id 是必需的'
+            }, status=400)
+        
+        if not content:
+            return JsonResponse({
+                'success': False,
+                'error': '消息內容不能為空'
+            }, status=400)
+        
+        # 生成向量
+        success = generate_message_vector(chat_message_id, content, conversation_id)
+        
+        if success:
+            # 嘗試分類
+            from library.rvt_analytics.question_classifier import classify_question
+            classification = classify_question(
+                content, 
+                chat_message_id=chat_message_id, 
+                use_vector_classification=True
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'data': {
+                    'chat_message_id': chat_message_id,
+                    'vectorized': True,
+                    'classification': classification
+                }
+            }, status=200)
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': '向量化處理失敗'
+            }, status=500)
+        
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': '無效的 JSON 數據'
+        }, status=400)
+    except Exception as e:
+        logger.error(f"Vectorize chat message API error: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': f'向量化失敗: {str(e)}'
+        }, status=500)
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def intelligent_question_classify(request):
+    """
+    智能問題分類 API（整合向量聚類）
+    """
+    try:
+        data = json.loads(request.body)
+        question_text = data.get('question', '').strip()
+        chat_message_id = data.get('chat_message_id')
+        use_vector_classification = data.get('use_vector_classification', True)
+        use_ai_classification = data.get('use_ai_classification', False)
+        
+        if not question_text:
+            return JsonResponse({
+                'success': False,
+                'error': '問題文本不能為空'
+            }, status=400)
+        
+        # 執行智能分類
+        from library.rvt_analytics.question_classifier import classify_question
+        
+        classification_result = classify_question(
+            question_text=question_text,
+            chat_message_id=chat_message_id,
+            use_vector_classification=use_vector_classification,
+            use_ai_classification=use_ai_classification
+        )
+        
+        # 如果啟用向量分類，也提供相似問題
+        similar_questions = []
+        if use_vector_classification and CHAT_VECTOR_SERVICES_AVAILABLE:
+            similar_questions = search_similar_chat_messages(
+                question_text, 
+                limit=5, 
+                threshold=0.6
+            )
+        
+        return JsonResponse({
+            'success': True,
+            'data': {
+                'question': question_text,
+                'classification': classification_result,
+                'similar_questions': similar_questions,
+                'services_available': {
+                    'vector_classification': CHAT_VECTOR_SERVICES_AVAILABLE,
+                    'traditional_rules': True,
+                    'ai_classification': use_ai_classification
+                }
+            }
+        }, status=200)
+        
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': '無效的 JSON 數據'
+        }, status=400)
+    except Exception as e:
+        logger.error(f"Intelligent question classify API error: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': f'智能分類失敗: {str(e)}'
         }, status=500)

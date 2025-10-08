@@ -85,4 +85,11 @@ urlpatterns = [
     path('rvt-analytics/overview/', views.rvt_analytics_overview, name='rvt_analytics_overview'),
     path('rvt-analytics/questions/', views.rvt_analytics_questions, name='rvt_analytics_questions'),
     path('rvt-analytics/satisfaction/', views.rvt_analytics_satisfaction, name='rvt_analytics_satisfaction'),
+    
+    # 聊天向量化和聚類分析 API
+    path('chat-vectors/search/', views.chat_vector_search, name='chat_vector_search'),
+    path('chat-clustering/analysis/', views.chat_clustering_analysis, name='chat_clustering_analysis'),
+    path('chat-clustering/stats/', views.chat_clustering_stats, name='chat_clustering_stats'),
+    path('chat-vectors/vectorize/', views.vectorize_chat_message, name='vectorize_chat_message'),
+    path('chat-classification/intelligent/', views.intelligent_question_classify, name='intelligent_question_classify'),
 ]

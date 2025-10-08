@@ -284,7 +284,55 @@ class StatisticsManager:
             return {'error': str(e)}
     
     def _get_popular_questions(self, questions: List[str], top_n: int = 10) -> List[Dict]:
-        """獲取熱門問題（使用簡化的相似度歸併）"""
+        """獲取熱門問題（優先使用向量化聚類，備用關鍵詞統計）"""
+        try:
+            # 🚀 優先嘗試向量化分析
+            vector_results = self._try_vector_question_analysis(top_n)
+            if vector_results:
+                self.logger.info(f"✅ 使用向量化統計，發現 {len(vector_results)} 個問題群組")
+                return vector_results
+            
+            # 📄 備用：傳統關鍵詞統計
+            self.logger.info("🔄 向量化不可用，使用傳統關鍵詞統計")
+            return self._get_keyword_based_questions(questions, top_n)
+            
+        except Exception as e:
+            self.logger.error(f"❌ 獲取熱門問題失敗: {str(e)}")
+            return []
+    
+    def _try_vector_question_analysis(self, top_n: int = 10) -> List[Dict]:
+        """嘗試使用向量化問題分析"""
+        try:
+            from .vector_question_analyzer import analyze_questions_with_vectors
+            
+            # 使用向量化分析器
+            vector_results = analyze_questions_with_vectors(days=30, limit=top_n)
+            
+            if vector_results:
+                # 轉換格式以兼容現有接口
+                converted_results = []
+                for item in vector_results:
+                    converted_results.append({
+                        'pattern': item.get('pattern', ''),
+                        'count': item.get('count', 0),
+                        'examples': item.get('examples', []),
+                        'is_vector_based': True,
+                        'cluster_id': item.get('cluster_id'),
+                        'confidence': item.get('avg_confidence', 0.0)
+                    })
+                return converted_results
+            
+            return []
+            
+        except ImportError:
+            self.logger.debug("向量化分析器模組不可用")
+            return []
+        except Exception as e:
+            self.logger.warning(f"向量化問題分析失敗: {str(e)}")
+            return []
+    
+    def _get_keyword_based_questions(self, questions: List[str], top_n: int = 10) -> List[Dict]:
+        """傳統基於關鍵詞的問題統計"""
         try:
             from collections import Counter
             import re
@@ -308,11 +356,12 @@ class StatisticsManager:
             # 統計並排序
             popular_questions = []
             for key, question_list in keyword_questions.items():
-                if len(question_list) >= 2:  # 至少出現2次才算熱門
+                if len(question_list) >= 1:  # 降低門檻
                     popular_questions.append({
                         'pattern': key,
                         'count': len(question_list),
-                        'examples': question_list[:3]  # 最多顯示3個例子
+                        'examples': question_list[:3],  # 最多顯示3個例子
+                        'is_vector_based': False
                     })
             
             # 按出現次數排序
@@ -321,7 +370,7 @@ class StatisticsManager:
             return popular_questions[:top_n]
             
         except Exception as e:
-            self.logger.error(f"獲取熱門問題失敗: {str(e)}")
+            self.logger.error(f"關鍵詞統計失敗: {str(e)}")
             return []
     
     def _calculate_token_stats(self, messages) -> Dict:
@@ -428,3 +477,35 @@ def _generate_summary_report(stats: Dict) -> Dict:
     except Exception as e:
         logger.error(f"生成摘要報告失敗: {str(e)}")
         return {'error': str(e)}
+
+    def get_vector_enhanced_question_stats(self, days=30, user=None) -> Dict:
+        """
+        獲取向量化增強的問題統計
+        
+        Args:
+            days: 分析天數
+            user: 特定用戶（可選）
+            
+        Returns:
+            Dict: 向量化增強的統計結果
+        """
+        try:
+            # 導入向量化問題分析器
+            from .vector_question_analyzer import get_enhanced_question_analysis
+            
+            # 獲取增強統計
+            enhanced_analysis = get_enhanced_question_analysis(days=days)
+            
+            if enhanced_analysis and enhanced_analysis.get('popular_questions'):
+                self.logger.info("✅ 成功獲取向量化增強問題統計")
+                return enhanced_analysis
+            else:
+                self.logger.warning("⚠️ 向量化分析返回空結果，將使用傳統統計")
+                return {}
+                
+        except ImportError as e:
+            self.logger.warning(f"🔄 向量化問題分析器不可用: {e}")
+            return {}
+        except Exception as e:
+            self.logger.error(f"❌ 增強向量化統計失敗: {str(e)}")
+            return {}

@@ -2,15 +2,25 @@
 Question Classifier - RVT Assistant 問題智能分類器
 
 此模組負責：
-- 自動分類用戶問題類型
+- 自動分類用戶問題類型（基於向量聚類）
 - 識別相似問題並歸併
 - 提供問題趨勢分析
 - 支持規則式和AI輔助分類
+- 整合向量化聚類和傳統規則分類
 """
 
 import logging
 import re
 from typing import List, Dict, Optional, Tuple
+
+# 導入向量化服務
+try:
+    from .chat_vector_service import get_chat_vector_service, search_similar_chat_messages
+    from .chat_clustering_service import get_clustering_service, get_cluster_categories
+    VECTOR_SERVICE_AVAILABLE = True
+except ImportError:
+    VECTOR_SERVICE_AVAILABLE = False
+    logging.warning("向量化服務不可用，將使用傳統規則分類")
 
 logger = logging.getLogger(__name__)
 
@@ -102,42 +112,65 @@ class QuestionClassifier:
         }
     }
     
-    def __init__(self, use_ai_classification=False):
+    def __init__(self, use_ai_classification=False, use_vector_classification=True):
         """
         初始化問題分類器
         
         Args:
             use_ai_classification (bool): 是否使用 AI 輔助分類
+            use_vector_classification (bool): 是否使用向量聚類分類
         """
         self.use_ai_classification = use_ai_classification
+        self.use_vector_classification = use_vector_classification and VECTOR_SERVICE_AVAILABLE
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+        
+        # 初始化向量服務
+        if self.use_vector_classification:
+            try:
+                self.vector_service = get_chat_vector_service()
+                self.clustering_service = get_clustering_service()
+                self.logger.info("向量化分類服務初始化成功")
+            except Exception as e:
+                self.logger.error(f"向量化服務初始化失敗: {str(e)}")
+                self.use_vector_classification = False
     
-    def classify_question(self, question_text: str) -> Dict:
+    def classify_question(self, question_text: str, chat_message_id: Optional[int] = None) -> Dict:
         """
-        分類問題
+        分類問題（整合向量聚類和傳統規則）
         
         Args:
             question_text (str): 問題文本
+            chat_message_id (int, optional): 聊天消息 ID
             
         Returns:
             dict: 分類結果
         """
         try:
+            # 優先使用向量聚類分類
+            vector_result = None
+            if self.use_vector_classification:
+                vector_result = self._vector_based_classify(question_text, chat_message_id)
+            
             # 基礎規則分類
             rule_result = self._rule_based_classify(question_text)
             
-            # 如果啟用 AI 分類且規則分類信心度不高，嘗試 AI 分類
+            # 如果啟用 AI 分類且其他方法信心度不高，嘗試 AI 分類
             ai_result = None
-            if self.use_ai_classification and rule_result['confidence'] < 0.7:
+            if (self.use_ai_classification and 
+                (not vector_result or vector_result['confidence'] < 0.7) and
+                rule_result['confidence'] < 0.7):
                 ai_result = self._ai_based_classify(question_text)
             
-            # 合併結果
-            final_result = self._merge_classification_results(rule_result, ai_result)
+            # 合併多種分類結果
+            final_result = self._merge_multiple_classification_results(
+                vector_result, rule_result, ai_result
+            )
             
             self.logger.debug(
                 f"問題分類完成: '{question_text[:50]}...' -> "
                 f"category={final_result['category']}, "
-                f"confidence={final_result['confidence']}"
+                f"confidence={final_result['confidence']}, "
+                f"method={final_result['method']}"
             )
             
             return final_result
@@ -204,6 +237,80 @@ class QuestionClassifier:
             'details': scores[best_category]
         }
     
+    def _vector_based_classify(self, question_text: str, 
+                              chat_message_id: Optional[int] = None) -> Optional[Dict]:
+        """
+        基於向量聚類的分類
+        
+        Args:
+            question_text: 問題文本
+            chat_message_id: 聊天消息 ID
+            
+        Returns:
+            分類結果或 None
+        """
+        try:
+            if not self.use_vector_classification:
+                return None
+            
+            # 搜索相似的聊天消息
+            similar_messages = search_similar_chat_messages(
+                query=question_text,
+                limit=5,
+                threshold=0.7
+            )
+            
+            if not similar_messages:
+                self.logger.debug("沒有找到相似的聊天消息")
+                return None
+            
+            # 分析相似消息的聚類和類別
+            cluster_votes = {}
+            category_votes = {}
+            total_similarity = 0
+            
+            for msg in similar_messages:
+                similarity = msg.get('similarity', 0)
+                cluster_id = msg.get('cluster_id')
+                category = msg.get('predicted_category')
+                
+                total_similarity += similarity
+                
+                if cluster_id is not None:
+                    cluster_votes[cluster_id] = cluster_votes.get(cluster_id, 0) + similarity
+                
+                if category:
+                    category_votes[category] = category_votes.get(category, 0) + similarity
+            
+            # 決定最佳類別
+            if category_votes:
+                best_category = max(category_votes.keys(), key=lambda k: category_votes[k])
+                confidence = category_votes[best_category] / total_similarity if total_similarity > 0 else 0
+                
+                # 獲取聚類資訊
+                best_cluster = None
+                if cluster_votes:
+                    best_cluster = max(cluster_votes.keys(), key=lambda k: cluster_votes[k])
+                
+                return {
+                    'category': best_category,
+                    'confidence': min(0.95, confidence),  # 最高信心度限制為 0.95
+                    'method': 'vector_clustering',
+                    'cluster_id': best_cluster,
+                    'similar_count': len(similar_messages),
+                    'details': {
+                        'category_votes': category_votes,
+                        'cluster_votes': cluster_votes,
+                        'avg_similarity': total_similarity / len(similar_messages)
+                    }
+                }
+            
+            return None
+            
+        except Exception as e:
+            self.logger.error(f"向量分類失敗: {str(e)}")
+            return None
+    
     def _ai_based_classify(self, question_text: str) -> Optional[Dict]:
         """基於 AI 的分類（需要 embedding 服務支援）"""
         try:
@@ -215,8 +322,61 @@ class QuestionClassifier:
             self.logger.error(f"AI 分類失敗: {str(e)}")
             return None
     
+    def _merge_multiple_classification_results(self, vector_result: Optional[Dict], 
+                                             rule_result: Dict, 
+                                             ai_result: Optional[Dict]) -> Dict:
+        """
+        合併多種分類結果
+        
+        Args:
+            vector_result: 向量聚類分類結果
+            rule_result: 規則分類結果
+            ai_result: AI 分類結果
+            
+        Returns:
+            最終分類結果
+        """
+        # 收集所有有效結果
+        results = []
+        if vector_result and vector_result.get('confidence', 0) > 0:
+            results.append(vector_result)
+        if rule_result and rule_result.get('confidence', 0) > 0:
+            results.append(rule_result)
+        if ai_result and ai_result.get('confidence', 0) > 0:
+            results.append(ai_result)
+        
+        if not results:
+            return {
+                'category': 'general',
+                'confidence': 0.1,
+                'method': 'fallback',
+                'details': {'reason': 'no_classification_available'}
+            }
+        
+        # 按信心度排序
+        results.sort(key=lambda x: x.get('confidence', 0), reverse=True)
+        best_result = results[0]
+        
+        # 如果向量分類可用且信心度足夠高，優先使用
+        if (vector_result and vector_result.get('confidence', 0) > 0.6):
+            final_result = vector_result.copy()
+            final_result['fallback_methods'] = [r['method'] for r in results[1:]]
+        else:
+            # 否則使用信心度最高的結果
+            final_result = best_result.copy()
+            final_result['alternative_methods'] = [r['method'] for r in results[1:]]
+        
+        # 添加所有方法的結果作為參考
+        final_result['all_results'] = {
+            'vector': vector_result,
+            'rule': rule_result,
+            'ai': ai_result
+        }
+        
+        return final_result
+    
     def _merge_classification_results(self, rule_result: Dict, ai_result: Optional[Dict]) -> Dict:
-        """合併規則分類和 AI 分類結果"""
+        """合併規則分類和 AI 分類結果（保持向後兼容）"""
         if ai_result is None:
             return rule_result
         
@@ -309,10 +469,15 @@ class QuestionClassifier:
             return {'error': str(e)}
 
 # 便利函數
-def classify_question(question_text: str, use_ai_classification: bool = False) -> Dict:
+def classify_question(question_text: str, use_ai_classification: bool = False, 
+                     use_vector_classification: bool = True,
+                     chat_message_id: Optional[int] = None) -> Dict:
     """問題分類便利函數"""
-    classifier = QuestionClassifier(use_ai_classification=use_ai_classification)
-    return classifier.classify_question(question_text)
+    classifier = QuestionClassifier(
+        use_ai_classification=use_ai_classification,
+        use_vector_classification=use_vector_classification
+    )
+    return classifier.classify_question(question_text, chat_message_id)
 
 def get_question_categories() -> Dict:
     """獲取所有問題分類"""
@@ -326,3 +491,26 @@ def find_similar_questions(question_text: str, existing_questions: List[str],
     """查找相似問題便利函數"""
     classifier = QuestionClassifier()
     return classifier.find_similar_questions(question_text, existing_questions, similarity_threshold)
+
+def get_vector_similar_questions(question_text: str, limit: int = 10, 
+                               threshold: float = 0.7) -> List[Dict]:
+    """使用向量搜索相似問題便利函數"""
+    if VECTOR_SERVICE_AVAILABLE:
+        return search_similar_chat_messages(question_text, limit, threshold)
+    else:
+        return []
+
+def perform_clustering_analysis(algorithm: str = 'kmeans') -> Dict:
+    """執行聚類分析便利函數"""
+    if VECTOR_SERVICE_AVAILABLE:
+        from .chat_clustering_service import perform_auto_clustering
+        return perform_auto_clustering(algorithm)
+    else:
+        return {'error': '向量化服務不可用'}
+
+def get_clustering_stats() -> Dict:
+    """獲取聚類統計便利函數"""
+    if VECTOR_SERVICE_AVAILABLE:
+        return get_cluster_categories()
+    else:
+        return {}
