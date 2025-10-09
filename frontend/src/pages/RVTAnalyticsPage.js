@@ -319,38 +319,46 @@ const RVTAnalyticsPage = () => {
         {/* 第一行：問題類型分布和統計信息 */}
         <Card title="問題分析" extra={<Tag color="blue">{questionData.period}</Tag>}>
           <Row gutter={[16, 16]}>
-            {/* 問題類型分布圓餅圖 */}
-            <Col xs={24} lg={12}>
-              <Card size="small" title="問題類型分布">
+            {/* 問題類型分布圓餅圖 - 放大版本 */}
+            <Col xs={24} lg={16}>
+              <div style={{ height: '450px', padding: '16px' }}>
                 {pieData.length > 0 ? (
-                  <div style={{ height: '300px' }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={pieData}
-                          dataKey="value"
-                          nameKey="name"
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={80}
-                          label={({ name, percent }) => `${name} (${(percent * 100).toFixed(1)}%)`}
-                        >
-                          {pieData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={140}
+                        label={({ name, percent }) => `${name} (${(percent * 100).toFixed(1)}%)`}
+                        labelLine={false}
+                        fontSize={12}
+                      >
+                        {pieData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
                 ) : (
-                  <Empty description="暫無分類數據" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    height: '100%' 
+                  }}>
+                    <Empty description="暫無分類數據" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                  </div>
                 )}
-              </Card>
+              </div>
             </Col>
 
-            {/* 統計信息 */}
-            <Col xs={24} lg={12}>
+            {/* 統計信息 - 縮小 */}
+            <Col xs={24} lg={8}>
               <Empty description="更多統計功能開發中" image={Empty.PRESENTED_IMAGE_SIMPLE} />
             </Col>
           </Row>
