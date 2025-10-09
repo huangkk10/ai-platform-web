@@ -106,8 +106,11 @@
 
 .message-text {
   word-wrap: break-word;
+  word-break: break-word; /* 強制長單詞換行 */
   white-space: pre-wrap;
   line-height: 1.5;
+  max-width: 100%; /* 確保不超出容器 */
+  overflow-wrap: break-word; /* 現代瀏覽器支援 */
   font-family: 'Microsoft JhengHei', '微軟正黑體', 'Microsoft YaHei', '微软雅黑',
     -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
     'Helvetica Neue', Helvetica, Arial, sans-serif !important;
