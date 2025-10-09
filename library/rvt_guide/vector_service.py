@@ -28,9 +28,23 @@ class RVTGuideVectorService:
         if self._embedding_service is None:
             try:
                 # 動態導入 embedding_service 避免循環導入
-                from backend.api.services.embedding_service import get_embedding_service
+                import sys
+                import os
+                
+                # 確保可以找到 Django app 路徑
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+                backend_dir = os.path.join(os.path.dirname(os.path.dirname(current_dir)), 'backend')
+                if backend_dir not in sys.path:
+                    sys.path.insert(0, backend_dir)
+                
+                from api.services.embedding_service import get_embedding_service
                 self._embedding_service = get_embedding_service()  # 使用 1024 維模型
-            except ImportError:
+                self.logger.info("✅ Embedding service 初始化成功")
+            except ImportError as e:
+                self.logger.warning(f"無法導入 embedding_service: {e}")
+                self._embedding_service = None
+            except Exception as e:
+                self.logger.error(f"Embedding service 初始化失敗: {e}")
                 self._embedding_service = None
         return self._embedding_service
     
@@ -204,6 +218,15 @@ class RVTGuideVectorService:
         """
         try:
             if queryset is None:
+                import sys
+                import os
+                
+                # 確保可以找到 Django app 路徑
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+                backend_dir = os.path.join(os.path.dirname(os.path.dirname(current_dir)), 'backend')
+                if backend_dir not in sys.path:
+                    sys.path.insert(0, backend_dir)
+                
                 from api.models import RVTGuide
                 queryset = RVTGuide.objects.all()
             
