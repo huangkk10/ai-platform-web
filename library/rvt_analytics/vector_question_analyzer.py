@@ -102,7 +102,24 @@ class VectorQuestionAnalyzer:
             popular_questions = []
             
             for cluster_id, data in cluster_data.items():
-                if data['total_frequency'] > 0:
+                # 特殊處理 NULL 聚類 - 分別統計每個問題
+                if cluster_id is None:
+                    # 對於 NULL 聚類，每個問題單獨統計
+                    for question_item in data['questions']:
+                        if question_item['frequency'] > 0:
+                            popular_questions.append({
+                                'cluster_id': None,
+                                'pattern': self._generate_question_label(question_item['content']),
+                                'question': question_item['content'],
+                                'count': question_item['frequency'],  # 使用實際頻率，不是總和
+                                'examples': [question_item['content']],
+                                'avg_confidence': question_item['confidence'] or 0.0,
+                                'is_vector_based': True,
+                                'analysis_method': 'vector_clustering_individual',
+                                'representative_frequency': question_item['frequency']
+                            })
+                elif data['total_frequency'] > 0:
+                    # 正常聚類的處理邏輯
                     # 找到代表性問題（頻率最高的）
                     representative_question = max(data['questions'], key=lambda x: x['frequency'])
                     
