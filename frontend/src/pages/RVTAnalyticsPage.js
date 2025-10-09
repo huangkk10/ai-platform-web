@@ -284,7 +284,7 @@ const RVTAnalyticsPage = () => {
     
     // 將 popular_questions 數據轉換為圖表格式
     const result = questionData.popular_questions
-      .slice(0, 10) // 最多顯示前10個
+      .slice(0, 5) // 顯示前5個熱門問題
       .map((item, index) => ({
         rank: `#${index + 1}`,
         question: item.pattern || item.question || '未知問題',
@@ -399,174 +399,114 @@ const RVTAnalyticsPage = () => {
           }
         >
           {popularQuestionsData.length > 0 ? (
-            <Row gutter={[16, 16]}>
-                {/* 長條圖 */}
-                <Col xs={24} lg={14}>
-                <div style={{ height: '400px' }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart 
-                      data={popularQuestionsData} 
-                      margin={{ top: 20, right: 30, left: 20, bottom: 80 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis 
-                        dataKey="rank" 
-                        angle={-45}
-                        textAnchor="end"
-                        height={80}
-                      />
-                      <YAxis 
-                        label={{ value: '被問次數', angle: -90, position: 'insideLeft' }}
-                      />
-                      <Tooltip 
-                        content={({ active, payload, label }) => {
-                          if (active && payload && payload.length) {
-                            const data = payload[0].payload;
-                            return (
-                              <div style={{
-                                backgroundColor: '#fff',
-                                padding: '12px',
-                                border: '1px solid #ccc',
-                                borderRadius: '6px',
-                                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                                maxWidth: '350px'
-                              }}>
-                                <div style={{ marginBottom: '8px' }}>
-                                  <p style={{ margin: 0, fontWeight: 'bold', fontSize: '14px' }}>
-                                    {data.rank} 問題: {data.question}
-                                  </p>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-                                    <span style={{ color: '#1890ff', fontWeight: 'bold' }}>
-                                      被問次數: {data.count}
-                                    </span>
-                                    {data.is_vector_based && (
-                                      <span style={{ 
-                                        fontSize: '10px', 
-                                        backgroundColor: '#e6f7ff', 
-                                        color: '#0050b3', 
-                                        padding: '2px 6px', 
-                                        borderRadius: '10px' 
-                                      }}>
-                                        🚀 AI分析
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                                
-                                {data.cluster_id !== undefined && (
-                                  <p style={{ margin: '4px 0', fontSize: '11px', color: '#666' }}>
-                                    聚類ID: {data.cluster_id} | 信心度: {data.confidence?.toFixed(3) || 'N/A'}
-                                  </p>
-                                )}
-                                
-                                {data.examples && data.examples.length > 0 && (
-                                  <div style={{ marginTop: '8px' }}>
-                                    <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: '#666', fontWeight: 'bold' }}>
-                                      相關問題範例:
-                                    </p>
-                                    {data.examples.slice(0, 3).map((example, idx) => (
-                                      <p key={idx} style={{ 
-                                        margin: '2px 0', 
-                                        fontSize: '11px', 
-                                        color: '#999',
-                                        maxWidth: '300px',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        whiteSpace: 'nowrap',
-                                        paddingLeft: '8px'
-                                      }}>
-                                        • {example}
-                                      </p>
-                                    ))}
-                                    {data.examples.length > 3 && (
-                                      <p style={{ 
-                                        margin: '2px 0', 
-                                        fontSize: '10px', 
-                                        color: '#ccc',
-                                        fontStyle: 'italic'
-                                      }}>
-                                        ... 還有 {data.examples.length - 3} 個相似問題
-                                      </p>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          }
-                          return null;
-                        }}
-                      />
-                      <Bar 
-                        dataKey="count" 
-                        fill="#1890ff"
-                        radius={[4, 4, 0, 0]}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </Col>
-
-              {/* 問題詳細列表 */}
-              <Col xs={24} lg={10}>
-                <Card size="small" title="問題詳情" style={{ height: '400px', overflow: 'auto' }}>
-                  <List
-                    dataSource={popularQuestionsData}
-                    renderItem={(item, index) => (
-                      <List.Item style={{ padding: '12px 0' }}>
-                        <List.Item.Meta
-                          avatar={
-                            <div style={{
-                              width: '32px',
-                              height: '32px',
-                              borderRadius: '50%',
-                              backgroundColor: ['#ff4d4f', '#fa8c16', '#fadb14', '#52c41a', '#1890ff', '#722ed1'][index % 6],
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              color: '#fff',
-                              fontWeight: 'bold',
-                              fontSize: '12px'
-                            }}>
-                              {item.rank}
-                            </div>
-                          }
-                          title={
-                            <div>
-                              <Text strong style={{ fontSize: '14px' }}>
-                                {item.question}
-                              </Text>
-                              <Tag color="blue" style={{ marginLeft: '8px', fontSize: '11px' }}>
-                                {item.count} 次
-                              </Tag>
-                              {item.is_vector_based && (
-                                <Tag color="cyan" style={{ marginLeft: '4px', fontSize: '10px' }}>
-                                  🚀 AI
-                                </Tag>
-                              )}
-                              {item.cluster_id !== undefined && (
-                                <Tag color="purple" style={{ marginLeft: '4px', fontSize: '10px' }}>
-                                  聚類 {item.cluster_id}
-                                </Tag>
-                              )}
-                            </div>
-                          }
-                          description={
-                            item.examples && item.examples.length > 0 && (
-                              <div style={{ marginTop: '4px' }}>
-                                <Text type="secondary" style={{ fontSize: '12px' }}>
-                                  範例: {item.examples[0]}
-                                  {item.examples.length > 1 && ` 等 ${item.examples.length} 種問法`}
-                                </Text>
-                              </div>
-                            )
-                          }
-                        />
-                      </List.Item>
-                    )}
+            <div style={{ height: '450px' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart 
+                  data={popularQuestionsData} 
+                  margin={{ top: 20, right: 30, left: 20, bottom: 120 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="question" 
+                    angle={-45}
+                    textAnchor="end"
+                    height={120}
+                    interval={0}
+                    tick={{ fontSize: 12 }}
+                    tickFormatter={(value) => {
+                      // 限制顯示長度，避免 X 軸文字過長
+                      return value.length > 15 ? value.substring(0, 15) + '...' : value;
+                    }}
                   />
-                </Card>
-              </Col>
-              </Row>
+                  <YAxis 
+                    label={{ value: '被問次數', angle: -90, position: 'insideLeft' }}
+                  />
+                  <Tooltip 
+                    content={({ active, payload, label }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        return (
+                          <div style={{
+                            backgroundColor: '#fff',
+                            padding: '12px',
+                            border: '1px solid #ccc',
+                            borderRadius: '6px',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                            maxWidth: '350px'
+                          }}>
+                            <div style={{ marginBottom: '8px' }}>
+                              <p style={{ margin: 0, fontWeight: 'bold', fontSize: '14px' }}>
+                                {data.rank}: {data.question}
+                              </p>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                                <span style={{ color: '#1890ff', fontWeight: 'bold' }}>
+                                  被問次數: {data.count}
+                                </span>
+                                {data.is_vector_based && (
+                                  <span style={{ 
+                                    fontSize: '10px', 
+                                    backgroundColor: '#e6f7ff', 
+                                    color: '#0050b3', 
+                                    padding: '2px 6px', 
+                                    borderRadius: '10px' 
+                                  }}>
+                                    🚀 AI分析
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            
+                            {data.cluster_id !== undefined && (
+                              <p style={{ margin: '4px 0', fontSize: '11px', color: '#666' }}>
+                                聚類ID: {data.cluster_id} | 信心度: {data.confidence?.toFixed(3) || 'N/A'}
+                              </p>
+                            )}
+                            
+                            {data.examples && data.examples.length > 0 && (
+                              <div style={{ marginTop: '8px' }}>
+                                <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: '#666', fontWeight: 'bold' }}>
+                                  相關問題範例:
+                                </p>
+                                {data.examples.slice(0, 3).map((example, idx) => (
+                                  <p key={idx} style={{ 
+                                    margin: '2px 0', 
+                                    fontSize: '11px', 
+                                    color: '#999',
+                                    maxWidth: '300px',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    paddingLeft: '8px'
+                                  }}>
+                                    • {example}
+                                  </p>
+                                ))}
+                                {data.examples.length > 3 && (
+                                  <p style={{ 
+                                    margin: '2px 0', 
+                                    fontSize: '10px', 
+                                    color: '#ccc',
+                                    fontStyle: 'italic'
+                                  }}>
+                                    ... 還有 {data.examples.length - 3} 個相似問題
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Bar 
+                    dataKey="count" 
+                    fill="#1890ff"
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           ) : (
             <Empty 
               description="暫無熱門問題數據" 
