@@ -864,12 +864,6 @@ const RVTAnalyticsPage = () => {
       {/* 頁面標題和控制項 */}
       <Row justify="space-between" align="middle" style={{ marginBottom: 24 }}>
         <Col>
-          <Title level={2}>
-            <BarChartOutlined /> RVT Assistant 分析報告
-          </Title>
-          <Text type="secondary">
-            深度分析 RVT Assistant 的使用情況和用戶滿意度
-          </Text>
         </Col>
         <Col>
           <Space>
