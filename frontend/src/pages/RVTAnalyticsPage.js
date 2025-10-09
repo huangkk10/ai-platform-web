@@ -399,16 +399,7 @@ const RVTAnalyticsPage = () => {
           }
         >
           {popularQuestionsData.length > 0 ? (
-            <div>
-              {/* 除錯資訊 */}
-              <div style={{ marginBottom: 16, padding: 8, backgroundColor: '#f0f0f0', borderRadius: 4 }}>
-                <Text style={{ fontSize: 12, color: '#666' }}>
-                  除錯：找到 {popularQuestionsData.length} 個問題，資料範例：
-                  {popularQuestionsData.slice(0, 2).map(item => `${item.question}(${item.count}次)`).join(', ')}
-                </Text>
-              </div>
-              
-              <Row gutter={[16, 16]}>
+            <Row gutter={[16, 16]}>
                 {/* 長條圖 */}
                 <Col xs={24} lg={14}>
                 <div style={{ height: '400px' }}>
@@ -576,7 +567,6 @@ const RVTAnalyticsPage = () => {
                 </Card>
               </Col>
               </Row>
-            </div>
           ) : (
             <Empty 
               description="暫無熱門問題數據" 
