@@ -56,7 +56,7 @@ const { Option } = Select;
 const { TabPane } = Tabs;
 
 const RVTAnalyticsPage = () => {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [loading, setLoading] = useState(false);
   const [overviewData, setOverviewData] = useState(null);
   const [questionData, setQuestionData] = useState(null);
@@ -67,14 +67,21 @@ const RVTAnalyticsPage = () => {
   const [networkError, setNetworkError] = useState(false);
 
   useEffect(() => {
+    console.log('🔥 RVTAnalyticsPage useEffect 觸發');
+    console.log('🔥 認證狀態:', { isAuthenticated, user });
+    console.log('🔥 用戶權限:', { is_staff: user?.is_staff, is_superuser: user?.is_superuser });
+    
     // 只有管理員才能訪問分析功能
     if (user?.is_staff || user?.is_superuser) {
+      console.log('🔥 用戶有權限，開始載入分析資料');
       // 延遲加載，避免頁面載入時立即發送請求
       const timer = setTimeout(() => {
         fetchAnalyticsData();
       }, 100);
       
       return () => clearTimeout(timer);
+    } else {
+      console.log('🔥 用戶無權限或未登入，跳過載入分析資料');
     }
   }, [user, selectedDays, selectedUserId]);
 
@@ -149,6 +156,8 @@ const RVTAnalyticsPage = () => {
       }
 
       if (questions.success) {
+        console.log('🔥 問題分析 API 回應:', questions);
+        console.log('🔥 popular_questions 資料:', questions.data?.popular_questions);
         setQuestionData(questions.data);
       } else {
         console.warn(`問題分析載入失敗: ${questions.error || '未知錯誤'}`);
@@ -197,16 +206,6 @@ const RVTAnalyticsPage = () => {
               value={overview.total_conversations || 0}
               prefix={<MessageOutlined />}
               valueStyle={{ color: '#1890ff' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="總消息數"
-              value={overview.total_messages || 0}
-              prefix={<MessageOutlined />}
-              valueStyle={{ color: '#52c41a' }}
             />
           </Card>
         </Col>
@@ -274,18 +273,32 @@ const RVTAnalyticsPage = () => {
   };
 
   const preparePopularQuestionsData = () => {
-    if (!questionData?.popular_questions) return [];
+    console.log('🔥 preparePopularQuestionsData 被呼叫');
+    console.log('🔥 questionData:', questionData);
+    console.log('🔥 questionData?.popular_questions:', questionData?.popular_questions);
+    
+    if (!questionData?.popular_questions || questionData.popular_questions.length === 0) {
+      console.log('🔥 返回空陣列，因為沒有 popular_questions 資料');
+      return [];
+    }
     
     // 將 popular_questions 數據轉換為圖表格式
-    return questionData.popular_questions
+    const result = questionData.popular_questions
       .slice(0, 10) // 最多顯示前10個
       .map((item, index) => ({
         rank: `#${index + 1}`,
         question: item.pattern || item.question || '未知問題',
         count: item.count || 0,
-        examples: item.examples || []
+        examples: item.examples || [],
+        is_vector_based: item.is_vector_based,
+        cluster_id: item.cluster_id,
+        confidence: item.confidence
       }))
       .sort((a, b) => b.count - a.count); // 按次數降序排列
+      
+    console.log('🔥 preparePopularQuestionsData 結果:', result);
+    console.log('🔥 每個項目的 count 值:', result.map(r => ({ question: r.question, count: r.count })));
+    return result;
   };
 
   const renderQuestionAnalysis = () => {
@@ -338,33 +351,7 @@ const RVTAnalyticsPage = () => {
 
             {/* 統計信息 */}
             <Col xs={24} lg={12}>
-              <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                <Card size="small" title="總問題數量">
-                  <Statistic value={total_questions || 0} />
-                </Card>
-                
-                <Card size="small" title="熱門關鍵詞">
-                  {top_keywords && top_keywords.length > 0 ? (
-                    <List
-                      size="small"
-                      dataSource={top_keywords.slice(0, 5)}
-                      renderItem={([keyword, count], index) => (
-                        <List.Item>
-                          <Space>
-                            <Tag color={['red', 'orange', 'gold', 'green', 'blue'][index]}>
-                              #{index + 1}
-                            </Tag>
-                            <Text strong>{keyword}</Text>
-                            <Text type="secondary">({count} 次)</Text>
-                          </Space>
-                        </List.Item>
-                      )}
-                    />
-                  ) : (
-                    <Empty description="暫無關鍵詞統計" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-                  )}
-                </Card>
-              </Space>
+              <Empty description="更多統計功能開發中" image={Empty.PRESENTED_IMAGE_SIMPLE} />
             </Col>
           </Row>
           
@@ -404,22 +391,33 @@ const RVTAnalyticsPage = () => {
           }
         >
           {popularQuestionsData.length > 0 ? (
-            <Row gutter={[16, 16]}>
-              {/* 長條圖 */}
-              <Col xs={24} lg={14}>
+            <div>
+              {/* 除錯資訊 */}
+              <div style={{ marginBottom: 16, padding: 8, backgroundColor: '#f0f0f0', borderRadius: 4 }}>
+                <Text style={{ fontSize: 12, color: '#666' }}>
+                  除錯：找到 {popularQuestionsData.length} 個問題，資料範例：
+                  {popularQuestionsData.slice(0, 2).map(item => `${item.question}(${item.count}次)`).join(', ')}
+                </Text>
+              </div>
+              
+              <Row gutter={[16, 16]}>
+                {/* 長條圖 */}
+                <Col xs={24} lg={14}>
                 <div style={{ height: '400px' }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart 
                       data={popularQuestionsData} 
-                      layout="horizontal"
-                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 80 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis type="number" />
-                      <YAxis 
-                        type="category" 
+                      <XAxis 
                         dataKey="rank" 
-                        width={50}
+                        angle={-45}
+                        textAnchor="end"
+                        height={80}
+                      />
+                      <YAxis 
+                        label={{ value: '被問次數', angle: -90, position: 'insideLeft' }}
                       />
                       <Tooltip 
                         content={({ active, payload, label }) => {
@@ -502,7 +500,7 @@ const RVTAnalyticsPage = () => {
                       <Bar 
                         dataKey="count" 
                         fill="#1890ff"
-                        radius={[0, 4, 4, 0]}
+                        radius={[4, 4, 0, 0]}
                       />
                     </BarChart>
                   </ResponsiveContainer>
@@ -569,7 +567,8 @@ const RVTAnalyticsPage = () => {
                   />
                 </Card>
               </Col>
-            </Row>
+              </Row>
+            </div>
           ) : (
             <Empty 
               description="暫無熱門問題數據" 
@@ -858,6 +857,37 @@ const RVTAnalyticsPage = () => {
       </Card>
     );
   };
+
+  // 檢查用戶認證和權限
+  if (!isAuthenticated) {
+    return (
+      <div style={{ padding: '24px', textAlign: 'center' }}>
+        <Card>
+          <Alert
+            message="需要登入"
+            description="請先登入以查看 RVT Assistant 分析數據。"
+            type="warning"
+            showIcon
+          />
+        </Card>
+      </div>
+    );
+  }
+
+  if (!(user?.is_staff || user?.is_superuser)) {
+    return (
+      <div style={{ padding: '24px', textAlign: 'center' }}>
+        <Card>
+          <Alert
+            message="權限不足"
+            description="只有管理員才能查看 RVT Assistant 分析數據。"
+            type="error"
+            showIcon
+          />
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: '24px' }}>
