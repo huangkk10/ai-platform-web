@@ -425,8 +425,18 @@ def _get_rvt_guide_results(vector_results: List[dict], version_info: str) -> Lis
             if source_id in rvt_guides:
                 rvt_data = rvt_guides[source_id]
                 
+                # 檢查內容是否包含圖片
+                has_images = any(keyword in rvt_data['content'].lower() for keyword in [
+                    '🖼️', '--- 相關圖片 ---', '圖片', '截圖', 'image', 'picture'
+                ])
+                
                 # 格式化內容用於 Dify
                 content = f"文檔標題: {rvt_data['title']}\n"
+                
+                # 如果包含圖片，在內容開始加入明確提示
+                if has_images:
+                    content += "📸 **重要：此內容包含相關圖片說明，請在回答時提及並引導用戶查看圖片資訊**\n\n"
+                
                 content += f"內容: {rvt_data['content']}\n"
                 
                 final_results.append({
@@ -435,7 +445,9 @@ def _get_rvt_guide_results(vector_results: List[dict], version_info: str) -> Lis
                     'content': content,
                     'score': vector_result['similarity_score'],
                     'metadata': {
-                        'source': f'rvt_guide_vector_search_{version_info}'
+                        'source': f'rvt_guide_vector_search_{version_info}',
+                        'has_images': has_images,  # 加入圖片標記
+                        'guide_id': source_id  # 加入 guide ID 供前端查詢圖片
                     }
                 })
         

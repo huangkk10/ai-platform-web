@@ -15,8 +15,9 @@ import logging
 import sys
 import os
 import time
-from .models import UserProfile, Project, Task, KnowIssue, TestClass, OCRTestClass, OCRStorageBenchmark, RVTGuide
-from .serializers import UserSerializer, UserProfileSerializer, UserPermissionSerializer, ProjectSerializer, TaskSerializer, KnowIssueSerializer, TestClassSerializer, OCRTestClassSerializer, OCRStorageBenchmarkSerializer, OCRStorageBenchmarkListSerializer, RVTGuideSerializer, RVTGuideListSerializer
+from .models import UserProfile, Project, Task, KnowIssue, TestClass, OCRTestClass, OCRStorageBenchmark, RVTGuide, ContentImage
+from .serializers import UserSerializer, UserProfileSerializer, UserPermissionSerializer, ProjectSerializer, TaskSerializer, KnowIssueSerializer, TestClassSerializer, OCRTestClassSerializer, OCRStorageBenchmarkSerializer, OCRStorageBenchmarkListSerializer, RVTGuideSerializer, RVTGuideListSerializer, ContentImageSerializer, RVTGuideWithImagesSerializer
+from rest_framework.exceptions import ValidationError
 
 # 導入向量搜索服務
 try:
@@ -1966,6 +1967,79 @@ class RVTGuideViewSet(viewsets.ModelViewSet):
                 return Response({
                     'error': f'統計資料獲取失敗: {str(e)}'
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    @action(detail=True, methods=['post'])
+    def set_primary_image(self, request, pk=None):
+        """設定主要圖片"""
+        guide = self.get_object()
+        image_id = request.data.get('image_id')
+        
+        try:
+            # 先檢查圖片是否存在且屬於該 guide
+            image = guide.images.get(id=image_id)
+            guide.set_primary_image(image_id)
+            return Response({'success': True, 'message': '主要圖片設定成功'})
+        except ContentImage.DoesNotExist:
+            return Response({'error': '圖片不存在'}, status=404)
+        except Exception as e:
+            logger.error(f"設定主要圖片失敗: {str(e)}")
+            return Response({'error': str(e)}, status=400)
+    
+    @action(detail=True, methods=['post'])
+    def reorder_images(self, request, pk=None):
+        """重新排序圖片"""
+        guide = self.get_object()
+        image_ids = request.data.get('image_ids', [])
+        
+        try:
+            guide.reorder_images(image_ids)
+            return Response({'success': True, 'message': '排序更新成功'})
+        except Exception as e:
+            logger.error(f"圖片排序失敗: {str(e)}")
+            return Response({'error': str(e)}, status=400)
+    
+    @action(detail=True, methods=['get'])
+    def images(self, request, pk=None):
+        """獲取指南的所有圖片"""
+        guide = self.get_object()
+        images = guide.get_active_images()
+        serializer = ContentImageSerializer(images, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def update_content_with_images(self, request, pk=None):
+        """自動更新內容以包含圖片引用"""
+        guide = self.get_object()
+        
+        try:
+            guide.update_content_with_images()
+            return Response({
+                'success': True, 
+                'message': '內容已自動更新圖片引用',
+                'updated_content': guide.content
+            })
+        except Exception as e:
+            logger.error(f"更新內容圖片引用失敗: {str(e)}")
+            return Response({'error': str(e)}, status=400)
+    
+    def get_serializer_class(self):
+        """根據操作類型選擇合適的序列化器"""
+        # 檢查是否需要包含圖片資料
+        include_images = self.request.query_params.get('include_images', 'false').lower() == 'true'
+        
+        if self.viewset_manager:
+            serializer_class = self.viewset_manager.get_serializer_class(self.action)
+            # 如果需要圖片且是詳細檢視，使用帶圖片的序列化器
+            if include_images and self.action in ['retrieve', 'list']:
+                return RVTGuideWithImagesSerializer
+            return serializer_class
+        else:
+            # 備用實現
+            if include_images and self.action in ['retrieve', 'list']:
+                return RVTGuideWithImagesSerializer
+            elif self.action == 'list':
+                return RVTGuideListSerializer
+            return RVTGuideSerializer
 
 
 # ============= 系統狀態監控 API =============
@@ -2844,3 +2918,232 @@ def intelligent_question_classify(request):
             'success': False,
             'error': f'智能分類失敗: {str(e)}'
         }, status=500)
+
+
+# ============= ContentImage 圖片管理 API =============
+
+@method_decorator(csrf_exempt, name='dispatch')
+class ContentImageViewSet(viewsets.ModelViewSet):
+    """通用內容圖片管理 ViewSet"""
+    queryset = ContentImage.objects.all()
+    serializer_class = ContentImageSerializer
+    permission_classes = [permissions.AllowAny]  # 🔧 改為允許所有用戶言取圖片
+    
+    def get_queryset(self):
+        """根據查詢參數過濾圖片"""
+        queryset = super().get_queryset()
+        content_type = self.request.query_params.get('content_type')
+        content_id = self.request.query_params.get('content_id')
+        filename = self.request.query_params.get('filename')
+        
+            # 🔧 改善檔名搜索邏輯 - 支持更靈活的匹配
+        if filename:
+            from django.db.models import Q
+            
+            # 1. 精確匹配
+            exact_match = Q(filename=filename)
+            
+            # 2. 包含匹配
+            contains_match = Q(filename__icontains=filename)
+            
+            # 3. 如果查詢的是數字串，可能是檔名的一部分，搜索包含該數字串的所有檔案
+            clean_filename = filename.replace('.png', '').replace('.jpg', '').replace('.jpeg', '').replace('.gif', '').replace('.bmp', '').replace('.webp', '')
+            if clean_filename.isdigit() and len(clean_filename) > 5:  # 長數字串
+                number_match = Q(filename__icontains=clean_filename)
+            else:
+                number_match = Q(pk=-1)
+            
+            # 4. 如果查詢的是 jenkins 相關，搜索包含 jenkins 的
+            if 'jenkins' in filename.lower():
+                jenkins_match = Q(filename__icontains='jenkins')
+            else:
+                jenkins_match = Q(pk=-1)
+            
+            # 5. 如果查詢的是 kisspng 相關，搜索包含相似關鍵詞的
+            if 'kisspng' in filename.lower() or 'jenkins' in filename.lower():
+                kisspng_match = Q(filename__istartswith='kisspng-') & Q(filename__icontains='jenkins')
+            else:
+                kisspng_match = Q(pk=-1)
+            
+            # 6. 反向匹配：檔名較長，查詢較短時，檢查資料庫中的檔名是否包含查詢字串
+            reverse_match = Q(pk=-1)  # 預設空條件
+            for field in ['filename']:
+                # 只對有意義的長度進行反向匹配
+                if len(filename) > 10:
+                    reverse_match = reverse_match | Q(**{f'{field}__icontains': filename})
+            
+            # 組合所有條件（OR 關係）
+            queryset = queryset.filter(exact_match | contains_match | number_match | jenkins_match | kisspng_match | reverse_match)
+        
+        if content_type and content_id:
+            if content_type == 'rvt-guide':
+                queryset = queryset.filter(rvt_guide_id=content_id)
+            else:
+                # 使用通用的 content_type 和 object_id 過濾
+                from django.contrib.contenttypes.models import ContentType
+                try:
+                    ct = ContentType.objects.get(model=content_type.replace('-', ''))
+                    queryset = queryset.filter(content_type=ct, object_id=content_id)
+                except ContentType.DoesNotExist:
+                    queryset = queryset.none()
+        
+        return queryset.filter(is_active=True).order_by('display_order')
+    
+    def perform_create(self, serializer):
+        """處理圖片上傳"""
+        uploaded_file = self.request.FILES.get('image')
+        content_type = self.request.data.get('content_type')
+        content_id = self.request.data.get('content_id')
+        title = self.request.data.get('title', '')
+        description = self.request.data.get('description', '')
+        
+        if not uploaded_file:
+            raise ValidationError("請提供圖片檔案")
+        
+        if not content_type or not content_id:
+            raise ValidationError("請提供內容類型和內容 ID")
+        
+        # 檔案驗證
+        self._validate_image_file(uploaded_file)
+        
+        # 根據內容類型獲取對象
+        content_object = self._get_content_object(content_type, content_id)
+        
+        # 創建圖片記錄
+        try:
+            image = ContentImage.create_from_upload(
+                content_object=content_object,
+                uploaded_file=uploaded_file,
+                title=title,
+                description=description
+            )
+            
+            # 更新關聯的向量資料（如果是 RVT Guide）
+            if content_type == 'rvt-guide':
+                self._update_guide_vectors(content_object)
+            
+            serializer.instance = image
+            
+        except Exception as e:
+            logger.error(f"圖片創建失敗: {str(e)}")
+            raise ValidationError(f"圖片上傳失敗: {str(e)}")
+    
+    def _validate_image_file(self, file):
+        """驗證圖片檔案"""
+        max_size = 2 * 1024 * 1024  # 2MB
+        allowed_types = ['image/jpeg', 'image/png', 'image/gif']
+        
+        if file.size > max_size:
+            raise ValidationError(f"檔案大小不能超過 {max_size // (1024*1024)}MB")
+        
+        if file.content_type not in allowed_types:
+            raise ValidationError(f"不支援的檔案類型: {file.content_type}")
+    
+    def _get_content_object(self, content_type, content_id):
+        """根據內容類型獲取對象"""
+        if content_type == 'rvt-guide':
+            try:
+                return RVTGuide.objects.get(id=content_id)
+            except RVTGuide.DoesNotExist:
+                raise ValidationError("指定的 RVT Guide 不存在")
+        elif content_type == 'know-issue':
+            try:
+                return KnowIssue.objects.get(id=content_id)
+            except KnowIssue.DoesNotExist:
+                raise ValidationError("指定的 Know Issue 不存在")
+        else:
+            raise ValidationError(f"不支援的內容類型: {content_type}")
+    
+    def _update_guide_vectors(self, rvt_guide):
+        """更新 RVT Guide 的向量資料"""
+        try:
+            from library.rvt_guide.vector_service import RVTGuideVectorService
+            vector_service = RVTGuideVectorService()
+            vector_service.generate_and_store_vector(rvt_guide, action='update')
+        except Exception as e:
+            logger.warning(f"向量更新失敗: {str(e)}")
+    
+    @action(detail=False, methods=['post'], url_path='batch-upload')
+    def batch_upload(self, request):
+        """批量上傳圖片"""
+        content_type = request.data.get('content_type')
+        content_id = request.data.get('content_id')
+        uploaded_files = request.FILES.getlist('images')
+        
+        if not uploaded_files:
+            return Response({'error': '請提供至少一張圖片'}, status=400)
+        
+        if not content_type or not content_id:
+            return Response({'error': '請提供內容類型和內容 ID'}, status=400)
+        
+        try:
+            content_object = self._get_content_object(content_type, content_id)
+        except ValidationError as e:
+            return Response({'error': str(e)}, status=404)
+        
+        created_images = []
+        errors = []
+        
+        for uploaded_file in uploaded_files:
+            try:
+                self._validate_image_file(uploaded_file)
+                image = ContentImage.create_from_upload(
+                    content_object=content_object,
+                    uploaded_file=uploaded_file
+                )
+                created_images.append(ContentImageSerializer(image).data)
+            except Exception as e:
+                errors.append(f"{uploaded_file.name}: {str(e)}")
+        
+        # 更新向量資料
+        if created_images and content_type == 'rvt-guide':
+            self._update_guide_vectors(content_object)
+        
+        return Response({
+            'success': len(created_images),
+            'errors': errors,
+            'created_images': created_images
+        })
+    
+    @action(detail=True, methods=['post'])
+    def set_primary(self, request, pk=None):
+        """設定為主要圖片"""
+        image = self.get_object()
+        
+        # 清除同內容的其他主要圖片
+        if image.rvt_guide:
+            ContentImage.objects.filter(rvt_guide=image.rvt_guide, is_primary=True).update(is_primary=False)
+        else:
+            ContentImage.objects.filter(
+                content_type=image.content_type, 
+                object_id=image.object_id, 
+                is_primary=True
+            ).update(is_primary=False)
+        
+        # 設定當前圖片為主要圖片
+        image.is_primary = True
+        image.save()
+        
+        return Response({'success': True, 'message': '主要圖片設定成功'})
+    
+    @action(detail=False, methods=['post'])
+    def reorder(self, request):
+        """重新排序圖片"""
+        image_ids = request.data.get('image_ids', [])
+        content_type = request.data.get('content_type')
+        content_id = request.data.get('content_id')
+        
+        if not image_ids:
+            return Response({'error': '請提供圖片 ID 列表'}, status=400)
+        
+        try:
+            for index, image_id in enumerate(image_ids, 1):
+                ContentImage.objects.filter(id=image_id).update(display_order=index)
+            
+            return Response({'success': True, 'message': '排序更新成功'})
+        except Exception as e:
+            return Response({'error': str(e)}, status=400)
+
+
+# 為 RVTGuideViewSet 添加圖片相關的 actions
+# 這些方法可以添加到現有的 RVTGuideViewSet 中

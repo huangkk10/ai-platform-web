@@ -201,9 +201,20 @@ class DatabaseSearchService:
                 for row in rows:
                     guide_data = dict(zip(columns, row))
                     
+                    # 檢查內容是否包含圖片
+                    has_images = any(keyword in guide_data['content'].lower() for keyword in [
+                        '🖼️', '--- 相關圖片 ---', '圖片', '截圖', 'image', 'picture'
+                    ])
+                    
                     # 格式化為知識片段
                     content = f"# {guide_data['title']}\n\n"
                     content += f"**內容**:\n{guide_data['content']}"
+                    
+                    # 如果包含圖片，在內容開始加入明確提示
+                    if has_images:
+                        content = f"# {guide_data['title']}\n\n"
+                        content += "📸 **重要：此內容包含相關圖片說明，請在回答時提及圖片資訊**\n\n"
+                        content += f"**內容**:\n{guide_data['content']}"
                     
                     results.append({
                         'id': str(guide_data['id']),
@@ -213,7 +224,8 @@ class DatabaseSearchService:
                         'metadata': {
                             'source': 'rvt_guide_database',
                             'created_at': str(guide_data['created_at']) if guide_data['created_at'] else None,
-                            'updated_at': str(guide_data['updated_at']) if guide_data['updated_at'] else None
+                            'updated_at': str(guide_data['updated_at']) if guide_data['updated_at'] else None,
+                            'has_images': has_images  # 加入圖片標記
                         }
                     })
                 

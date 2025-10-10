@@ -118,6 +118,15 @@ class RVTGuideVectorService:
         if hasattr(instance, 'document_name') and instance.document_name:
             content_parts.append(f"文檔: {instance.document_name}")
         
+        # 🆕 圖片摘要資訊 - 使用新的便利方法
+        if hasattr(instance, 'get_images_summary'):
+            try:
+                images_summary = instance.get_images_summary()
+                if images_summary:
+                    content_parts.append(images_summary)
+            except Exception as e:
+                self.logger.warning(f"取得圖片摘要失敗: {str(e)}")
+        
         return "\n".join(content_parts)
     
     def delete_vector(self, instance):

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Layout, Input, Button, Card, Avatar, message, Spin, Typography, Tag, Table, Tooltip } from 'antd';
+import { Layout, Input, Button, Card, Avatar, message, Spin, Typography, Tag, Table, Tooltip, Image, Modal } from 'antd';
 import { 
   SendOutlined, 
   MinusSquareFilled,
@@ -19,7 +19,296 @@ import './RvtAssistantChatPage.css';
 
 const { Content } = Layout;
 const { TextArea } = Input;
-const { Text, Title } = Typography;
+const { Text } = Typography;
+
+// 圖片展示組件
+const MessageImages = ({ filenames, onImageLoad }) => {
+  const [images, setImages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const loadImages = async () => {
+      try {
+        console.log('📊 MessageImages: 開始載入圖片', { filenames });
+        setLoading(true);
+        const loadedImages = await onImageLoad(filenames);
+        console.log('📊 MessageImages: 載入的圖片資料:', loadedImages);
+        console.log('📊 MessageImages: 圖片資料長度:', loadedImages?.length);
+        
+        if (loadedImages && loadedImages.length > 0) {
+          console.log('📊 MessageImages: 第一張圖片資料:', loadedImages[0]);
+          console.log('📊 MessageImages: 第一張圖片 data_url 開頭:', loadedImages[0]?.data_url?.substring(0, 100));
+          console.log('📊 MessageImages: 第一張圖片 data_url 長度:', loadedImages[0]?.data_url?.length);
+          console.log('📊 MessageImages: 設定 images state');
+          setImages(loadedImages);
+        } else {
+          console.log('📊 MessageImages: 無有效圖片資料');
+          setImages([]);
+        }
+        setError(null);
+      } catch (err) {
+        console.error('❌ MessageImages: 圖片載入失敗:', err);
+        setError('載入圖片時發生錯誤');
+        setImages([]);
+      } finally {
+        console.log('📊 MessageImages: 載入完成，設定 loading = false');
+        setLoading(false);
+      }
+    };
+
+    if (filenames && filenames.length > 0) {
+      console.log('📊 MessageImages: 準備載入圖片');
+      loadImages();
+    } else {
+      console.log('📊 MessageImages: 無檔名，跳過載入');
+      setLoading(false);
+    }
+  }, [filenames, onImageLoad]);
+
+  const showImageModal = (imageData) => {
+    Modal.info({
+      title: `📸 ${imageData.title || imageData.filename}`,
+      width: 800,
+      content: (
+        <div style={{ textAlign: 'center', padding: '20px 0' }}>
+          <Image
+            src={imageData.data_url}
+            alt={imageData.title || imageData.filename}
+            style={{ maxWidth: '100%', maxHeight: '500px', objectFit: 'contain' }}
+            preview={{
+              mask: '🔍 點擊放大查看'
+            }}
+          />
+          {imageData.description && (
+            <div style={{ marginTop: '16px', color: '#666', fontSize: '14px' }}>
+              📝 {imageData.description}
+            </div>
+          )}
+          <div style={{ marginTop: '12px', fontSize: '12px', color: '#999' }}>
+            尺寸: {imageData.dimensions_display || '未知'} | 大小: {imageData.size_display || '未知'}
+          </div>
+        </div>
+      ),
+      okText: '關閉',
+      icon: null
+    });
+  };
+
+  if (loading) {
+    return (
+      <div style={{ marginTop: '12px', borderTop: '1px solid #f0f0f0', paddingTop: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666' }}>
+          <Spin size="small" />
+          <span style={{ fontSize: '12px' }}>正在載入圖片...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ marginTop: '12px', borderTop: '1px solid #f0f0f0', paddingTop: '12px' }}>
+        <div style={{ fontSize: '12px', color: '#ff4d4f' }}>
+          ❌ {error}
+        </div>
+        <div style={{ fontSize: '11px', color: '#999', marginTop: '4px' }}>
+          請檢查網路連線或聯絡系統管理員
+        </div>
+      </div>
+    );
+  }
+
+  if (images.length === 0) {
+    // 沒有載入到圖片，顯示檔名連結
+    return (
+      <div style={{ margin: '8px 0' }}>
+        <div style={{ fontSize: '12px', color: '#666', marginBottom: '6px' }}>
+          📸 相關圖片 ({filenames.length} 張)：
+        </div>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {filenames.map((filename, index) => (
+            <div 
+              key={index} 
+              style={{ 
+                padding: '6px 10px', 
+                backgroundColor: '#f0f0f0', 
+                border: '1px solid #d9d9d9',
+                borderRadius: '6px',
+                fontSize: '12px',
+                color: '#666'
+              }}
+            >
+              🖼️ {filename.length > 30 ? filename.substring(0, 30) + '...' : filename}
+            </div>
+          ))}
+        </div>
+        <div style={{ fontSize: '11px', color: '#999', marginTop: '8px' }}>
+          💡 圖片資料暫時無法載入，請前往知識庫查看
+        </div>
+      </div>
+    );
+  }
+
+  // 有成功載入圖片，直接顯示
+  console.log('📊 MessageImages: 渲染圖片區域', { imagesLength: images.length, images });
+  
+  return (
+    <div style={{ margin: '8px 0' }}>
+      <div style={{ fontSize: '12px', color: '#666', marginBottom: '6px' }}>
+        📸 相關圖片 ({images.length} 張)：
+      </div>
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
+        gap: '12px'
+      }}>
+        {images.map((image, index) => (
+          <div 
+            key={index} 
+            style={{
+              border: '1px solid #e8e8e8',
+              borderRadius: '8px',
+              overflow: 'hidden',
+              backgroundColor: '#fff',
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+            onClick={() => showImageModal(image)}
+            onMouseOver={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+          >
+            <div style={{ position: 'relative', paddingTop: '60%', overflow: 'hidden' }}>
+              <img
+                src={image.data_url}
+                alt={image.title || image.filename}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover'
+                }}
+                onLoad={(e) => {
+                  console.log('✅ 圖片載入成功:', image.filename);
+                }}
+                onError={(e) => {
+                  console.error('❌ 圖片載入失敗:', image.filename, e);
+                  console.log('❌ 失敗的 data_url 開頭:', image.data_url?.substring(0, 100));
+                  e.target.style.display = 'none';
+                  e.target.nextSibling.style.display = 'flex';
+                }}
+              />
+              <div 
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  display: 'none',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: '#f5f5f5',
+                  color: '#999',
+                  fontSize: '12px'
+                }}
+              >
+                🖼️ 圖片載入失敗
+              </div>
+            </div>
+            <div style={{ padding: '8px' }}>
+              <div style={{ 
+                fontSize: '12px', 
+                fontWeight: '500',
+                color: '#333',
+                marginBottom: '4px',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}>
+                {image.title || image.filename}
+              </div>
+              {image.description && (
+                <div style={{ 
+                  fontSize: '11px', 
+                  color: '#666',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}>
+                  {image.description}
+                </div>
+              )}
+              <div style={{ 
+                fontSize: '10px', 
+                color: '#999',
+                marginTop: '4px'
+              }}>
+                {image.dimensions_display} • {image.size_display}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ fontSize: '11px', color: '#999', marginTop: '8px', lineHeight: '1.4' }}>
+        💡 點擊圖片可放大查看，圖片直接來自知識庫
+        <span 
+          style={{ 
+            marginLeft: '10px', 
+            color: '#1890ff', 
+            cursor: 'pointer',
+            textDecoration: 'underline'
+          }}
+          onClick={() => {
+            // 顯示最近的除錯資訊
+            const debugKeys = Object.keys(sessionStorage).filter(key => 
+              key.includes('ai_image_debug_') || key.includes('image_load_debug_')
+            ).sort().reverse().slice(0, 2);
+            
+            if (debugKeys.length > 0) {
+              let debugContent = '';
+              debugKeys.forEach(key => {
+                const data = JSON.parse(sessionStorage.getItem(key) || '{}');
+                debugContent += `\n\n=== ${key} ===\n${JSON.stringify(data, null, 2)}`;
+              });
+              
+              Modal.info({
+                title: '🐛 圖片載入除錯資訊',
+                width: 800,
+                content: (
+                  <pre style={{ 
+                    whiteSpace: 'pre-wrap', 
+                    fontSize: '12px', 
+                    maxHeight: '400px', 
+                    overflow: 'auto',
+                    backgroundColor: '#f5f5f5',
+                    padding: '12px',
+                    borderRadius: '4px'
+                  }}>
+                    {debugContent}
+                  </pre>
+                ),
+                okText: '關閉'
+              });
+            } else {
+              message.info('暫無除錯資訊');
+            }
+          }}
+        >
+          🐛 除錯
+        </span>
+      </div>
+    </div>
+  );
+};
 
 // localStorage 相關常數 - 基于用户ID隔离
 const STORAGE_KEY_PREFIX = 'rvt-assistant-chat-messages';
@@ -730,6 +1019,219 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
     }
   };
 
+  // 處理圖片搜尋（當 AI 提及圖片但沒有具體檔名時）
+  const handleImageSearch = () => {
+    message.info('AI 提及了相關圖片，建議前往 RVT Guide 知識庫查看完整圖片資訊');
+    // 可以考慮添加導航到知識庫的功能
+  };
+
+  // 🎯 精準的圖片載入函數
+  const loadImagesData = async (filenames) => {
+    console.log('🖼️ 開始載入圖片，檔名列表:', filenames);
+    
+    // 🐛 載入除錯資訊
+    const loadDebugInfo = {
+      originalFilenames: filenames,
+      validationResults: {},
+      apiResults: {},
+      finalResults: null,
+      timestamp: new Date().toISOString()
+    };
+    
+    // 🧹 預先過濾明顯無效的檔名
+    const validFilenames = filenames.filter(filename => {
+      const isValid = filename && 
+                     filename.length >= 8 && 
+                     /\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(filename) &&
+                     !/[\s\n\r,，。()]/.test(filename); // 不包含空格或標點
+      console.log(`🔍 檔名驗證: "${filename}" -> ${isValid ? '✅ 有效' : '❌ 無效'}`);
+      
+      // 記錄驗證結果
+      loadDebugInfo.validationResults[filename] = {
+        isValid,
+        length: filename?.length || 0,
+        hasExtension: /\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(filename || ''),
+        hasInvalidChars: /[\s\n\r,，。()]/.test(filename || '')
+      };
+      
+      return isValid;
+    });
+    
+    if (validFilenames.length === 0) {
+      console.log('❌ 沒有有效的圖片檔名');
+      return [];
+    }
+    
+    console.log(`📋 有效檔名列表 (${validFilenames.length}/${filenames.length}):`, validFilenames);
+    
+    try {
+      const imagePromises = validFilenames.map(async (filename) => {
+        try {
+          console.log(`🔍 正在載入圖片: "${filename}"`);
+          
+          // 🎯 使用精準搜尋策略
+          console.log(`🔍 嘗試精確檔名搜尋: "${filename}"`);
+          
+          // 首先嘗試精確檔名匹配
+          const exactResponse = await fetch(`/api/content-images/?filename=${encodeURIComponent(filename)}`, {
+            credentials: 'include'
+          });
+          
+          if (exactResponse.ok) {
+            const exactData = await exactResponse.json();
+            console.log(`📊 精確搜尋回應:`, exactData);
+            const exactImages = exactData.results || exactData;
+            
+            if (Array.isArray(exactImages) && exactImages.length > 0) {
+              const image = exactImages[0];
+              if (image && image.data_url) {
+                console.log(`✅ 精確匹配成功: "${filename}" -> 找到圖片 (${Math.round(image.file_size/1024)}KB)`);
+                return image;
+              } else {
+                console.log(`⚠️ 找到記錄但缺少 data_url: "${filename}"`);
+              }
+            } else {
+              console.log(`⚠️ 精確匹配返回空結果: "${filename}"`);
+            }
+          } else {
+            console.log(`❌ 精確搜尋 API 錯誤: ${exactResponse.status} - "${filename}"`);
+          }
+          
+          // 如果精確匹配失敗，嘗試標題包含搜尋（僅作為備用）
+          console.log(`🔍 精確匹配失敗，嘗試標題搜尋: "${filename}"`);
+          const titleResponse = await fetch(`/api/content-images/?title__icontains=${encodeURIComponent(filename)}`, {
+            credentials: 'include'
+          });
+          
+          if (titleResponse.ok) {
+            const titleData = await titleResponse.json();
+            console.log(`📊 標題搜尋回應:`, titleData);
+            const titleImages = titleData.results || titleData;
+            
+            if (Array.isArray(titleImages) && titleImages.length > 0) {
+              const image = titleImages[0];
+              if (image && image.data_url) {
+                console.log(`✅ 標題搜尋成功: "${filename}" -> 找到圖片 (${Math.round(image.file_size/1024)}KB)`);
+                return image;
+              } else {
+                console.log(`⚠️ 標題搜尋找到記錄但缺少 data_url: "${filename}"`);
+              }
+            } else {
+              console.log(`⚠️ 標題搜尋返回空結果: "${filename}"`);
+            }
+          } else {
+            console.log(`❌ 標題搜尋 API 錯誤: ${titleResponse.status} - "${filename}"`);
+          }
+          
+          console.log(`❌ 搜尋失敗: "${filename}" -> 無匹配結果`);
+          return null;
+        } catch (error) {
+          console.warn(`❌ 載入異常: "${filename}"`, error.message);
+          return null;
+        }
+      });
+      
+      const results = await Promise.all(imagePromises);
+      const validImages = results.filter(img => img !== null);
+      
+      // 🐛 完善載入除錯資訊
+      loadDebugInfo.finalResults = {
+        totalAttempts: validFilenames.length,
+        successfulLoads: validImages.length,
+        failedLoads: validFilenames.length - validImages.length,
+        loadedImages: validImages.map(img => ({
+          filename: img.filename,
+          fileSize: Math.round(img.file_size/1024) + 'KB',
+          dimensions: img.dimensions_display,
+          hasDataUrl: !!img.data_url
+        }))
+      };
+      
+      // 保存載入除錯資訊
+      try {
+        const loadDebugKey = `image_load_debug_${Date.now()}`;
+        sessionStorage.setItem(loadDebugKey, JSON.stringify(loadDebugInfo, null, 2));
+        console.log(`🐛 載入除錯資訊已保存至 sessionStorage: ${loadDebugKey}`);
+      } catch (error) {
+        console.warn('無法保存載入除錯資訊:', error);
+      }
+      
+      console.log(`📸 最終載入結果: ${validImages.length}/${validFilenames.length} 張圖片成功載入`);
+      if (validImages.length > 0) {
+        console.log('🎉 成功載入的圖片:', validImages.map(img => `"${img.filename}" (${Math.round(img.file_size/1024)}KB)`));
+      }
+      
+      return validImages;
+    } catch (error) {
+      console.error('❌ 批量載入圖片失敗:', error);
+      return [];
+    }
+  };
+
+  // 處理圖片點擊事件
+  const handleImageClick = async (filename) => {
+    try {
+      message.loading(`正在載入圖片: ${filename.substring(0, 30)}...`, 1);
+      
+      // 搜尋包含此圖片的 RVT Guide
+      const response = await fetch(`/api/content-images/?filename=${encodeURIComponent(filename)}`, {
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        const images = await response.json();
+        if (images.length > 0) {
+          // 找到圖片，顯示在模態框中
+          showImageModal(images[0]);
+        } else {
+          message.warning('未找到對應的圖片檔案');
+        }
+      } else {
+        message.error(`載入圖片失敗 (${response.status})`);
+      }
+      
+    } catch (error) {
+      console.error('載入圖片失敗:', error);
+      message.error('網路錯誤，無法載入圖片');
+    }
+  };
+  
+  // 顯示圖片模態框
+  const showImageModal = (imageData) => {
+    // 支持兩種格式：新的 data_url 或舊的 image_data
+    const imageUrl = imageData.data_url || `data:${imageData.content_type_mime};base64,${imageData.image_data}`;
+    
+    Modal.info({
+      title: `📸 ${imageData.title || imageData.filename}`,
+      width: 800,
+      content: (
+        <div style={{ textAlign: 'center', padding: '20px 0' }}>
+          <Image
+            src={imageUrl}
+            alt={imageData.title || imageData.filename}
+            style={{ maxWidth: '100%', maxHeight: '500px', objectFit: 'contain' }}
+            preview={{
+              mask: '🔍 點擊放大查看'
+            }}
+          />
+          {imageData.description && (
+            <div style={{ marginTop: '16px', color: '#666', fontSize: '14px' }}>
+              📝 {imageData.description}
+            </div>
+          )}
+          <div style={{ marginTop: '12px', fontSize: '12px', color: '#999' }}>
+            尺寸: {imageData.dimensions_display || (imageData.width && imageData.height ? `${imageData.width}×${imageData.height}` : '未知')} | 
+            大小: {imageData.size_display || (imageData.file_size ? `${Math.round(imageData.file_size / 1024)}KB` : '未知')}
+          </div>
+        </div>
+      ),
+      okText: '關閉',
+      icon: null
+    });
+    
+    message.success(`已載入圖片: ${imageData.title || imageData.filename}`);
+  };
+
   const clearChat = useCallback(() => {
     // 使用預設歡迎消息常量
     const defaultMessage = { ...DEFAULT_WELCOME_MESSAGE, timestamp: new Date() };
@@ -748,6 +1250,422 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
       clearClearFunction();
     };
   }, [registerClearFunction, clearClearFunction, clearChat]);
+
+  // 渲染消息中的圖片
+  const renderMessageImages = (content, metadata = null) => {
+    const imageFilenames = new Set();
+    
+    // � 除錯資訊：保留完整的AI回覆圖片資訊
+    console.log('🔍 開始分析內容:', { 
+      content: content.substring(0, 300),
+      hasMetadata: !!metadata,
+      metadataResourcesCount: metadata?.retriever_resources?.length || 0
+    });
+    
+    const debugInfo = {
+      contentPreview: content.substring(0, 200) + (content.length > 200 ? '...' : ''),
+      contentLength: content.length,
+      hasMetadata: !!metadata,
+      metadataResources: metadata?.retriever_resources || [],
+      detectedFilenames: [],
+      finalResult: null,
+      timestamp: new Date().toISOString()
+    };
+    
+    // �🔍 優先從 metadata 中提取圖片資訊（加強版）
+    if (metadata && metadata.retriever_resources) {
+      console.log('🔍 分析 Metadata 中的資源:', metadata.retriever_resources);
+      debugInfo.metadataAnalysis = 'Processing metadata resources...';
+      
+      metadata.retriever_resources.forEach((resource, index) => {
+        console.log(`🔍 分析資源 ${index + 1} 完整內容:`, resource.content);
+        
+        if (resource.content) {
+          // 🎯 精準搜尋完整的 kisspng 檔名
+          const kisspngPattern = /kisspng-[a-zA-Z0-9\-_.]{15,}\.(?:png|jpg|jpeg|gif|bmp|webp)\b/gi;
+          let match;
+          while ((match = kisspngPattern.exec(resource.content)) !== null) {
+            const filename = match[0].trim();
+            console.log(`📸 從資源 ${index + 1} 找到完整 kisspng 檔名: "${filename}"`);
+            imageFilenames.add(filename);
+          }
+          
+          // 🔍 搜尋其他格式的完整檔名（長度至少20字符）
+          const longFilenamePattern = /\b([a-zA-Z0-9\-_.]{20,}\.(?:png|jpg|jpeg|gif|bmp|webp))\b/gi;
+          while ((match = longFilenamePattern.exec(resource.content)) !== null) {
+            const filename = match[1].trim();
+            console.log(`📸 從資源 ${index + 1} 找到長檔名: "${filename}"`);
+            imageFilenames.add(filename);
+          }
+          
+          // 🖼️ emoji 標記的圖片（但要更嚴格檢查）
+          const emojiMatches = resource.content.match(/🖼️\s*([a-zA-Z0-9\-_.]{10,}\.(?:png|jpg|jpeg|gif|bmp|webp))/gi);
+          if (emojiMatches) {
+            emojiMatches.forEach(match => {
+              const filename = match.replace(/🖼️\s*/, '').trim();
+              if (filename && filename.length >= 15) { // 更嚴格的長度要求
+                console.log(`📸 從資源 ${index + 1} 找到 emoji 標記圖片: "${filename}"`);
+                imageFilenames.add(filename);
+              }
+            });
+          }
+        }
+        
+        // 方法3: 檢查資源的其他欄位（如果有的話）
+        if (resource.metadata && typeof resource.metadata === 'object') {
+          Object.values(resource.metadata).forEach(value => {
+            if (typeof value === 'string' && /\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(value)) {
+              console.log(`📸 從資源 ${index + 1} metadata 找到: "${value}"`);
+              imageFilenames.add(value);
+            }
+          });
+        }
+        
+        // 方法4: 檢查 title, name, filename 等可能的欄位
+        ['title', 'name', 'filename', 'file_name'].forEach(field => {
+          if (resource[field] && typeof resource[field] === 'string') {
+            const value = resource[field];
+            if (/\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(value) || /kisspng/.test(value)) {
+              console.log(`📸 從資源 ${index + 1} ${field} 欄位找到: "${value}"`);
+              imageFilenames.add(value);
+            }
+          }
+        });
+      });
+    }
+    
+    // 檢查 AI 回答是否提及圖片
+    const mentionsImages = /(?:如.*圖片.*所示|參考.*圖片|相關圖片|圖片.*顯示|圖片.*標題|主圖.*標題|顯示了此系統|RVT的圖片)/i.test(content);
+    
+    // 🎯 精準的圖片檔名檢測模式 - 優先檢測完整檔名
+    const patterns = [
+      /🖼️\s*([^\n\r(]+?)(?:\s*\([^)]*\))?/g,  // 🖼️ emoji 標記的圖片
+      /\bkisspng-[a-zA-Z0-9\-_.]{10,}\.(?:png|jpg|jpeg|gif|bmp|webp)\b/gi,  // kisspng 完整檔名（優先）
+      /\b([a-zA-Z0-9\-_.]{15,}\.(?:png|jpg|jpeg|gif|bmp|webp))\b/gi,  // 長檔名（至少15字符，更精準）
+      /(?:圖片|截圖|image)\s*[:：]\s*([a-zA-Z0-9\-_.]{8,}\.(?:png|jpg|jpeg|gif|bmp|webp))/gi,  // 明確的圖片描述
+    ];
+    
+    // 使用多種模式提取圖片檔名
+    patterns.forEach((pattern, index) => {
+      console.log(`🔍 正在使用模式 ${index + 1}:`, pattern);
+      let match;
+      while ((match = pattern.exec(content)) !== null) {
+        let filename = match[1] ? match[1].trim() : match[0].trim();
+        console.log(`📝 原始匹配結果:`, match[0], '|', filename);
+        
+        // 清理檔名
+        filename = filename
+          .replace(/^🖼️\s*/, '')
+          .replace(/\s*\([^)]*\)\s*$/, '')
+          .replace(/^[:：]\s*/, '')
+          .replace(/^[((（]/, '')  // 移除開頭的括號
+          .replace(/[))）]$/, '')  // 移除結尾的括號
+          .replace(/\s+$/, '') // 移除結尾空格
+          .replace(/^，/, '') // 移除開頭逗號
+          .replace(/，$/, '') // 移除結尾逗號
+          .trim();
+          
+        console.log(`🧹 清理後的檔名: "${filename}"`);
+        
+        // 🎯 更嚴格的檔名驗證
+        const hasImageExtension = /\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(filename);
+        const isValidLength = filename.length >= 10; // 提高最小長度要求
+        const hasValidChars = !/[\s\n\r,，。()]/.test(filename); // 不包含空格或標點
+        const isCompleteFilename = /^[a-zA-Z0-9\-_.]+\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(filename); // 完整檔名格式
+        
+        // 特別驗證 kisspng 檔名格式
+        const isValidKisspng = filename.startsWith('kisspng-') ? 
+          /^kisspng-[a-zA-Z0-9\-_.]{15,}\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(filename) : 
+          true;
+        
+        if (filename && hasImageExtension && isValidLength && hasValidChars && isCompleteFilename && isValidKisspng) {
+          imageFilenames.add(filename);
+          console.log(`🎯 檢測到有效圖片檔名: "${filename}"`);
+        } else {
+          console.log(`❌ 檔名驗證失敗: "${filename}" (長度:${filename.length}, 格式:${isCompleteFilename}, kisspng:${isValidKisspng})`);
+        }
+      }
+    });
+    
+    // 特殊處理：如果內容包含 "--- 相關圖片 ---" 區塊
+    const imageBlockMatch = content.match(/---\s*相關圖片\s*---([\s\S]*?)(?=\n\n|\[|$)/);
+    if (imageBlockMatch) {
+      const imageBlock = imageBlockMatch[1];
+      const blockFilenames = imageBlock.match(/🖼️\s*([^\n\r(]+?)(?:\s*\([^)]*\))?/g);
+      if (blockFilenames) {
+        blockFilenames.forEach(match => {
+          const filename = match.replace(/🖼️\s*/, '').split('(')[0].trim();
+          if (filename) {
+            imageFilenames.add(filename);
+          }
+        });
+      }
+    }
+    
+    const filenamesArray = Array.from(imageFilenames).filter(name => name.length > 5);
+    
+    // 🐛 完善除錯資訊
+    debugInfo.detectedFilenames = filenamesArray;
+    debugInfo.mentionsImages = mentionsImages;
+    debugInfo.finalFilenamesCount = filenamesArray.length;
+    
+    // 將除錯資訊存儲到瀏覽器sessionStorage，方便查看
+    const debugKey = `ai_image_debug_${Date.now()}`;
+    try {
+      sessionStorage.setItem(debugKey, JSON.stringify(debugInfo, null, 2));
+      console.log(`🐛 除錯資訊已保存至 sessionStorage: ${debugKey}`);
+    } catch (error) {
+      console.warn('無法保存除錯資訊到sessionStorage:', error);
+    }
+    
+    // 調試信息
+    console.log('🔍 圖片檢測最終結果:', {
+      fullContent: content,
+      contentLength: content.length,
+      mentionsImages,
+      filenamesFound: filenamesArray,
+      hasMetadata: !!metadata,
+      metadataResources: metadata?.retriever_resources?.length || 0,
+      imageFilenamesFromMetadata: Array.from(imageFilenames),
+      finalFilenamesCount: filenamesArray.length,
+      debugStorageKey: debugKey
+    });
+    
+    // 如果有 metadata，也打印詳細內容
+    if (metadata && metadata.retriever_resources) {
+      console.log('📚 Metadata 詳細內容:', metadata.retriever_resources);
+      
+      // 🔍 特別檢查每個資源的完整內容
+      metadata.retriever_resources.forEach((resource, index) => {
+        console.log(`📚 資源 ${index + 1} 詳細內容:`, {
+          content: resource.content,
+          metadata: resource.metadata,
+          allFields: Object.keys(resource),
+          hasImages: /(?:png|jpg|jpeg|gif|bmp|webp|kisspng)/i.test(JSON.stringify(resource))
+        });
+      });
+    }
+    
+    // 🔍 如果沒有具體圖片檔名但 AI 提及圖片，嘗試智能搜索
+    if (filenamesArray.length === 0 && mentionsImages) {
+      // 嘗試從 AI 回答中提取關鍵詞來搜索圖片
+      const keywordMatches = content.match(/「([^」]+)」/g); // 提取引號內的關鍵詞
+      const extractedKeywords = keywordMatches ? keywordMatches.map(m => m.replace(/[「」]/g, '')) : [];
+      
+      console.log('🔍 嘗試從關鍵詞搜索圖片:', extractedKeywords);
+      
+      // 如果找到關鍵詞，嘗試根據關鍵詞猜測可能的圖片檔名
+      const possibleFilenames = [];
+      extractedKeywords.forEach(keyword => {
+        // 常見的 RVT 圖片檔名模式
+        const possibleNames = [
+          `${keyword}.png`,
+          `${keyword}.jpg`,
+          `rvt-${keyword.toLowerCase()}.png`,
+          `${keyword.toLowerCase()}-diagram.png`,
+          `${keyword.toLowerCase()}-architecture.png`
+        ];
+        possibleFilenames.push(...possibleNames);
+      });
+      
+      if (possibleFilenames.length > 0) {
+        console.log('🎯 猜測可能的圖片檔名:', possibleFilenames);
+        // 嘗試載入猜測的檔名
+        return (
+          <MessageImages 
+            filenames={possibleFilenames.slice(0, 3)} // 最多嘗試3個
+            onImageLoad={loadImagesData}
+          />
+        );
+      }
+      
+      // 如果沒有找到關鍵詞，顯示通用提示
+      return (
+        <div style={{ marginTop: '12px', borderTop: '1px solid #f0f0f0', paddingTop: '12px' }}>
+          <div style={{ fontSize: '12px', color: '#666', marginBottom: '8px' }}>
+            📸 AI 提及相關圖片資訊：
+          </div>
+          <div style={{ 
+            padding: '8px 12px', 
+            backgroundColor: '#fff7e6', 
+            border: '1px solid #ffd591',
+            borderRadius: '6px',
+            fontSize: '12px',
+            color: '#d46b08',
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+          onClick={() => handleImageSearch()}
+          onMouseOver={(e) => {
+            e.target.style.backgroundColor = '#fff1b8';
+            e.target.style.transform = 'translateY(-1px)';
+          }}
+          onMouseOut={(e) => {
+            e.target.style.backgroundColor = '#fff7e6';
+            e.target.style.transform = 'translateY(0)';
+          }}
+          >
+            🖼️ 此回答涉及圖片說明，點擊查看相關圖片
+            {extractedKeywords.length > 0 && (
+              <div style={{ marginTop: '4px', fontSize: '11px' }}>
+                關鍵詞: {extractedKeywords.join(', ')}
+              </div>
+            )}
+          </div>
+          <div style={{ fontSize: '11px', color: '#999', marginTop: '8px', lineHeight: '1.4' }}>
+            💡 AI 在回答中提及了圖片資訊，點擊上方按鈕前往知識庫查看
+          </div>
+        </div>
+      );
+    }
+    
+    if (filenamesArray.length === 0) return null;
+    
+    return (
+      <MessageImages 
+        filenames={filenamesArray} 
+        onImageLoad={loadImagesData}
+      />
+    );
+  };
+
+  // 🎯 智能圖片內嵌處理：在相關描述文字下方直接顯示圖片
+  const formatMessageWithInlineImages = (content, metadata = null) => {
+    // 預處理並提取圖片資訊
+    let processedContent = content
+      // 清理 HTML 實體編碼的 <br> 標籤
+      .replace(/&lt;br&gt;/gi, '\n')
+      .replace(/&lt;\/br&gt;/gi, '')
+      // 清理其他常見的 HTML 實體
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      // 統一無序列表標記為 -
+      .replace(/^\s*[*•]\s+/gm, '- ')
+      // 統一有序列表格式
+      .replace(/^\s*(\d+)\.\s+/gm, '$1. ')
+      // 清理多餘空行
+      .replace(/\n\s*\n\s*\n/g, '\n\n')
+      // 確保列表項目前後有合適的空行
+      .replace(/(\n- .*?)(?=\n[^-\s])/g, '$1\n')
+      .replace(/(\n\d+\. .*?)(?=\n[^0-9\s])/g, '$1\n');
+
+    // 🔍 提取所有圖片檔名
+    const imageFilenames = new Set();
+    
+    // 從 metadata 中提取圖片
+    if (metadata && metadata.retriever_resources) {
+      metadata.retriever_resources.forEach((resource) => {
+        if (resource.content) {
+          // 精準搜尋 kisspng 檔名
+          const kisspngPattern = /kisspng-[a-zA-Z0-9\-_.]{15,}\.(?:png|jpg|jpeg|gif|bmp|webp)\b/gi;
+          let match;
+          while ((match = kisspngPattern.exec(resource.content)) !== null) {
+            imageFilenames.add(match[0].trim());
+          }
+          
+          // 搜尋其他長檔名
+          const longFilenamePattern = /\b([a-zA-Z0-9\-_.]{20,}\.(?:png|jpg|jpeg|gif|bmp|webp))\b/gi;
+          while ((match = longFilenamePattern.exec(resource.content)) !== null) {
+            imageFilenames.add(match[1].trim());
+          }
+        }
+      });
+    }
+    
+    // 從內容中直接提取圖片檔名
+    const contentImagePatterns = [
+      /🖼️\s*([a-zA-Z0-9\-_.]{10,}\.(?:png|jpg|jpeg|gif|bmp|webp))/gi,
+      /kisspng-[a-zA-Z0-9\-_.]{10,}\.(?:png|jpg|jpeg|gif|bmp|webp)\b/gi,
+      /\b([a-zA-Z0-9\-_.]{15,}\.(?:png|jpg|jpeg|gif|bmp|webp))\b/gi
+    ];
+    
+    contentImagePatterns.forEach(pattern => {
+      let match;
+      while ((match = pattern.exec(processedContent)) !== null) {
+        let filename = match[1] ? match[1].trim() : match[0].trim();
+        filename = filename.replace(/^🖼️\s*/, '').trim();
+        if (filename && filename.length >= 10) {
+          imageFilenames.add(filename);
+        }
+      }
+    });
+    
+    const imageArray = Array.from(imageFilenames);
+    console.log('🎯 內嵌圖片檢測結果:', imageArray);
+    
+    // 🎨 智能內容分段：將內容按段落分割，並在適當位置插入圖片
+    const paragraphs = processedContent.split('\n\n').filter(p => p.trim());
+    const result = [];
+    let remainingImages = [...imageArray]; // 創建副本避免修改原數組
+    
+    paragraphs.forEach((paragraph, index) => {
+      // 渲染當前段落
+      const html = md.render(paragraph);
+      const cleanHtml = DOMPurify.sanitize(html);
+      
+      result.push(
+        <div 
+          key={`paragraph-${index}`}
+          className="markdown-content"
+          dangerouslySetInnerHTML={{ __html: cleanHtml }}
+        />
+      );
+      
+      // 🖼️ 檢查這個段落是否提及圖片，如果有就在下方顯示
+      const mentionsImage = /(?:如.*相關圖片.*所示.*主圖.*為.*RVT.*的.*圖片|如.*圖.*所示.*主圖|主圖.*為.*RVT.*的.*圖片|展示了.*Jenkins.*與.*Ansible|🖼️.*kisspng-jenkins|Jenkins.*與.*Ansible.*在.*自動化測試中的關鍵位置)/i.test(paragraph);
+      
+      if (mentionsImage && remainingImages.length > 0) {
+        console.log('📸 找到圖片描述段落', index, ':', paragraph.substring(0, 100));
+        console.log('📸 在該段落下方顯示圖片:', remainingImages);
+        
+        // 在提及圖片的段落下方直接顯示相關圖片
+        result.push(
+          <div key={`inline-images-${index}`} style={{ 
+            margin: '16px 0',
+            padding: '12px',
+            backgroundColor: '#f8f9ff',
+            borderRadius: '8px',
+            border: '2px solid #e6f7ff',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+          }}>
+            <div style={{ 
+              fontSize: '12px', 
+              color: '#1890ff', 
+              marginBottom: '8px',
+              fontWeight: '500'
+            }}>
+              📸 相關圖片展示：
+            </div>
+            <MessageImages 
+              filenames={remainingImages} 
+              onImageLoad={loadImagesData}
+            />
+          </div>
+        );
+        
+        // 避免重複顯示，清空剩餘圖片列表
+        remainingImages = [];
+      }
+    });
+    
+    // 如果還有剩餘圖片沒有顯示，在最後顯示
+    if (remainingImages.length > 0) {
+      console.log('📸 在最後顯示剩餘圖片:', remainingImages);
+      result.push(
+        <div key="remaining-images" style={{ marginTop: '12px' }}>
+          <MessageImages 
+            filenames={remainingImages} 
+            onImageLoad={loadImagesData}
+          />
+        </div>
+      );
+    }
+    
+    return <div className="message-with-inline-images">{result}</div>;
+  };
 
   const formatMessage = (content) => {
     // 使用 markdown-it + DOMPurify 專業 Markdown 渲染器
@@ -817,7 +1735,10 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
                   styles={{ body: { padding: '12px 16px' } }}
                 >
                   <div className="message-text chat-message-content">
-                    {formatMessage(msg.content)}
+                    {msg.type === 'assistant' ? 
+                      formatMessageWithInlineImages(msg.content, msg.metadata) : 
+                      formatMessage(msg.content)
+                    }
                   </div>
                   
                   {/* AI 回覆的反饋按鈕 */}

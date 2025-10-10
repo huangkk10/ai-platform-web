@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import UserProfile, Project, Task, KnowIssue, TestClass, OCRTestClass, OCRStorageBenchmark, RVTGuide
+from .models import UserProfile, Project, Task, KnowIssue, TestClass, OCRTestClass, OCRStorageBenchmark, RVTGuide, ContentImage
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -291,3 +291,63 @@ class RVTGuideListSerializer(serializers.ModelSerializer):
         read_only_fields = [
             'id', 'created_at', 'updated_at'
         ]
+
+
+class ContentImageSerializer(serializers.ModelSerializer):
+    """通用內容圖片序列化器"""
+    data_url = serializers.SerializerMethodField()
+    size_display = serializers.SerializerMethodField()
+    dimensions_display = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = ContentImage
+        fields = [
+            'id', 'title', 'description', 'filename', 'content_type_mime',
+            'file_size', 'width', 'height', 'display_order', 'is_primary',
+            'is_active', 'created_at', 'updated_at', 'data_url', 
+            'size_display', 'dimensions_display'
+        ]
+        read_only_fields = [
+            'id', 'filename', 'content_type_mime', 'file_size', 'width', 
+            'height', 'created_at', 'updated_at', 'data_url',
+            'size_display', 'dimensions_display'
+        ]
+    
+    def get_data_url(self, obj):
+        return obj.get_data_url()
+    
+    def get_size_display(self, obj):
+        return obj.get_size_display()
+    
+    def get_dimensions_display(self, obj):
+        return obj.get_dimensions_display()
+
+
+class RVTGuideWithImagesSerializer(serializers.ModelSerializer):
+    """包含圖片的 RVT Guide 序列化器"""
+    images = ContentImageSerializer(many=True, read_only=True)
+    active_images = serializers.SerializerMethodField()
+    primary_image = serializers.SerializerMethodField()
+    image_count = serializers.SerializerMethodField()
+    has_images = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = RVTGuide
+        fields = [
+            'id', 'title', 'content', 'created_at', 'updated_at',
+            'images', 'active_images', 'primary_image', 'image_count', 'has_images'
+        ]
+    
+    def get_active_images(self, obj):
+        images = obj.get_active_images()
+        return ContentImageSerializer(images, many=True).data
+    
+    def get_primary_image(self, obj):
+        primary = obj.get_primary_image()
+        return ContentImageSerializer(primary).data if primary else None
+    
+    def get_image_count(self, obj):
+        return obj.get_image_count()
+    
+    def get_has_images(self, obj):
+        return obj.has_images()

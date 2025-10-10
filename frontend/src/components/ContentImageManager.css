@@ -1,0 +1,263 @@
+/* ContentImageManager 組件樣式 */
+
+.content-image-manager {
+  margin-top: 16px;
+}
+
+.content-image-manager .ant-card {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* 上傳區域樣式 */
+.content-image-manager .upload-area {
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 2px dashed #d9d9d9;
+  border-radius: 6px;
+  background: #fafafa;
+  transition: all 0.3s ease;
+}
+
+.content-image-manager .upload-area:hover {
+  border-color: #1890ff;
+  background: #f0f8ff;
+}
+
+/* 圖片卡片樣式 */
+.content-image-manager .image-card {
+  width: 200px;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  border: 1px solid #f0f0f0;
+}
+
+.content-image-manager .image-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* 圖片容器樣式 */
+.content-image-manager .image-container {
+  position: relative;
+  height: 120px;
+  overflow: hidden;
+}
+
+.content-image-manager .image-container img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.content-image-manager .image-card:hover .image-container img {
+  transform: scale(1.05);
+}
+
+/* 拖拽手柄樣式 */
+.content-image-manager .drag-handle {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  border-radius: 4px;
+  padding: 4px;
+  cursor: grab;
+  transition: all 0.3s ease;
+  opacity: 0;
+}
+
+.content-image-manager .image-card:hover .drag-handle {
+  opacity: 1;
+}
+
+.content-image-manager .drag-handle:active {
+  cursor: grabbing;
+  background: rgba(0, 0, 0, 0.8);
+}
+
+/* 主要圖片標記樣式 */
+.content-image-manager .primary-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: linear-gradient(135deg, #ffd700, #ffb300);
+  color: #1a1a1a;
+  font-weight: 500;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* 圖片資訊區域樣式 */
+.content-image-manager .image-meta {
+  padding: 12px;
+}
+
+.content-image-manager .image-meta .ant-card-meta-title {
+  font-size: 13px;
+  line-height: 1.3;
+  margin-bottom: 4px;
+}
+
+.content-image-manager .image-meta .ant-card-meta-description {
+  font-size: 11px;
+  color: #8c8c8c;
+  line-height: 1.2;
+}
+
+/* 操作按鈕區域樣式 */
+.content-image-manager .image-actions {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #f5f5f5;
+}
+
+.content-image-manager .image-actions .ant-btn {
+  border: none;
+  box-shadow: none;
+  padding: 4px 8px;
+}
+
+.content-image-manager .image-actions .ant-btn:hover {
+  background: rgba(24, 144, 255, 0.1);
+}
+
+.content-image-manager .image-actions .ant-btn.ant-btn-primary {
+  background: #1890ff;
+  color: white;
+}
+
+.content-image-manager .image-actions .ant-btn.ant-btn-primary:hover {
+  background: #40a9ff;
+}
+
+.content-image-manager .image-actions .ant-btn.ant-btn-dangerous {
+  color: #ff4d4f;
+}
+
+.content-image-manager .image-actions .ant-btn.ant-btn-dangerous:hover {
+  background: rgba(255, 77, 79, 0.1);
+}
+
+/* 空狀態樣式 */
+.content-image-manager .empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #8c8c8c;
+  background: #fafafa;
+  border-radius: 6px;
+  border: 1px dashed #d9d9d9;
+}
+
+.content-image-manager .empty-state::before {
+  content: "📷";
+  font-size: 48px;
+  display: block;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+/* 拖拽時的樣式 */
+.content-image-manager .image-card.dragging {
+  opacity: 0.8;
+  transform: rotate(5deg) scale(0.95);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+}
+
+/* 拖拽目標區域樣式 */
+.content-image-manager .drop-zone-active {
+  background: rgba(24, 144, 255, 0.05);
+  border: 2px dashed #1890ff;
+}
+
+/* 響應式樣式 */
+@media (max-width: 768px) {
+  .content-image-manager .image-card {
+    width: 150px;
+  }
+  
+  .content-image-manager .image-container {
+    height: 100px;
+  }
+  
+  .content-image-manager .image-actions .ant-btn {
+    padding: 2px 4px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 480px) {
+  .content-image-manager .image-card {
+    width: 120px;
+  }
+  
+  .content-image-manager .image-container {
+    height: 80px;
+  }
+}
+
+/* 載入狀態樣式 */
+.content-image-manager .loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+}
+
+/* 編輯 Modal 樣式增強 */
+.content-image-manager .edit-modal .ant-modal-body {
+  padding: 24px;
+}
+
+.content-image-manager .edit-modal .ant-form-item {
+  margin-bottom: 20px;
+}
+
+.content-image-manager .edit-modal .ant-form-item-label > label {
+  font-weight: 500;
+}
+
+/* 批量操作樣式 */
+.content-image-manager .batch-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.content-image-manager .batch-info {
+  color: #8c8c8c;
+  font-size: 12px;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+/* 圖片預覽增強樣式 */
+.content-image-manager .ant-image-preview-wrap {
+  z-index: 2000;
+}
+
+/* Tooltip 樣式 */
+.content-image-manager .ant-tooltip {
+  font-size: 12px;
+}
+
+/* 標籤樣式 */
+.content-image-manager .ant-tag {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.2;
+  padding: 1px 4px;
+}

@@ -1,24 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Card, 
   Form, 
   Input, 
-  Select, 
   Button, 
   Space, 
-  Typography,
   Row,
   Col,
   message,
-  Spin
+  Spin 
 } from 'antd';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeftOutlined, SaveOutlined } from '@ant-design/icons';
+import { SaveOutlined } from '@ant-design/icons';
 import axios from 'axios';
+import ContentImageManager from '../components/ContentImageManager';
 
-const { Title } = Typography;
 const { TextArea } = Input;
-const { Option } = Select;
 
 const RvtGuideEditPage = () => {
   const { id } = useParams();
@@ -26,26 +23,32 @@ const RvtGuideEditPage = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(!!id);
+  const [images, setImages] = useState([]);
   
   const isEdit = !!id;
 
   // 分類選項
 
 
-  // 載入資料 (編輯模式)
-  useEffect(() => {
-    if (id) {
-      loadGuideData();
-    }
-  }, [id]);
-
-  const loadGuideData = async () => {
+  const loadGuideData = useCallback(async () => {
     try {
       setInitialLoading(true);
-      const response = await axios.get(`/api/rvt-guides/${id}/`);
+      // 載入基本資料和圖片資料
+      const [guideResponse, imagesResponse] = await Promise.all([
+        axios.get(`/api/rvt-guides/${id}/?include_images=true`),
+        axios.get(`/api/content-images/?content_type=rvt-guide&content_id=${id}`)
+      ]);
       
-      if (response.data) {
-        form.setFieldsValue(response.data);
+      if (guideResponse.data) {
+        form.setFieldsValue(guideResponse.data);
+        // 設定圖片資料
+        if (guideResponse.data.active_images) {
+          setImages(guideResponse.data.active_images);
+        } else if (imagesResponse.data.results) {
+          setImages(imagesResponse.data.results);
+        } else if (Array.isArray(imagesResponse.data)) {
+          setImages(imagesResponse.data);
+        }
       } else {
         message.error('載入資料失敗');
         navigate('/knowledge/rvt-log');
@@ -57,7 +60,14 @@ const RvtGuideEditPage = () => {
     } finally {
       setInitialLoading(false);
     }
-  };
+  }, [id, navigate, form]);
+
+  // 載入資料 (編輯模式)
+  useEffect(() => {
+    if (id) {
+      loadGuideData();
+    }
+  }, [id, loadGuideData]);
 
   const handleSubmit = async (values) => {
     try {
@@ -85,6 +95,17 @@ const RvtGuideEditPage = () => {
 
   const handleBack = () => {
     navigate('/knowledge/rvt-log');
+  };
+
+  const handleImagesChange = (newImages) => {
+    setImages(newImages);
+    console.log('RVT Guide 圖片已更新:', newImages);
+  };
+
+  const handleContentUpdate = (updatedContent) => {
+    // 當圖片操作導致內容更新時，更新表單中的內容
+    form.setFieldsValue({ content: updatedContent });
+    console.log('RVT Guide 內容已自動更新圖片引用');
   };
 
   if (initialLoading) {
@@ -156,6 +177,43 @@ const RvtGuideEditPage = () => {
               </Row>
             </Form>
           </Card>
+
+          {/* 圖片管理區域 - 只有在編輯模式且有 ID 時才顯示 */}
+          {isEdit && id && (
+            <ContentImageManager
+              contentType="rvt-guide"
+              contentId={id}
+              images={images}
+              onImagesChange={handleImagesChange}
+              onContentUpdate={handleContentUpdate}
+              maxImages={10}
+              maxSizeMB={2}
+              title="相關圖片"
+            />
+          )}
+
+          {/* 新建模式的提示 */}
+          {!isEdit && (
+            <Card style={{ marginTop: '16px' }}>
+              <div style={{ 
+                padding: '20px',
+                textAlign: 'center',
+                background: '#e6f7ff', 
+                border: '1px solid #91d5ff', 
+                borderRadius: '6px',
+                color: '#0050b3'
+              }}>
+                <Space direction="vertical" size="small">
+                  <span style={{ fontSize: '16px', fontWeight: '500' }}>
+                    📝 圖片管理功能
+                  </span>
+                  <span style={{ fontSize: '14px' }}>
+                    請先儲存基本資料，之後即可在編輯模式中管理相關圖片
+                  </span>
+                </Space>
+              </div>
+            </Card>
+          )}
         </div>
       </div>
 

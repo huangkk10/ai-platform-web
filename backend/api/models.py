@@ -1,5 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
 
 
@@ -579,6 +581,249 @@ class RVTGuide(models.Model):
         """獲取用於搜索的完整內容"""
         search_text = f"{self.title} {self.content}"
         return search_text
+    
+    def get_active_images(self):
+        """獲取所有啟用的圖片"""
+        return self.images.filter(is_active=True).order_by('display_order')
+    
+    def get_primary_image(self):
+        """獲取主要圖片"""
+        return self.images.filter(is_primary=True, is_active=True).first()
+    
+    def get_image_count(self):
+        """獲取圖片數量"""
+        return self.images.filter(is_active=True).count()
+    
+    def has_images(self):
+        """是否有圖片"""
+        return self.get_image_count() > 0
+    
+    def get_images_summary(self):
+        """獲取圖片摘要資訊（用於向量化）"""
+        images = self.get_active_images()
+        if not images.exists():
+            return ""
+        
+        summaries = []
+        for img in images:
+            parts = [f"圖片{img.display_order}"]
+            if img.title:
+                parts.append(f"標題:{img.title}")
+            if img.description:
+                parts.append(f"說明:{img.description}")
+            parts.append(f"檔案:{img.filename}")
+            summaries.append(" ".join(parts))
+        
+        return f"包含{len(summaries)}張圖片: " + "; ".join(summaries)
+    
+    def set_primary_image(self, image_id):
+        """設定主要圖片"""
+        # 清除現有主要圖片
+        self.images.filter(is_primary=True).update(is_primary=False)
+        # 設定新的主要圖片
+        self.images.filter(id=image_id).update(is_primary=True)
+    
+    def reorder_images(self, image_ids):
+        """重新排序圖片"""
+        for index, image_id in enumerate(image_ids, 1):
+            self.images.filter(id=image_id).update(display_order=index)
+    
+    def update_content_with_images(self):
+        """自動更新內容以包含圖片引用"""
+        images = self.get_active_images()
+        
+        # 移除現有的圖片區塊
+        content = self.content
+        
+        # 尋找並移除現有的圖片區塊 (以 --- 相關圖片 --- 開始)
+        import re
+        content = re.sub(r'\n*---+ *相關圖片 *---+.*?(?=\n\n|\Z)', '', content, flags=re.DOTALL)
+        content = content.rstrip()
+        
+        # 如果有圖片，添加圖片區塊
+        if images.exists():
+            image_section = "\n\n--- 相關圖片 ---\n"
+            for img in images:
+                image_info = []
+                if img.is_primary:
+                    image_info.append("📌 主要圖片")
+                if img.title:
+                    image_info.append(f"標題: {img.title}")
+                if img.description:
+                    image_info.append(f"說明: {img.description}")
+                
+                image_line = f"🖼️ {img.filename}"
+                if image_info:
+                    image_line += f" ({', '.join(image_info)})"
+                
+                image_section += f"{image_line}\n"
+            
+            content += image_section
+        
+        # 更新內容並儲存
+        self.content = content
+        self.save(update_fields=['content', 'updated_at'])
+
+
+class ContentImage(models.Model):
+    """通用內容圖片模型 - 可用於不同類型的內容"""
+    
+    # 通用內容類型關聯 (使用 GenericForeignKey 支援多種模型)
+    content_type = models.ForeignKey(
+        ContentType, 
+        on_delete=models.CASCADE,
+        verbose_name="內容類型"
+    )
+    object_id = models.PositiveIntegerField(verbose_name="對象ID")
+    content_object = GenericForeignKey('content_type', 'object_id')
+    
+    # 為了向後兼容和查詢效能，保留直接關聯到 RVTGuide 的外鍵
+    rvt_guide = models.ForeignKey(
+        RVTGuide,
+        on_delete=models.CASCADE,
+        related_name='images',
+        null=True,
+        blank=True,
+        verbose_name="關聯的 RVT Guide"
+    )
+    
+    # 圖片基本資訊
+    title = models.CharField(
+        max_length=200, 
+        blank=True, 
+        null=True, 
+        verbose_name="圖片標題",
+        help_text="可選的圖片說明標題"
+    )
+    
+    description = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="圖片描述",
+        help_text="可選的詳細描述"
+    )
+    
+    # 圖片檔案資訊
+    filename = models.CharField(max_length=255, verbose_name="檔案名稱")
+    content_type_mime = models.CharField(max_length=100, verbose_name="MIME類型")
+    file_size = models.IntegerField(verbose_name="檔案大小(bytes)")
+    
+    # 圖片二進制資料
+    image_data = models.BinaryField(verbose_name="圖片資料")
+    
+    # 圖片元資料
+    width = models.IntegerField(null=True, blank=True, verbose_name="寬度")
+    height = models.IntegerField(null=True, blank=True, verbose_name="高度")
+    
+    # 排序和狀態
+    display_order = models.IntegerField(
+        default=1, 
+        verbose_name="顯示順序",
+        help_text="數字越小越前面"
+    )
+    
+    is_primary = models.BooleanField(
+        default=False, 
+        verbose_name="是否為主要圖片",
+        help_text="用於縮圖顯示等"
+    )
+    
+    is_active = models.BooleanField(
+        default=True, 
+        verbose_name="是否啟用",
+        help_text="停用的圖片不會在前端顯示"
+    )
+    
+    # 時間戳記
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="上傳時間")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新時間")
+    
+    class Meta:
+        ordering = ['display_order', 'created_at']
+        verbose_name = "內容圖片"
+        verbose_name_plural = "內容圖片"
+        indexes = [
+            models.Index(fields=['content_type', 'object_id', 'display_order']),
+            models.Index(fields=['content_type', 'object_id', 'is_active']),
+            models.Index(fields=['rvt_guide', 'display_order']),
+            models.Index(fields=['rvt_guide', 'is_active']),
+            models.Index(fields=['is_primary']),
+        ]
+    
+    def __str__(self):
+        if self.rvt_guide:
+            return f"{self.rvt_guide.title} - {self.filename}"
+        return f"圖片 - {self.filename}"
+    
+    def get_data_url(self):
+        """生成 data URL"""
+        import base64
+        if self.image_data:
+            base64_data = base64.b64encode(self.image_data).decode('utf-8')
+            return f"data:{self.content_type_mime};base64,{base64_data}"
+        return None
+    
+    def get_size_display(self):
+        """友好的檔案大小顯示"""
+        size_kb = self.file_size // 1024
+        if size_kb < 1024:
+            return f"{size_kb} KB"
+        else:
+            size_mb = size_kb / 1024
+            return f"{size_mb:.1f} MB"
+    
+    def get_dimensions_display(self):
+        """尺寸顯示"""
+        if self.width and self.height:
+            return f"{self.width} × {self.height}"
+        return "未知"
+    
+    @classmethod
+    def create_from_upload(cls, content_object, uploaded_file, title=None, description=None):
+        """從上傳的檔案創建圖片記錄"""
+        from PIL import Image
+        import io
+        from django.contrib.contenttypes.models import ContentType
+        
+        # 讀取檔案資料
+        file_data = uploaded_file.read()
+        
+        # 獲取圖片尺寸
+        width, height = None, None
+        try:
+            image = Image.open(io.BytesIO(file_data))
+            width, height = image.size
+        except Exception:
+            pass  # 如果無法讀取尺寸，保持 None
+        
+        # 取得下一個排序順序
+        content_type = ContentType.objects.get_for_model(content_object)
+        next_order = (cls.objects.filter(
+            content_type=content_type, 
+            object_id=content_object.pk
+        ).aggregate(models.Max('display_order'))['display_order__max'] or 0) + 1
+        
+        # 創建記錄
+        image_instance = cls.objects.create(
+            content_object=content_object,
+            title=title or uploaded_file.name,
+            description=description,
+            filename=uploaded_file.name,
+            content_type_mime=uploaded_file.content_type,
+            file_size=len(file_data),
+            image_data=file_data,
+            width=width,
+            height=height,
+            display_order=next_order,
+            is_primary=next_order == 1  # 第一張圖片設為主要圖片
+        )
+        
+        # 如果是 RVTGuide，同時設定 rvt_guide 外鍵以保持向後兼容
+        if isinstance(content_object, RVTGuide):
+            image_instance.rvt_guide = content_object
+            image_instance.save()
+        
+        return image_instance
 
 
 class ConversationSession(models.Model):
