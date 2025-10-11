@@ -33,6 +33,8 @@ const ContentRenderer = ({
   const IMAGE_REGEX = {
     // 新格式：🖼️ [IMG:123] filename.jpg (標題: xxx, 說明: xxx, 📌 主要圖片)
     withId: /🖼️\s*\[IMG:(\d+)\]\s*(.+?)(?:\s+\(([^)]+)\))?(?=\n|$)/g,
+    // Markdown格式：**[IMG:123] filename.jpg** 或直接 [IMG:123] filename.jpg
+    markdown: /\[IMG:(\d+)\](?:\s*([^\n\*\(]+?))?(?:\s*\(([^)]+)\))?/g,
     // 舊格式：🖼️ filename.jpg (標題: xxx, 說明: xxx)
     legacy: /🖼️\s*([^\(\n\[]+?)(?:\s*\(([^)]+)\))?(?=\n|$)/g
   };
@@ -90,10 +92,15 @@ const ContentRenderer = ({
         contentType: imageData.content_type_mime
       });
       
-      // 生成 data URL
-      if (imageData.image_data) {
-        imageData.data_url = imageData.data_url || `data:${imageData.content_type_mime};base64,${imageData.image_data}`;
+      // 檢查並生成 data URL
+      if (imageData.data_url) {
+        console.log(`ContentRenderer: 使用現有 data URL，長度: ${imageData.data_url.length}`);
+      } else if (imageData.image_data) {
+        imageData.data_url = `data:${imageData.content_type_mime};base64,${imageData.image_data}`;
         console.log(`ContentRenderer: 生成 data URL 成功，長度: ${imageData.data_url.length}`);
+      } else {
+        console.error(`ContentRenderer: 圖片 ${imageId} 沒有可用的圖片資料`);
+        throw new Error('No image data available');
       }
       
       setImageCache(prev => new Map(prev).set(imageId, imageData));
@@ -227,17 +234,18 @@ const ContentRenderer = ({
     console.log('ContentRenderer: 開始解析內容中的圖片標記');
     console.log('ContentRenderer: 內容長度:', content.length);
     console.log('ContentRenderer: 內容片段:', content.substring(0, 500));
-    console.log('ContentRenderer: 搜索 IMG: 標記...');
+
     
     // 先檢查內容中是否包含 IMG: 標記
     const imgMatches = content.match(/IMG:\d+/g);
-    console.log('ContentRenderer: 找到的 IMG: 標記:', imgMatches);
 
     const withIdMatches = [...content.matchAll(IMAGE_REGEX.withId)];
-    console.log(`ContentRenderer: 正規表達式匹配到 ${withIdMatches.length} 個圖片標記`);
+    const markdownMatches = [...content.matchAll(IMAGE_REGEX.markdown)];
+    const allMatches = [...withIdMatches, ...markdownMatches];
+    console.log(`ContentRenderer: 正規表達式匹配到 ${withIdMatches.length} 個標準格式, ${markdownMatches.length} 個Markdown格式, 總共 ${allMatches.length} 個圖片標記`);
     
     // 打印所有匹配的詳細信息
-    withIdMatches.forEach((match, index) => {
+    allMatches.forEach((match, index) => {
       console.log(`ContentRenderer: 匹配 ${index + 1}:`, {
         fullMatch: match[0],
         imageId: match[1],
@@ -247,7 +255,7 @@ const ContentRenderer = ({
     });
     
     // 預載入所有圖片
-    withIdMatches.forEach((match, index) => {
+    allMatches.forEach((match, index) => {
       const imageId = match[1];
       console.log(`ContentRenderer: 處理第 ${index + 1} 個圖片，ID: ${imageId}`);
       
@@ -271,6 +279,7 @@ const ContentRenderer = ({
 
     // 先處理新格式 (帶 ID)
     const withIdMatches = [...content.matchAll(IMAGE_REGEX.withId)];
+    const markdownMatches = [...content.matchAll(IMAGE_REGEX.markdown)];
     
     // 收集所有匹配
     const allMatches = [];
@@ -283,6 +292,18 @@ const ContentRenderer = ({
         index: match.index,
         imageId: match[1],
         filename: match[2].trim(),
+        infoText: match[3]
+      });
+    }
+
+    // 收集Markdown格式匹配
+    for (const match of markdownMatches) {
+      allMatches.push({
+        type: 'markdown',
+        match,
+        index: match.index,
+        imageId: match[1],
+        filename: match[2] ? match[2].trim() : '',
         infoText: match[3]
       });
     }
@@ -337,9 +358,10 @@ const ContentRenderer = ({
       // 解析圖片資訊
       const info = parseImageInfo(infoText);
 
-      if (type === 'withId') {
-        // 新格式：根據 ID 載入圖片
+      if (type === 'withId' || type === 'markdown') {
+        // 新格式或Markdown格式：根據 ID 載入圖片
         const imageData = imageCache.get(imageId);
+        console.log(`ContentRenderer: 渲染圖片 ID ${imageId}, imageData:`, imageData ? '存在' : '不存在');
         elements.push(renderImage(imageData, info, imageId));
       } else {
         // 舊格式：僅顯示檔案名稱和資訊
@@ -417,17 +439,6 @@ const ContentRenderer = ({
 
   return (
     <div className={`content-renderer ${className}`} style={style}>
-      {/* DEBUG: ContentRenderer 運行指示器 */}
-      <div style={{ 
-        background: '#f0f0f0', 
-        padding: '4px 8px', 
-        fontSize: '12px', 
-        color: '#666',
-        marginBottom: '8px'
-      }}>
-        🔧 ContentRenderer 已載入 | 圖片快取: {imageCache.size} | 載入中: {loadingImages.size} | 失敗: {failedImages.size}
-      </div>
-      
       {content_elements.length > 0 ? content_elements : (
         <div style={{ 
           whiteSpace: 'pre-wrap',

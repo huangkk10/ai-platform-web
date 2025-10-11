@@ -15,6 +15,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { recordChatUsage, CHAT_TYPES } from '../utils/chatUsage';
 import MarkdownIt from 'markdown-it';
 import DOMPurify from 'dompurify';
+import ContentRenderer from '../components/ContentRenderer';
 import './RvtAssistantChatPage.css';
 
 const { Content } = Layout;
@@ -442,9 +443,9 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
   // 初始化 Markdown 解析器
   const md = useMemo(() => {
     return new MarkdownIt({
-      html: true,         // 🔄 啟用 HTML 標籤處理 - 測試是否能解決問題
-      xhtmlOut: true,     // 使用 XHTML 格式
-      breaks: false,      // 不自動將單一換行轉為 <br>，保持標準 markdown 行為
+      html: true,         // 啟用 HTML 標籤處理
+      xhtmlOut: false,    // 使用標準 HTML 格式
+      breaks: true,       // ✅ 啟用 breaks 以正確處理單一換行
       linkify: true,      // 自動轉換 URL 為鏈接
       typographer: true   // 啟用智能標點符號替換
     });
@@ -1309,6 +1310,15 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
               }
             });
           }
+
+          // 🆔 [IMG:ID] 格式的圖片引用檢測
+          const imgIdMatches = resource.content.match(/\[IMG:(\d+)\]/gi);
+          if (imgIdMatches) {
+            imgIdMatches.forEach(match => {
+              console.log(`🆔 從資源 ${index + 1} 找到圖片ID引用: "${match}"`);
+              imageFilenames.add(match); // 保存完整的 [IMG:ID] 格式
+            });
+          }
         }
         
         // 方法3: 檢查資源的其他欄位（如果有的話）
@@ -1529,28 +1539,84 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
     );
   };
 
-  // 🎯 智能圖片內嵌處理：在相關描述文字下方直接顯示圖片
+  // 🎯 智能圖片內嵌處理：分離圖片渲染和文字格式處理
   const formatMessageWithInlineImages = (content, metadata = null) => {
+    
+    // 🎯 檢查是否包含 [IMG:ID] 格式的圖片引用
+    const hasImgIdReferences = /\*?\*?\[IMG:\d+\]/i.test(content);
+    
+    if (hasImgIdReferences) {
+      console.log('🖼️ 檢測到IMG:ID格式，分離處理文字和圖片');
+      
+      // 🔧 分離文字內容和圖片引用
+      const parts = content.split(/(\*?\*?\[IMG:\d+\]\*?\*?)/g);
+      const result = [];
+      
+      parts.forEach((part, index) => {
+        if (/\*?\*?\[IMG:\d+\]\*?\*?/.test(part)) {
+          // 🖼️ 圖片部分 - 清理粗體符號後使用 ContentRenderer 渲染
+          const cleanImageRef = part.replace(/^\*+|\*+$/g, ''); // 移除前後的 * 符號
+          result.push(
+            <div key={`img-${index}`} style={{ margin: '12px 0' }}>
+              <ContentRenderer 
+                content={cleanImageRef}
+                showImageTitles={true}
+                showImageDescriptions={true}
+                imageMaxWidth={400}
+                imageMaxHeight={300}
+              />
+            </div>
+          );
+        } else if (part.trim()) {
+          // 📝 文字部分 - 使用 markdown 渲染
+          const processedText = part
+            .replace(/&lt;br\s*\/?&gt;/gi, '\n')
+            .replace(/&lt;\/br&gt;/gi, '')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/&nbsp;/g, ' ')
+            .replace(/^\s*[*•]\s+/gm, '- ')
+            .replace(/^\s*(\d+)\.\s+/gm, '$1. ')
+            .replace(/\n{3,}/g, '\n\n');
+            
+          const html = md.render(processedText);
+          const cleanHtml = DOMPurify.sanitize(html);
+          
+          result.push(
+            <div 
+              key={`text-${index}`}
+              className="markdown-content"
+              dangerouslySetInnerHTML={{ __html: cleanHtml }}
+            />
+          );
+        }
+      });
+      
+      return <div className="message-with-mixed-content">{result}</div>;
+    }
+    
     // 預處理並提取圖片資訊
     let processedContent = content
-      // 清理 HTML 實體編碼的 <br> 標籤
-      .replace(/&lt;br&gt;/gi, '\n')
-      .replace(/&lt;\/br&gt;/gi, '')
-      // 清理其他常見的 HTML 實體
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&amp;/g, '&')
-      .replace(/&quot;/g, '"')
+      // ✅ 修正 HTML 實體處理順序和邏輯
+      .replace(/&lt;br\s*\/?&gt;/gi, '\n')  // 處理各種 <br> 格式
+      .replace(/&lt;\/br&gt;/gi, '')        // 移除錯誤的結束標籤
+      .replace(/&amp;/g, '&')               // 先處理 &amp;
+      .replace(/&lt;/g, '<')               // 再處理 &lt;
+      .replace(/&gt;/g, '>')               // 處理 &gt;
+      .replace(/&quot;/g, '"')             // 處理引號
       .replace(/&#39;/g, "'")
-      // 統一無序列表標記為 -
+      .replace(/&nbsp;/g, ' ')             // 處理不間斷空格
+      // 統一列表格式
       .replace(/^\s*[*•]\s+/gm, '- ')
-      // 統一有序列表格式
       .replace(/^\s*(\d+)\.\s+/gm, '$1. ')
-      // 清理多餘空行
-      .replace(/\n\s*\n\s*\n/g, '\n\n')
-      // 確保列表項目前後有合適的空行
-      .replace(/(\n- .*?)(?=\n[^-\s])/g, '$1\n')
-      .replace(/(\n\d+\. .*?)(?=\n[^0-9\s])/g, '$1\n');
+      // 清理多餘空行但保留必要的格式
+      .replace(/\n{3,}/g, '\n\n')
+      // 確保列表前後有適當空行
+      .replace(/(\n- .*?)(?=\n[^-\s\n])/g, '$1\n')
+      .replace(/(\n\d+\. .*?)(?=\n[^0-9\s\n])/g, '$1\n');
 
     // 🔍 提取所有圖片檔名
     const imageFilenames = new Set();
@@ -1668,28 +1734,83 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
   };
 
   const formatMessage = (content) => {
-    // 使用 markdown-it + DOMPurify 專業 Markdown 渲染器
+    // 🎯 檢查是否包含 [IMG:ID] 格式的圖片引用（包含可能的粗體標記）
+    const hasImgIdReferences = /\*?\*?\[IMG:\d+\]\*?\*?/i.test(content);
+    
+    if (hasImgIdReferences) {
+      console.log('🖼️ 檢測到IMG:ID格式，分離處理文字和圖片');
+      
+      // 🔧 分離文字內容和圖片引用（包含可能的粗體標記）
+      const parts = content.split(/(\*?\*?\[IMG:\d+\]\*?\*?)/g);
+      const result = [];
+      
+      parts.forEach((part, index) => {
+        if (/\*?\*?\[IMG:\d+\]\*?\*?/.test(part)) {
+          // 🖼️ 圖片部分 - 清理粗體符號後使用 ContentRenderer 渲染
+          const cleanImageRef = part.replace(/^\*+|\*+$/g, ''); // 移除前後的 * 符號
+          result.push(
+            <div key={`img-${index}`} style={{ margin: '12px 0' }}>
+              <ContentRenderer 
+                content={cleanImageRef}
+                showImageTitles={true}
+                showImageDescriptions={true}
+                imageMaxWidth={400}
+                imageMaxHeight={300}
+              />
+            </div>
+          );
+        } else if (part.trim()) {
+          // 📝 文字部分 - 使用 markdown 渲染
+          const processedText = part
+            .replace(/&lt;br\s*\/?&gt;/gi, '\n')
+            .replace(/&lt;\/br&gt;/gi, '')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/&nbsp;/g, ' ')
+            .replace(/^\s*[*•]\s+/gm, '- ')
+            .replace(/^\s*(\d+)\.\s+/gm, '$1. ')
+            .replace(/\n{3,}/g, '\n\n');
+            
+          const html = md.render(processedText);
+          const cleanHtml = DOMPurify.sanitize(html);
+          
+          result.push(
+            <div 
+              key={`text-${index}`}
+              className="markdown-content"
+              dangerouslySetInnerHTML={{ __html: cleanHtml }}
+            />
+          );
+        }
+      });
+      
+      return <div className="message-with-mixed-content">{result}</div>;
+    }
+
+    // 🖼️ 純文字內容 - 使用 markdown-it + DOMPurify 專業 Markdown 渲染器
     
     // 預處理：清理不需要的 HTML 實體和統一格式
     let processedContent = content
-      // 清理 HTML 實體編碼的 <br> 標籤 - 這是問題的根源！
-      .replace(/&lt;br&gt;/gi, '\n')
-      .replace(/&lt;\/br&gt;/gi, '')
-      // 清理其他常見的 HTML 實體
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&amp;/g, '&')
-      .replace(/&quot;/g, '"')
+      // ✅ 統一的 HTML 實體處理邏輯
+      .replace(/&lt;br\s*\/?&gt;/gi, '\n')  // 處理各種 <br> 格式
+      .replace(/&lt;\/br&gt;/gi, '')        // 移除錯誤的結束標籤  
+      .replace(/&amp;/g, '&')               // 先處理 &amp;
+      .replace(/&lt;/g, '<')               // 再處理 &lt;
+      .replace(/&gt;/g, '>')               // 處理 &gt;
+      .replace(/&quot;/g, '"')             // 處理引號
       .replace(/&#39;/g, "'")
-      // 統一無序列表標記為 -
+      .replace(/&nbsp;/g, ' ')             // 處理不間斷空格
+      // 統一列表格式
       .replace(/^\s*[*•]\s+/gm, '- ')
-      // 統一有序列表格式
       .replace(/^\s*(\d+)\.\s+/gm, '$1. ')
-      // 清理多餘空行
-      .replace(/\n\s*\n\s*\n/g, '\n\n')
-      // 確保列表項目前後有合適的空行
-      .replace(/(\n- .*?)(?=\n[^-\s])/g, '$1\n')
-      .replace(/(\n\d+\. .*?)(?=\n[^0-9\s])/g, '$1\n');
+      // 清理多餘空行但保留必要的格式
+      .replace(/\n{3,}/g, '\n\n')
+      // 確保列表前後有適當空行
+      .replace(/(\n- .*?)(?=\n[^-\s\n])/g, '$1\n')
+      .replace(/(\n\d+\. .*?)(?=\n[^0-9\s\n])/g, '$1\n');
     
     const html = md.render(processedContent);
     const cleanHtml = DOMPurify.sanitize(html);

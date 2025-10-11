@@ -7,11 +7,7 @@ import {
   Typography,
   Tag,
   message,
-  Input,
   Tooltip,
-  Select,
-  Row,
-  Col,
   Modal
 } from 'antd';
 import { useNavigate } from 'react-router-dom';
@@ -28,11 +24,8 @@ import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import dayjs from 'dayjs';
 import ContentRenderer from '../components/ContentRenderer';
-import UCCTestRenderer from '../components/UCCTestRenderer';
 
 const { Title, Text } = Typography;
-const { Option } = Select;
-const { TextArea } = Input;
 
 const RvtGuidePage = () => {
   const { user, isAuthenticated, loading: authLoading, initialized } = useAuth();
@@ -200,9 +193,6 @@ const RvtGuidePage = () => {
 
   return (
     <div style={{ padding: '20px' }}>
-      {/* UCC 測試區域 */}
-      <UCCTestRenderer />
-      
       {/* 主要內容 */}
       <Card
         title={
