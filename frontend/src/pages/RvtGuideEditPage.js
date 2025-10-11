@@ -79,12 +79,12 @@ const RvtGuideEditPage = () => {
         }
       } else {
         message.error('載入資料失敗');
-        navigate('/knowledge/rvt-guide');
+        navigate('/knowledge/rvt-log');
       }
     } catch (error) {
       console.error('載入失敗:', error);
       message.error('載入資料失敗');
-      navigate('/knowledge/rvt-guide');
+      navigate('/knowledge/rvt-log');
     } finally {
       setInitialLoading(false);
     }
@@ -109,7 +109,7 @@ const RvtGuideEditPage = () => {
         message.success('新增成功');
       }
       
-      navigate('/knowledge/rvt-guide');
+      navigate('/knowledge/rvt-log');
     } catch (error) {
       console.error('操作失敗:', error);
       const errorMessage = error.response?.data?.detail || 
@@ -122,7 +122,7 @@ const RvtGuideEditPage = () => {
   };
 
   const handleBack = () => {
-    navigate('/knowledge/rvt-guide');
+    navigate('/knowledge/rvt-log');
   };
 
   const handleImagesChange = (newImages) => {
