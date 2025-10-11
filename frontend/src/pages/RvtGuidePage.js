@@ -27,6 +27,8 @@ import {
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import dayjs from 'dayjs';
+import ContentRenderer from '../components/ContentRenderer';
+import UCCTestRenderer from '../components/UCCTestRenderer';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -198,6 +200,9 @@ const RvtGuidePage = () => {
 
   return (
     <div style={{ padding: '20px' }}>
+      {/* UCC 測試區域 */}
+      <UCCTestRenderer />
+      
       {/* 主要內容 */}
       <Card
         title={
@@ -336,15 +341,19 @@ const RvtGuidePage = () => {
                 padding: '16px',
                 borderRadius: '6px',
                 border: '1px solid #f5f5f5',
-                whiteSpace: 'pre-wrap',
-                wordWrap: 'break-word',
                 fontSize: '14px',
                 lineHeight: '1.8',
                 minHeight: '200px',
                 maxHeight: '400px',
                 overflowY: 'auto'
               }}>
-                {selectedGuide.content || '無內容'}
+                <ContentRenderer 
+                  content={selectedGuide.content}
+                  showImageTitles={true}
+                  showImageDescriptions={true}
+                  imageMaxWidth={350}
+                  imageMaxHeight={250}
+                />
               </div>
             </div>
 

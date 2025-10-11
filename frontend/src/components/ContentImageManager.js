@@ -23,6 +23,8 @@ const ContentImageManager = ({
   images = [],                 // 現有圖片列表
   onImagesChange,             // 圖片變更回調
   onContentUpdate,            // 內容更新回調 (用於重新載入父組件資料)
+  onImageInsert,              // 圖片插入回調 (新增：在游標位置插入)
+  cursorPosition = 0,         // 當前游標位置 (新增)
   maxImages = 10,             // 最大圖片數量
   maxSizeMB = 2,              // 單個圖片最大大小 (MB)
   title = "圖片管理",          // 組件標題
@@ -51,7 +53,38 @@ const ContentImageManager = ({
     }
   };
   
-  // 自動更新內容以包含圖片引用
+  // 產生圖片資訊字串 (包含圖片 ID 引用)
+  const generateImageInfo = (image) => {
+    const imageInfo = [];
+    if (image.is_primary) {
+      imageInfo.push("📌 主要圖片");
+    }
+    if (image.title) {
+      imageInfo.push(`標題: ${image.title}`);
+    }
+    if (image.description) {
+      imageInfo.push(`說明: ${image.description}`);
+    }
+    
+    // 新格式：加入 [IMG:ID] 標記以支援圖片編號引用
+    let imageLine = `🖼️ [IMG:${image.id}] ${image.filename}`;
+    if (imageInfo.length > 0) {
+      imageLine += ` (${imageInfo.join(', ')})`;
+    }
+    
+    return `\n${imageLine}\n`;
+  };
+
+  // 在游標位置插入圖片資訊
+  const insertImageAtCursor = (image) => {
+    if (onImageInsert) {
+      const imageInfo = generateImageInfo(image);
+      onImageInsert(imageInfo);
+      console.log(`✅ 在游標位置插入圖片資訊: ${image.filename}`);
+    }
+  };
+
+  // 自動更新內容以包含圖片引用 (舊方法，保留以向後兼容)
   const updateContentWithImages = async () => {
     if (contentType === 'rvt-guide' && contentId) {
       try {
@@ -114,10 +147,14 @@ const ContentImageManager = ({
       setImageList(updatedList);
       onImagesChange && onImagesChange(updatedList);
       
-      // 自動更新內容以包含圖片引用
-      await updateContentWithImages();
-      
-      message.success('圖片上傳成功，已自動更新內容引用');
+      // 優先使用游標位置插入，否則使用舊方法
+      if (onImageInsert) {
+        insertImageAtCursor(newImage);
+        message.success('圖片上傳成功，已在游標位置插入圖片資訊');
+      } else {
+        await updateContentWithImages();
+        message.success('圖片上傳成功，已自動更新內容引用');
+      }
     } catch (error) {
       console.error('Upload error:', error);
       const errorMessage = error.response?.data?.detail || 
@@ -146,7 +183,7 @@ const ContentImageManager = ({
       setImageList(updatedList);
       onImagesChange && onImagesChange(updatedList);
       
-      // 自動更新內容以移除圖片引用
+      // 圖片刪除時仍使用舊方法更新整個文檔 (因為需要移除現有引用)
       await updateContentWithImages();
       
       message.success('圖片刪除成功，已更新內容引用');
@@ -180,7 +217,7 @@ const ContentImageManager = ({
       setImageList(updatedList);
       onImagesChange && onImagesChange(updatedList);
       
-      // 自動更新內容以反映主圖片變更
+      // 主圖片變更時使用舊方法更新整個文檔 (確保主圖標記正確)
       await updateContentWithImages();
       
       message.success('主要圖片設定成功，已更新內容引用');
@@ -213,7 +250,7 @@ const ContentImageManager = ({
       setEditingImage(null);
       form.resetFields();
       
-      // 自動更新內容以反映圖片資訊變更
+      // 圖片資訊更新時使用舊方法 (確保所有引用都正確更新)
       await updateContentWithImages();
       
       message.success('圖片資訊更新成功，已更新內容引用');
@@ -310,6 +347,27 @@ const ContentImageManager = ({
   
   return (
     <Card title={title} className="content-image-manager">
+      {/* 使用提示 */}
+      {onImageInsert && !readonly && (
+        <div style={{
+          padding: '12px',
+          backgroundColor: '#f0f9ff',
+          border: '1px solid #bae7ff',
+          borderRadius: '6px',
+          marginBottom: '16px',
+          fontSize: '14px',
+          color: '#0958d9'
+        }}>
+          <Space>
+            <span>💡</span>
+            <span>
+              <strong>游標插入模式：</strong>
+              上傳圖片時會在文字編輯區域的游標位置插入圖片資訊，而不是在文檔末尾添加
+            </span>
+          </Space>
+        </div>
+      )}
+      
       {/* 上傳區域 */}
       {!readonly && (
         <div className="upload-area">
