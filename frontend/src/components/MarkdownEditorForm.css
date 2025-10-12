@@ -1,0 +1,169 @@
+/* Markdown 編輯器自定義樣式 */
+/* 固定工具欄，防止滾動時消失 */
+
+.markdown-editor-container {
+  position: relative !important;
+  height: 100% !important;
+  border: 1px solid #d9d9d9 !important;
+  border-radius: 6px !important;
+  overflow: hidden !important;
+}
+
+.markdown-editor-container .rc-md-editor {
+  height: 100% !important;
+  border: none !important;
+}
+
+/* 工具欄固定樣式 - 使用多重選擇器確保生效 */
+.markdown-editor-container .rc-md-editor .header,
+.rc-md-editor .header,
+div.rc-md-editor .header {
+  position: sticky !important;
+  position: -webkit-sticky !important;
+  top: 0px !important;
+  z-index: 9999 !important;
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  border-bottom: 1px solid #d9d9d9 !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+  margin: 0 !important;
+  margin-bottom: 0 !important;
+  padding: 8px !important;
+  width: 100% !important;
+}
+
+/* 編輯器容器樣式 */
+.markdown-editor-container .rc-md-editor .editor-container,
+.rc-md-editor .editor-container {
+  height: calc(100% - 50px) !important;
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.markdown-editor-container .rc-md-editor .editor-container .section-container,
+.rc-md-editor .editor-container .section-container {
+  height: 100% !important;
+  flex: 1 !important;
+  overflow: hidden !important;
+  display: flex !important;
+}
+
+/* 輸入區域樣式 */
+.markdown-editor-container .rc-md-editor .editor-container .section-container .input,
+.markdown-editor-container .rc-md-editor .editor-container .section-container .view {
+  height: 100% !important;
+  overflow-y: auto !important;
+}
+
+.markdown-editor-container .rc-md-editor .editor-container .section-container .input .editor-container3 {
+  height: 100% !important;
+  display: flex;
+  flex-direction: column;
+}
+
+.markdown-editor-container .rc-md-editor .editor-container .section-container .input .editor-container3 .sec-md {
+  flex: 1;
+  height: 100% !important;
+  display: flex;
+  flex-direction: column;
+}
+
+.markdown-editor-container .rc-md-editor .editor-container .section-container .input .editor-container3 .sec-md .md-editor {
+  flex: 1;
+  height: 100% !important;
+  border: none !important;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 文本區域樣式 */
+.markdown-editor-container .rc-md-editor .editor-container .section-container .input .editor-container3 .sec-md .md-editor .md-text {
+  flex: 1 !important;
+  padding: 12px !important;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  resize: none !important;
+  border: none !important;
+  outline: none !important;
+  background: #fafafa !important;
+}
+
+.markdown-editor-container .rc-md-editor .editor-container .section-container .input .editor-container3 .sec-md .md-editor .md-text:focus {
+  background: #ffffff !important;
+}
+
+/* 預覽區域樣式 */
+.markdown-editor-container .rc-md-editor .editor-container .section-container .view .html-wrap {
+  padding: 16px !important;
+  font-size: 14px !important;
+  line-height: 1.6 !important;
+  height: 100% !important;
+  overflow-y: auto !important;
+  background: #ffffff !important;
+}
+
+/* 分隔線樣式 */
+.markdown-editor-container .rc-md-editor .editor-container .section-container .divider {
+  background-color: #e8e8e8 !important;
+  width: 1px !important;
+  flex-shrink: 0 !important;
+}
+
+/* 工具欄按鈕樣式優化 */
+.markdown-editor-container .rc-md-editor .header .button-wrap .button {
+  margin: 2px 1px !important;
+  padding: 4px 6px !important;
+  border-radius: 4px !important;
+  transition: background-color 0.2s ease !important;
+}
+
+.markdown-editor-container .rc-md-editor .header .button-wrap .button:hover {
+  background-color: #f0f0f0 !important;
+}
+
+.markdown-editor-container .rc-md-editor .header .button-wrap .button.active {
+  background-color: #e6f7ff !important;
+  color: #1890ff !important;
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+  .markdown-editor-container .rc-md-editor .editor-container .section-container {
+    flex-direction: column;
+  }
+  
+  .markdown-editor-container .rc-md-editor .editor-container .section-container .input,
+  .markdown-editor-container .rc-md-editor .editor-container .section-container .view {
+    height: 50% !important;
+  }
+  
+  .markdown-editor-container .rc-md-editor .editor-container .section-container .divider {
+    height: 1px !important;
+    width: 100% !important;
+  }
+}
+
+/* 滾動條樣式 */
+.markdown-editor-container .rc-md-editor .editor-container .section-container .input .editor-container3 .sec-md .md-editor .md-text::-webkit-scrollbar,
+.markdown-editor-container .rc-md-editor .editor-container .section-container .view .html-wrap::-webkit-scrollbar {
+  width: 6px;
+}
+
+.markdown-editor-container .rc-md-editor .editor-container .section-container .input .editor-container3 .sec-md .md-editor .md-text::-webkit-scrollbar-track,
+.markdown-editor-container .rc-md-editor .editor-container .section-container .view .html-wrap::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.markdown-editor-container .rc-md-editor .editor-container .section-container .input .editor-container3 .sec-md .md-editor .md-text::-webkit-scrollbar-thumb,
+.markdown-editor-container .rc-md-editor .editor-container .section-container .view .html-wrap::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.markdown-editor-container .rc-md-editor .editor-container .section-container .input .editor-container3 .sec-md .md-editor .md-text::-webkit-scrollbar-thumb:hover,
+.markdown-editor-container .rc-md-editor .editor-container .section-container .view .html-wrap::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}

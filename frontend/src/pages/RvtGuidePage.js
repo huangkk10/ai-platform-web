@@ -18,7 +18,8 @@ import {
   DeleteOutlined, 
   ReloadOutlined,
   EyeOutlined,
-  ToolOutlined
+  ToolOutlined,
+  ExperimentOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -34,6 +35,8 @@ const RvtGuidePage = () => {
   const [loading, setLoading] = useState(false);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedGuide, setSelectedGuide] = useState(null);
+  
+  // Markdown 編輯器已移至獨立頁面
 
 
 
@@ -90,7 +93,7 @@ const RvtGuidePage = () => {
     {
       title: '操作',
       key: 'actions',
-      width: 120,
+      width: 160,
       fixed: 'right',
       render: (_, record) => (
         <Space size="small">
@@ -99,7 +102,15 @@ const RvtGuidePage = () => {
             size="small"
             type="text"
             onClick={() => navigate(`/knowledge/rvt-guide/edit/${record.id}`)}
-            title="編輯"
+            title="編輯 (舊表單)"
+          />
+          <Button
+            icon={<ExperimentOutlined />}
+            size="small"
+            type="text"
+            onClick={() => navigate(`/knowledge/rvt-guide/markdown-edit/${record.id}`)}
+            title="Markdown 編輯器 (整頁模式)"
+            style={{ color: '#722ed1' }}
           />
           {user?.is_staff && (
             <Button
@@ -153,6 +164,9 @@ const RvtGuidePage = () => {
   };
 
   // 處理新增/編輯
+
+  // Markdown 編輯器已移至獨立頁面 (/knowledge/rvt-guide/markdown-edit/:id)
+
   // 處理刪除
   const handleDelete = async (record) => {
     if (!user?.is_staff) {
@@ -218,6 +232,18 @@ const RvtGuidePage = () => {
               onClick={() => navigate('/knowledge/rvt-guide/create')}
             >
               新增 User Guide
+            </Button>
+            <Button
+              type="default"
+              icon={<ExperimentOutlined />}
+              onClick={() => navigate('/knowledge/rvt-guide/markdown-create')}
+              style={{ 
+                borderColor: '#722ed1', 
+                color: '#722ed1',
+                backgroundColor: '#f9f0ff'
+              }}
+            >
+              新 Markdown 編輯器
             </Button>
           </Space>
         }
@@ -373,6 +399,8 @@ const RvtGuidePage = () => {
           </div>
         )}
       </Modal>
+
+      {/* Markdown 編輯器已移至獨立頁面 */}
     </div>
   );
 };

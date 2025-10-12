@@ -22,6 +22,7 @@ import LogAnalyzeChatPage from './pages/LogAnalyzeChatPage';
 import RvtAssistantChatPage from './pages/RvtAssistantChatPage';
 import LogAnalyzePage from './pages/LogAnalyzePage';
 import RvtGuideEditPage from './pages/RvtGuideEditPage';
+import MarkdownEditorPage from './pages/MarkdownEditorPage';
 import RVTAnalyticsPage from './pages/RVTAnalyticsPage';
 
 const { Content } = Layout;
@@ -114,6 +115,11 @@ function AppLayout() {
       );
     }
     
+    // Markdown 編輯器頁面的返回按鈕 (整頁模式，不需要額外的返回按鈕)
+    if (pathname.startsWith('/knowledge/rvt-guide/markdown-')) {
+      return null; // 整頁模式自帶返回按鈕
+    }
+    
     return null;
   };
 
@@ -164,6 +170,16 @@ function AppLayout() {
             <Route path="/knowledge/rvt-guide/edit/:id" element={
               <ProtectedRoute permission="kbRVTAssistant" fallbackTitle="Knowledge Base 存取受限">
                 <RvtGuideEditPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/knowledge/rvt-guide/markdown-create" element={
+              <ProtectedRoute permission="kbRVTAssistant" fallbackTitle="Knowledge Base 存取受限">
+                <MarkdownEditorPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/knowledge/rvt-guide/markdown-edit/:id" element={
+              <ProtectedRoute permission="kbRVTAssistant" fallbackTitle="Knowledge Base 存取受限">
+                <MarkdownEditorPage />
               </ProtectedRoute>
             } />
             <Route path="/knowledge/ocr-storage-benchmark" element={
