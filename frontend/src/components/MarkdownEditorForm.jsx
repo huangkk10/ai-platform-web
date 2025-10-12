@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { Modal, Button, Input, message, Spin } from 'antd';
-import { SaveOutlined, CloseOutlined } from '@ant-design/icons';
+import React, { useState, useEffect, useRef } from 'react';
+import { Modal, Button, Input, message, Spin, Drawer, Tooltip } from 'antd';
+import { SaveOutlined, CloseOutlined, PictureOutlined } from '@ant-design/icons';
 import MdEditor from 'react-markdown-editor-lite';
 import MarkdownIt from 'markdown-it';
+import axios from 'axios';
+import ContentImageManager from './ContentImageManager';
 import 'react-markdown-editor-lite/lib/index.css';
 import './MarkdownEditorForm.css';
 
@@ -29,26 +31,51 @@ const MarkdownEditorForm = ({
     title: '',
     content: ''
   });
+  
+  // 圖片管理相關狀態
+  const [drawerVisible, setDrawerVisible] = useState(false);
+  const [images, setImages] = useState([]);
+  const [cursorPosition, setCursorPosition] = useState(0);
+  const mdEditorRef = useRef(null);
 
   // 當 record 改變時，載入數據
   useEffect(() => {
-    if (record) {
-      setLoading(true);
-      
-      // 載入現有記錄的數據
-      setFormData({
-        title: record.title || '',
-        content: record.content || ''
-      });
-      
-      setLoading(false);
-    } else {
-      // 新建記錄，重置表單
-      setFormData({
-        title: '',
-        content: ''
-      });
-    }
+    const loadData = async () => {
+      if (record) {
+        setLoading(true);
+        
+        try {
+          // 載入現有記錄的數據
+          setFormData({
+            title: record.title || '',
+            content: record.content || ''
+          });
+          
+          // 載入圖片數據
+          if (record.id) {
+            const imagesResponse = await axios.get(`/api/content-images/?content_type=rvt-guide&content_id=${record.id}`);
+            if (imagesResponse.data.results) {
+              setImages(imagesResponse.data.results);
+            } else if (Array.isArray(imagesResponse.data)) {
+              setImages(imagesResponse.data);
+            }
+          }
+        } catch (error) {
+          console.error('載入圖片數據失敗:', error);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        // 新建記錄，重置表單
+        setFormData({
+          title: '',
+          content: ''
+        });
+        setImages([]);
+      }
+    };
+    
+    loadData();
   }, [record, visible]);
 
   // 編輯器初始化 - 全屏模式提供最佳編輯體驗
@@ -150,24 +177,87 @@ const MarkdownEditorForm = ({
     }
   };
 
-  return (
-    <Modal
-      title={
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span>編輯 RVT Guide (Markdown 編輯器)</span>
-          {record && <span style={{ color: '#666', fontSize: '14px' }}>ID: {record.id}</span>}
-        </div>
+  // 圖片管理相關函數
+  const handleImagesChange = (newImages) => {
+    setImages(newImages);
+    console.log('Markdown 編輯器圖片已更新:', newImages);
+  };
+
+  // 處理游標位置變更 (適配 MdEditor)
+  const handleEditorCursorChange = () => {
+    if (mdEditorRef.current) {
+      try {
+        // 獲取當前游標位置 (簡化版本，使用字符串方法)
+        const editor = mdEditorRef.current;
+        const textArea = editor.nodeMdText?.current;
+        if (textArea) {
+          setCursorPosition(textArea.selectionStart || 0);
+        }
+      } catch (error) {
+        console.warn('無法獲取游標位置:', error);
       }
-      open={visible}
-      onCancel={handleClose}
-      width="95vw"
-      style={{ top: 20 }}
-      bodyStyle={{ 
-        height: 'calc(90vh - 108px)', 
-        padding: '16px',
-        display: 'flex',
-        flexDirection: 'column'
-      }}
+    }
+  };
+
+  // 在指定位置插入圖片資訊 (適配 MdEditor)
+  const insertImageAtCursor = (imageInfo) => {
+    const currentContent = formData.content || '';
+    const beforeCursor = currentContent.slice(0, cursorPosition);
+    const afterCursor = currentContent.slice(cursorPosition);
+    
+    // 插入圖片資訊
+    const newContent = beforeCursor + imageInfo + afterCursor;
+    
+    // 更新內容
+    setFormData(prev => ({
+      ...prev,
+      content: newContent
+    }));
+    
+    // 更新編輯器內容
+    if (mdEditorRef.current) {
+      mdEditorRef.current.setText(newContent);
+    }
+    
+    // 更新游標位置
+    const newCursorPos = cursorPosition + imageInfo.length;
+    setCursorPosition(newCursorPos);
+    
+    message.success('圖片已插入到編輯器中');
+  };
+
+  const handleContentUpdate = (updatedContent) => {
+    // 當圖片操作導致內容更新時，更新編輯器內容
+    setFormData(prev => ({
+      ...prev,
+      content: updatedContent
+    }));
+    
+    if (mdEditorRef.current) {
+      mdEditorRef.current.setText(updatedContent);
+    }
+    console.log('Markdown 編輯器內容已自動更新圖片引用');
+  };
+
+  return (
+    <>
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>編輯 RVT Guide (Markdown 編輯器)</span>
+            {record && <span style={{ color: '#666', fontSize: '14px' }}>ID: {record.id}</span>}
+          </div>
+        }
+        open={visible}
+        onCancel={handleClose}
+        width="95vw"
+        style={{ top: 20 }}
+        bodyStyle={{ 
+          height: 'calc(90vh - 108px)', 
+          padding: '16px',
+          display: 'flex',
+          flexDirection: 'column'
+        }}
       footer={[
         <Button 
           key="cancel" 
@@ -176,6 +266,19 @@ const MarkdownEditorForm = ({
         >
           取消
         </Button>,
+        <Tooltip key="images" title="圖片管理">
+          <Button 
+            icon={<PictureOutlined />}
+            onClick={() => setDrawerVisible(!drawerVisible)}
+            disabled={!record?.id}
+            style={{ 
+              color: drawerVisible ? '#1890ff' : '#666',
+              borderColor: drawerVisible ? '#1890ff' : '#d9d9d9'
+            }}
+          >
+            圖片管理
+          </Button>
+        </Tooltip>,
         <Button 
           key="save" 
           type="primary" 
@@ -233,6 +336,7 @@ const MarkdownEditorForm = ({
               flexDirection: 'column'
             }}>
               <MdEditor
+                ref={mdEditorRef}
                 value={formData.content}
                 style={{ 
                   height: '100%',
@@ -242,6 +346,9 @@ const MarkdownEditorForm = ({
                 }}
                 renderHTML={(text) => mdParser.render(text)}
                 onChange={handleEditorChange}
+                onFocus={handleEditorCursorChange}
+                onClick={handleEditorCursorChange}
+                onKeyUp={handleEditorCursorChange}
                 placeholder="請輸入 Markdown 格式的內容..."
                 config={{
                   view: {
@@ -299,6 +406,71 @@ const MarkdownEditorForm = ({
         </div>
       )}
     </Modal>
+
+    {/* 圖片管理側拉面板 */}
+    <Drawer
+      className="image-manager-drawer"
+      title={
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <PictureOutlined style={{ color: '#1890ff' }} />
+          <span>圖片管理</span>
+          {record && (
+            <span style={{ 
+              fontSize: '12px', 
+              color: '#666', 
+              backgroundColor: '#f5f5f5',
+              padding: '2px 6px',
+              borderRadius: '4px'
+            }}>
+              ID: {record.id}
+            </span>
+          )}
+        </div>
+      }
+      placement="right"
+      width={450}
+      open={drawerVisible && record?.id}
+      onClose={() => setDrawerVisible(false)}
+      bodyStyle={{ padding: '12px' }}
+      headerStyle={{ 
+        borderBottom: '1px solid #e8e8e8',
+        backgroundColor: '#fafafa'
+      }}
+      extra={
+        <Tooltip title="關閉圖片管理">
+          <Button 
+            type="text" 
+            icon={<CloseOutlined />}
+            onClick={() => setDrawerVisible(false)}
+          />
+        </Tooltip>
+      }
+    >
+      {record?.id ? (
+        <ContentImageManager
+          contentType="rvt-guide"
+          contentId={record.id}
+          images={images}
+          onImagesChange={handleImagesChange}
+          onContentUpdate={handleContentUpdate}
+          onImageInsert={insertImageAtCursor}
+          cursorPosition={cursorPosition}
+          maxImages={10}
+          maxSizeMB={2}
+          title=""
+        />
+      ) : (
+        <div style={{ 
+          textAlign: 'center', 
+          padding: '40px 20px',
+          color: '#999'
+        }}>
+          <PictureOutlined style={{ fontSize: '48px', marginBottom: '16px' }} />
+          <div>請先儲存文檔後才能管理圖片</div>
+        </div>
+      )}
+    </Drawer>
+    </>
   );
 };
 

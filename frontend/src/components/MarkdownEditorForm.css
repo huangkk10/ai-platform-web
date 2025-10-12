@@ -167,3 +167,61 @@ div.rc-md-editor .header {
 .markdown-editor-container .rc-md-editor .editor-container .section-container .view .html-wrap::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
 }
+
+/* 圖片管理側拉面板樣式 */
+.image-manager-drawer .ant-drawer-body {
+  padding: 12px !important;
+}
+
+.image-manager-drawer .ant-drawer-header {
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%) !important;
+  border-bottom: 1px solid #e8e8e8 !important;
+}
+
+.image-manager-drawer .ant-drawer-title {
+  font-weight: 600 !important;
+  color: #1890ff !important;
+}
+
+/* 優化圖片管理器在側拉面板中的顯示 */
+.image-manager-drawer .content-image-manager {
+  height: 100% !important;
+}
+
+.image-manager-drawer .content-image-manager .ant-card {
+  height: 100% !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.image-manager-drawer .content-image-manager .ant-card-body {
+  padding: 0 !important;
+  height: 100% !important;
+}
+
+/* 側拉面板內的圖片網格優化 */
+.image-manager-drawer .image-grid-item {
+  margin-bottom: 12px !important;
+}
+
+.image-manager-drawer .ant-upload.ant-upload-select-picture-card {
+  width: 100% !important;
+  height: 120px !important;
+}
+
+/* 側拉面板的響應式設計 */
+@media (max-width: 1024px) {
+  .image-manager-drawer {
+    width: 100vw !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .image-manager-drawer {
+    width: 100vw !important;
+  }
+  
+  .image-manager-drawer .ant-drawer-header {
+    padding: 12px 16px !important;
+  }
+}

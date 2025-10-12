@@ -1,11 +1,83 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Button, Input, message, Spin, Card, Space } from 'antd';
-import { SaveOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+import { Button, Input, message, Spin, Card, Space, Drawer, Tooltip } from 'antd';
+import { SaveOutlined, ArrowLeftOutlined, PictureOutlined, CloseOutlined } from '@ant-design/icons';
 import MdEditor from 'react-markdown-editor-lite';
 import MarkdownIt from 'markdown-it';
 import 'react-markdown-editor-lite/lib/index.css';
 import axios from 'axios';
+import ContentImageManager from '../components/ContentImageManager';
+import useMarkdownCursor from '../hooks/useMarkdownCursor';
+import useFullScreenDetection from '../hooks/useFullScreenDetection';
+import useRvtGuideData from '../hooks/useRvtGuideData';
+import useImageManager from '../hooks/useImageManager';
+
+// 自定義工具欄按鈕樣式
+const customToolbarStyles = `
+  .rc-md-editor .button.custom-image-manager {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: 1px solid #d9d9d9;
+    border-radius: 4px;
+    background: #fff;
+    transition: all 0.2s;
+    margin: 0 2px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  
+  .rc-md-editor .button.custom-image-manager:hover {
+    border-color: #1890ff;
+    background: #f0f8ff;
+  }
+  
+  .rc-md-editor .button.custom-image-manager.active {
+    border-color: #1890ff;
+    background: #1890ff;
+    color: white;
+  }
+  
+  .rc-md-editor .button.custom-image-manager.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* 全螢幕模式下的浮動按鈕 */
+  .fullscreen-image-manager-btn {
+    position: fixed !important;
+    top: 60px !important;
+    right: 20px !important;
+    z-index: 9999 !important;
+    background: #1890ff !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 6px !important;
+    padding: 8px 12px !important;
+    box-shadow: 0 4px 12px rgba(24, 144, 255, 0.3) !important;
+    font-size: 14px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+  }
+  
+  .fullscreen-image-manager-btn:hover {
+    background: #40a9ff !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 16px rgba(24, 144, 255, 0.4) !important;
+  }
+
+  /* 全螢幕模式檢測 */
+  .rc-md-editor.full {
+    .fullscreen-image-manager-btn {
+      display: flex !important;
+    }
+  }
+`;
+
+
 
 // 初始化 Markdown 解析器
 const mdParser = new MarkdownIt();
@@ -17,140 +89,76 @@ const mdParser = new MarkdownIt();
 const MarkdownEditorPage = () => {
   const navigate = useNavigate();
   const { id } = useParams(); // 如果是編輯模式，會有 id
-  const isEditMode = Boolean(id);
+  const mdEditorRef = useRef(null);
 
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [formData, setFormData] = useState({
-    title: '',
-    content: ''
-  });
+  // 使用 RVT Guide 資料管理 Hook
+  const {
+    loading,
+    saving,
+    formData,
+    images,
+    isEditMode,
+    loadGuideData,
+    saveGuideData,
+    handleTitleChange,
+    handleContentChange,
+    setFormData
+  } = useRvtGuideData(id, navigate);
+
+  // 使用圖片管理 Hook
+  const {
+    drawerVisible,
+    toggleDrawer,
+    handleImagesChange: handleImageManagerChange,
+    handleContentUpdate,
+  } = useImageManager(mdEditorRef, setFormData);
+
+  // 組合圖片變更處理 (同步兩個 Hook 的狀態)
+  const handleImagesChange = (newImages) => {
+    handleImageManagerChange(newImages);
+    // 也需要更新 RvtGuideData Hook 中的圖片狀態
+    // 這裡可以根據需要添加額外的邏輯
+  };
+
+  // 使用游標管理 Hook
+  const {
+    cursorPosition,
+    handleEditorCursorChange,
+    handleEditorBlur,
+    handleEditorFocus,
+    insertImageAtCursor,
+  } = useMarkdownCursor(mdEditorRef, formData, setFormData);
+
+  // 使用全螢幕偵測 Hook
+  const {
+    isFullScreen,
+    isFullScreenSupported,
+    enterFullScreen,
+    exitFullScreen,
+    toggleFullScreen
+  } = useFullScreenDetection();
 
   // 載入現有記錄數據（編輯模式）
   useEffect(() => {
     if (isEditMode) {
       loadGuideData();
     }
-  }, [id, isEditMode]);
+  }, [id, isEditMode, loadGuideData]);
 
-  const loadGuideData = async () => {
-    setLoading(true);
-    try {
-      console.log('🔍 載入 RVT Guide 資料，ID:', id);
-      const response = await axios.get(`/api/rvt-guides/${id}/`);
-      
-      console.log('📄 載入的資料:', response.data);
-      
-      setFormData({
-        title: response.data.title || '',
-        content: response.data.content || ''
-      });
-      
-      message.success('資料載入成功');
-    } catch (error) {
-      console.error('❌ 載入資料失敗:', error);
-      message.error('載入資料失敗');
-      // 如果載入失敗，返回列表頁
-      navigate('/knowledge/rvt-guide');
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  // 處理 Markdown 編輯器內容改變
-  const handleEditorChange = ({ text }) => {
-    setFormData(prev => ({
-      ...prev,
-      content: text
-    }));
-  };
 
-  // 處理標題改變
-  const handleTitleChange = (e) => {
-    setFormData(prev => ({
-      ...prev,
-      title: e.target.value
-    }));
-  };
 
-  // 處理儲存
+
+
+
+  // 處理儲存 - 使用 Hook 的方法
   const handleSave = async () => {
-    if (!formData.title.trim()) {
-      message.error('請輸入標題');
-      return;
-    }
-
-    if (!formData.content.trim()) {
-      message.error('請輸入內容');
-      return;
-    }
-
-    setSaving(true);
-
-    try {
-      const saveData = {
-        title: formData.title.trim(),
-        content: formData.content.trim(),
-        // 如果是新建記錄，設置默認值
-        ...(isEditMode ? {} : {
-          category: 'general',
-          issue_type: 'guide',
-          description: formData.title.trim()
-        })
-      };
-
-      console.log('💾 準備儲存資料:', saveData);
-
-      let response;
-      if (isEditMode) {
-        // 更新現有記錄
-        response = await axios.put(`/api/rvt-guides/${id}/`, saveData);
-        console.log('✅ 更新成功:', response.data);
-        message.success('更新成功！');
-      } else {
-        // 創建新記錄
-        response = await axios.post('/api/rvt-guides/', saveData);
-        console.log('✅ 創建成功:', response.data);
-        message.success('創建成功！');
-      }
-
-      // 返回列表頁
-      navigate('/knowledge/rvt-guide');
-      
-    } catch (error) {
-      console.error('❌ 儲存失敗:', error);
-      
-      if (error.response?.data) {
-        const errorData = error.response.data;
-        if (typeof errorData === 'object') {
-          // 處理字段驗證錯誤
-          Object.keys(errorData).forEach(field => {
-            const fieldErrors = Array.isArray(errorData[field]) 
-              ? errorData[field].join(', ')
-              : errorData[field];
-            message.error(`${field}: ${fieldErrors}`);
-          });
-        } else {
-          message.error(`儲存失敗: ${errorData}`);
-        }
-      } else {
-        message.error('儲存失敗，請稍後再試');
-      }
-    } finally {
-      setSaving(false);
-    }
+    await saveGuideData(formData);
   };
 
   // 處理返回
-  const handleGoBack = () => {
-    if (formData.title || formData.content) {
-      // 有未儲存的更改，顯示確認對話框
-      if (window.confirm('有未儲存的更改，確定要離開嗎？')) {
-        navigate('/knowledge/rvt-guide');
-      }
-    } else {
-      navigate('/knowledge/rvt-guide');
-    }
+  const handleBack = () => {
+    navigate('/knowledge/rvt-log');
   };
 
   return (
@@ -160,6 +168,8 @@ const MarkdownEditorPage = () => {
       flexDirection: 'column',
       background: '#f5f5f5'
     }}>
+      {/* 注入自定義樣式 */}
+      <style>{customToolbarStyles}</style>
       {/* 頂部操作欄 */}
       <Card 
         size="small" 
@@ -178,7 +188,7 @@ const MarkdownEditorPage = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <Button
               icon={<ArrowLeftOutlined />}
-              onClick={handleGoBack}
+              onClick={handleBack}
               size="large"
             >
               返回列表
@@ -263,13 +273,55 @@ const MarkdownEditorPage = () => {
               display: 'flex',
               flexDirection: 'column'
             }}
+
           >
+            {/* 自定義工具欄擴展 */}
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'flex-start', 
+              marginBottom: '8px',
+              padding: '4px 8px',
+              backgroundColor: '#fafafa',
+              border: '1px solid #d9d9d9',
+              borderBottom: 'none',
+              borderRadius: '6px 6px 0 0'
+            }}>
+              <Tooltip title={isEditMode ? "管理文檔圖片" : "儲存後可管理圖片"}>
+                <Button
+                  icon={<PictureOutlined />}
+                  onClick={() => {
+                    if (isEditMode) {
+                      toggleDrawer();
+                    } else {
+                      message.warning('請先儲存文檔後才能管理圖片');
+                    }
+                  }}
+                  disabled={!isEditMode}
+                  size="small"
+                  type={drawerVisible ? "primary" : "default"}
+                  style={{ 
+                    fontSize: '12px',
+                    height: '28px'
+                  }}
+                >
+                  📷 圖片管理
+                </Button>
+              </Tooltip>
+            </div>
+
             <div style={{ flex: 1, minHeight: '500px' }}>
               <MdEditor
+                ref={mdEditorRef}
                 value={formData.content}
                 style={{ height: '100%' }}
                 renderHTML={(text) => mdParser.render(text)}
-                onChange={handleEditorChange}
+                onChange={handleContentChange}
+                onFocus={handleEditorFocus}
+                onBlur={handleEditorBlur}
+                onClick={handleEditorCursorChange}
+                onKeyUp={handleEditorCursorChange}
+                onSelect={handleEditorCursorChange}
+                onMouseUp={handleEditorCursorChange}
                 placeholder="請輸入 Markdown 格式的內容..."
                 config={{
                   view: {
@@ -286,6 +338,26 @@ const MarkdownEditorPage = () => {
                     hideMenu: false
                   }
                 }}
+                plugins={[
+                  'header',
+                  'font-bold',
+                  'font-italic',
+                  'font-underline',
+                  'font-strikethrough',
+                  'list-unordered',
+                  'list-ordered',
+                  'block-quote',
+                  'block-wrap',
+                  'block-code-inline',
+                  'block-code-block',
+                  'table',
+                  'image',
+                  'link',
+                  'clear',
+                  'logger',
+                  'mode-toggle',
+                  'full-screen'
+                ]}
               />
             </div>
             
@@ -305,6 +377,102 @@ const MarkdownEditorPage = () => {
           </Card>
         </div>
       )}
+
+      {/* 全螢幕模式下的浮動圖片管理按鈕 */}
+      {isFullScreen && isEditMode && (
+        <div style={{ position: 'fixed', top: '60px', right: '20px', zIndex: 9999 }}>
+          <Button
+            icon={<PictureOutlined />}
+            onClick={() => {
+              console.log('🖱️ 全螢幕按鈕被點擊');
+              toggleDrawer();
+              // 可以使用 Hook 提供的方法: exitFullScreen(), toggleFullScreen() 等
+            }}
+            type="primary"
+            size="large"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              borderRadius: '8px',
+              boxShadow: '0 4px 12px rgba(24, 144, 255, 0.4)',
+              background: drawerVisible ? '#52c41a' : '#1890ff',
+              borderColor: drawerVisible ? '#52c41a' : '#1890ff'
+            }}
+          >
+            📷 圖片管理
+          </Button>
+        </div>
+      )}
+
+
+
+
+
+      {/* 圖片管理側拉面板 */}
+      <Drawer
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <PictureOutlined style={{ color: '#1890ff' }} />
+            <span>圖片管理</span>
+            {isEditMode && (
+              <span style={{ 
+                fontSize: '12px', 
+                color: '#666', 
+                backgroundColor: '#f5f5f5',
+                padding: '2px 6px',
+                borderRadius: '4px'
+              }}>
+                ID: {id}
+              </span>
+            )}
+          </div>
+        }
+        placement="right"
+        width={450}
+        open={drawerVisible && isEditMode}
+        onClose={toggleDrawer}
+        bodyStyle={{ padding: '12px' }}
+        headerStyle={{ 
+          borderBottom: '1px solid #e8e8e8',
+          backgroundColor: '#fafafa'
+        }}
+        style={{ zIndex: isFullScreen ? 10000 : 1000 }}
+        getContainer={isFullScreen ? () => document.fullscreenElement || document.body : false}
+        extra={
+          <Tooltip title="關閉圖片管理">
+            <Button 
+              type="text" 
+              icon={<CloseOutlined />}
+              onClick={toggleDrawer}
+            />
+          </Tooltip>
+        }
+      >
+        {isEditMode ? (
+          <ContentImageManager
+            contentType="rvt-guide"
+            contentId={id}
+            images={images}
+            onImagesChange={handleImagesChange}
+            onContentUpdate={handleContentUpdate}
+            onImageInsert={insertImageAtCursor}
+            cursorPosition={cursorPosition}
+            maxImages={10}
+            maxSizeMB={2}
+            title=""
+          />
+        ) : (
+          <div style={{ 
+            textAlign: 'center', 
+            padding: '40px 20px',
+            color: '#999'
+          }}>
+            <PictureOutlined style={{ fontSize: '48px', marginBottom: '16px' }} />
+            <div>請先儲存文檔後才能管理圖片</div>
+          </div>
+        )}
+      </Drawer>
     </div>
   );
 };
