@@ -58,16 +58,30 @@ const useMessageFormatter = () => {
     
     // 從 metadata 提取圖片
     const metadataImages = extractImagesFromMetadata(metadata);
+    console.log('🔍 從 metadata 提取到的圖片:', metadataImages);
     
     // 從 content 提取圖片
     const contentImages = extractImagesFromContent(content);
+    console.log('🔍 從 content 提取到的圖片:', contentImages);
     
-    // 合併圖片檔名
+    // 合併並驗證圖片檔名
     [...metadataImages, ...contentImages].forEach(filename => {
-      imageFilenames.add(filename);
+      // 🎯 更嚴格的圖片檔名驗證
+      if (filename && 
+          filename.length >= 10 && 
+          /\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(filename) &&
+          !/[\s\n\r,，。()]/.test(filename)) {
+        imageFilenames.add(filename);
+        console.log('✅ 有效圖片檔名:', filename);
+      } else {
+        console.log('❌ 無效圖片檔名:', filename);
+      }
     });
     
-    return Array.from(imageFilenames);
+    const validImages = Array.from(imageFilenames);
+    console.log('🎯 最終有效圖片列表:', validImages);
+    
+    return validImages;
   };
 
   /**

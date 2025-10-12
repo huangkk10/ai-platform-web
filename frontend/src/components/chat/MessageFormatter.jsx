@@ -111,38 +111,51 @@ const MessageFormatter = ({
         />
       );
       
-      // 檢查是否提及圖片
+      // 🔍 檢查是否提及圖片且確實有可用的圖片檔名
       if (paragraph.mentionsImage && remainingImages.length > 0) {
-        console.log('📸 找到圖片描述段落', index, ':', paragraph.content.substring(0, 100));
-        console.log('📸 在該段落下方顯示圖片:', remainingImages);
-        
-        // 在提及圖片的段落下方直接顯示相關圖片
-        result.push(
-          <div key={`inline-images-${index}`} style={{ 
-            margin: '16px 0',
-            padding: '12px',
-            backgroundColor: '#f8f9ff',
-            borderRadius: '8px',
-            border: '2px solid #e6f7ff',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
-          }}>
-            <div style={{ 
-              fontSize: '12px', 
-              color: '#1890ff', 
-              marginBottom: '8px',
-              fontWeight: '500'
-            }}>
-              📸 相關圖片展示：
-            </div>
-            <MessageImages 
-              filenames={remainingImages} 
-              onImageLoad={loadImagesData}
-            />
-          </div>
+        // 🎯 進一步驗證圖片檔名的有效性
+        const validImages = remainingImages.filter(filename => 
+          filename && 
+          filename.length >= 10 && 
+          /\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(filename) &&
+          !/[\s\n\r,，。()]/.test(filename)
         );
         
-        // 避免重複顯示，清空剩餘圖片列表
-        remainingImages = [];
+        if (validImages.length > 0) {
+          console.log('📸 找到圖片描述段落', index, ':', paragraph.content.substring(0, 100));
+          console.log('📸 在該段落下方顯示有效圖片:', validImages);
+          
+          // 在提及圖片的段落下方直接顯示相關圖片
+          result.push(
+            <div key={`inline-images-${index}`} style={{ 
+              margin: '16px 0',
+              padding: '12px',
+              backgroundColor: '#f8f9ff',
+              borderRadius: '8px',
+              border: '2px solid #e6f7ff',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+            }}>
+              <div style={{ 
+                fontSize: '12px', 
+                color: '#1890ff', 
+                marginBottom: '8px',
+                fontWeight: '500'
+              }}>
+                📸 相關圖片展示：
+              </div>
+              <MessageImages 
+                filenames={validImages} 
+                onImageLoad={loadImagesData}
+              />
+            </div>
+          );
+          
+          // 避免重複顯示，清空剩餘圖片列表
+          remainingImages = [];
+        } else {
+          console.log('⚠️ 檢測到圖片提及但無有效圖片檔名:', remainingImages);
+          console.log('🔍 段落內容:', paragraph.content);
+        }
       }
     });
     
