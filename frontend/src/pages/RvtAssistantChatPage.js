@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Layout, Input, Button, Card, Avatar, message, Spin, Typography, Tag, Table, Tooltip, Image, Modal } from 'antd';
+import { Layout, Input, Button, Card, Avatar, message, Spin, Typography, Tag, Table, Tooltip } from 'antd';
 import { 
   SendOutlined, 
   MinusSquareFilled,
@@ -16,438 +16,58 @@ import { recordChatUsage, CHAT_TYPES } from '../utils/chatUsage';
 import MarkdownIt from 'markdown-it';
 import DOMPurify from 'dompurify';
 import ContentRenderer from '../components/ContentRenderer';
+// 新的模組化組件和 hooks
+import MessageImages from '../components/chat/MessageImages';
+import useMessageStorage from '../hooks/useMessageStorage';
+import { 
+  loadImagesData, 
+  showImageModal, 
+  extractImagesFromMetadata, 
+  extractImagesFromContent,
+  checkImageMention,
+  processContentFormat,
+  hasImgIdReferences
+} from '../utils/imageProcessor';
 import './RvtAssistantChatPage.css';
 
 const { Content } = Layout;
 const { TextArea } = Input;
 const { Text } = Typography;
 
-// 圖片展示組件
-const MessageImages = ({ filenames, onImageLoad }) => {
-  const [images, setImages] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    const loadImages = async () => {
-      try {
-        console.log('📊 MessageImages: 開始載入圖片', { filenames });
-        setLoading(true);
-        const loadedImages = await onImageLoad(filenames);
-        console.log('📊 MessageImages: 載入的圖片資料:', loadedImages);
-        console.log('📊 MessageImages: 圖片資料長度:', loadedImages?.length);
-        
-        if (loadedImages && loadedImages.length > 0) {
-          console.log('📊 MessageImages: 第一張圖片資料:', loadedImages[0]);
-          console.log('📊 MessageImages: 第一張圖片 data_url 開頭:', loadedImages[0]?.data_url?.substring(0, 100));
-          console.log('📊 MessageImages: 第一張圖片 data_url 長度:', loadedImages[0]?.data_url?.length);
-          console.log('📊 MessageImages: 設定 images state');
-          setImages(loadedImages);
-        } else {
-          console.log('📊 MessageImages: 無有效圖片資料');
-          setImages([]);
-        }
-        setError(null);
-      } catch (err) {
-        console.error('❌ MessageImages: 圖片載入失敗:', err);
-        setError('載入圖片時發生錯誤');
-        setImages([]);
-      } finally {
-        console.log('📊 MessageImages: 載入完成，設定 loading = false');
-        setLoading(false);
-      }
-    };
-
-    if (filenames && filenames.length > 0) {
-      console.log('📊 MessageImages: 準備載入圖片');
-      loadImages();
-    } else {
-      console.log('📊 MessageImages: 無檔名，跳過載入');
-      setLoading(false);
-    }
-  }, [filenames, onImageLoad]);
-
-  const showImageModal = (imageData) => {
-    Modal.info({
-      title: `📸 ${imageData.title || imageData.filename}`,
-      width: 800,
-      content: (
-        <div style={{ textAlign: 'center', padding: '20px 0' }}>
-          <Image
-            src={imageData.data_url}
-            alt={imageData.title || imageData.filename}
-            style={{ maxWidth: '100%', maxHeight: '500px', objectFit: 'contain' }}
-            preview={{
-              mask: '🔍 點擊放大查看'
-            }}
-          />
-          {imageData.description && (
-            <div style={{ marginTop: '16px', color: '#666', fontSize: '14px' }}>
-              📝 {imageData.description}
-            </div>
-          )}
-          <div style={{ marginTop: '12px', fontSize: '12px', color: '#999' }}>
-            尺寸: {imageData.dimensions_display || '未知'} | 大小: {imageData.size_display || '未知'}
-          </div>
-        </div>
-      ),
-      okText: '關閉',
-      icon: null
-    });
-  };
-
-  if (loading) {
-    return (
-      <div style={{ marginTop: '12px', borderTop: '1px solid #f0f0f0', paddingTop: '12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666' }}>
-          <Spin size="small" />
-          <span style={{ fontSize: '12px' }}>正在載入圖片...</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div style={{ marginTop: '12px', borderTop: '1px solid #f0f0f0', paddingTop: '12px' }}>
-        <div style={{ fontSize: '12px', color: '#ff4d4f' }}>
-          ❌ {error}
-        </div>
-        <div style={{ fontSize: '11px', color: '#999', marginTop: '4px' }}>
-          請檢查網路連線或聯絡系統管理員
-        </div>
-      </div>
-    );
-  }
-
-  if (images.length === 0) {
-    // 沒有載入到圖片，顯示檔名連結
-    return (
-      <div style={{ margin: '8px 0' }}>
-        <div style={{ fontSize: '12px', color: '#666', marginBottom: '6px' }}>
-          📸 相關圖片 ({filenames.length} 張)：
-        </div>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          {filenames.map((filename, index) => (
-            <div 
-              key={index} 
-              style={{ 
-                padding: '6px 10px', 
-                backgroundColor: '#f0f0f0', 
-                border: '1px solid #d9d9d9',
-                borderRadius: '6px',
-                fontSize: '12px',
-                color: '#666'
-              }}
-            >
-              🖼️ {filename.length > 30 ? filename.substring(0, 30) + '...' : filename}
-            </div>
-          ))}
-        </div>
-        <div style={{ fontSize: '11px', color: '#999', marginTop: '8px' }}>
-          💡 圖片資料暫時無法載入，請前往知識庫查看
-        </div>
-      </div>
-    );
-  }
-
-  // 有成功載入圖片，直接顯示
-  console.log('📊 MessageImages: 渲染圖片區域', { imagesLength: images.length, images });
-  
-  return (
-    <div style={{ margin: '8px 0' }}>
-      <div style={{ fontSize: '12px', color: '#666', marginBottom: '6px' }}>
-        📸 相關圖片 ({images.length} 張)：
-      </div>
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
-        gap: '12px'
-      }}>
-        {images.map((image, index) => (
-          <div 
-            key={index} 
-            style={{
-              border: '1px solid #e8e8e8',
-              borderRadius: '8px',
-              overflow: 'hidden',
-              backgroundColor: '#fff',
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
-            onClick={() => showImageModal(image)}
-            onMouseOver={(e) => {
-              e.currentTarget.style.transform = 'translateY(-2px)';
-              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = 'none';
-            }}
-          >
-            <div style={{ position: 'relative', paddingTop: '60%', overflow: 'hidden' }}>
-              <img
-                src={image.data_url}
-                alt={image.title || image.filename}
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover'
-                }}
-                onLoad={(e) => {
-                  console.log('✅ 圖片載入成功:', image.filename);
-                }}
-                onError={(e) => {
-                  console.error('❌ 圖片載入失敗:', image.filename, e);
-                  console.log('❌ 失敗的 data_url 開頭:', image.data_url?.substring(0, 100));
-                  e.target.style.display = 'none';
-                  e.target.nextSibling.style.display = 'flex';
-                }}
-              />
-              <div 
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: '100%',
-                  display: 'none',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: '#f5f5f5',
-                  color: '#999',
-                  fontSize: '12px'
-                }}
-              >
-                🖼️ 圖片載入失敗
-              </div>
-            </div>
-            <div style={{ padding: '8px' }}>
-              <div style={{ 
-                fontSize: '12px', 
-                fontWeight: '500',
-                color: '#333',
-                marginBottom: '4px',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap'
-              }}>
-                {image.title || image.filename}
-              </div>
-              {image.description && (
-                <div style={{ 
-                  fontSize: '11px', 
-                  color: '#666',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap'
-                }}>
-                  {image.description}
-                </div>
-              )}
-              <div style={{ 
-                fontSize: '10px', 
-                color: '#999',
-                marginTop: '4px'
-              }}>
-                {image.dimensions_display} • {image.size_display}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div style={{ fontSize: '11px', color: '#999', marginTop: '8px', lineHeight: '1.4' }}>
-        💡 點擊圖片可放大查看，圖片直接來自知識庫
-        <span 
-          style={{ 
-            marginLeft: '10px', 
-            color: '#1890ff', 
-            cursor: 'pointer',
-            textDecoration: 'underline'
-          }}
-          onClick={() => {
-            // 顯示最近的除錯資訊
-            const debugKeys = Object.keys(sessionStorage).filter(key => 
-              key.includes('ai_image_debug_') || key.includes('image_load_debug_')
-            ).sort().reverse().slice(0, 2);
-            
-            if (debugKeys.length > 0) {
-              let debugContent = '';
-              debugKeys.forEach(key => {
-                const data = JSON.parse(sessionStorage.getItem(key) || '{}');
-                debugContent += `\n\n=== ${key} ===\n${JSON.stringify(data, null, 2)}`;
-              });
-              
-              Modal.info({
-                title: '🐛 圖片載入除錯資訊',
-                width: 800,
-                content: (
-                  <pre style={{ 
-                    whiteSpace: 'pre-wrap', 
-                    fontSize: '12px', 
-                    maxHeight: '400px', 
-                    overflow: 'auto',
-                    backgroundColor: '#f5f5f5',
-                    padding: '12px',
-                    borderRadius: '4px'
-                  }}>
-                    {debugContent}
-                  </pre>
-                ),
-                okText: '關閉'
-              });
-            } else {
-              message.info('暫無除錯資訊');
-            }
-          }}
-        >
-          🐛 除錯
-        </span>
-      </div>
-    </div>
-  );
-};
-
-// localStorage 相關常數 - 基于用户ID隔离
-const STORAGE_KEY_PREFIX = 'rvt-assistant-chat-messages';
-const CONVERSATION_ID_KEY_PREFIX = 'rvt-assistant-chat-conversation-id';
-const MAX_STORAGE_DAYS = 7; // 最多保存 7 天
-const MAX_MESSAGES = 200; // 最多保存 200 條消息
-
-// 获取用户特定的存储键
-const getUserStorageKey = (userId) => `${STORAGE_KEY_PREFIX}-${userId || 'guest'}`;
-const getUserConversationKey = (userId) => `${CONVERSATION_ID_KEY_PREFIX}-${userId || 'guest'}`;
-
-// localStorage 工具函數 - 基于用户ID
-const saveMessagesToStorage = (messages, userId) => {
-  try {
-    const storageKey = getUserStorageKey(userId);
-    const data = {
-      messages: messages.map(msg => ({
-        ...msg,
-        timestamp: msg.timestamp instanceof Date ? msg.timestamp.toISOString() : msg.timestamp
-      })),
-      savedAt: new Date().toISOString(),
-      userId: userId || 'guest'
-    };
-    localStorage.setItem(storageKey, JSON.stringify(data));
-    // console.log(`💾 保存对话记录 - 用户: ${userId || 'guest'}, 消息数: ${messages.length}`);
-  } catch (error) {
-    console.warn('保存對話記錄失敗:', error);
-  }
-};
-
-const loadMessagesFromStorage = (userId) => {
-  try {
-    const storageKey = getUserStorageKey(userId);
-    const stored = localStorage.getItem(storageKey);
-    if (!stored) {
-      // console.log(`📂 未找到对话记录 - 用户: ${userId || 'guest'}`);
-      return null;
-    }
-    
-    const data = JSON.parse(stored);
-    const savedAt = new Date(data.savedAt);
-    const now = new Date();
-    const daysDiff = (now - savedAt) / (1000 * 60 * 60 * 24);
-    
-    // 检查数据是否属于正确的用户
-    if (data.userId !== (userId || 'guest')) {
-      // console.log(`🔄 用户不匹配，清除旧数据 - 存储用户: ${data.userId}, 当前用户: ${userId || 'guest'}`);
-      localStorage.removeItem(storageKey);
-      return null;
-    }
-    
-    // 檢查是否過期
-    if (daysDiff > MAX_STORAGE_DAYS) {
-      // console.log(`⏰ 对话记录已过期 - 用户: ${userId || 'guest'}`);
-      localStorage.removeItem(storageKey);
-      localStorage.removeItem(getUserConversationKey(userId));
-      return null;
-    }
-    
-    // 恢復消息並轉換時間戳
-    const messages = data.messages.map(msg => ({
-      ...msg,
-      timestamp: new Date(msg.timestamp)
-    }));
-    
-    // 如果消息太多，只保留最新的
-    if (messages.length > MAX_MESSAGES) {
-      return messages.slice(-MAX_MESSAGES);
-    }
-    
-    // console.log(`📖 载入对话记录 - 用户: ${userId || 'guest'}, 消息数: ${messages.length}`);
-    return messages;
-  } catch (error) {
-    console.warn('讀取對話記錄失敗:', error);
-    const storageKey = getUserStorageKey(userId);
-    localStorage.removeItem(storageKey);
-    return null;
-  }
-};
-
-const saveConversationId = (conversationId, userId) => {
-  try {
-    if (conversationId) {
-      const conversationKey = getUserConversationKey(userId);
-      localStorage.setItem(conversationKey, conversationId);
-      // console.log(`💾 保存对话ID - 用户: ${userId || 'guest'}, ID: ${conversationId}`);
-    }
-  } catch (error) {
-    console.warn('保存對話ID失敗:', error);
-  }
-};
-
-const loadConversationId = (userId) => {
-  try {
-    const conversationKey = getUserConversationKey(userId);
-    const conversationId = localStorage.getItem(conversationKey) || '';
-    if (conversationId) {
-      // console.log(`📖 载入对话ID - 用户: ${userId || 'guest'}, ID: ${conversationId}`);
-    }
-    return conversationId;
-  } catch (error) {
-    console.warn('讀取對話ID失敗:', error);
-    return '';
-  }
-};
-
-const clearStoredChat = (userId) => {
-  try {
-    const storageKey = getUserStorageKey(userId);
-    const conversationKey = getUserConversationKey(userId);
-    localStorage.removeItem(storageKey);
-    localStorage.removeItem(conversationKey);
-    // console.log(`🗑️ 清除用户数据 - 用户: ${userId || 'guest'}`);
-  } catch (error) {
-    console.warn('清除對話記錄失敗:', error);
-  }
-};
-
-// RVT Assistant 預設歡迎消息常量
-const DEFAULT_WELCOME_MESSAGE = {
-  id: 1,
-  type: 'assistant',
-  content: '🛠️ 歡迎使用 RVT Assistant！我是你的 RVT 測試專家助手，可以協助你解決 RVT 相關的問題。\n\n**我可以幫助你：**\n- RVT 測試流程指導\n- 故障排除和問題診斷\n- RVT 工具使用方法\n\n現在就開始吧！有什麼 RVT 相關的問題需要協助嗎？',
-  timestamp: new Date()
-};
 
 const RvtAssistantChatPage = ({ collapsed = false }) => {
   const { registerClearFunction, clearClearFunction } = useChatContext();
   const { user } = useAuth();
   
+  // 使用新的 useMessageStorage hook
+  const {
+    messages,
+    conversationId,
+    currentUserId,
+    setMessages,
+    setConversationId,
+    clearChat,
+    checkUserSwitch,
+    handleUserSwitch
+  } = useMessageStorage(user);
+  
+  // 其他状态
+  const [inputMessage, setInputMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [loadingStartTime, setLoadingStartTime] = useState(null);
+  const [rvtConfig, setRvtConfig] = useState(null);
+  const [feedbackStates, setFeedbackStates] = useState({});
+  const messagesEndRef = useRef(null);
+  const abortControllerRef = useRef(null);
+  
   // 初始化 Markdown 解析器
   const md = useMemo(() => {
     return new MarkdownIt({
-      html: true,         // 啟用 HTML 標籤處理
-      xhtmlOut: false,    // 使用標準 HTML 格式
-      breaks: true,       // ✅ 啟用 breaks 以正確處理單一換行
-      linkify: true,      // 自動轉換 URL 為鏈接
-      typographer: true   // 啟用智能標點符號替換
+      html: true,
+      xhtmlOut: false,
+      breaks: true,
+      linkify: true,
+      typographer: true
     });
   }, []);
   
@@ -483,26 +103,6 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
     );
   };
 
-  const getInitialMessages = (userId) => {
-    const storedMessages = loadMessagesFromStorage(userId);
-    if (storedMessages && storedMessages.length > 0) {
-      return storedMessages;
-    }
-    // 使用預設歡迎消息常量
-    return [{ ...DEFAULT_WELCOME_MESSAGE, timestamp: new Date() }];
-  };
-  
-  const [messages, setMessages] = useState(() => getInitialMessages(user?.id));
-  const [inputMessage, setInputMessage] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [loadingStartTime, setLoadingStartTime] = useState(null);
-  const [conversationId, setConversationId] = useState(''); // 初始化為空，讓用戶切換檢測邏輯決定
-  const [rvtConfig, setRvtConfig] = useState(null);
-  const [feedbackStates, setFeedbackStates] = useState({}); // 存儲每個消息的反饋狀態
-  const [currentUserId, setCurrentUserId] = useState(null); // 追蹤當前用戶ID，初始化為null避免錯誤偵測
-  const messagesEndRef = useRef(null);
-  const abortControllerRef = useRef(null);
-
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -510,113 +110,6 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
-
-  // 監聽用戶狀態變化，在用戶切換時重置對話
-  useEffect(() => {
-    const newUserId = user?.id || null;
-    
-    // console.log('🔍 用戶狀態檢查:', {
-    //   currentUserId,
-    //   newUserId, 
-    //   userObject: user,
-    //   hasChanged: currentUserId !== null && currentUserId !== newUserId
-    // });
-    
-    // 如果是第一次初始化，設置用戶ID並載入用戶特定数据
-    if (currentUserId === null) {
-      setCurrentUserId(newUserId);
-      
-      // 載入當前用戶的對話ID和消息
-      const userConversationId = loadConversationId(newUserId);
-      const userMessages = loadMessagesFromStorage(newUserId);
-      
-      // console.log('🔄 初始化用户数据:', {
-      //   userId: newUserId || 'guest',
-      //   hasConversationId: !!userConversationId,
-      //   hasMessages: !!(userMessages && userMessages.length > 0)
-      // });
-      
-      if (userConversationId) {
-        setConversationId(userConversationId);
-      }
-      
-      if (userMessages && userMessages.length > 0) {
-        setMessages(userMessages);
-      } else {
-        setMessages([{ ...DEFAULT_WELCOME_MESSAGE, timestamp: new Date() }]);
-      }
-      
-      return;
-    }
-    
-    // 檢查用戶是否發生變化
-    if (currentUserId !== newUserId) {
-      // console.log('🔄 用戶切換偵測:', currentUserId, '->', newUserId);
-      
-      // 🚨 立即取消進行中的請求，避免衝突
-      if (abortControllerRef.current) {
-        // console.log('🛑 取消進行中的請求...');
-        abortControllerRef.current.abort();
-        abortControllerRef.current = null;
-      }
-      
-      // 停止載入狀態
-      setLoading(false);
-      setLoadingStartTime(null);
-      setFeedbackStates({});
-      
-      // 载入新用户的数据
-      const newUserConversationId = loadConversationId(newUserId);
-      const newUserMessages = loadMessagesFromStorage(newUserId);
-      
-      // console.log('🔄 切换到新用户数据:', {
-      //   userId: newUserId || 'guest',
-      //   hasConversationId: !!newUserConversationId,
-      //   hasMessages: !!(newUserMessages && newUserMessages.length > 0)
-      // });
-      
-      // 设置新用户的对话ID和消息
-      setConversationId(newUserConversationId || '');
-      
-      if (newUserMessages && newUserMessages.length > 0) {
-        setMessages(newUserMessages);
-      } else {
-        setMessages([{ ...DEFAULT_WELCOME_MESSAGE, timestamp: new Date() }]);
-      }
-      
-      // 顯示用戶切換提示（只在登入時顯示）
-      if (newUserId) {
-        message.info({
-          content: `🔄 偵測到用戶切換，已載入您的對話記錄。歡迎 ${user?.username || '新用戶'}！`,
-          duration: 3
-        });
-      }
-      // 登出時不顯示提示訊息
-      
-      // 更新當前用戶ID
-      setCurrentUserId(newUserId);
-    }
-  }, [user?.id, currentUserId, user?.username]);
-
-  // 自動保存消息到 localStorage (基于当前用户)
-  useEffect(() => {
-    if (messages.length > 0 && currentUserId !== null) {
-      saveMessagesToStorage(messages, currentUserId);
-    }
-  }, [messages, currentUserId]);
-
-  // 保存對話 ID (基于当前用户)
-  useEffect(() => {
-    if (currentUserId !== null) {
-      if (conversationId) {
-        saveConversationId(conversationId, currentUserId);
-      } else {
-        // 如果對話ID被清空，也要清除localStorage
-        const conversationKey = getUserConversationKey(currentUserId);
-        localStorage.removeItem(conversationKey);
-      }
-    }
-  }, [conversationId, currentUserId]);
 
   // 載入 RVT Guide 配置資訊
   useEffect(() => {
@@ -649,15 +142,8 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
 
     // 🚨 檢查用戶是否在發送消息時發生切換
     const sendTimeUserId = user?.id || null;
-    if (currentUserId !== null && currentUserId !== sendTimeUserId) {
-      // console.log('🔄 發送時偵測到用戶切換，重置對話狀態');
-      
-      // 立即更新用戶ID和清除狀態
-      setCurrentUserId(sendTimeUserId);
-      setConversationId('');
-      const conversationKey = getUserConversationKey(sendTimeUserId);
-      localStorage.removeItem(conversationKey);
-      
+    if (checkUserSwitch(sendTimeUserId)) {
+      handleUserSwitch(sendTimeUserId);
       message.warning('偵測到用戶切換，請重新發送您的消息。');
       return;
     }
@@ -722,8 +208,6 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
           // 404 錯誤 - 立即清除對話ID並重試
           // console.log('🔄 404錯誤，清除對話ID並準備重試');
           setConversationId('');
-          const conversationKey = getUserConversationKey(currentUserId);
-          localStorage.removeItem(conversationKey);
           throw new Error('conversation_expired_404');
         }
         if (response.status === 403 || response.status === 401) {
@@ -754,7 +238,6 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
         // 更新對話 ID
         if (data.conversation_id) {
           setConversationId(data.conversation_id);
-          saveConversationId(data.conversation_id);
         }
         
         // 如果有警告信息，顯示給用戶
@@ -794,8 +277,6 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
             errorMessage.includes('404')) {
           // 清除無效的對話ID
           setConversationId('');
-          const conversationKey = getUserConversationKey(currentUserId);
-          localStorage.removeItem(conversationKey);
           
           // 檢查是否是用戶切換導致的問題
           const currentUser = user?.username || '訪客';
@@ -876,7 +357,6 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
               
               // 更新對話ID
               setConversationId(retryData.conversation_id);
-              saveConversationId(retryData.conversation_id);
               
               const assistantMessage = {
                 id: Date.now() + 1,
@@ -1020,196 +500,8 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
     }
   };
 
-  // 🎯 精準的圖片載入函數
-  const loadImagesData = async (filenames) => {
-    console.log('🖼️ 開始載入圖片，檔名列表:', filenames);
-    
-    // 🐛 載入除錯資訊
-    const loadDebugInfo = {
-      originalFilenames: filenames,
-      validationResults: {},
-      apiResults: {},
-      finalResults: null,
-      timestamp: new Date().toISOString()
-    };
-    
-    // 🧹 預先過濾明顯無效的檔名
-    const validFilenames = filenames.filter(filename => {
-      const isValid = filename && 
-                     filename.length >= 8 && 
-                     /\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(filename) &&
-                     !/[\s\n\r,，。()]/.test(filename); // 不包含空格或標點
-      console.log(`🔍 檔名驗證: "${filename}" -> ${isValid ? '✅ 有效' : '❌ 無效'}`);
-      
-      // 記錄驗證結果
-      loadDebugInfo.validationResults[filename] = {
-        isValid,
-        length: filename?.length || 0,
-        hasExtension: /\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(filename || ''),
-        hasInvalidChars: /[\s\n\r,，。()]/.test(filename || '')
-      };
-      
-      return isValid;
-    });
-    
-    if (validFilenames.length === 0) {
-      console.log('❌ 沒有有效的圖片檔名');
-      return [];
-    }
-    
-    console.log(`📋 有效檔名列表 (${validFilenames.length}/${filenames.length}):`, validFilenames);
-    
-    try {
-      const imagePromises = validFilenames.map(async (filename) => {
-        try {
-          console.log(`🔍 正在載入圖片: "${filename}"`);
-          
-          // 🎯 使用精準搜尋策略
-          console.log(`🔍 嘗試精確檔名搜尋: "${filename}"`);
-          
-          // 首先嘗試精確檔名匹配
-          const exactResponse = await fetch(`/api/content-images/?filename=${encodeURIComponent(filename)}`, {
-            credentials: 'include'
-          });
-          
-          if (exactResponse.ok) {
-            const exactData = await exactResponse.json();
-            console.log(`📊 精確搜尋回應:`, exactData);
-            const exactImages = exactData.results || exactData;
-            
-            if (Array.isArray(exactImages) && exactImages.length > 0) {
-              const image = exactImages[0];
-              if (image && image.data_url) {
-                console.log(`✅ 精確匹配成功: "${filename}" -> 找到圖片 (${Math.round(image.file_size/1024)}KB)`);
-                return image;
-              } else {
-                console.log(`⚠️ 找到記錄但缺少 data_url: "${filename}"`);
-              }
-            } else {
-              console.log(`⚠️ 精確匹配返回空結果: "${filename}"`);
-            }
-          } else {
-            console.log(`❌ 精確搜尋 API 錯誤: ${exactResponse.status} - "${filename}"`);
-          }
-          
-          // 如果精確匹配失敗，嘗試標題包含搜尋（僅作為備用）
-          console.log(`🔍 精確匹配失敗，嘗試標題搜尋: "${filename}"`);
-          const titleResponse = await fetch(`/api/content-images/?title__icontains=${encodeURIComponent(filename)}`, {
-            credentials: 'include'
-          });
-          
-          if (titleResponse.ok) {
-            const titleData = await titleResponse.json();
-            console.log(`📊 標題搜尋回應:`, titleData);
-            const titleImages = titleData.results || titleData;
-            
-            if (Array.isArray(titleImages) && titleImages.length > 0) {
-              const image = titleImages[0];
-              if (image && image.data_url) {
-                console.log(`✅ 標題搜尋成功: "${filename}" -> 找到圖片 (${Math.round(image.file_size/1024)}KB)`);
-                return image;
-              } else {
-                console.log(`⚠️ 標題搜尋找到記錄但缺少 data_url: "${filename}"`);
-              }
-            } else {
-              console.log(`⚠️ 標題搜尋返回空結果: "${filename}"`);
-            }
-          } else {
-            console.log(`❌ 標題搜尋 API 錯誤: ${titleResponse.status} - "${filename}"`);
-          }
-          
-          console.log(`❌ 搜尋失敗: "${filename}" -> 無匹配結果`);
-          return null;
-        } catch (error) {
-          console.warn(`❌ 載入異常: "${filename}"`, error.message);
-          return null;
-        }
-      });
-      
-      const results = await Promise.all(imagePromises);
-      const validImages = results.filter(img => img !== null);
-      
-      // 🐛 完善載入除錯資訊
-      loadDebugInfo.finalResults = {
-        totalAttempts: validFilenames.length,
-        successfulLoads: validImages.length,
-        failedLoads: validFilenames.length - validImages.length,
-        loadedImages: validImages.map(img => ({
-          filename: img.filename,
-          fileSize: Math.round(img.file_size/1024) + 'KB',
-          dimensions: img.dimensions_display,
-          hasDataUrl: !!img.data_url
-        }))
-      };
-      
-      // 保存載入除錯資訊
-      try {
-        const loadDebugKey = `image_load_debug_${Date.now()}`;
-        sessionStorage.setItem(loadDebugKey, JSON.stringify(loadDebugInfo, null, 2));
-        console.log(`🐛 載入除錯資訊已保存至 sessionStorage: ${loadDebugKey}`);
-      } catch (error) {
-        console.warn('無法保存載入除錯資訊:', error);
-      }
-      
-      console.log(`📸 最終載入結果: ${validImages.length}/${validFilenames.length} 張圖片成功載入`);
-      if (validImages.length > 0) {
-        console.log('🎉 成功載入的圖片:', validImages.map(img => `"${img.filename}" (${Math.round(img.file_size/1024)}KB)`));
-      }
-      
-      return validImages;
-    } catch (error) {
-      console.error('❌ 批量載入圖片失敗:', error);
-      return [];
-    }
-  };
+  // 使用模組化的圖片載入函數，不需要重新定義
   
-  // 顯示圖片模態框
-  const showImageModal = (imageData) => {
-    // 支持兩種格式：新的 data_url 或舊的 image_data
-    const imageUrl = imageData.data_url || `data:${imageData.content_type_mime};base64,${imageData.image_data}`;
-    
-    Modal.info({
-      title: `📸 ${imageData.title || imageData.filename}`,
-      width: 800,
-      content: (
-        <div style={{ textAlign: 'center', padding: '20px 0' }}>
-          <Image
-            src={imageUrl}
-            alt={imageData.title || imageData.filename}
-            style={{ maxWidth: '100%', maxHeight: '500px', objectFit: 'contain' }}
-            preview={{
-              mask: '🔍 點擊放大查看'
-            }}
-          />
-          {imageData.description && (
-            <div style={{ marginTop: '16px', color: '#666', fontSize: '14px' }}>
-              📝 {imageData.description}
-            </div>
-          )}
-          <div style={{ marginTop: '12px', fontSize: '12px', color: '#999' }}>
-            尺寸: {imageData.dimensions_display || (imageData.width && imageData.height ? `${imageData.width}×${imageData.height}` : '未知')} | 
-            大小: {imageData.size_display || (imageData.file_size ? `${Math.round(imageData.file_size / 1024)}KB` : '未知')}
-          </div>
-        </div>
-      ),
-      okText: '關閉',
-      icon: null
-    });
-    
-    message.success(`已載入圖片: ${imageData.title || imageData.filename}`);
-  };
-
-  const clearChat = useCallback(() => {
-    // 使用預設歡迎消息常量
-    const defaultMessage = { ...DEFAULT_WELCOME_MESSAGE, timestamp: new Date() };
-    
-    setMessages([defaultMessage]);
-    setConversationId('');
-    
-    // 清除当前用户的 localStorage 記錄
-    clearStoredChat(currentUserId);
-  }, [currentUserId]);
-
   // 將 clearChat 函數傳遞給父組件
   React.useEffect(() => {
     registerClearFunction(clearChat);
@@ -1221,10 +513,10 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
   // 🎯 智能圖片內嵌處理：分離圖片渲染和文字格式處理
   const formatMessageWithInlineImages = (content, metadata = null) => {
     
-    // 🎯 檢查是否包含 [IMG:ID] 格式的圖片引用
-    const hasImgIdReferences = /\*?\*?\[IMG:\d+\]/i.test(content);
+    // 使用工具模組的函數檢查 IMG:ID 格式
+    const hasImgIdRef = hasImgIdReferences(content);
     
-    if (hasImgIdReferences) {
+    if (hasImgIdRef) {
       console.log('🖼️ 檢測到IMG:ID格式，分離處理文字和圖片');
       
       // 🔧 分離文字內容和圖片引用
@@ -1248,19 +540,7 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
           );
         } else if (part.trim()) {
           // 📝 文字部分 - 使用 markdown 渲染
-          const processedText = part
-            .replace(/&lt;br\s*\/?&gt;/gi, '\n')
-            .replace(/&lt;\/br&gt;/gi, '')
-            .replace(/&amp;/g, '&')
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>')
-            .replace(/&quot;/g, '"')
-            .replace(/&#39;/g, "'")
-            .replace(/&nbsp;/g, ' ')
-            .replace(/^\s*[*•]\s+/gm, '- ')
-            .replace(/^\s*(\d+)\.\s+/gm, '$1. ')
-            .replace(/\n{3,}/g, '\n\n');
-            
+          const processedText = processContentFormat(part);
           const html = md.render(processedText);
           const cleanHtml = DOMPurify.sanitize(html);
           
@@ -1278,64 +558,18 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
     }
     
     // 預處理並提取圖片資訊
-    let processedContent = content
-      // ✅ 修正 HTML 實體處理順序和邏輯
-      .replace(/&lt;br\s*\/?&gt;/gi, '\n')  // 處理各種 <br> 格式
-      .replace(/&lt;\/br&gt;/gi, '')        // 移除錯誤的結束標籤
-      .replace(/&amp;/g, '&')               // 先處理 &amp;
-      .replace(/&lt;/g, '<')               // 再處理 &lt;
-      .replace(/&gt;/g, '>')               // 處理 &gt;
-      .replace(/&quot;/g, '"')             // 處理引號
-      .replace(/&#39;/g, "'")
-      .replace(/&nbsp;/g, ' ')             // 處理不間斷空格
-      // 統一列表格式
-      .replace(/^\s*[*•]\s+/gm, '- ')
-      .replace(/^\s*(\d+)\.\s+/gm, '$1. ')
-      // 清理多餘空行但保留必要的格式
-      .replace(/\n{3,}/g, '\n\n')
-      // 確保列表前後有適當空行
-      .replace(/(\n- .*?)(?=\n[^-\s\n])/g, '$1\n')
-      .replace(/(\n\d+\. .*?)(?=\n[^0-9\s\n])/g, '$1\n');
+    let processedContent = processContentFormat(content);
 
     // 🔍 提取所有圖片檔名
     const imageFilenames = new Set();
     
-    // 從 metadata 中提取圖片
-    if (metadata && metadata.retriever_resources) {
-      metadata.retriever_resources.forEach((resource) => {
-        if (resource.content) {
-          // 精準搜尋 kisspng 檔名
-          const kisspngPattern = /kisspng-[a-zA-Z0-9\-_.]{15,}\.(?:png|jpg|jpeg|gif|bmp|webp)\b/gi;
-          let match;
-          while ((match = kisspngPattern.exec(resource.content)) !== null) {
-            imageFilenames.add(match[0].trim());
-          }
-          
-          // 搜尋其他長檔名
-          const longFilenamePattern = /\b([a-zA-Z0-9\-_.]{20,}\.(?:png|jpg|jpeg|gif|bmp|webp))\b/gi;
-          while ((match = longFilenamePattern.exec(resource.content)) !== null) {
-            imageFilenames.add(match[1].trim());
-          }
-        }
-      });
-    }
+    // 使用工具模組函數提取圖片
+    const metadataImages = extractImagesFromMetadata(metadata);
+    const contentImages = extractImagesFromContent(processedContent);
     
-    // 從內容中直接提取圖片檔名
-    const contentImagePatterns = [
-      /🖼️\s*([a-zA-Z0-9\-_.]{10,}\.(?:png|jpg|jpeg|gif|bmp|webp))/gi,
-      /kisspng-[a-zA-Z0-9\-_.]{10,}\.(?:png|jpg|jpeg|gif|bmp|webp)\b/gi,
-      /\b([a-zA-Z0-9\-_.]{15,}\.(?:png|jpg|jpeg|gif|bmp|webp))\b/gi
-    ];
-    
-    contentImagePatterns.forEach(pattern => {
-      let match;
-      while ((match = pattern.exec(processedContent)) !== null) {
-        let filename = match[1] ? match[1].trim() : match[0].trim();
-        filename = filename.replace(/^🖼️\s*/, '').trim();
-        if (filename && filename.length >= 10) {
-          imageFilenames.add(filename);
-        }
-      }
+    // 合併圖片檔名
+    [...metadataImages, ...contentImages].forEach(filename => {
+      imageFilenames.add(filename);
     });
     
     const imageArray = Array.from(imageFilenames);
@@ -1359,8 +593,8 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
         />
       );
       
-      // 🖼️ 檢查這個段落是否提及圖片，如果有就在下方顯示
-      const mentionsImage = /(?:如.*相關圖片.*所示.*主圖.*為.*RVT.*的.*圖片|如.*圖.*所示.*主圖|主圖.*為.*RVT.*的.*圖片|展示了.*Jenkins.*與.*Ansible|🖼️.*kisspng-jenkins|Jenkins.*與.*Ansible.*在.*自動化測試中的關鍵位置)/i.test(paragraph);
+      // 🖼️ 使用工具模組檢查是否提及圖片
+      const mentionsImage = checkImageMention(paragraph);
       
       if (mentionsImage && remainingImages.length > 0) {
         console.log('📸 找到圖片描述段落', index, ':', paragraph.substring(0, 100));
@@ -1413,13 +647,13 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
   };
 
   const formatMessage = (content) => {
-    // 🎯 檢查是否包含 [IMG:ID] 格式的圖片引用（包含可能的粗體標記）
-    const hasImgIdReferences = /\*?\*?\[IMG:\d+\]\*?\*?/i.test(content);
+    // 使用工具模組函數檢查 IMG:ID 格式
+    const hasImgIdRef = hasImgIdReferences(content);
     
-    if (hasImgIdReferences) {
+    if (hasImgIdRef) {
       console.log('🖼️ 檢測到IMG:ID格式，分離處理文字和圖片');
       
-      // 🔧 分離文字內容和圖片引用（包含可能的粗體標記）
+      // 🔧 分離文字內容和圖片引用
       const parts = content.split(/(\*?\*?\[IMG:\d+\]\*?\*?)/g);
       const result = [];
       
@@ -1440,19 +674,7 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
           );
         } else if (part.trim()) {
           // 📝 文字部分 - 使用 markdown 渲染
-          const processedText = part
-            .replace(/&lt;br\s*\/?&gt;/gi, '\n')
-            .replace(/&lt;\/br&gt;/gi, '')
-            .replace(/&amp;/g, '&')
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>')
-            .replace(/&quot;/g, '"')
-            .replace(/&#39;/g, "'")
-            .replace(/&nbsp;/g, ' ')
-            .replace(/^\s*[*•]\s+/gm, '- ')
-            .replace(/^\s*(\d+)\.\s+/gm, '$1. ')
-            .replace(/\n{3,}/g, '\n\n');
-            
+          const processedText = processContentFormat(part);
           const html = md.render(processedText);
           const cleanHtml = DOMPurify.sanitize(html);
           
@@ -1470,26 +692,7 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
     }
 
     // 🖼️ 純文字內容 - 使用 markdown-it + DOMPurify 專業 Markdown 渲染器
-    
-    // 預處理：清理不需要的 HTML 實體和統一格式
-    let processedContent = content
-      // ✅ 統一的 HTML 實體處理邏輯
-      .replace(/&lt;br\s*\/?&gt;/gi, '\n')  // 處理各種 <br> 格式
-      .replace(/&lt;\/br&gt;/gi, '')        // 移除錯誤的結束標籤  
-      .replace(/&amp;/g, '&')               // 先處理 &amp;
-      .replace(/&lt;/g, '<')               // 再處理 &lt;
-      .replace(/&gt;/g, '>')               // 處理 &gt;
-      .replace(/&quot;/g, '"')             // 處理引號
-      .replace(/&#39;/g, "'")
-      .replace(/&nbsp;/g, ' ')             // 處理不間斷空格
-      // 統一列表格式
-      .replace(/^\s*[*•]\s+/gm, '- ')
-      .replace(/^\s*(\d+)\.\s+/gm, '$1. ')
-      // 清理多餘空行但保留必要的格式
-      .replace(/\n{3,}/g, '\n\n')
-      // 確保列表前後有適當空行
-      .replace(/(\n- .*?)(?=\n[^-\s\n])/g, '$1\n')
-      .replace(/(\n\d+\. .*?)(?=\n[^0-9\s\n])/g, '$1\n');
+    const processedContent = processContentFormat(content);
     
     const html = md.render(processedContent);
     const cleanHtml = DOMPurify.sanitize(html);
