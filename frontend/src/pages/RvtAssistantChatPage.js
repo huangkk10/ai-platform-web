@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Layout, Input, Button, Card, Avatar, message, Spin, Typography, Tag, Table, Tooltip } from 'antd';
+import React, { useState, useRef, useEffect } from 'react';
+import { Layout, Input, Button, Card, Avatar, message, Spin, Typography, Tooltip } from 'antd';
 import { 
   SendOutlined, 
   MinusSquareFilled,
@@ -13,21 +13,9 @@ import {
 import { useChatContext } from '../contexts/ChatContext';
 import { useAuth } from '../contexts/AuthContext';
 import { recordChatUsage, CHAT_TYPES } from '../utils/chatUsage';
-import MarkdownIt from 'markdown-it';
-import DOMPurify from 'dompurify';
-import ContentRenderer from '../components/ContentRenderer';
 // 新的模組化組件和 hooks
-import MessageImages from '../components/chat/MessageImages';
+import MessageFormatter from '../components/chat/MessageFormatter';
 import useMessageStorage from '../hooks/useMessageStorage';
-import { 
-  loadImagesData, 
-  showImageModal, 
-  extractImagesFromMetadata, 
-  extractImagesFromContent,
-  checkImageMention,
-  processContentFormat,
-  hasImgIdReferences
-} from '../utils/imageProcessor';
 import './RvtAssistantChatPage.css';
 
 const { Content } = Layout;
@@ -59,17 +47,6 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
   const [feedbackStates, setFeedbackStates] = useState({});
   const messagesEndRef = useRef(null);
   const abortControllerRef = useRef(null);
-  
-  // 初始化 Markdown 解析器
-  const md = useMemo(() => {
-    return new MarkdownIt({
-      html: true,
-      xhtmlOut: false,
-      breaks: true,
-      linkify: true,
-      typographer: true
-    });
-  }, []);
   
   // 動態載入提示組件
   const LoadingIndicator = () => {
@@ -510,200 +487,9 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
     };
   }, [registerClearFunction, clearClearFunction, clearChat]);
 
-  // 🎯 智能圖片內嵌處理：分離圖片渲染和文字格式處理
-  const formatMessageWithInlineImages = (content, metadata = null) => {
-    
-    // 使用工具模組的函數檢查 IMG:ID 格式
-    const hasImgIdRef = hasImgIdReferences(content);
-    
-    if (hasImgIdRef) {
-      console.log('🖼️ 檢測到IMG:ID格式，分離處理文字和圖片');
-      
-      // 🔧 分離文字內容和圖片引用
-      const parts = content.split(/(\*?\*?\[IMG:\d+\]\*?\*?)/g);
-      const result = [];
-      
-      parts.forEach((part, index) => {
-        if (/\*?\*?\[IMG:\d+\]\*?\*?/.test(part)) {
-          // 🖼️ 圖片部分 - 清理粗體符號後使用 ContentRenderer 渲染
-          const cleanImageRef = part.replace(/^\*+|\*+$/g, ''); // 移除前後的 * 符號
-          result.push(
-            <div key={`img-${index}`} style={{ margin: '12px 0' }}>
-              <ContentRenderer 
-                content={cleanImageRef}
-                showImageTitles={true}
-                showImageDescriptions={true}
-                imageMaxWidth={400}
-                imageMaxHeight={300}
-              />
-            </div>
-          );
-        } else if (part.trim()) {
-          // 📝 文字部分 - 使用 markdown 渲染
-          const processedText = processContentFormat(part);
-          const html = md.render(processedText);
-          const cleanHtml = DOMPurify.sanitize(html);
-          
-          result.push(
-            <div 
-              key={`text-${index}`}
-              className="markdown-content"
-              dangerouslySetInnerHTML={{ __html: cleanHtml }}
-            />
-          );
-        }
-      });
-      
-      return <div className="message-with-mixed-content">{result}</div>;
-    }
-    
-    // 預處理並提取圖片資訊
-    let processedContent = processContentFormat(content);
+  // 消息格式化邏輯已移至 MessageFormatter 組件
 
-    // 🔍 提取所有圖片檔名
-    const imageFilenames = new Set();
-    
-    // 使用工具模組函數提取圖片
-    const metadataImages = extractImagesFromMetadata(metadata);
-    const contentImages = extractImagesFromContent(processedContent);
-    
-    // 合併圖片檔名
-    [...metadataImages, ...contentImages].forEach(filename => {
-      imageFilenames.add(filename);
-    });
-    
-    const imageArray = Array.from(imageFilenames);
-    console.log('🎯 內嵌圖片檢測結果:', imageArray);
-    
-    // 🎨 智能內容分段：將內容按段落分割，並在適當位置插入圖片
-    const paragraphs = processedContent.split('\n\n').filter(p => p.trim());
-    const result = [];
-    let remainingImages = [...imageArray]; // 創建副本避免修改原數組
-    
-    paragraphs.forEach((paragraph, index) => {
-      // 渲染當前段落
-      const html = md.render(paragraph);
-      const cleanHtml = DOMPurify.sanitize(html);
-      
-      result.push(
-        <div 
-          key={`paragraph-${index}`}
-          className="markdown-content"
-          dangerouslySetInnerHTML={{ __html: cleanHtml }}
-        />
-      );
-      
-      // 🖼️ 使用工具模組檢查是否提及圖片
-      const mentionsImage = checkImageMention(paragraph);
-      
-      if (mentionsImage && remainingImages.length > 0) {
-        console.log('📸 找到圖片描述段落', index, ':', paragraph.substring(0, 100));
-        console.log('📸 在該段落下方顯示圖片:', remainingImages);
-        
-        // 在提及圖片的段落下方直接顯示相關圖片
-        result.push(
-          <div key={`inline-images-${index}`} style={{ 
-            margin: '16px 0',
-            padding: '12px',
-            backgroundColor: '#f8f9ff',
-            borderRadius: '8px',
-            border: '2px solid #e6f7ff',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
-          }}>
-            <div style={{ 
-              fontSize: '12px', 
-              color: '#1890ff', 
-              marginBottom: '8px',
-              fontWeight: '500'
-            }}>
-              📸 相關圖片展示：
-            </div>
-            <MessageImages 
-              filenames={remainingImages} 
-              onImageLoad={loadImagesData}
-            />
-          </div>
-        );
-        
-        // 避免重複顯示，清空剩餘圖片列表
-        remainingImages = [];
-      }
-    });
-    
-    // 如果還有剩餘圖片沒有顯示，在最後顯示
-    if (remainingImages.length > 0) {
-      console.log('📸 在最後顯示剩餘圖片:', remainingImages);
-      result.push(
-        <div key="remaining-images" style={{ marginTop: '12px' }}>
-          <MessageImages 
-            filenames={remainingImages} 
-            onImageLoad={loadImagesData}
-          />
-        </div>
-      );
-    }
-    
-    return <div className="message-with-inline-images">{result}</div>;
-  };
-
-  const formatMessage = (content) => {
-    // 使用工具模組函數檢查 IMG:ID 格式
-    const hasImgIdRef = hasImgIdReferences(content);
-    
-    if (hasImgIdRef) {
-      console.log('🖼️ 檢測到IMG:ID格式，分離處理文字和圖片');
-      
-      // 🔧 分離文字內容和圖片引用
-      const parts = content.split(/(\*?\*?\[IMG:\d+\]\*?\*?)/g);
-      const result = [];
-      
-      parts.forEach((part, index) => {
-        if (/\*?\*?\[IMG:\d+\]\*?\*?/.test(part)) {
-          // 🖼️ 圖片部分 - 清理粗體符號後使用 ContentRenderer 渲染
-          const cleanImageRef = part.replace(/^\*+|\*+$/g, ''); // 移除前後的 * 符號
-          result.push(
-            <div key={`img-${index}`} style={{ margin: '12px 0' }}>
-              <ContentRenderer 
-                content={cleanImageRef}
-                showImageTitles={true}
-                showImageDescriptions={true}
-                imageMaxWidth={400}
-                imageMaxHeight={300}
-              />
-            </div>
-          );
-        } else if (part.trim()) {
-          // 📝 文字部分 - 使用 markdown 渲染
-          const processedText = processContentFormat(part);
-          const html = md.render(processedText);
-          const cleanHtml = DOMPurify.sanitize(html);
-          
-          result.push(
-            <div 
-              key={`text-${index}`}
-              className="markdown-content"
-              dangerouslySetInnerHTML={{ __html: cleanHtml }}
-            />
-          );
-        }
-      });
-      
-      return <div className="message-with-mixed-content">{result}</div>;
-    }
-
-    // 🖼️ 純文字內容 - 使用 markdown-it + DOMPurify 專業 Markdown 渲染器
-    const processedContent = processContentFormat(content);
-    
-    const html = md.render(processedContent);
-    const cleanHtml = DOMPurify.sanitize(html);
-    
-    return (
-      <div 
-        className="markdown-content"
-        dangerouslySetInnerHTML={{ __html: cleanHtml }}
-      />
-    );
-  };
+  // 格式化函數已移至 MessageFormatter 組件
 
   return (
     <Layout style={{ height: '100vh', background: '#f5f5f5' }} className="chat-page rvt-assistant-chat-page">
@@ -738,10 +524,11 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
                   styles={{ body: { padding: '12px 16px' } }}
                 >
                   <div className="message-text chat-message-content">
-                    {msg.type === 'assistant' ? 
-                      formatMessageWithInlineImages(msg.content, msg.metadata) : 
-                      formatMessage(msg.content)
-                    }
+                    <MessageFormatter 
+                      content={msg.content}
+                      metadata={msg.metadata}
+                      messageType={msg.type}
+                    />
                   </div>
                   
                   {/* AI 回覆的反饋按鈕 */}
