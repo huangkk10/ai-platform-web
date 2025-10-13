@@ -20,6 +20,9 @@ app.config_from_object('django.conf:settings', namespace='CELERY')
 # 自動發現所有 app 中的 tasks.py
 app.autodiscover_tasks()
 
+# 手動註冊 library 模組中的任務
+app.autodiscover_tasks(['library.rvt_analytics', 'library.rvt_guide'])
+
 # ==================================================================================
 # RVT Assistant 向量資料庫定時更新架構 - Celery Beat 定時任務配置
 # ==================================================================================

@@ -115,7 +115,7 @@ const RVTAnalyticsPage = () => {
             'Content-Type': 'application/json',
           }
         }),
-        fetch(`/api/rvt-analytics/questions/?days=${selectedDays <= 30 ? selectedDays : 7}`, {
+        fetch(`/api/rvt-analytics/questions/?days=${selectedDays <= 30 ? selectedDays : 7}&mode=smart`, {
           credentials: 'include',
           headers: {
             'Accept': 'application/json',
@@ -384,13 +384,28 @@ const RVTAnalyticsPage = () => {
           title="🔥 熱門問題排名" 
           extra={
             <Space>
-              {questionData?.is_vector_enhanced && (
+              {questionData?.analysis_method === 'smart_frequency' && (
+                <Tag color="green" icon="🤖">
+                  智慧分析 (頻率模式)
+                </Tag>
+              )}
+              {questionData?.analysis_method === 'smart_clustered' && (
+                <Tag color="blue" icon="🤖">
+                  智慧分析 (聚類模式)
+                </Tag>
+              )}
+              {questionData?.analysis_method === 'raw_frequency' && (
+                <Tag color="orange" icon="📊">
+                  原始頻率統計
+                </Tag>
+              )}
+              {questionData?.is_vector_enhanced && !questionData?.analysis_method?.startsWith('smart') && (
                 <Tag color="cyan" icon="🚀">
                   AI向量分析
                 </Tag>
               )}
-              {questionData?.is_vector_enhanced === false && (
-                <Tag color="orange" icon="📝">
+              {questionData?.is_vector_enhanced === false && !questionData?.analysis_method && (
+                <Tag color="grey" icon="📝">
                   關鍵詞統計
                 </Tag>
               )}
@@ -519,6 +534,38 @@ const RVTAnalyticsPage = () => {
             </Empty>
           )}
         </Card>
+
+        {/* 智慧分析說明卡片 */}
+        {questionData?.analysis_method?.startsWith('smart') && (
+          <Card size="small" style={{ marginTop: 16 }}>
+            <Space direction="vertical" size="small" style={{ width: '100%' }}>
+              <Text strong style={{ color: '#1890ff' }}>
+                🤖 智慧分析說明
+              </Text>
+              <Text type="secondary" style={{ fontSize: '12px' }}>
+                {questionData.reason || '系統自動選擇最適合的分析模式'}
+              </Text>
+              
+              {/* 如果有聚類問題檢測結果 */}
+              {questionData?.discrepancies && questionData.discrepancies.length > 0 && (
+                <div style={{ marginTop: 8 }}>
+                  <Text type="warning" style={{ fontSize: '12px' }}>
+                    ⚠️ 發現 {questionData.discrepancies.length} 個高頻問題被聚類掩蓋：
+                  </Text>
+                  <div style={{ marginLeft: 16, marginTop: 4 }}>
+                    {questionData.discrepancies.slice(0, 3).map((disc, index) => (
+                      <div key={index} style={{ fontSize: '11px', color: '#666', marginBottom: 2 }}>
+                        • "{disc.original_question}" ({disc.original_count}次) 
+                        被併入 "{disc.cluster_pattern}" ({disc.cluster_count}次)
+                        - {disc.severity.toFixed(1)}倍差異
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </Space>
+          </Card>
+        )}
       </Space>
     );
   };

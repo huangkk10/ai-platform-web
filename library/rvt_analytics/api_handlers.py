@@ -15,8 +15,147 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from django.utils import timezone
+from datetime import timedelta
+from collections import Counter
 
 logger = logging.getLogger(__name__)
+
+def get_smart_analysis(days=7):
+    """
+    智慧分析模式：自動判斷是否需要獨立顯示高頻問題
+    
+    Args:
+        days: 分析天數
+        
+    Returns:
+        Dict: 智慧選擇的分析結果
+    """
+    try:
+        # 先獲取原始頻率和聚類結果
+        freq_analysis = get_raw_frequency_analysis(days)
+        from .statistics_manager import get_rvt_analytics_stats
+        cluster_stats = get_rvt_analytics_stats(days=days)
+        cluster_analysis = cluster_stats.get('question_analysis', {})
+        
+        # 檢查是否有高頻問題被聚類掩蓋
+        freq_top = freq_analysis.get('popular_questions', [])[:10]
+        cluster_top = cluster_analysis.get('popular_questions', [])[:10]
+        
+        # 計算差異度
+        major_discrepancies = []
+        for freq_q in freq_top:
+            freq_count = freq_q['count']
+            freq_pattern = freq_q['pattern'].lower()
+            
+            # 在聚類結果中尋找對應問題
+            found_in_cluster = False
+            for cluster_q in cluster_top:
+                cluster_examples = [str(ex).lower() for ex in cluster_q.get('examples', [])]
+                if any(freq_pattern in ex or ex in freq_pattern for ex in cluster_examples):
+                    cluster_count = cluster_q['count']
+                    if freq_count > cluster_count * 2:  # 如果頻率差異超過2倍
+                        major_discrepancies.append({
+                            'original_question': freq_q['pattern'],
+                            'original_count': freq_count,
+                            'cluster_pattern': cluster_q['pattern'],
+                            'cluster_count': cluster_count,
+                            'severity': freq_count / max(cluster_count, 1)
+                        })
+                    found_in_cluster = True
+                    break
+        
+        # 決策邏輯
+        if len(major_discrepancies) >= 2:  # 如果有2個以上嚴重差異
+            result = freq_analysis.copy()
+            result['analysis_method'] = 'smart_frequency'
+            result['reason'] = f'檢測到{len(major_discrepancies)}個高頻問題被聚類掩蓋，使用頻率模式'
+            result['discrepancies'] = major_discrepancies
+            return result
+        else:
+            result = cluster_analysis.copy()
+            result['analysis_method'] = 'smart_clustered'
+            result['reason'] = '未發現重大聚類問題，使用聚類模式'
+            return result
+            
+    except Exception as e:
+        # 出錯時回退到頻率模式
+        return get_raw_frequency_analysis(days)
+
+def get_raw_frequency_analysis(days=7):
+    """
+    獲取原始問題頻率分析（不經過聚類）
+    
+    Args:
+        days: 分析天數
+        
+    Returns:
+        Dict: 包含熱門問題的原始頻率統計
+    """
+    try:
+        from api.models import ChatMessage
+        
+        # 獲取指定天數內的用戶問題
+        end_date = timezone.now()
+        start_date = end_date - timedelta(days=days)
+        
+        recent_messages = ChatMessage.objects.filter(
+            role='user',
+            created_at__gte=start_date
+        )
+        
+        # 統計問題頻率
+        question_counts = Counter(recent_messages.values_list('content', flat=True))
+        
+        # 生成熱門問題列表
+        popular_questions = []
+        for i, (question, count) in enumerate(question_counts.most_common(20)):
+            popular_questions.append({
+                'rank': i + 1,
+                'question': question,
+                'pattern': question,  # 在頻率模式下，問題就是模式
+                'count': count,
+                'is_vector_based': False,  # 標記為非向量分析
+                'analysis_mode': 'frequency',  # 分析模式標記
+                'examples': [question]  # 例子就是問題本身
+            })
+        
+        # 統計總問題數和分類
+        total_questions = recent_messages.count()
+        
+        # 簡單的關鍵詞分類
+        category_distribution = {}
+        for question, count in question_counts.items():
+            if 'ucc' in question.lower():
+                category = 'UCC相關'
+            elif 'rvt' in question.lower():
+                category = 'RVT相關'
+            elif 'hello' in question.lower() or 'hi' in question.lower():
+                category = '問候語'
+            elif any(keyword in question.lower() for keyword in ['error', 'fail', 'exception']):
+                category = '錯誤問題'
+            else:
+                category = '其他'
+                
+            category_distribution[category] = category_distribution.get(category, 0) + count
+        
+        return {
+            'total_questions': total_questions,
+            'popular_questions': popular_questions,
+            'category_distribution': category_distribution,
+            'analysis_method': 'raw_frequency',
+            'is_vector_enhanced': False,
+            'period': f'最近{days}天'
+        }
+        
+    except Exception as e:
+        logger.error(f"Raw frequency analysis error: {str(e)}")
+        return {
+            'total_questions': 0,
+            'popular_questions': [],
+            'category_distribution': {},
+            'error': str(e)
+        }
 
 class RVTAnalyticsAPIHandler:
     """RVT Analytics API 處理器"""
@@ -200,6 +339,7 @@ class RVTAnalyticsAPIHandler:
         Query parameters:
         - days: 統計天數 (default: 7)
         - category: 問題分類過濾
+        - mode: 分析模式 (clustered/frequency) - 新增參數
         """
         try:
             if request.method != 'GET':
@@ -210,6 +350,7 @@ class RVTAnalyticsAPIHandler:
             
             days = int(request.GET.get('days', 7))
             category_filter = request.GET.get('category')
+            analysis_mode = request.GET.get('mode', 'clustered')  # 新增模式參數
             
             # 權限檢查
             if not request.user.is_staff:
@@ -218,11 +359,18 @@ class RVTAnalyticsAPIHandler:
                     'error': '此功能僅限管理員使用'
                 }, status=403)
             
-            # 獲取問題分析
-            from .statistics_manager import get_rvt_analytics_stats
-            stats = get_rvt_analytics_stats(days=days)
-            
-            question_analysis = stats.get('question_analysis', {})
+            # 根據模式選擇不同的分析方法
+            if analysis_mode == 'frequency':
+                # 使用原始頻率分析
+                question_analysis = get_raw_frequency_analysis(days=days)
+            elif analysis_mode == 'smart':
+                # 使用智慧分析（自動選擇最佳模式）
+                question_analysis = get_smart_analysis(days=days)
+            else:
+                # 使用聚類分析（默認）
+                from .statistics_manager import get_rvt_analytics_stats
+                stats = get_rvt_analytics_stats(days=days)
+                question_analysis = stats.get('question_analysis', {})
             
             # 如果有分類過濾
             if category_filter and 'category_distribution' in question_analysis:
