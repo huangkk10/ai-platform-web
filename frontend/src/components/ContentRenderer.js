@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Image, Spin, message, Space, Tag } from 'antd';
 import { 
   PictureOutlined, 
@@ -9,38 +9,46 @@ import {
 import axios from 'axios';
 
 /**
- * 內容渲染器組件
- * 解析文字內容中的圖片標記並渲染為實際圖片
- * 
- * 支援的圖片標記格式：
- * - 🖼️ [IMG:123] filename.jpg (標題: xxx, 說明: xxx)
- * - 🖼️ filename.jpg (舊格式，向後兼容)
+ * 修復版內容渲染器組件
+ * 解決圖片載入的競態條件和重複請求問題
  */
 const ContentRenderer = ({ 
   content, 
-  showImageTitles = true,     // 是否顯示圖片標題
-  showImageDescriptions = true, // 是否顯示圖片描述
-  imageMaxWidth = 400,        // 圖片最大寬度
-  imageMaxHeight = 300,       // 圖片最大高度
+  showImageTitles = true,
+  showImageDescriptions = true, 
+  imageMaxWidth = 400,
+  imageMaxHeight = 300,
   className = '',
   style = {}
 }) => {
-  const [imageCache, setImageCache] = useState(new Map()); // 圖片快取
-  const [loadingImages, setLoadingImages] = useState(new Set()); // 載入中的圖片
-  const [failedImages, setFailedImages] = useState(new Set()); // 載入失敗的圖片
+  const [imageCache, setImageCache] = useState(new Map());
+  const [loadingImages, setLoadingImages] = useState(new Set());
+  const [failedImages, setFailedImages] = useState(new Set());
+  
+  // 🔧 修復1: 使用 useRef 追蹤正在進行的請求，避免重複請求
+  const loadingPromises = useRef(new Map());
+  
+  // 🔧 修復2: 使用 useRef 追蹤組件是否已掛載，避免在卸載後更新狀態
+  const isMountedRef = useRef(true);
+  
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      // 清理所有進行中的請求 Promise
+      loadingPromises.current.clear();
+    };
+  }, []);
 
   // 圖片標記正則表達式
   const IMAGE_REGEX = {
-    // 新格式：🖼️ [IMG:123] filename.jpg (標題: xxx, 說明: xxx, 📌 主要圖片)
     withId: /🖼️\s*\[IMG:(\d+)\]\s*(.+?)(?:\s+\(([^)]+)\))?(?=\n|$)/g,
-    // Markdown格式：**[IMG:123] filename.jpg** 或直接 [IMG:123] filename.jpg
-    markdown: /\[IMG:(\d+)\](?:\s*([^\n\*\(]+?))?(?:\s*\(([^)]+)\))?/g,
-    // 舊格式：🖼️ filename.jpg (標題: xxx, 說明: xxx)
+    markdown: /\[IMG:(\d+)\](?:\s*([^\s，。,\n]+?))?(?:\s*\(([^)]+)\))?(?=[\s，。,\n]|$)/g,
     legacy: /🖼️\s*([^\(\n\[]+?)(?:\s*\(([^)]+)\))?(?=\n|$)/g
   };
 
-  // 解析圖片標記資訊 (括號內的內容)
-  const parseImageInfo = (infoText) => {
+  // 解析圖片標記資訊
+  const parseImageInfo = useCallback((infoText) => {
     if (!infoText) return {};
     
     const info = {
@@ -49,7 +57,6 @@ const ContentRenderer = ({
       isPrimary: false
     };
 
-    // 解析各種資訊
     const titleMatch = infoText.match(/標題:\s*([^,]+)/);
     if (titleMatch) {
       info.title = titleMatch[1].trim();
@@ -65,64 +72,212 @@ const ContentRenderer = ({
     }
 
     return info;
-  };
+  }, []);
 
-  // 從後端載入圖片資料
-  const loadImageById = async (imageId) => {
+  // 🔧 修復3: 改良的圖片載入函數，加強防重複機制和錯誤處理
+  const loadImageById = useCallback(async (imageId) => {
     console.log(`ContentRenderer: 嘗試載入圖片 ID ${imageId}`);
     
-    if (imageCache.has(imageId) || loadingImages.has(imageId)) {
-      console.log(`ContentRenderer: 圖片 ID ${imageId} 已存在快取或正在載入中`);
+    // 檢查快取
+    if (imageCache.has(imageId)) {
+      console.log(`ContentRenderer: 圖片 ID ${imageId} 已存在快取`);
       return imageCache.get(imageId);
     }
 
-    setLoadingImages(prev => new Set(prev).add(imageId));
+    // 檢查是否正在載入 - 如果是，等待現有的 Promise
+    if (loadingPromises.current.has(imageId)) {
+      console.log(`ContentRenderer: 圖片 ID ${imageId} 正在載入中，等待現有請求`);
+      return loadingPromises.current.get(imageId);
+    }
 
-    try {
-      console.log(`ContentRenderer: 發送 API 請求載入圖片 ID ${imageId}`);
-      const response = await axios.get(`/api/content-images/${imageId}/`, {
-        withCredentials: true
-      });
-      const imageData = response.data;
+    // 創建新的載入 Promise
+    const loadPromise = (async () => {
+      if (!isMountedRef.current) return null;
       
-      console.log(`ContentRenderer: 成功載入圖片 ID ${imageId}，資料:`, {
-        id: imageData.id,
-        filename: imageData.filename,
-        hasImageData: !!imageData.image_data,
-        contentType: imageData.content_type_mime
-      });
-      
-      // 檢查並生成 data URL
-      if (imageData.data_url) {
-        console.log(`ContentRenderer: 使用現有 data URL，長度: ${imageData.data_url.length}`);
-      } else if (imageData.image_data) {
-        imageData.data_url = `data:${imageData.content_type_mime};base64,${imageData.image_data}`;
-        console.log(`ContentRenderer: 生成 data URL 成功，長度: ${imageData.data_url.length}`);
-      } else {
-        console.error(`ContentRenderer: 圖片 ${imageId} 沒有可用的圖片資料`);
-        throw new Error('No image data available');
+      setLoadingImages(prev => new Set(prev).add(imageId));
+
+      try {
+        console.log(`ContentRenderer: 發送 API 請求載入圖片 ID ${imageId}`);
+        const response = await axios.get(`/api/content-images/${imageId}/`, {
+          withCredentials: true,
+          timeout: 10000 // 🔧 增加超時設定
+        });
+        
+        if (!isMountedRef.current) return null;
+        
+        const imageData = response.data;
+        
+        console.log(`ContentRenderer: 成功載入圖片 ID ${imageId}，資料:`, {
+          id: imageData.id,
+          filename: imageData.filename,
+          hasImageData: !!imageData.image_data,
+          hasDataUrl: !!imageData.data_url,
+          contentType: imageData.content_type_mime
+        });
+        
+        // 確保有 data URL
+        if (imageData.data_url) {
+          console.log(`ContentRenderer: 使用現有 data URL，長度: ${imageData.data_url.length}`);
+        } else if (imageData.image_data) {
+          imageData.data_url = `data:${imageData.content_type_mime};base64,${imageData.image_data}`;
+          console.log(`ContentRenderer: 生成 data URL 成功，長度: ${imageData.data_url.length}`);
+        } else {
+          console.error(`ContentRenderer: 圖片 ${imageId} 沒有可用的圖片資料`);
+          throw new Error('No image data available');
+        }
+        
+        // 🔧 修復4: 確保狀態更新在組件掛載時才執行
+        if (isMountedRef.current) {
+          setImageCache(prev => new Map(prev).set(imageId, imageData));
+          setFailedImages(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(imageId); // 移除失敗標記（如果有）
+            return newSet;
+          });
+        }
+        
+        return imageData;
+        
+      } catch (error) {
+        if (!isMountedRef.current) return null;
+        
+        console.error(`ContentRenderer: 載入圖片 ${imageId} 失敗:`, error);
+        
+        setFailedImages(prev => new Set(prev).add(imageId));
+        message.warning(`圖片載入失敗 (ID: ${imageId}): ${error.message}`);
+        return null;
+        
+      } finally {
+        if (isMountedRef.current) {
+          setLoadingImages(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(imageId);
+            return newSet;
+          });
+        }
+        // 清理 Promise 參考
+        loadingPromises.current.delete(imageId);
       }
-      
-      setImageCache(prev => new Map(prev).set(imageId, imageData));
-      return imageData;
-    } catch (error) {
-      console.error(`ContentRenderer: 載入圖片 ${imageId} 失敗:`, error);
-      setFailedImages(prev => new Set(prev).add(imageId));
-      message.warning(`圖片載入失敗 (ID: ${imageId})`);
-      return null;
-    } finally {
-      setLoadingImages(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(imageId);
-        return newSet;
+    })();
+
+    // 儲存 Promise 參考
+    loadingPromises.current.set(imageId, loadPromise);
+    return loadPromise;
+  }, [imageCache]); // 🔧 添加依賴
+
+  // 🔧 修復5: 使用 useMemo 來解析圖片標記，避免重複計算
+  const parsedImages = useMemo(() => {
+    if (!content) return [];
+
+    console.log('ContentRenderer: 開始解析內容中的圖片標記');
+    console.log('ContentRenderer: 內容長度:', content.length);
+    console.log('ContentRenderer: 內容片段:', content.substring(0, 200));
+
+    const allMatches = [];
+
+    // 收集新格式匹配
+    const withIdMatches = [...content.matchAll(IMAGE_REGEX.withId)];
+    for (const match of withIdMatches) {
+      allMatches.push({
+        type: 'withId',
+        match,
+        index: match.index,
+        imageId: match[1],
+        filename: match[2] ? match[2].trim() : '',
+        infoText: match[3]
       });
     }
-  };
+
+    // 收集Markdown格式匹配
+    const markdownMatches = [...content.matchAll(IMAGE_REGEX.markdown)];
+    for (const match of markdownMatches) {
+      // 避免與 withId 格式重複
+      const isDuplicate = allMatches.some(existing => 
+        Math.abs(existing.index - match.index) < 10
+      );
+      
+      if (!isDuplicate) {
+        allMatches.push({
+          type: 'markdown',
+          match,
+          index: match.index,
+          imageId: match[1],
+          filename: match[2] ? match[2].trim() : '',
+          infoText: match[3]
+        });
+      }
+    }
+
+    // 收集舊格式匹配
+    const legacyMatches = [...content.matchAll(IMAGE_REGEX.legacy)];
+    for (const match of legacyMatches) {
+      const isDuplicate = allMatches.some(existing => 
+        Math.abs(existing.index - match.index) < 50
+      );
+      
+      if (!isDuplicate) {
+        allMatches.push({
+          type: 'legacy',
+          match,
+          index: match.index,
+          filename: match[1] ? match[1].trim() : '',
+          infoText: match[2]
+        });
+      }
+    }
+
+    allMatches.sort((a, b) => a.index - b.index);
+    
+    console.log(`ContentRenderer: 解析完成，找到 ${allMatches.length} 個圖片標記`);
+    return allMatches;
+  }, [content]);
+
+  // 🔧 修復6: 優化的預載入邏輯，避免重複載入
+  useEffect(() => {
+    if (!parsedImages.length) return;
+
+    console.log(`ContentRenderer: 開始預載入 ${parsedImages.length} 個圖片`);
+    
+    // 只載入有 ID 的圖片
+    const imageIds = parsedImages
+      .filter(item => item.imageId && (item.type === 'withId' || item.type === 'markdown'))
+      .map(item => item.imageId);
+    
+    // 去重
+    const uniqueImageIds = [...new Set(imageIds)];
+    
+    console.log(`ContentRenderer: 需要載入的唯一圖片 IDs:`, uniqueImageIds);
+    
+    uniqueImageIds.forEach(imageId => {
+      if (!imageCache.has(imageId) && 
+          !loadingPromises.current.has(imageId) && 
+          !failedImages.has(imageId)) {
+        console.log(`ContentRenderer: 開始預載入圖片 ID ${imageId}`);
+        loadImageById(imageId).catch(error => {
+          console.warn(`預載入圖片 ${imageId} 失敗:`, error);
+        });
+      } else {
+        console.log(`ContentRenderer: 跳過圖片 ID ${imageId}，已存在或載入中`);
+      }
+    });
+  }, [parsedImages, imageCache, failedImages, loadImageById]);
 
   // 渲染單個圖片組件
-  const renderImage = (imageData, info, imageId = null) => {
+  const renderImage = useCallback((imageData, info, imageId = null) => {
     const displayTitle = info.title || imageData?.title || imageData?.filename || '未知圖片';
     const displayDescription = info.description || imageData?.description;
+
+    // 🔧 修復7: 改善圖片渲染邏輯，更好的載入狀態處理
+    const isLoading = loadingImages.has(imageId) || loadingPromises.current.has(imageId);
+    const hasFailed = failedImages.has(imageId);
+    const hasData = imageData?.data_url;
+
+    console.log(`ContentRenderer: 渲染圖片 ID ${imageId}:`, {
+      isLoading,
+      hasFailed, 
+      hasData: !!hasData,
+      imageDataExists: !!imageData
+    });
 
     return (
       <div 
@@ -135,7 +290,6 @@ const ContentRenderer = ({
           backgroundColor: '#fafafa'
         }}
       >
-        {/* 圖片標題列 */}
         {showImageTitles && (
           <div style={{
             padding: '8px 12px',
@@ -156,13 +310,17 @@ const ContentRenderer = ({
                   ID: {imageId}
                 </Tag>
               )}
+              {isLoading && (
+                <Tag color="orange" size="small">
+                  載入中
+                </Tag>
+              )}
             </Space>
           </div>
         )}
 
-        {/* 圖片內容 */}
         <div style={{ padding: '12px', textAlign: 'center' }}>
-          {imageData?.data_url ? (
+          {hasData ? (
             <Image
               src={imageData.data_url}
               alt={displayTitle}
@@ -174,8 +332,12 @@ const ContentRenderer = ({
               preview={{
                 mask: <span>點擊預覽</span>
               }}
+              onError={() => {
+                console.error(`圖片渲染失敗: ID ${imageId}`);
+                setFailedImages(prev => new Set(prev).add(imageId));
+              }}
             />
-          ) : failedImages.has(imageId) ? (
+          ) : hasFailed ? (
             <div style={{
               display: 'flex',
               alignItems: 'center',
@@ -205,7 +367,6 @@ const ContentRenderer = ({
           )}
         </div>
 
-        {/* 圖片描述 */}
         {showImageDescriptions && displayDescription && (
           <div style={{
             padding: '8px 12px',
@@ -222,119 +383,30 @@ const ContentRenderer = ({
         )}
       </div>
     );
-  };
-
-  // 使用 useEffect 來預載入所有圖片
-  useEffect(() => {
-    if (!content) {
-      console.log('ContentRenderer: 沒有內容，跳過圖片載入');
-      return;
-    }
-
-    console.log('ContentRenderer: 開始解析內容中的圖片標記');
-    console.log('ContentRenderer: 內容長度:', content.length);
-    console.log('ContentRenderer: 內容片段:', content.substring(0, 500));
-
-    
-    // 先檢查內容中是否包含 IMG: 標記
-    const imgMatches = content.match(/IMG:\d+/g);
-
-    const withIdMatches = [...content.matchAll(IMAGE_REGEX.withId)];
-    const markdownMatches = [...content.matchAll(IMAGE_REGEX.markdown)];
-    const allMatches = [...withIdMatches, ...markdownMatches];
-    console.log(`ContentRenderer: 正規表達式匹配到 ${withIdMatches.length} 個標準格式, ${markdownMatches.length} 個Markdown格式, 總共 ${allMatches.length} 個圖片標記`);
-    
-    // 打印所有匹配的詳細信息
-    allMatches.forEach((match, index) => {
-      console.log(`ContentRenderer: 匹配 ${index + 1}:`, {
-        fullMatch: match[0],
-        imageId: match[1],
-        filename: match[2],
-        metadata: match[3]
-      });
-    });
-    
-    // 預載入所有圖片
-    allMatches.forEach((match, index) => {
-      const imageId = match[1];
-      console.log(`ContentRenderer: 處理第 ${index + 1} 個圖片，ID: ${imageId}`);
-      
-      if (!imageCache.has(imageId) && !loadingImages.has(imageId) && !failedImages.has(imageId)) {
-        console.log(`ContentRenderer: 開始載入圖片 ID ${imageId}`);
-        loadImageById(imageId);
-      } else {
-        console.log(`ContentRenderer: 跳過圖片 ID ${imageId}，原因: 快取中已存在或正在載入或載入失敗`);
-      }
-    });
-  }, [content]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [imageMaxWidth, imageMaxHeight, showImageTitles, showImageDescriptions, loadingImages, failedImages]);
 
   // 渲染內容
-  const renderContent = () => {
+  const renderContent = useCallback(() => {
     if (!content) {
       return <div style={{ color: '#999', fontStyle: 'italic' }}>無內容</div>;
     }
 
-    const elements = [];
-    let matchFound = false;
-
-    // 先處理新格式 (帶 ID)
-    const withIdMatches = [...content.matchAll(IMAGE_REGEX.withId)];
-    const markdownMatches = [...content.matchAll(IMAGE_REGEX.markdown)];
-    
-    // 收集所有匹配
-    const allMatches = [];
-
-    // 收集新格式匹配
-    for (const match of withIdMatches) {
-      allMatches.push({
-        type: 'withId',
-        match,
-        index: match.index,
-        imageId: match[1],
-        filename: match[2].trim(),
-        infoText: match[3]
-      });
-    }
-
-    // 收集Markdown格式匹配
-    for (const match of markdownMatches) {
-      allMatches.push({
-        type: 'markdown',
-        match,
-        index: match.index,
-        imageId: match[1],
-        filename: match[2] ? match[2].trim() : '',
-        infoText: match[3]
-      });
-    }
-
-    // 收集舊格式匹配 (避免與新格式重複)
-    const legacyMatches = [...content.matchAll(IMAGE_REGEX.legacy)];
-    for (const match of legacyMatches) {
-      // 檢查是否與新格式匹配重疊
-      const isOverlap = withIdMatches.some(newMatch => 
-        Math.abs(match.index - newMatch.index) < 50
+    if (!parsedImages.length) {
+      return (
+        <div style={{ 
+          whiteSpace: 'pre-wrap',
+          lineHeight: '1.6'
+        }}>
+          {content}
+        </div>
       );
-      
-      if (!isOverlap) {
-        allMatches.push({
-          type: 'legacy',
-          match,
-          index: match.index,
-          filename: match[1].trim(),
-          infoText: match[2]
-        });
-      }
     }
 
-    // 按位置排序
-    allMatches.sort((a, b) => a.index - b.index);
-
-    // 渲染內容
+    const elements = [];
     let currentIndex = 0;
     
-    for (let i = 0; i < allMatches.length; i++) {
-      const { type, match, index, imageId, filename, infoText } = allMatches[i];
+    for (let i = 0; i < parsedImages.length; i++) {
+      const { type, match, index, imageId, filename, infoText } = parsedImages[i];
       
       // 添加匹配前的文字
       if (index > currentIndex) {
@@ -355,16 +427,13 @@ const ContentRenderer = ({
         }
       }
 
-      // 解析圖片資訊
       const info = parseImageInfo(infoText);
 
       if (type === 'withId' || type === 'markdown') {
-        // 新格式或Markdown格式：根據 ID 載入圖片
         const imageData = imageCache.get(imageId);
-        console.log(`ContentRenderer: 渲染圖片 ID ${imageId}, imageData:`, imageData ? '存在' : '不存在');
         elements.push(renderImage(imageData, info, imageId));
       } else {
-        // 舊格式：僅顯示檔案名稱和資訊
+        // 舊格式處理
         elements.push(
           <div 
             key={`legacy-${index}`}
@@ -396,7 +465,6 @@ const ContentRenderer = ({
       }
 
       currentIndex = index + match[0].length;
-      matchFound = true;
     }
 
     // 添加最後一段文字
@@ -417,36 +485,14 @@ const ContentRenderer = ({
       }
     }
 
-    // 如果沒有找到任何圖片標記，顯示原始內容
-    if (!matchFound) {
-      elements.push(
-        <div 
-          key="original-content" 
-          style={{ 
-            whiteSpace: 'pre-wrap',
-            lineHeight: '1.6'
-          }}
-        >
-          {content}
-        </div>
-      );
-    }
-
     return elements;
-  };
+  }, [content, parsedImages, imageCache, parseImageInfo, renderImage]);
 
-  const content_elements = renderContent();
+  const contentElements = renderContent();
 
   return (
     <div className={`content-renderer ${className}`} style={style}>
-      {content_elements.length > 0 ? content_elements : (
-        <div style={{ 
-          whiteSpace: 'pre-wrap',
-          lineHeight: '1.6'
-        }}>
-          {content}
-        </div>
-      )}
+      {contentElements}
     </div>
   );
 };
