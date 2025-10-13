@@ -180,8 +180,8 @@ const MessageImages = ({ filenames, onImageLoad }) => {
       </div>
       <div style={{ 
         display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
-        gap: '12px'
+        gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', 
+        gap: '6px'
       }}>
         {images.map((image, index) => (
           <div 
@@ -204,7 +204,7 @@ const MessageImages = ({ filenames, onImageLoad }) => {
               e.currentTarget.style.boxShadow = 'none';
             }}
           >
-            <div style={{ position: 'relative', paddingTop: '60%', overflow: 'hidden' }}>
+            <div style={{ position: 'relative', paddingTop: '40%', overflow: 'hidden' }}>
               <img
                 src={image.data_url}
                 alt={image.title || image.filename}

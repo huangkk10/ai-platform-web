@@ -64,8 +64,8 @@ const MessageFormatter = ({
                   content={part.content}
                   showImageTitles={true}
                   showImageDescriptions={true}
-                  imageMaxWidth={400}
-                  imageMaxHeight={300}
+                  imageMaxWidth={220}
+                  imageMaxHeight={150}
                 />
               </div>
             );
