@@ -69,20 +69,27 @@
 2. **設置說明**: `/docs/guide/dify-app-config-usage.md`
 3. **API 整合**: `/docs/guide/api-integration.md`
 
-### 📊 **統計分析與熱門問題**
+### 📊 **RVT Assistant 分析報告系統** ⭐ **NEW**
 **常見問題**：
 - "熱門問題排名如何計算？"
-- "為什麼統計數據不準確？"
-- "聚類演算法使用哪種？"
+- "為什麼統計數據不準確？"  
+- "UCC/特定問題沒有出現在排名中？"
+- "什麼是智慧分析模式？"
+- "分析模式有哪些？如何選擇？"
 
 **參考文檔**：
-1. **AI 指導**: `/docs/ai-guidance-vector-architecture.md`
-2. **架構說明**: `/docs/vector-database-scheduled-update-architecture.md`
+1. **🎯 完整架構**: `/docs/rvt-analytics-system-architecture.md` ⭐ **主要參考**
+2. **🤖 AI 快速參考**: `/docs/ai-rvt-analytics-quick-reference.md` ⭐ **診斷必備**
+3. **🔄 流程圖解**: `/docs/rvt-analytics-workflow-diagrams.md`
+4. **向量架構**: `/docs/ai-guidance-vector-architecture.md`
+5. **定時任務**: `/docs/vector-database-scheduled-update-architecture.md`
 
 **核心回答要點**：
-- 聚類演算法：K-means (預設) + DBSCAN
-- 統計更新：每天凌晨自動執行
-- 資料來源：chat_message_embeddings_1024 表
+- **三種分析模式**：聚類(`clustered`) / 頻率(`frequency`) / **智慧(`smart`)** ⭐ 推薦
+- **智慧分析**：自動檢測聚類問題並選擇最佳模式
+- **數據更新頻率**：向量化每小時，統計每日凌晨 3:30
+- **常見問題**：聚類掩蓋高頻問題 → 使用智慧模式自動修正
+- **快速診斷**：檢查 mode=smart 參數，確認定時任務運行
 
 ### 🎨 **前端開發與 UI 規範**
 **常見問題**：
@@ -159,10 +166,45 @@ import { TextField } from '@mui/material';  // 禁止
 /docs/ui-component-guidelines.md
 ```
 
-## 📈 **文檔更新日期**
+## � **RVT Analytics 問題速查表** ⭐
+
+### **問題類型 → 快速解答**
+
+| 用戶問題 | AI 回答模板 | 參考文檔 |
+|----------|-------------|----------|
+| "熱門問題沒有更新" | 系統每小時更新向量，每日更新統計。建議使用智慧分析模式(mode=smart)自動選擇最佳分析方式 | ai-rvt-analytics-quick-reference.md |
+| "UCC問題沒出現在排名中" | 這是聚類掩蓋問題。智慧分析模式會自動檢測並修正，確保高頻問題正確顯示 | rvt-analytics-system-architecture.md |
+| "什麼是智慧分析模式" | 自動檢測聚類演算法是否掩蓋高頻問題，智能選擇聚類或頻率模式，提供最準確的排名 | rvt-analytics-system-architecture.md |
+| "分析模式有哪些" | 三種：聚類(發現模式)、頻率(真實排名)、智慧(自動選擇)。推薦使用智慧模式 | ai-rvt-analytics-quick-reference.md |
+| "為什麼顯示舊數據" | 檢查前端API是否使用mode=smart，清除瀏覽器快取，或重啟前端容器 | ai-rvt-analytics-quick-reference.md |
+
+### **診斷命令速記**
+```bash
+# 檢查系統狀態
+docker compose ps | grep -E "(celery|react)"
+
+# 手動更新統計  
+docker exec ai-django python -c "
+from library.rvt_analytics.tasks import precompute_question_classifications
+print(precompute_question_classifications())
+"
+
+# 測試智慧分析
+docker exec ai-django python -c "
+from library.rvt_analytics.api_handlers import RVTAnalyticsAPIHandler
+# [測試代碼見快速參考文檔]
+"
+```
+
+---
+
+## �📈 **文檔更新日期**
 
 | 文檔 | 最後更新 | 狀態 |
 |------|----------|------|
+| **rvt-analytics-system-architecture.md** | **2025-10-13** | **✅ 新增** |
+| **ai-rvt-analytics-quick-reference.md** | **2025-10-13** | **✅ 新增** |
+| **rvt-analytics-workflow-diagrams.md** | **2025-10-13** | **✅ 新增** |
 | celery-beat-architecture-guide.md | 2025-10-09 | ✅ 最新 |
 | ai-guidance-vector-architecture.md | 2025-10-09 | ✅ 最新 |
 | rvt-guide-refactoring-report.md | 2025-10-07 | ✅ 最新 |
