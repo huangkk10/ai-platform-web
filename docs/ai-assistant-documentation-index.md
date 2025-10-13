@@ -69,6 +69,24 @@
 2. **設置說明**: `/docs/guide/dify-app-config-usage.md`
 3. **API 整合**: `/docs/guide/api-integration.md`
 
+### 🏗️ **RVT Assistant 資料庫與向量系統** ⭐ **NEW**
+**常見問題**：
+- "RVT Assistant 如何更新向量？"
+- "User Guide CRUD 如何觸發向量更新？"
+- "資料庫和向量資料庫如何同步？"
+- "圖片更新會影響向量嗎？"
+
+**參考文檔**：
+1. **🎯 完整架構**: `/docs/rvt-assistant-database-vector-architecture.md` ⭐ **主要參考**
+2. **向量搜索指南**: `/docs/vector-search-guide.md`
+3. **AI 向量指導**: `/docs/ai-vector-search-guide.md`
+
+**核心回答要點**：
+- **自動向量化**：CREATE/UPDATE 時自動觸發
+- **雙表結構**：rvt_guide (主表) + document_embeddings_1024 (向量表)
+- **圖片同步**：圖片變更自動更新向量內容
+- **1024維模型**：intfloat/multilingual-e5-large 高精度模型
+
 ### 📊 **RVT Assistant 分析報告系統** ⭐ **NEW**
 **常見問題**：
 - "熱門問題排名如何計算？"
@@ -205,6 +223,7 @@ from library.rvt_analytics.api_handlers import RVTAnalyticsAPIHandler
 | **rvt-analytics-system-architecture.md** | **2025-10-13** | **✅ 新增** |
 | **ai-rvt-analytics-quick-reference.md** | **2025-10-13** | **✅ 新增** |
 | **rvt-analytics-workflow-diagrams.md** | **2025-10-13** | **✅ 新增** |
+| **rvt-assistant-database-vector-architecture.md** | **2025-10-13** | **✅ 新增** |
 | celery-beat-architecture-guide.md | 2025-10-09 | ✅ 最新 |
 | ai-guidance-vector-architecture.md | 2025-10-09 | ✅ 最新 |
 | rvt-guide-refactoring-report.md | 2025-10-07 | ✅ 最新 |
