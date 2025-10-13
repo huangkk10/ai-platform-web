@@ -67,7 +67,7 @@ class RVTGuideAPIHandler:
             
             logger.info(f"RVT Guide search found {len(search_results)} results, {len(filtered_results)} after filtering")
             
-            # 構建符合 Dify 規格的響應
+            # 構建符合 Dify 規格的響應，並包含圖片資訊
             records = []
             for result in filtered_results:
                 record = {
@@ -77,7 +77,7 @@ class RVTGuideAPIHandler:
                     'metadata': result['metadata']
                 }
                 records.append(record)
-                logger.info(f"Added RVT Guide record: {record['title']}")
+                logger.info(f"Added RVT Guide record: {record['title']} (images: {len(result['metadata'].get('image_filenames', []))})")
             
             response_data = {
                 'records': records
@@ -238,13 +238,33 @@ class RVTGuideAPIHandler:
                     # 對話記錄失敗不應影響主要功能
                     logger.error(f"Error recording RVT conversation: {str(conv_error)}")
                 
+                # 🆕 處理 metadata 中的圖片資訊，確保前端能正確解析
+                response_metadata = result.get('metadata', {})
+                
+                # 🔍 提取 retriever_resources 中的圖片檔名，讓前端 imageProcessor 可以正確解析
+                if 'retriever_resources' in response_metadata:
+                    for resource in response_metadata['retriever_resources']:
+                        if resource.get('content'):
+                            # 確保內容中包含明確的圖片檔名，讓前端解析器能找到
+                            import re
+                            content = resource['content']
+                            # 尋找並標記圖片檔名，確保前端解析器能識別
+                            image_pattern = r'\b([a-zA-Z0-9\-_.]{10,}\.(?:png|jpg|jpeg|gif|bmp|webp))\b'
+                            matches = re.findall(image_pattern, content, re.IGNORECASE)
+                            if matches:
+                                # 在資源內容中明確標記圖片檔名
+                                for match in matches:
+                                    if match not in content or not content.startswith('🖼️'):
+                                        # 確保圖片檔名有正確的前綴，讓前端解析器識別
+                                        resource['content'] += f"\n🖼️ {match}"
+                
                 return Response({
                     'success': True,
                     'answer': answer,
                     'conversation_id': result.get('conversation_id', ''),
                     'message_id': result.get('message_id', ''),
                     'response_time': elapsed,
-                    'metadata': result.get('metadata', {}),
+                    'metadata': response_metadata,
                     'usage': result.get('usage', {}),
                     'workspace': rvt_config.get('workspace', 'RVT_Guide'),
                     'app_name': rvt_config.get('app_name', 'RVT Guide')

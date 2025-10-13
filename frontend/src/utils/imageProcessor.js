@@ -195,24 +195,65 @@ export const showImageModal = (imageData) => {
 export const extractImagesFromMetadata = (metadata) => {
   const imageFilenames = new Set();
   
-  if (metadata && metadata.retriever_resources) {
-    metadata.retriever_resources.forEach((resource) => {
-      if (resource.content) {
-        // 精準搜尋 kisspng 檔名
-        const kisspngPattern = /kisspng-[a-zA-Z0-9\-_.]{15,}\.(?:png|jpg|jpeg|gif|bmp|webp)\b/gi;
-        let match;
-        while ((match = kisspngPattern.exec(resource.content)) !== null) {
-          imageFilenames.add(match[0].trim());
+  console.log('🔍 提取 metadata 中的圖片:', metadata);
+  
+  // 🆕 檢查多個可能的 metadata 位置
+  const metadataLocations = [
+    metadata?.retriever_resources,     // 原有的位置
+    metadata?.dify_metadata?.retriever_resources,  // Dify 回應中的位置
+    metadata?.image_filenames,         // 直接的檔名列表
+    metadata?.images                   // 新增：直接的圖片陣列
+  ];
+  
+  metadataLocations.forEach((resources, locationIndex) => {
+    if (Array.isArray(resources)) {
+      resources.forEach((resource) => {
+        if (resource && resource.content) {
+          console.log(`🔍 檢查 metadata 位置${locationIndex + 1}:`, resource.content.substring(0, 200));
+          
+          // 🆕 針對新格式的圖片檔名提取
+          const imagePatterns = [
+            // 主要格式：🖼️ filename.png
+            /🖼️\s*([a-zA-Z0-9\-_.]{8,}\.(?:png|jpg|jpeg|gif|bmp|webp))/gi,
+            
+            // 備用格式
+            /圖片.*?([a-zA-Z0-9\-_.]{8,}\.(?:png|jpg|jpeg|gif|bmp|webp))/gi,
+            
+            // 舊格式兼容
+            /kisspng-[a-zA-Z0-9\-_.]{15,}\.(?:png|jpg|jpeg|gif|bmp|webp)\b/gi,
+            /\b([a-zA-Z0-9\-_.]{20,}\.(?:png|jpg|jpeg|gif|bmp|webp))\b/gi
+          ];
+          
+          imagePatterns.forEach((pattern, patternIndex) => {
+            let match;
+            while ((match = pattern.exec(resource.content)) !== null) {
+              let filename = match[1] ? match[1].trim() : match[0].trim();
+              filename = filename.replace(/^🖼️\s*/, '').trim();
+              
+              if (filename && 
+                  filename.length >= 8 && 
+                  /^[a-zA-Z0-9\-_.]+\.(?:png|jpg|jpeg|gif|bmp|webp)$/i.test(filename)) {
+                
+                imageFilenames.add(filename);
+                console.log(`✅ metadata 模式${patternIndex + 1}提取: "${filename}"`);
+              }
+            }
+          });
         }
-        
-        // 搜尋其他長檔名
-        const longFilenamePattern = /\b([a-zA-Z0-9\-_.]{20,}\.(?:png|jpg|jpeg|gif|bmp|webp))\b/gi;
-        while ((match = longFilenamePattern.exec(resource.content)) !== null) {
-          imageFilenames.add(match[1].trim());
+      });
+    } else if (Array.isArray(resources)) {
+      // 🆕 處理直接的檔名陣列
+      resources.forEach(filename => {
+        if (filename && typeof filename === 'string' && 
+            /^[a-zA-Z0-9\-_.]+\.(?:png|jpg|jpeg|gif|bmp|webp)$/i.test(filename)) {
+          imageFilenames.add(filename);
+          console.log(`✅ metadata 直接檔名: "${filename}"`);
         }
-      }
-    });
-  }
+      });
+    }
+  });
+  
+  console.log(`🎯 metadata 最終提取圖片:`, Array.from(imageFilenames));
   
   return imageFilenames;
 };
@@ -225,23 +266,51 @@ export const extractImagesFromMetadata = (metadata) => {
 export const extractImagesFromContent = (content) => {
   const imageFilenames = new Set();
   
+  console.log('🔍 開始提取內容中的圖片檔名:', content.substring(0, 200));
+  
+  // 🆕 針對新的 AI 回覆格式優化的正則表達式
   const contentImagePatterns = [
-    /🖼️\s*([a-zA-Z0-9\-_.]{10,}\.(?:png|jpg|jpeg|gif|bmp|webp))/gi,
+    // 主要格式：🖼️ filename.png (AI 回覆的標準格式)
+    /🖼️\s*([a-zA-Z0-9\-_.]{8,}\.(?:png|jpg|jpeg|gif|bmp|webp))/gi,
+    
+    // 備用格式：處理可能的變體
+    /圖片.*?([a-zA-Z0-9\-_.]{8,}\.(?:png|jpg|jpeg|gif|bmp|webp))/gi,
+    /截圖.*?([a-zA-Z0-9\-_.]{8,}\.(?:png|jpg|jpeg|gif|bmp|webp))/gi,
+    /如圖.*?([a-zA-Z0-9\-_.]{8,}\.(?:png|jpg|jpeg|gif|bmp|webp))/gi,
+    
+    // 舊格式兼容（逐步淘汰）
     /kisspng-[a-zA-Z0-9\-_.]{10,}\.(?:png|jpg|jpeg|gif|bmp|webp)\b/gi,
     /\b([a-zA-Z0-9\-_.]{15,}\.(?:png|jpg|jpeg|gif|bmp|webp))\b/gi
   ];
   
-  contentImagePatterns.forEach(pattern => {
+  contentImagePatterns.forEach((pattern, index) => {
     let match;
+    let patternMatches = 0;
+    
     while ((match = pattern.exec(content)) !== null) {
       let filename = match[1] ? match[1].trim() : match[0].trim();
       filename = filename.replace(/^🖼️\s*/, '').trim();
-      if (filename && filename.length >= 10) {
+      
+      // 🆕 更嚴格的檔名驗證
+      if (filename && 
+          filename.length >= 8 && 
+          /^[a-zA-Z0-9\-_.]+\.(?:png|jpg|jpeg|gif|bmp|webp)$/i.test(filename) &&
+          !/[\s\n\r,，。()]/.test(filename)) {
+        
         imageFilenames.add(filename);
+        patternMatches++;
+        console.log(`✅ 模式${index + 1}匹配: "${filename}"`);
+      } else {
+        console.log(`❌ 模式${index + 1}無效檔名: "${filename}"`);
       }
+    }
+    
+    if (patternMatches > 0) {
+      console.log(`📊 模式${index + 1}共匹配 ${patternMatches} 個檔名`);
     }
   });
   
+  console.log(`🎯 最終提取到的圖片檔名:`, Array.from(imageFilenames));
   return imageFilenames;
 };
 
@@ -252,20 +321,40 @@ export const extractImagesFromContent = (content) => {
  * @returns {boolean} - 是否提及圖片
  */
 export const checkImageMention = (paragraph) => {
-  // 🎯 更精確的圖片提及模式
+  console.log('🔍 檢查段落圖片提及:', paragraph.substring(0, 100));
+  
+  // � 針對新 AI 回覆格式的圖片提及檢測
   const imageIndicators = [
-    // 包含實際圖片檔名的模式
+    // 新的標準格式檢測
+    /🖼️\s*[a-zA-Z0-9\-_.]{8,}\.(?:png|jpg|jpeg|gif|bmp|webp)/i,
+    
+    // 常見的圖片描述模式
+    /如圖.*?所示.*?🖼️/i,
+    /參考.*?圖片.*?🖼️/i,
+    /截圖.*?顯示.*?🖼️/i,
+    /圖片.*?展示.*?🖼️/i,
+    
+    // 反向檢測：🖼️ 後面跟著圖片描述
+    /🖼️.*?(?:顯示|展示|說明|介面|功能|操作)/i,
+    
+    // 明確的圖片相關詞彙 + 檔名
+    /(?:主圖|界面|截圖|示意圖|流程圖).*?[a-zA-Z0-9\-_.]{8,}\.(?:png|jpg|jpeg|gif|bmp|webp)/i,
+    
+    // 舊格式兼容（逐步淘汰）
     /🖼️.*kisspng-[a-zA-Z0-9\-_.]{10,}\.(?:png|jpg|jpeg|gif|bmp|webp)/i,
-    /🖼️.*[a-zA-Z0-9\-_.]{15,}\.(?:png|jpg|jpeg|gif|bmp|webp)/i,
-    
-    // 明確指出有圖片展示的模式 (必須有具體描述)
-    /(?:主圖.*為.*RVT.*的.*圖片.*展示|展示了.*Jenkins.*的.*工作流程圖|圖片展示了.*Jenkins.*與.*Ansible)/i,
-    
-    // 避免模糊的「如相關圖片所示」誤判，要求有更具體的圖片描述
-    /如.*相關圖片.*所示.*(?:主圖|工作流程圖|架構圖|示意圖|流程圖).*展示/i
+    /🖼️.*[a-zA-Z0-9\-_.]{15,}\.(?:png|jpg|jpeg|gif|bmp|webp)/i
   ];
   
-  return imageIndicators.some(pattern => pattern.test(paragraph));
+  const hasImageMention = imageIndicators.some((pattern, index) => {
+    const match = pattern.test(paragraph);
+    if (match) {
+      console.log(`✅ 圖片提及檢測模式${index + 1}匹配`);
+    }
+    return match;
+  });
+  
+  console.log(`🎯 段落圖片提及檢測結果: ${hasImageMention}`);
+  return hasImageMention;
 };
 
 /**

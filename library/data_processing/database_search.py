@@ -206,27 +206,65 @@ class DatabaseSearchService:
                         '🖼️', '--- 相關圖片 ---', '圖片', '截圖', 'image', 'picture'
                     ])
                     
+                    # 🆕 提取實際的圖片檔名 - 支援新的 AI 回覆格式
+                    import re
+                    image_filenames = []
+                    # 🎯 針對新 AI 回覆格式優化的圖片檔名搜尋
+                    image_patterns = [
+                        # 主要格式：🖼️ filename.png (AI 回覆的標準格式)
+                        r'🖼️\s*([a-zA-Z0-9\-_.]{8,}\.(?:png|jpg|jpeg|gif|bmp|webp))',
+                        
+                        # 備用格式：處理可能的變體
+                        r'圖片.*?([a-zA-Z0-9\-_.]{8,}\.(?:png|jpg|jpeg|gif|bmp|webp))',
+                        r'截圖.*?([a-zA-Z0-9\-_.]{8,}\.(?:png|jpg|jpeg|gif|bmp|webp))',
+                        r'如圖.*?([a-zA-Z0-9\-_.]{8,}\.(?:png|jpg|jpeg|gif|bmp|webp))',
+                        
+                        # 舊格式兼容（逐步淘汰）
+                        r'kisspng-[a-zA-Z0-9\-_.]{10,}\.(?:png|jpg|jpeg|gif|bmp|webp)\b',
+                        r'\b([a-zA-Z0-9\-_.]{15,}\.(?:png|jpg|jpeg|gif|bmp|webp))\b'
+                    ]
+                    
+                    for pattern_idx, pattern in enumerate(image_patterns):
+                        matches = re.findall(pattern, guide_data['content'], re.IGNORECASE)
+                        for match in matches:
+                            filename = match if isinstance(match, str) else match[0] if isinstance(match, tuple) else str(match)
+                            # 🆕 更寬鬆的檔名驗證（支援 8+ 字符）
+                            if (filename and 
+                                len(filename) >= 8 and 
+                                re.match(r'^[a-zA-Z0-9\-_.]+\.(?:png|jpg|jpeg|gif|bmp|webp)$', filename, re.IGNORECASE)):
+                                image_filenames.append(filename)
+                                logger.debug(f"RVT Guide 圖片檔名提取 - 模式{pattern_idx+1}: {filename}")
+                    
+                    # 去重並排序
+                    image_filenames = list(set(image_filenames))
+                    
                     # 格式化為知識片段
                     content = f"# {guide_data['title']}\n\n"
                     content += f"**內容**:\n{guide_data['content']}"
                     
                     # 如果包含圖片，在內容開始加入明確提示
-                    if has_images:
+                    if has_images or image_filenames:
                         content = f"# {guide_data['title']}\n\n"
                         content += "📸 **重要：此內容包含相關圖片說明，請在回答時提及圖片資訊**\n\n"
+                        if image_filenames:
+                            content += f"**相關圖片**: {', '.join(image_filenames)}\n\n"
                         content += f"**內容**:\n{guide_data['content']}"
+                    
+                    # 🆕 構建包含圖片資訊的 metadata
+                    metadata = {
+                        'source': 'rvt_guide_database',
+                        'created_at': str(guide_data['created_at']) if guide_data['created_at'] else None,
+                        'updated_at': str(guide_data['updated_at']) if guide_data['updated_at'] else None,
+                        'has_images': has_images or len(image_filenames) > 0,
+                        'image_filenames': image_filenames  # 實際的圖片檔名列表
+                    }
                     
                     results.append({
                         'id': str(guide_data['id']),
                         'title': guide_data['title'],
                         'content': content,
                         'score': float(guide_data['score']),
-                        'metadata': {
-                            'source': 'rvt_guide_database',
-                            'created_at': str(guide_data['created_at']) if guide_data['created_at'] else None,
-                            'updated_at': str(guide_data['updated_at']) if guide_data['updated_at'] else None,
-                            'has_images': has_images  # 加入圖片標記
-                        }
+                        'metadata': metadata
                     })
                 
                 logger.info(f"RVT Guide search found {len(results)} results for query: '{query_text}'")
