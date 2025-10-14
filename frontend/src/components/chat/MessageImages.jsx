@@ -13,41 +13,92 @@ const MessageImages = ({ filenames, onImageLoad }) => {
 
   useEffect(() => {
     const loadImages = async () => {
-      try {
-        console.log('📊 MessageImages: 開始載入圖片', { filenames });
-        setLoading(true);
-        const loadedImages = await onImageLoad(filenames);
-        console.log('📊 MessageImages: 載入的圖片資料:', loadedImages);
-        console.log('📊 MessageImages: 圖片資料長度:', loadedImages?.length);
+      // 檢查檔名有效性
+      if (!filenames || !Array.isArray(filenames) || filenames.length === 0) {
+        console.log('📊 MessageImages: 無有效檔名列表，跳過載入');
+        setLoading(false);
+        setImages([]);
+        return;
+      }
+
+      // 過濾明顯無效的檔名
+      const validFilenames = filenames.filter(filename => {
+        const isValid = filename && 
+          typeof filename === 'string' && 
+          filename.length >= 8 && 
+          /\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(filename) &&
+          !/[\s\n\r,，。()]/.test(filename);
         
-        if (loadedImages && loadedImages.length > 0) {
-          console.log('📊 MessageImages: 第一張圖片資料:', loadedImages[0]);
-          console.log('📊 MessageImages: 第一張圖片 data_url 開頭:', loadedImages[0]?.data_url?.substring(0, 100));
-          console.log('📊 MessageImages: 第一張圖片 data_url 長度:', loadedImages[0]?.data_url?.length);
-          console.log('📊 MessageImages: 設定 images state');
-          setImages(loadedImages);
+        if (!isValid) {
+          console.log('⚠️ MessageImages: 過濾無效檔名:', filename);
+        }
+        
+        return isValid;
+      });
+
+      if (validFilenames.length === 0) {
+        console.log('📊 MessageImages: 沒有有效的圖片檔名');
+        setLoading(false);
+        setImages([]);
+        return;
+      }
+
+      try {
+        console.log('📊 MessageImages: 開始載入圖片', { 
+          originalCount: filenames.length,
+          validCount: validFilenames.length,
+          validFilenames 
+        });
+        
+        setLoading(true);
+        setError(null);
+        
+        const loadedImages = await onImageLoad(validFilenames);
+        
+        console.log('📊 MessageImages: 載入結果:', {
+          requestedCount: validFilenames.length,
+          loadedCount: loadedImages?.length || 0,
+          hasData: !!loadedImages
+        });
+        
+        if (loadedImages && Array.isArray(loadedImages) && loadedImages.length > 0) {
+          // 過濾掉無效的圖片資料
+          const validImages = loadedImages.filter(img => 
+            img && (img.data_url || img.image_data) && img.filename
+          );
+          
+          console.log('📊 MessageImages: 有效圖片數量:', validImages.length);
+          setImages(validImages);
         } else {
           console.log('📊 MessageImages: 無有效圖片資料');
           setImages([]);
         }
-        setError(null);
+        
       } catch (err) {
         console.error('❌ MessageImages: 圖片載入失敗:', err);
-        setError('載入圖片時發生錯誤');
+        
+        // 根據錯誤類型設置不同的錯誤訊息
+        let errorMessage = '載入圖片時發生錯誤';
+        if (err.response?.status === 404) {
+          errorMessage = '圖片不存在或已被移除';
+        } else if (err.response?.status === 403) {
+          errorMessage = '沒有權限訪問圖片';
+        } else if (err.message?.includes('timeout')) {
+          errorMessage = '圖片載入超時';
+        }
+        
+        setError(errorMessage);
         setImages([]);
+        
+        // 不要顯示錯誤訊息給用戶，只記錄到控制台
+        // message.warning(errorMessage);
+        
       } finally {
-        console.log('📊 MessageImages: 載入完成，設定 loading = false');
         setLoading(false);
       }
     };
 
-    if (filenames && filenames.length > 0) {
-      console.log('📊 MessageImages: 準備載入圖片');
-      loadImages();
-    } else {
-      console.log('📊 MessageImages: 無檔名，跳過載入');
-      setLoading(false);
-    }
+    loadImages();
   }, [filenames, onImageLoad]);
 
   const showImageModal = (imageData) => {

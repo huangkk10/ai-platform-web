@@ -24,6 +24,15 @@ import LogAnalyzePage from './pages/LogAnalyzePage';
 import RvtGuideEditPage from './pages/RvtGuideEditPage';
 import MarkdownEditorPage from './pages/MarkdownEditorPage';
 import RVTAnalyticsPage from './pages/RVTAnalyticsPage';
+import MarkdownTableDebugger from './components/test/MarkdownTableDebugger';
+import BasicTableTest from './components/test/BasicTableTest';
+import ASTDebugger from './components/test/ASTDebugger';
+import TableTestOverview from './components/test/TableTestOverview';
+import RVTTableTest from './components/test/RVTTableTest';
+import NativeMarkdownTest from './components/test/NativeMarkdownTest';
+import RealScenarioTableTest from './components/test/RealScenarioTableTest';
+import FullChatMessageTest from './components/test/FullChatMessageTest';
+import SimpleTableDiagnostic from './components/test/SimpleTableDiagnostic';
 
 const { Content } = Layout;
 
@@ -202,6 +211,15 @@ function AppLayout() {
             <Route path="/admin/test-class-management" element={<TestClassManagementPage />} />
             <Route path="/admin/user-management" element={<IntegratedUserManagementPage />} />
             <Route path="/admin/rvt-analytics" element={<RVTAnalyticsPage />} />
+            <Route path="/test/table-debugger" element={<MarkdownTableDebugger />} />
+            <Route path="/test/basic-table" element={<BasicTableTest />} />
+            <Route path="/test/ast-debugger" element={<ASTDebugger />} />
+            <Route path="/test/overview" element={<TableTestOverview />} />
+            <Route path="/test/rvt-table" element={<RVTTableTest />} />
+            <Route path="/test/native-markdown" element={<NativeMarkdownTest />} />
+            <Route path="/test/real-scenario" element={<RealScenarioTableTest />} />
+            <Route path="/test/full-chat" element={<FullChatMessageTest />} />
+            <Route path="/test/simple-diagnostic" element={<SimpleTableDiagnostic />} />
           </Routes>
         </Content>
       </Layout>

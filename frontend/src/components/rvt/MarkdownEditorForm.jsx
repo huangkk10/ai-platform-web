@@ -3,7 +3,11 @@ import { Modal, Form, Input, Select, message, Button, Space } from 'antd';
 import { SaveOutlined, EyeOutlined } from '@ant-design/icons';
 import MdEditor from 'react-markdown-editor-lite';
 import MarkdownIt from 'markdown-it';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { markdownComponents } from '../markdown/MarkdownComponents';
 import 'react-markdown-editor-lite/lib/index.css';
+import '../markdown/ReactMarkdown.css';
 
 const { Option } = Select;
 
@@ -212,7 +216,7 @@ const MarkdownEditorForm = ({
         </div>
         
         {previewMode ? (
-          // 預覽模式
+          // 預覽模式 - 使用 ReactMarkdown
           <div 
             style={{ 
               minHeight: '400px', 
@@ -220,10 +224,14 @@ const MarkdownEditorForm = ({
               backgroundColor: '#fff'
             }}
             className="markdown-preview"
-            dangerouslySetInnerHTML={{ 
-              __html: mdParser.render(markdownContent) 
-            }}
-          />
+          >
+            <ReactMarkdown 
+              remarkPlugins={[remarkGfm]}
+              components={markdownComponents}
+            >
+              {markdownContent}
+            </ReactMarkdown>
+          </div>
         ) : (
           // 編輯模式
           <MdEditor

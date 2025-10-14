@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import MarkdownIt from 'markdown-it';
-import DOMPurify from 'dompurify';
+import remarkGfm from 'remark-gfm';
+import { markdownComponents } from '../components/markdown/MarkdownComponents';
 import { 
   processContentFormat,
   hasImgIdReferences,
@@ -11,38 +11,35 @@ import {
 
 /**
  * 消息格式化 Hook
- * 處理聊天消息的 Markdown 渲染、HTML 安全清理和內容格式化
+ * 處理聊天消息的 React Markdown 渲染和內容格式化
  * 
  * 功能特色：
- * - 統一的 Markdown 解析器配置
- * - 安全的 HTML 內容清理
+ * - React 組件化的 Markdown 渲染
+ * - 自定義組件處理表格和圖片
  * - 智能圖片檢測和提取
  * - 支援混合內容格式化
+ * - GFM (GitHub Flavored Markdown) 支援
  */
 const useMessageFormatter = () => {
   
-  // 初始化 Markdown 解析器 (使用 useMemo 優化性能)
-  const md = useMemo(() => {
-    return new MarkdownIt({
-      html: true,        // 允許 HTML 標籤
-      xhtmlOut: false,   // 不使用 XHTML 輸出
-      breaks: true,      // 將換行符轉換為 <br>
-      linkify: true,     // 自動連結 URL
-      typographer: true  // 啟用智能標點符號
-    });
-  }, []);
+  // React Markdown 配置 (使用 useMemo 優化性能)
+  const markdownConfig = useMemo(() => ({
+    remarkPlugins: [remarkGfm], // 支援表格、任務列表等 GFM 功能
+    components: markdownComponents, // 自定義組件
+    // 安全設定
+    disallowedElements: ['script', 'iframe', 'object', 'embed'],
+    unwrapDisallowed: true
+  }), []);
 
   /**
-   * 基礎文字內容格式化
-   * 用於普通 Markdown 文字內容的渲染
+   * 基礎文字內容預處理
+   * 用於處理特殊格式和準備 React Markdown 渲染
    * 
    * @param {string} content - 原始內容
-   * @returns {string} - 格式化後的 HTML 字符串
+   * @returns {string} - 預處理後的 Markdown 內容
    */
-  const renderMarkdown = (content) => {
-    const processedContent = processContentFormat(content);
-    const html = md.render(processedContent);
-    return DOMPurify.sanitize(html);
+  const prepareMarkdown = (content) => {
+    return processContentFormat(content);
   };
 
   /**
@@ -99,7 +96,7 @@ const useMessageFormatter = () => {
       index,
       content: paragraph,
       mentionsImage: checkImageMention(paragraph),
-      html: DOMPurify.sanitize(md.render(paragraph))
+      processedContent: paragraph // 直接返回處理過的內容，供 ReactMarkdown 使用
     }));
   };
 
@@ -143,7 +140,7 @@ const useMessageFormatter = () => {
         return {
           type: 'text',
           content: part,
-          html: DOMPurify.sanitize(md.render(processContentFormat(part))),
+          processedContent: processContentFormat(part), // 供 ReactMarkdown 使用
           index
         };
       }
@@ -152,9 +149,11 @@ const useMessageFormatter = () => {
 
   // 返回所有格式化相關的函數和工具
   return {
+    // React Markdown 配置
+    markdownConfig,          // React Markdown 配置物件
+    
     // 基礎功能
-    md,                      // Markdown 解析器實例
-    renderMarkdown,          // 基礎 Markdown 渲染
+    prepareMarkdown,         // 預處理 Markdown 內容
     
     // 內容分析
     analyzeContentFormat,    // 分析內容格式類型

@@ -1,0 +1,309 @@
+/* React Markdown 樣式 - 取代原本的 markdown-it 生成的 HTML 樣式 */
+
+/* 基礎容器樣式 */
+.markdown-content {
+  font-family: 'Microsoft JhengHei', '微軟正黑體', 'Microsoft YaHei', '微软雅黑',
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+  line-height: 1.6;
+  color: #333;
+  word-wrap: break-word;
+}
+
+/* 標題樣式 - 這些已在 MarkdownComponents.jsx 中定義，這裡作為備用 */
+.markdown-content h1 {
+  color: #1890ff !important;
+  font-size: 20px !important;
+  font-weight: 600 !important;
+  margin: 12px 0 8px 0 !important;
+  border-bottom: 2px solid #1890ff !important;
+  padding-bottom: 4px !important;
+}
+
+.markdown-content h2 {
+  color: #1890ff !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  margin: 8px 0 6px 0 !important;
+}
+
+.markdown-content h3 {
+  color: #1890ff !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  margin: 6px 0 4px 0 !important;
+  border-left: 4px solid #1890ff !important;
+  padding-left: 12px !important;
+}
+
+.markdown-content h4 {
+  color: #333 !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  margin: 4px 0 2px 0 !important;
+}
+
+/* 段落樣式 */
+.markdown-content p {
+  margin: 8px 0 !important;
+  line-height: 1.6 !important;
+}
+
+/* 列表樣式 - 備用，主要邏輯在組件中 */
+.markdown-content ul {
+  margin: 8px 0 !important;
+  padding-left: 0 !important;
+}
+
+.markdown-content ol {
+  margin: 8px 0 !important;
+  padding-left: 0 !important;
+}
+
+.markdown-content li {
+  margin-bottom: 2px !important;
+  line-height: 1.5 !important;
+}
+
+/* 表格樣式 - 強制覆蓋，適用於所有 markdown 表格 */
+.markdown-content table,
+table.markdown-table,
+.markdown-table-wrapper table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  border: 1px solid #e8e8e8 !important;
+  border-radius: 6px !important;
+  overflow: hidden !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+  margin: 12px 0 !important;
+  table-layout: auto !important;
+  display: table !important;
+}
+
+.markdown-content table thead,
+table.markdown-table thead,
+.markdown-table-wrapper table thead {
+  background-color: #1890ff !important;
+  color: white !important;
+  display: table-header-group !important;
+}
+
+.markdown-content table tbody,
+table.markdown-table tbody,
+.markdown-table-wrapper table tbody {
+  display: table-row-group !important;
+}
+
+.markdown-content table tr,
+table.markdown-table tr,
+.markdown-table-wrapper table tr {
+  display: table-row !important;
+}
+
+.markdown-content table th,
+table.markdown-table th,
+.markdown-table-wrapper table th {
+  padding: 10px 8px !important;
+  text-align: center !important;
+  font-weight: bold !important;
+  font-size: 13px !important;
+  color: white !important;
+  border: 1px solid rgba(255,255,255,0.2) !important;
+  display: table-cell !important;
+  min-width: 80px !important;
+}
+
+.markdown-content table td,
+table.markdown-table td,
+.markdown-table-wrapper table td {
+  padding: 8px !important;
+  border: 1px solid #f0f0f0 !important;
+  font-size: 12px !important;
+  vertical-align: top !important;
+  display: table-cell !important;
+  min-width: 80px !important;
+}
+
+.markdown-content table tbody tr:hover {
+  background-color: #f5f5f5 !important;
+}
+
+/* 確保表格容器正確 */
+.markdown-table-wrapper {
+  margin: 12px 0 !important;
+  overflow-x: auto !important;
+}
+
+.markdown-table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  border: 1px solid #e8e8e8 !important;
+  border-radius: 6px !important;
+  overflow: hidden !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+}
+
+.markdown-table thead {
+  background-color: #1890ff !important;
+  color: white !important;
+}
+
+.markdown-table th {
+  padding: 10px 8px !important;
+  text-align: center !important;
+  font-weight: bold !important;
+  font-size: 13px !important;
+  color: white !important;
+}
+
+.markdown-table td {
+  padding: 8px !important;
+  border-bottom: 1px solid #f0f0f0 !important;
+  font-size: 12px !important;
+  vertical-align: top !important;
+}
+
+/* 程式碼樣式 - 備用，主要邏輯在 CustomCode 組件中 */
+.markdown-content pre {
+  background-color: #f6f8fa !important;
+  border: 1px solid #e1e4e8 !important;
+  border-radius: 6px !important;
+  padding: 12px !important;
+  margin: 8px 0 !important;
+  overflow: auto !important;
+  font-family: 'Monaco', 'Consolas', 'Courier New', monospace !important;
+  font-size: 13px !important;
+}
+
+.markdown-content code {
+  background-color: #f6f8fa !important;
+  border: 1px solid #e1e4e8 !important;
+  border-radius: 3px !important;
+  padding: 2px 4px !important;
+  font-size: 12px !important;
+  font-family: 'Monaco', 'Consolas', 'Courier New', monospace !important;
+}
+
+.markdown-content pre code {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+/* 引用樣式 */
+.markdown-content blockquote {
+  border-left: 4px solid #d9d9d9 !important;
+  margin: 8px 0 !important;
+  padding: 8px 12px !important;
+  background-color: #f8f9ff !important;
+  color: #666 !important;
+  font-style: italic !important;
+}
+
+/* 連結樣式 */
+.markdown-content a {
+  color: #1890ff !important;
+  text-decoration: none !important;
+}
+
+.markdown-content a:hover {
+  color: #40a9ff !important;
+  text-decoration: underline !important;
+}
+
+/* 分隔線樣式 */
+.markdown-content hr {
+  border: none !important;
+  border-top: 1px solid #e8e8e8 !important;
+  margin: 16px 0 !important;
+}
+
+/* 強調樣式 */
+.markdown-content strong {
+  font-weight: 600 !important;
+  color: #262626 !important;
+}
+
+.markdown-content em {
+  font-style: italic !important;
+  color: #595959 !important;
+}
+
+/* 圖片佔位符樣式 */
+.image-placeholder {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  padding: 2px 6px !important;
+  background-color: #f0f8ff !important;
+  border: 1px solid #d6e4ff !important;
+  border-radius: 4px !important;
+  font-size: 11px !important;
+  color: #1890ff !important;
+  margin: 0 4px !important;
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+  .markdown-content {
+    font-size: 14px !important;
+  }
+  
+  .markdown-content h1 {
+    font-size: 18px !important;
+  }
+  
+  .markdown-content h2 {
+    font-size: 16px !important;
+  }
+  
+  .markdown-content h3 {
+    font-size: 14px !important;
+  }
+  
+  .markdown-table {
+    font-size: 11px !important;
+  }
+  
+  .markdown-table th,
+  .markdown-table td {
+    padding: 6px 4px !important;
+  }
+}
+
+/* 與 Ant Design 的整合樣式 */
+.message-card .markdown-content {
+  margin: 0 !important;
+}
+
+.message-card .markdown-content > *:first-child {
+  margin-top: 0 !important;
+}
+
+.message-card .markdown-content > *:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* 表格容器滾動樣式 */
+.markdown-table-wrapper {
+  scrollbar-width: thin;
+  scrollbar-color: #d9d9d9 transparent;
+}
+
+.markdown-table-wrapper::-webkit-scrollbar {
+  height: 6px;
+}
+
+.markdown-table-wrapper::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.markdown-table-wrapper::-webkit-scrollbar-thumb {
+  background: #d9d9d9;
+  border-radius: 3px;
+}
+
+.markdown-table-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #bfbfbf;
+}

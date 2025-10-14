@@ -1,8 +1,10 @@
 import React from 'react';
+import ReactMarkdown from 'react-markdown';
 import ContentRenderer from '../ContentRenderer';
 import MessageImages from './MessageImages';
 import useMessageFormatter from '../../hooks/useMessageFormatter';
 import { loadImagesData } from '../../utils/imageProcessor';
+import '../markdown/ReactMarkdown.css';
 
 /**
  * 消息格式化組件
@@ -22,10 +24,11 @@ const MessageFormatter = ({
   style = {}
 }) => {
   const {
+    markdownConfig,
     analyzeContentFormat,
     analyzeParagraphs,
     parseImgIdContent,
-    renderMarkdown,
+    prepareMarkdown,
     extractImages
   } = useMessageFormatter();
 
@@ -36,14 +39,17 @@ const MessageFormatter = ({
    * 渲染純文字消息 (主要用於用戶消息)
    */
   const renderPlainTextMessage = () => {
-    const html = renderMarkdown(content);
+    const processedContent = prepareMarkdown(content);
     
     return (
       <div 
         className={`markdown-content ${className}`}
         style={style}
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
+      >
+        <ReactMarkdown {...markdownConfig}>
+          {processedContent}
+        </ReactMarkdown>
+      </div>
     );
   };
 
@@ -74,8 +80,11 @@ const MessageFormatter = ({
               <div 
                 key={`text-${index}`}
                 className="markdown-content"
-                dangerouslySetInnerHTML={{ __html: part.html }}
-              />
+              >
+                <ReactMarkdown {...markdownConfig}>
+                  {part.processedContent}
+                </ReactMarkdown>
+              </div>
             );
           }
         })}
@@ -107,19 +116,28 @@ const MessageFormatter = ({
         <div 
           key={`paragraph-${index}`}
           className="markdown-content"
-          dangerouslySetInnerHTML={{ __html: paragraph.html }}
-        />
+        >
+          <ReactMarkdown {...markdownConfig}>
+            {paragraph.processedContent}
+          </ReactMarkdown>
+        </div>
       );
       
       // 🔍 檢查是否提及圖片且確實有可用的圖片檔名
       if (paragraph.mentionsImage && remainingImages.length > 0) {
-        // 🎯 進一步驗證圖片檔名的有效性
-        const validImages = remainingImages.filter(filename => 
-          filename && 
-          filename.length >= 10 && 
-          /\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(filename) &&
-          !/[\s\n\r,，。()]/.test(filename)
-        );
+            // 🎯 進一步驗證圖片檔名的有效性
+        const validImages = remainingImages.filter(filename => {
+          const isValid = filename && 
+            filename.length >= 10 && 
+            /\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(filename) &&
+            !/[\s\n\r,，。()]/.test(filename);
+          
+          if (!isValid) {
+            console.log('⚠️ MessageFormatter: 過濾無效圖片檔名:', filename);
+          }
+          
+          return isValid;
+        });
         
         if (validImages.length > 0) {
           console.log('📸 找到圖片描述段落', index, ':', paragraph.content.substring(0, 100));
@@ -146,6 +164,7 @@ const MessageFormatter = ({
               <MessageImages 
                 filenames={validImages} 
                 onImageLoad={loadImagesData}
+                key={`images-${index}-${validImages.join('-')}`} // 添加 key 避免重複載入
               />
             </div>
           );
@@ -162,14 +181,25 @@ const MessageFormatter = ({
     // 如果還有剩餘圖片沒有顯示，在最後顯示
     if (remainingImages.length > 0) {
       console.log('📸 在最後顯示剩餘圖片:', remainingImages);
-      result.push(
-        <div key="remaining-images" style={{ marginTop: '12px' }}>
-          <MessageImages 
-            filenames={remainingImages} 
-            onImageLoad={loadImagesData}
-          />
-        </div>
+      
+      // 再次過濾有效圖片
+      const finalValidImages = remainingImages.filter(filename => 
+        filename && filename.length >= 8 && /\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(filename)
       );
+      
+      if (finalValidImages.length > 0) {
+        result.push(
+          <div key="remaining-images" style={{ marginTop: '12px' }}>
+            <MessageImages 
+              filenames={finalValidImages} 
+              onImageLoad={loadImagesData}
+              key={`remaining-${finalValidImages.join('-')}`}
+            />
+          </div>
+        );
+      } else {
+        console.log('⚠️ MessageFormatter: 沒有有效的剩餘圖片可顯示');
+      }
     }
     
     return (
