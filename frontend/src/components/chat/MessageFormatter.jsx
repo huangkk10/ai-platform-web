@@ -59,13 +59,13 @@ const MessageFormatter = ({
         {parts.map((part, index) => {
           if (part.type === 'image') {
             return (
-              <div key={`img-${index}`} style={{ margin: '12px 0' }}>
+              <div key={`img-${index}`} style={{ margin: '12px 0', maxWidth: '200px' }}>
                 <ContentRenderer 
                   content={part.content}
                   showImageTitles={true}
                   showImageDescriptions={true}
-                  imageMaxWidth={220}
-                  imageMaxHeight={150}
+                  imageMaxWidth={120}
+                  imageMaxHeight={90}
                 />
               </div>
             );
@@ -128,17 +128,17 @@ const MessageFormatter = ({
           // 在提及圖片的段落下方直接顯示相關圖片
           result.push(
             <div key={`inline-images-${index}`} style={{ 
-              margin: '16px 0',
-              padding: '12px',
+              margin: '4px 0',
+              padding: '4px',
               backgroundColor: '#f8f9ff',
-              borderRadius: '8px',
-              border: '2px solid #e6f7ff',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+              borderRadius: '4px',
+              border: '1px solid #e6f7ff',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
             }}>
               <div style={{ 
-                fontSize: '12px', 
+                fontSize: '10px', 
                 color: '#1890ff', 
-                marginBottom: '8px',
+                marginBottom: '4px',
                 fontWeight: '500'
               }}>
                 📸 相關圖片展示：

@@ -174,14 +174,15 @@ const MessageImages = ({ filenames, onImageLoad }) => {
   console.log('📊 MessageImages: 渲染圖片區域', { imagesLength: images.length, images });
   
   return (
-    <div style={{ margin: '8px 0' }}>
+    <div style={{ margin: '8px 0', maxWidth: '200px' }}>
       <div style={{ fontSize: '12px', color: '#666', marginBottom: '6px' }}>
         📸 相關圖片 ({images.length} 張)：
       </div>
       <div style={{ 
         display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', 
-        gap: '6px'
+        gridTemplateColumns: 'repeat(auto-fill, 40px)', 
+        gap: '2px',
+        justifyContent: 'start'
       }}>
         {images.map((image, index) => (
           <div 
@@ -204,7 +205,7 @@ const MessageImages = ({ filenames, onImageLoad }) => {
               e.currentTarget.style.boxShadow = 'none';
             }}
           >
-            <div style={{ position: 'relative', paddingTop: '40%', overflow: 'hidden' }}>
+            <div style={{ position: 'relative', paddingTop: '60%', overflow: 'hidden' }}>
               <img
                 src={image.data_url}
                 alt={image.title || image.filename}
