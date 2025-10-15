@@ -93,7 +93,7 @@ const RvtGuidePage = () => {
     {
       title: '操作',
       key: 'actions',
-      width: 160,
+      width: 120,
       fixed: 'right',
       render: (_, record) => (
         <Space size="small">
@@ -101,16 +101,9 @@ const RvtGuidePage = () => {
             icon={<EditOutlined />}
             size="small"
             type="text"
-            onClick={() => navigate(`/knowledge/rvt-guide/edit/${record.id}`)}
-            title="編輯 (舊表單)"
-          />
-          <Button
-            icon={<ExperimentOutlined />}
-            size="small"
-            type="text"
             onClick={() => navigate(`/knowledge/rvt-guide/markdown-edit/${record.id}`)}
-            title="Markdown 編輯器 (整頁模式)"
-            style={{ color: '#722ed1' }}
+            title="編輯 (Markdown 編輯器)"
+            style={{ color: '#1890ff' }}
           />
           {user?.is_staff && (
             <Button
@@ -229,21 +222,9 @@ const RvtGuidePage = () => {
             <Button
               type="primary"
               icon={<PlusOutlined />}
-              onClick={() => navigate('/knowledge/rvt-guide/create')}
+              onClick={() => navigate('/knowledge/rvt-guide/markdown-create')}
             >
               新增 User Guide
-            </Button>
-            <Button
-              type="default"
-              icon={<ExperimentOutlined />}
-              onClick={() => navigate('/knowledge/rvt-guide/markdown-create')}
-              style={{ 
-                borderColor: '#722ed1', 
-                color: '#722ed1',
-                backgroundColor: '#f9f0ff'
-              }}
-            >
-              新 Markdown 編輯器
             </Button>
           </Space>
         }
