@@ -271,7 +271,7 @@ const RvtGuidePage = () => {
             icon={<EditOutlined />}
             onClick={() => {
               setDetailModalVisible(false);
-              navigate(`/knowledge/rvt-guide/edit/${selectedGuide.id}`);
+              navigate(`/knowledge/rvt-guide/markdown-edit/${selectedGuide.id}`);
             }}
           >
             編輯指導文檔

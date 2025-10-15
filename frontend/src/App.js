@@ -21,7 +21,6 @@ import KnowIssueChatPage from './pages/KnowIssueChatPage';
 import LogAnalyzeChatPage from './pages/LogAnalyzeChatPage';
 import RvtAssistantChatPage from './pages/RvtAssistantChatPage';
 import LogAnalyzePage from './pages/LogAnalyzePage';
-import RvtGuideEditPage from './pages/RvtGuideEditPage';
 import MarkdownEditorPage from './pages/MarkdownEditorPage';
 import RVTAnalyticsPage from './pages/RVTAnalyticsPage';
 
@@ -72,17 +71,11 @@ function AppLayout() {
         return 'Protocol RAG';
       case '/knowledge/rvt-log':
         return 'RVT Assistant';
-      case '/knowledge/rvt-guide/create':
-        return 'RVT Assistant - 新增 User Guide';
       case '/admin/user-management':
         return '用戶權限管理';
       case '/admin/rvt-analytics':
         return 'RVT Assistant 分析報告';
       default:
-        // 動態處理編輯頁面的標題
-        if (pathname.startsWith('/knowledge/rvt-guide/edit/')) {
-          return 'RVT Assistant - 編輯 User Guide';
-        }
         // Markdown 編輯器頁面標題（整頁模式）
         if (pathname.startsWith('/knowledge/rvt-guide/markdown-edit/')) {
           const id = pathname.split('/').pop();
@@ -105,20 +98,6 @@ function AppLayout() {
           style={{ color: '#666' }}
         >
           新聊天
-        </Button>
-      );
-    }
-    
-    // RVT Guide 編輯頁面的返回按鈕
-    if (pathname === '/knowledge/rvt-guide/create' || pathname.startsWith('/knowledge/rvt-guide/edit/')) {
-      return (
-        <Button 
-          icon={<ArrowLeftOutlined />} 
-          onClick={() => navigate('/knowledge/rvt-log')}
-          type="text"
-          style={{ color: '#666' }}
-        >
-          返回列表
         </Button>
       );
     }
@@ -193,16 +172,6 @@ function AppLayout() {
             <Route path="/knowledge/rvt-log" element={
               <ProtectedRoute permission="kbRVTAssistant" fallbackTitle="Knowledge Base 存取受限">
                 <RvtGuidePage />
-              </ProtectedRoute>
-            } />
-            <Route path="/knowledge/rvt-guide/create" element={
-              <ProtectedRoute permission="kbRVTAssistant" fallbackTitle="Knowledge Base 存取受限">
-                <RvtGuideEditPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/knowledge/rvt-guide/edit/:id" element={
-              <ProtectedRoute permission="kbRVTAssistant" fallbackTitle="Knowledge Base 存取受限">
-                <RvtGuideEditPage />
               </ProtectedRoute>
             } />
             <Route path="/knowledge/rvt-guide/markdown-create" element={
