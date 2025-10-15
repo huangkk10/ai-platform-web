@@ -2,23 +2,14 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Card,
   Table,
-  Button,
-  Space,
-  Typography,
   message
 } from 'antd';
 import { useNavigate } from 'react-router-dom';
-import { 
-  PlusOutlined, 
-  ReloadOutlined,
-  ToolOutlined
-} from '@ant-design/icons';
+
 import { useAuth } from '../../contexts/AuthContext';
 import useRvtGuideList from '../../hooks/useRvtGuideList';
 import { createRvtGuideColumns, showDeleteConfirm } from './columns';
 import GuideDetailModal from '../../components/GuideDetailModal';
-
-const { Title } = Typography;
 
 /**
  * RVT Assistant 知識庫頁面
@@ -43,6 +34,19 @@ const RvtGuidePage = () => {
       fetchGuides();
     }
   }, [initialized, isAuthenticated, fetchGuides]);
+
+  // 監聽來自 TopHeader 的重新整理事件
+  useEffect(() => {
+    const handleReload = () => {
+      fetchGuides();
+    };
+    
+    window.addEventListener('rvt-guide-reload', handleReload);
+    
+    return () => {
+      window.removeEventListener('rvt-guide-reload', handleReload);
+    };
+  }, [fetchGuides]);
 
   // 處理查看詳細內容
   const handleViewDetail = async (record) => {
@@ -104,49 +108,36 @@ const RvtGuidePage = () => {
   }
 
   return (
-    <div style={{ padding: '20px' }}>
+    <div style={{ 
+      height: 'calc(100vh - 64px)', // 扣除 TopHeader 高度
+      display: 'flex',
+      flexDirection: 'column',
+      padding: '20px'
+    }}>
       {/* 主要內容 */}
-      <Card
-        title={
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <ToolOutlined />
-            <Title level={4} style={{ margin: 0 }}>RVT Assistant 知識庫</Title>
-          </div>
-        }
-        extra={
-          <Space>
-            <Button
-              icon={<ReloadOutlined />}
-              onClick={fetchGuides}
-              loading={loading}
-            >
-              重新整理
-            </Button>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => navigate('/knowledge/rvt-guide/markdown-create')}
-            >
-              新增 User Guide
-            </Button>
-          </Space>
-        }
-      >
-        <Table
-          columns={columns}
-          dataSource={guides}
-          rowKey="id"
-          loading={loading}
-          scroll={{ x: 1400, y: 600 }}
-          pagination={{
-            showSizeChanger: true,
-            showQuickJumper: true,
-            showTotal: (total, range) => `第 ${range[0]}-${range[1]} 項，共 ${total} 項`,
-            pageSize: 10,
-            pageSizeOptions: ['10', '20', '50', '100'],
-          }}
-          size="middle"
-        />
+      <Card style={{ 
+        flex: 1, 
+        display: 'flex', 
+        flexDirection: 'column',
+        overflow: 'hidden'
+      }}>
+        <div style={{ flex: 1, overflow: 'hidden' }}>
+          <Table
+            columns={columns}
+            dataSource={guides}
+            rowKey="id"
+            loading={loading}
+            scroll={{ x: 1400, y: 'calc(100vh - 220px)' }}
+            pagination={{
+              showSizeChanger: true,
+              showQuickJumper: true,
+              showTotal: (total, range) => `第 ${range[0]}-${range[1]} 項，共 ${total} 項`,
+              pageSize: 10,
+              pageSizeOptions: ['10', '20', '50', '100'],
+            }}
+            size="middle"
+          />
+        </div>
       </Card>
 
       {/* 詳細內容 Modal */}

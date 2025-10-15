@@ -3,7 +3,7 @@ import './App.css';
 import axios from 'axios';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Layout, Button } from 'antd';
-import { DeleteOutlined, ArrowLeftOutlined, SaveOutlined } from '@ant-design/icons';
+import { DeleteOutlined, ArrowLeftOutlined, SaveOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import Sidebar from './components/Sidebar';
 import TopHeader from './components/TopHeader';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -70,7 +70,7 @@ function AppLayout() {
       case '/knowledge/know-issue':
         return 'Protocol RAG';
       case '/knowledge/rvt-log':
-        return 'RVT Assistant';
+        return 'RVT Assistant 知識庫';
       case '/admin/user-management':
         return '用戶權限管理';
       case '/admin/rvt-analytics':
@@ -99,6 +99,32 @@ function AppLayout() {
         >
           新聊天
         </Button>
+      );
+    }
+    
+    // RVT Assistant 知識庫頁面的按鈕
+    if (pathname === '/knowledge/rvt-log') {
+      return (
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <Button 
+            icon={<ReloadOutlined />} 
+            onClick={() => {
+              // 觸發自定義事件通知頁面重新載入
+              window.dispatchEvent(new CustomEvent('rvt-guide-reload'));
+            }}
+            size="large"
+          >
+            重新整理
+          </Button>
+          <Button
+            type="primary"
+            size="large"
+            icon={<PlusOutlined />}
+            onClick={() => navigate('/knowledge/rvt-guide/markdown-create')}
+          >
+            新增 User Guide
+          </Button>
+        </div>
       );
     }
     
