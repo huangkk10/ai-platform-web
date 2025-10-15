@@ -79,7 +79,7 @@
 }
 
 .message-card.user {
-  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+  background: #1890ff;
   color: white;
 }
 
@@ -88,14 +88,24 @@
 }
 
 .message-card.user .ant-card-body {
-  color: white;
+  color: white !important;
 }
 
 .message-card.user .message-text {
-  color: white;
+  color: white !important;
+}
+
+.message-card.user .message-text * {
+  color: white !important;
 }
 
 .message-card.user .message-text .ant-typography {
+  color: white !important;
+}
+
+.message-card.user .message-text p,
+.message-card.user .message-text span,
+.message-card.user .message-text div {
   color: white !important;
 }
 

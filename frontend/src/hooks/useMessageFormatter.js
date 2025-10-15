@@ -8,6 +8,7 @@ import {
   extractImagesFromContent,
   checkImageMention
 } from '../utils/imageProcessor';
+import { smartAnalyzeParagraphs } from '../utils/smartParagraphAnalyzer';
 
 /**
  * 消息格式化 Hook
@@ -82,7 +83,8 @@ const useMessageFormatter = () => {
   };
 
   /**
-   * 分析內容段落，找出提及圖片的段落
+   * 🔧 智能分析內容段落，保持表格完整性
+   * 修復版本：不會打散 markdown 表格
    * 用於智能圖片插入邏輯
    * 
    * @param {string} content - 內容字符串
@@ -90,14 +92,9 @@ const useMessageFormatter = () => {
    */
   const analyzeParagraphs = (content) => {
     const processedContent = processContentFormat(content);
-    const paragraphs = processedContent.split('\n\n').filter(p => p.trim());
     
-    return paragraphs.map((paragraph, index) => ({
-      index,
-      content: paragraph,
-      mentionsImage: checkImageMention(paragraph),
-      processedContent: paragraph // 直接返回處理過的內容，供 ReactMarkdown 使用
-    }));
+    // 🎯 使用智能段落分析，保持表格完整性
+    return smartAnalyzeParagraphs(processedContent);
   };
 
   /**

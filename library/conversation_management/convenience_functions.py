@@ -290,6 +290,20 @@ def record_complete_exchange(
         if metadata and isinstance(metadata, dict):
             dify_message_id = metadata.get('dify_message_id', '')
         
+        # 🔍 DEBUG: 印出 AI 回應的原始內容（特別關注表格格式）
+        print("=" * 80)
+        print("🤖 AI 回應原始內容 (來自 Dify):")
+        print("=" * 80)
+        print(assistant_message)
+        print("=" * 80)
+        # 特別檢查是否包含表格
+        if '|' in assistant_message and '---' in assistant_message:
+            print("⚠️  檢測到表格內容，分隔線格式分析：")
+            for line in assistant_message.split('\n'):
+                if '|' in line and '-' in line and not any(c.isalnum() for c in line.replace('|', '').replace('-', '').replace(':', '').strip()):
+                    print(f"   分隔線: {repr(line)}")
+            print("=" * 80)
+        
         assistant_result = ConversationRecorder.record_assistant_message(
             conversation_session=session,
             content=assistant_message,

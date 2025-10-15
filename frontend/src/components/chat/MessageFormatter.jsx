@@ -4,6 +4,8 @@ import ContentRenderer from '../ContentRenderer';
 import MessageImages from './MessageImages';
 import useMessageFormatter from '../../hooks/useMessageFormatter';
 import { loadImagesData } from '../../utils/imageProcessor';
+import { fixAllMarkdownTables } from '../../utils/markdownTableFixer';
+import { convertImageReferencesToMarkdown } from '../../utils/imageReferenceConverter';
 import '../markdown/ReactMarkdown.css';
 
 /**
@@ -34,12 +36,48 @@ const MessageFormatter = ({
 
   // 分析內容格式
   const formatAnalysis = analyzeContentFormat(content);
+  
+  // 🎯 新增：檢測內容是否包含 Markdown 表格
+  const hasMarkdownTable = content && /\|.*\|[\r\n]+\|[\s\-:|]+\|/.test(content);
 
   /**
    * 渲染純文字消息 (主要用於用戶消息)
+   * 當 skipMetadataImages=true 時，不處理 metadata 中的圖片（讓表格內的圖片自己處理）
    */
-  const renderPlainTextMessage = () => {
-    const processedContent = prepareMarkdown(content);
+  const renderPlainTextMessage = (skipMetadataImages = false) => {
+    let processedContent = prepareMarkdown(content);
+    // 修復表格分隔線格式
+    processedContent = fixAllMarkdownTables(processedContent);
+    // 🎯 關鍵：將 [IMG:ID] 轉換為 Markdown 圖片格式 ![IMG:ID](IMG:ID)
+    // 這樣 ReactMarkdown 才會調用 CustomImage 組件
+    processedContent = convertImageReferencesToMarkdown(processedContent);
+    
+    // 如果需要顯示 metadata 中的圖片（且不是表格情況）
+    if (!skipMetadataImages && metadata && messageType === 'assistant') {
+      const imageArray = extractImages(content, metadata);
+      
+      // 只顯示不在內容中的圖片（避免重複）
+      const imagesNotInContent = imageArray.filter(filename => {
+        // 檢查圖片是否已經在內容中被引用
+        return !content.includes(filename) && !content.includes('[IMG:');
+      });
+      
+      if (imagesNotInContent.length > 0) {
+        return (
+          <div className={`markdown-content ${className}`} style={style}>
+            <ReactMarkdown {...markdownConfig}>
+              {processedContent}
+            </ReactMarkdown>
+            <div style={{ marginTop: '12px' }}>
+              <MessageImages 
+                filenames={imagesNotInContent} 
+                onImageLoad={loadImagesData}
+              />
+            </div>
+          </div>
+        );
+      }
+    }
     
     return (
       <div 
@@ -101,6 +139,7 @@ const MessageFormatter = ({
     const paragraphs = analyzeParagraphs(content);
     
     console.log('🎯 內嵌圖片檢測結果:', imageArray);
+    console.log('📊 智能段落分析結果:', paragraphs);
     
     if (imageArray.length === 0) {
       // 沒有圖片，使用普通文字渲染
@@ -109,23 +148,39 @@ const MessageFormatter = ({
 
     const result = [];
     let remainingImages = [...imageArray]; // 創建副本避免修改原數組
+    const markdownBuffer = []; // 用於累積需要一起渲染的 markdown 內容
+    
+    const flushMarkdownBuffer = (key) => {
+      if (markdownBuffer.length > 0) {
+        // 將累積的 markdown 內容一次性渲染，並修復表格格式
+        let combinedMarkdown = markdownBuffer.join('\n\n');
+        combinedMarkdown = fixAllMarkdownTables(combinedMarkdown);
+        
+        result.push(
+          <div 
+            key={key}
+            className="markdown-content"
+          >
+            <ReactMarkdown {...markdownConfig}>
+              {combinedMarkdown}
+            </ReactMarkdown>
+          </div>
+        );
+        // 清空 buffer
+        markdownBuffer.length = 0;
+      }
+    };
     
     paragraphs.forEach((paragraph, index) => {
-      // 渲染當前段落
-      result.push(
-        <div 
-          key={`paragraph-${index}`}
-          className="markdown-content"
-        >
-          <ReactMarkdown {...markdownConfig}>
-            {paragraph.processedContent}
-          </ReactMarkdown>
-        </div>
-      );
+      // 🎯 關鍵修復：將 markdown 內容累積，而不是立即渲染
+      markdownBuffer.push(paragraph.processedContent);
       
       // 🔍 檢查是否提及圖片且確實有可用的圖片檔名
       if (paragraph.mentionsImage && remainingImages.length > 0) {
-            // 🎯 進一步驗證圖片檔名的有效性
+        // 🎯 先將累積的 markdown 渲染出來
+        flushMarkdownBuffer(`markdown-${index}`);
+        
+        // 🎯 進一步驗證圖片檔名的有效性
         const validImages = remainingImages.filter(filename => {
           const isValid = filename && 
             filename.length >= 10 && 
@@ -178,6 +233,9 @@ const MessageFormatter = ({
       }
     });
     
+    // 🎯 渲染剩餘的 markdown 內容
+    flushMarkdownBuffer('markdown-final');
+    
     // 如果還有剩餘圖片沒有顯示，在最後顯示
     if (remainingImages.length > 0) {
       console.log('📸 在最後顯示剩餘圖片:', remainingImages);
@@ -210,15 +268,23 @@ const MessageFormatter = ({
   };
 
   // 根據內容格式和消息類型選擇適當的渲染策略
-  if (formatAnalysis.hasImgIdReferences) {
-    // 包含 IMG:ID 格式，使用混合內容渲染
+  // 🎯 關鍵修復：優先檢查表格，因為表格可能包含 [IMG:ID]
+  if (hasMarkdownTable) {
+    // 如果內容包含 Markdown 表格，使用純文字渲染
+    // 表格中的圖片由 CustomImage 組件自動處理，不切斷表格
+    // skipMetadataImages=true：不顯示 metadata 中的圖片，避免重複
+    console.log('📊 檢測到 Markdown 表格，使用純文字渲染以保持表格完整性');
+    return renderPlainTextMessage(true); // 傳入 true 跳過 metadata 圖片
+  } else if (formatAnalysis.hasImgIdReferences) {
+    // 包含 IMG:ID 格式但沒有表格，使用混合內容渲染
+    console.log('🖼️ 檢測到 IMG:ID 引用（無表格），使用混合內容渲染');
     return renderImgIdContent();
   } else if (messageType === 'assistant' && formatAnalysis.needsImageProcessing) {
     // AI 回應且需要圖片處理，使用智能圖片內嵌
     return renderAssistantMessageWithImages();
   } else {
     // 普通文字消息，使用基礎 Markdown 渲染
-    return renderPlainTextMessage();
+    return renderPlainTextMessage(false); // 傳入 false 處理 metadata 圖片
   }
 };
 

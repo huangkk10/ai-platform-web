@@ -118,35 +118,157 @@ export const CustomTd = ({ children, ...props }) => {
 };
 
 /**
- * 自定義圖片組件 - 在表格中顯示佔位符，避免載入錯誤
- * 圖片會由 MessageFormatter 統一處理
+ * 解析圖片引用並獲取實際圖片 URL
+ * 支援多種格式：
+ * 1. [IMG:ID] - 原始格式
+ * 2. http://10.10.173.12/api/content-images/ID/ - 完整 API URL
+ * 3. /api/content-images/ID/ - 相對路徑 API URL
+ */
+const parseImageReference = (text) => {
+  if (!text) return null;
+  
+  // 格式 1: 匹配 [IMG:數字] 格式
+  const imgMatch = text.match(/\[IMG:(\d+)\]/i);
+  if (imgMatch) {
+    const imageId = imgMatch[1];
+    return {
+      type: 'content-image',
+      id: imageId,
+      url: `/api/content-images/${imageId}/`
+    };
+  }
+  
+  // 格式 2 & 3: 匹配 API URL 格式
+  const urlMatch = text.match(/\/api\/content-images\/(\d+)\/?/);
+  if (urlMatch) {
+    const imageId = urlMatch[1];
+    return {
+      type: 'content-image',
+      id: imageId,
+      url: `/api/content-images/${imageId}/`
+    };
+  }
+  
+  return null;
+};
+
+/**
+ * 自定義圖片組件 - 支援在表格中顯示實際圖片
  */
 export const CustomImage = ({ src, alt, title, ...props }) => {
-  // 檢查是否是圖片引用格式或在表格內
-  if (src && (src.includes('[IMG:') || alt?.includes('[IMG:') || alt?.includes('圖片'))) {
+  const [imageData, setImageData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+  
+  // 🔍 調試：輸出接收到的屬性
+  console.log('CustomImage 接收:', { src, alt, title });
+  
+  // 解析圖片引用
+  const imageRef = parseImageReference(src || alt || title);
+  console.log('解析結果:', imageRef);
+  
+  useEffect(() => {
+    if (imageRef) {
+      console.log('🔵 開始載入圖片:', imageRef.url);
+      setLoading(true);
+      setError(false);
+      
+      // 載入圖片
+      fetch(imageRef.url, {
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json'
+        }
+      })
+        .then(response => {
+          console.log('🟢 API 回應狀態:', response.status, response.ok);
+          if (!response.ok) throw new Error('圖片載入失敗');
+          return response.json();
+        })
+        .then(data => {
+          console.log('✅ 圖片資料載入成功:', data.id, data.title);
+          setImageData(data);
+          setLoading(false);
+        })
+        .catch(err => {
+          console.error('❌ 載入圖片失敗:', err);
+          setError(true);
+          setLoading(false);
+        });
+    }
+  }, [imageRef?.url]);
+  
+  // 如果是 [IMG:ID] 格式
+  if (imageRef) {
+    console.log('🎨 渲染狀態:', { loading, error, hasData: !!imageData });
+    
+    if (loading) {
+      console.log('⏳ 顯示載入中...');
+      return (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px' }}>
+          <Spin size="small" />
+          <span style={{ fontSize: '11px', color: '#999' }}>載入中...</span>
+        </span>
+      );
+    }
+    
+    if (error || !imageData) {
+      console.log('⚠️ 顯示錯誤狀態');
+      return (
+        <span 
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            padding: '2px 6px',
+            backgroundColor: '#fff1f0',
+            border: '1px solid #ffccc7',
+            borderRadius: '4px',
+            fontSize: '11px',
+            color: '#cf1322'
+          }}
+        >
+          <ExclamationCircleOutlined style={{ fontSize: '10px' }} />
+          <span>[圖片載入失敗: {imageRef.id}]</span>
+        </span>
+      );
+    }
+    
+    // 顯示實際圖片（小尺寸適合表格）
+    const imageSrc = imageData.base64_data 
+      ? `data:image/png;base64,${imageData.base64_data}` 
+      : imageData.data_url || imageData.image_url;
+    
+    console.log('🖼️ 顯示圖片:', { 
+      id: imageData.id, 
+      title: imageData.title,
+      hasBase64: !!imageData.base64_data,
+      hasDataUrl: !!imageData.data_url,
+      srcLength: imageSrc?.length 
+    });
+    
     return (
-      <span 
-        className="image-placeholder"
+      <Image
+        src={imageSrc}
+        alt={imageData.title || alt || '圖片'}
         style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '4px',
-          padding: '2px 6px',
-          backgroundColor: '#f0f8ff',
-          border: '1px solid #d6e4ff',
+          maxWidth: '80px',
+          maxHeight: '60px',
+          objectFit: 'contain',
+          cursor: 'pointer',
+          border: '1px solid #d9d9d9',
           borderRadius: '4px',
-          fontSize: '11px',
-          color: '#1890ff',
-          margin: '0 4px'
+          padding: '2px',
+          backgroundColor: '#fafafa'
         }}
-      >
-        <PictureOutlined style={{ fontSize: '10px' }} />
-        <span>[圖片: {alt || src || '圖片'}]</span>
-      </span>
+        preview={{
+          mask: <div style={{ fontSize: '10px' }}>點擊放大</div>
+        }}
+      />
     );
   }
-
-  // 對於其他圖片，也先顯示佔位符，避免 404 錯誤
+  
+  // 對於其他圖片，顯示佔位符
   return (
     <span 
       className="image-placeholder"
