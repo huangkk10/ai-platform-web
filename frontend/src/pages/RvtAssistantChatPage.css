@@ -186,23 +186,6 @@
   box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
 }
 
-/* RVT Assistant 特定樣式 */
-.rvt-avatar {
-  background: linear-gradient(135deg, #52c41a 0%, #389e0d 100%) !important;
-}
-
-.rvt-loading-indicator {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #666;
-}
-
-.rvt-loading-text {
-  font-size: 13px;
-  color: #666;
-}
-
 /* 表格樣式優化 */
 .message-text .ant-table {
   font-size: 12px;
@@ -495,43 +478,6 @@
   margin: 16px 0 !important;
   border: none !important;
   border-top: 1px solid #e8e8e8 !important;
-}
-
-/* 發送和停止按鈕樣式 */
-.send-button {
-  background-color: #1890ff !important;
-  border-color: #1890ff !important;
-  color: #fff !important;
-}
-
-.send-button:hover {
-  background-color: #40a9ff !important;
-  border-color: #40a9ff !important;
-}
-
-.stop-button {
-  background-color: #ff4d4f !important;
-  border-color: #ff4d4f !important;
-  color: #fff !important;
-}
-
-.stop-button:hover {
-  background-color: #ff7875 !important;
-  border-color: #ff7875 !important;
-}
-
-.stop-button .anticon {
-  color: #fff !important;
-}
-
-.send-button .anticon {
-  color: #fff !important;
-}
-
-/* 確保按鈕不顯示 loading 動畫 */
-.stop-button .ant-btn-loading-icon,
-.send-button .ant-btn-loading-icon {
-  display: none !important;
 }
 
 /* 響應式設計 */
