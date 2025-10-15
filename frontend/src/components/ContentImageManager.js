@@ -382,22 +382,6 @@ const ContentImageManager = ({
                 上傳圖片
               </Button>
             </Upload>
-            
-            <Upload
-              accept="image/*"
-              multiple
-              beforeUpload={() => false}
-              onChange={(info) => {
-                if (info.fileList.length > 0) {
-                  handleBatchUpload(info.fileList.map(file => file.originFileObj));
-                }
-              }}
-              showUploadList={false}
-            >
-              <Button loading={uploadLoading}>
-                批量上傳
-              </Button>
-            </Upload>
           </Space>
           
           <div className="batch-info">
