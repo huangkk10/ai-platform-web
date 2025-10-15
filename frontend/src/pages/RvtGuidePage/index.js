@@ -16,7 +16,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import useRvtGuideList from '../../hooks/useRvtGuideList';
 import { createRvtGuideColumns, showDeleteConfirm } from './columns';
-import RvtGuideDetailModal from '../../components/RvtGuideDetailModal';
+import GuideDetailModal from '../../components/GuideDetailModal';
 
 const { Title } = Typography;
 
@@ -150,7 +150,7 @@ const RvtGuidePage = () => {
       </Card>
 
       {/* 詳細內容 Modal */}
-      <RvtGuideDetailModal
+      <GuideDetailModal
         visible={detailModalState.visible}
         guide={detailModalState.guide}
         onClose={handleCloseModal}

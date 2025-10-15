@@ -6,15 +6,16 @@ import ContentSection from './ContentSection';
 import CategorySection from './CategorySection';
 
 /**
- * RVT Guide 詳細內容 Modal 組件
+ * 知識庫 Guide 詳細內容 Modal 組件（通用）
  * 整合所有 Section 子組件，顯示文檔的完整信息
+ * 可用於 RVT Assistant、Protocol Assistant 等各種知識庫
  * 
  * @param {boolean} visible - Modal 是否可見
  * @param {Object} guide - 文檔詳細資料
  * @param {Function} onClose - 關閉 Modal 的回調函數
  * @param {Function} onEdit - 編輯按鈕的回調函數
  */
-const RvtGuideDetailModal = ({ 
+const GuideDetailModal = ({ 
   visible, 
   guide, 
   onClose, 
@@ -74,4 +75,4 @@ const RvtGuideDetailModal = ({
   );
 };
 
-export default RvtGuideDetailModal;
+export default GuideDetailModal;
