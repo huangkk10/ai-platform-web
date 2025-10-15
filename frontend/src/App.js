@@ -3,7 +3,7 @@ import './App.css';
 import axios from 'axios';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Layout, Button } from 'antd';
-import { DeleteOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+import { DeleteOutlined, ArrowLeftOutlined, SaveOutlined } from '@ant-design/icons';
 import Sidebar from './components/Sidebar';
 import TopHeader from './components/TopHeader';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -83,6 +83,14 @@ function AppLayout() {
         if (pathname.startsWith('/knowledge/rvt-guide/edit/')) {
           return 'RVT Assistant - 編輯 User Guide';
         }
+        // Markdown 編輯器頁面標題（整頁模式）
+        if (pathname.startsWith('/knowledge/rvt-guide/markdown-edit/')) {
+          const id = pathname.split('/').pop();
+          return { text: '編輯 RVT Guide (Markdown 編輯器)', id: id };
+        }
+        if (pathname === '/knowledge/rvt-guide/markdown-create') {
+          return { text: '新建 RVT Guide (Markdown 編輯器)', id: null };
+        }
         return '';
     }
   };
@@ -115,9 +123,34 @@ function AppLayout() {
       );
     }
     
-    // Markdown 編輯器頁面的返回按鈕 (整頁模式，不需要額外的返回按鈕)
+    // Markdown 編輯器頁面的按鈕（整頁模式）
     if (pathname.startsWith('/knowledge/rvt-guide/markdown-')) {
-      return null; // 整頁模式自帶返回按鈕
+      // 這些按鈕會在 TopHeader 中顯示
+      // 更新按鈕通過全局事件觸發，MarkdownEditorPage 會監聽該事件
+      const isEditMode = pathname.includes('/markdown-edit/');
+      
+      return (
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <Button 
+            icon={<ArrowLeftOutlined />} 
+            onClick={() => navigate('/knowledge/rvt-log')}
+            size="large"
+          >
+            返回列表
+          </Button>
+          <Button
+            type="primary"
+            size="large"
+            icon={<SaveOutlined />}
+            onClick={() => {
+              // 觸發自定義事件，通知 MarkdownEditorPage 執行保存
+              window.dispatchEvent(new CustomEvent('markdown-editor-save'));
+            }}
+          >
+            {isEditMode ? '更新' : '儲存'}
+          </Button>
+        </div>
+      );
     }
     
     return null;

@@ -145,13 +145,24 @@ const TopHeader = ({ collapsed, onToggleSidebar, pageTitle, extraActions }) => {
             }}
           />
           {pageTitle && (
-            <Text strong style={{ 
-              fontSize: '18px', 
-              color: '#1890ff',
-              lineHeight: '64px'
-            }}>
-              {pageTitle}
-            </Text>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Text strong style={{ 
+                fontSize: '18px', 
+                color: '#1890ff',
+                lineHeight: '64px'
+              }}>
+                {typeof pageTitle === 'object' ? pageTitle.text : pageTitle}
+              </Text>
+              {typeof pageTitle === 'object' && pageTitle.id && (
+                <Text style={{ 
+                  fontSize: '14px', 
+                  color: '#666',
+                  lineHeight: '64px'
+                }}>
+                  ID: {pageTitle.id}
+                </Text>
+              )}
+            </div>
           )}
           
           {/* 額外的操作按鈕 */}

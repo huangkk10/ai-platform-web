@@ -52,7 +52,8 @@ const useRvtGuideData = (id, navigate) => {
         setImages(imagesResponse.data);
       }
       
-      message.success('資料載入成功');
+      // 資料載入成功不需要顯示提示（這是正常行為）
+      console.log('✅ 資料載入完成');
       return guideResponse.data;
     } catch (error) {
       console.error('❌ 載入資料失敗:', error);
@@ -77,7 +78,7 @@ const useRvtGuideData = (id, navigate) => {
    * @param {string} options.redirectPath - 自定義重定向路徑
    */
   const saveGuideData = useCallback(async (dataToSave, options = {}) => {
-    const { navigateAfterSave = true, redirectPath = '/knowledge/rvt-guide' } = options;
+    const { navigateAfterSave = true, redirectPath = '/knowledge/rvt-log' } = options;
 
     // 驗證必填欄位
     if (!dataToSave.title?.trim()) {

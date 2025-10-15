@@ -243,9 +243,36 @@ const MarkdownEditorForm = ({
     <>
       <Modal
         title={
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span>編輯 RVT Guide (Markdown 編輯器)</span>
-            {record && <span style={{ color: '#666', fontSize: '14px' }}>ID: {record.id}</span>}
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            width: '100%',
+            paddingRight: '8px'
+          }}>
+            {/* 左側：標題 + ID */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>編輯 RVT Guide (Markdown 編輯器)</span>
+              {record && <span style={{ color: '#666', fontSize: '14px' }}>ID: {record.id}</span>}
+            </div>
+            
+            {/* 右側：取消和儲存/更新按鈕 */}
+            <div style={{ display: 'flex', gap: '8px' }} onClick={(e) => e.stopPropagation()}>
+              <Button 
+                onClick={handleClose}
+                icon={<CloseOutlined />}
+              >
+                取消
+              </Button>
+              <Button 
+                type="primary" 
+                loading={saving}
+                onClick={handleSave}
+                icon={<SaveOutlined />}
+              >
+                {record ? '更新' : '儲存'}
+              </Button>
+            </div>
           </div>
         }
         open={visible}
@@ -259,13 +286,6 @@ const MarkdownEditorForm = ({
           flexDirection: 'column'
         }}
       footer={[
-        <Button 
-          key="cancel" 
-          onClick={handleClose}
-          icon={<CloseOutlined />}
-        >
-          取消
-        </Button>,
         <Tooltip key="images" title="圖片管理">
           <Button 
             icon={<PictureOutlined />}
@@ -278,16 +298,7 @@ const MarkdownEditorForm = ({
           >
             圖片管理
           </Button>
-        </Tooltip>,
-        <Button 
-          key="save" 
-          type="primary" 
-          loading={saving}
-          onClick={handleSave}
-          icon={<SaveOutlined />}
-        >
-          {record ? '更新' : '儲存'}
-        </Button>,
+        </Tooltip>
       ]}
     >
       {loading ? (

@@ -153,7 +153,10 @@ const MarkdownEditorPage = () => {
 
   // 處理儲存 - 使用 Hook 的方法
   const handleSave = async () => {
-    await saveGuideData(formData);
+    await saveGuideData(formData, {
+      navigateAfterSave: true,
+      redirectPath: '/knowledge/rvt-log'
+    });
   };
 
   // 處理返回
@@ -161,60 +164,28 @@ const MarkdownEditorPage = () => {
     navigate('/knowledge/rvt-log');
   };
 
+  // 監聽來自 TopHeader 的保存事件
+  useEffect(() => {
+    const handleSaveEvent = () => {
+      handleSave();
+    };
+    
+    window.addEventListener('markdown-editor-save', handleSaveEvent);
+    
+    return () => {
+      window.removeEventListener('markdown-editor-save', handleSaveEvent);
+    };
+  }, [handleSave]);
+
   return (
     <div style={{ 
-      height: '100vh', 
+      height: 'calc(100vh - 64px)', 
       display: 'flex', 
       flexDirection: 'column',
       background: '#f5f5f5'
     }}>
       {/* 注入自定義樣式 */}
       <style>{customToolbarStyles}</style>
-      {/* 頂部操作欄 */}
-      <Card 
-        size="small" 
-        style={{ 
-          margin: 0, 
-          borderRadius: 0,
-          borderBottom: '1px solid #e8e8e8',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
-        }}
-      >
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center' 
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <Button
-              icon={<ArrowLeftOutlined />}
-              onClick={handleBack}
-              size="large"
-            >
-              返回列表
-            </Button>
-            <h2 style={{ margin: 0, color: '#1890ff' }}>
-              {isEditMode ? '編輯 RVT Guide' : '新建 RVT Guide'} (Markdown 編輯器)
-            </h2>
-            {isEditMode && (
-              <span style={{ color: '#666', fontSize: '14px' }}>
-                ID: {id}
-              </span>
-            )}
-          </div>
-
-          <Button
-            type="primary"
-            size="large"
-            icon={<SaveOutlined />}
-            loading={saving}
-            onClick={handleSave}
-            style={{ minWidth: '100px' }}
-          >
-            {isEditMode ? '更新' : '儲存'}
-          </Button>
-        </div>
-      </Card>
 
       {/* 主要編輯區域 */}
       {loading ? (
