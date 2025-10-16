@@ -70,6 +70,12 @@ KNOWLEDGE_ID_MAPPING = {
     'rvt-guide': 'rvt_guide',
     'rvt_user_guide': 'rvt_guide',
     
+    # Protocol Guide 相關
+    'protocol_guide_db': 'protocol_guide',
+    'protocol_guide': 'protocol_guide',
+    'protocol-guide': 'protocol_guide',
+    'protocol_assistant': 'protocol_guide',
+    
     # OCR Storage Benchmark 相關
     'ocr_storage_benchmark': 'ocr_benchmark',
     'ocr_benchmark': 'ocr_benchmark',
@@ -131,6 +137,7 @@ class DifyKnowledgeSearchHandler:
             
             self.search_know_issue_knowledge = getattr(views_module, 'search_know_issue_knowledge', self._fallback_search)
             self.search_rvt_guide_knowledge = getattr(views_module, 'search_rvt_guide_knowledge', self._fallback_search)
+            self.search_protocol_guide_knowledge = getattr(views_module, 'search_protocol_guide_knowledge', self._fallback_search)
             self.search_ocr_storage_benchmark = getattr(views_module, 'search_ocr_storage_benchmark', self._fallback_search)
             self.search_postgres_knowledge = getattr(views_module, 'search_postgres_knowledge', self._fallback_search)
             
@@ -153,6 +160,7 @@ class DifyKnowledgeSearchHandler:
         """設置備用搜索函數"""
         self.search_know_issue_knowledge = self._fallback_search
         self.search_rvt_guide_knowledge = self._fallback_search
+        self.search_protocol_guide_knowledge = self._fallback_search
         self.search_ocr_storage_benchmark = self._fallback_search
         self.search_postgres_knowledge = self._fallback_search
         self.logger.warning("使用備用搜索函數")
@@ -210,6 +218,12 @@ class DifyKnowledgeSearchHandler:
                     results = self.search_rvt_guide_knowledge(query, limit=limit)
                     self.logger.info(f"RVT Guide 關鍵字搜索結果: {len(results)} 條")
                     return results
+                    
+            elif knowledge_type == 'protocol_guide':
+                # Protocol Guide 搜索（暫時使用關鍵字搜索，之後可添加向量搜索）
+                results = self.search_protocol_guide_knowledge(query, limit=limit)
+                self.logger.info(f"Protocol Guide 搜索結果: {len(results)} 條")
+                return results
                     
             elif knowledge_type == 'ocr_benchmark':
                 results = self.search_ocr_storage_benchmark(query, limit=limit)

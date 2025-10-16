@@ -12,6 +12,7 @@ router.register(r'test-classes', views.TestClassViewSet)
 router.register(r'ocr-test-classes', views.OCRTestClassViewSet)
 router.register(r'ocr-storage-benchmarks', views.OCRStorageBenchmarkViewSet)
 router.register(r'rvt-guides', views.RVTGuideViewSet)
+router.register(r'protocol-guides', views.ProtocolGuideViewSet)
 router.register(r'content-images', views.ContentImageViewSet)
 
 urlpatterns = [
@@ -64,6 +65,12 @@ urlpatterns = [
     # RVT Guide Chat API
     path('rvt-guide/chat/', views.rvt_guide_chat, name='rvt_guide_chat'),
     path('rvt-guide/config/', views.rvt_guide_config, name='rvt_guide_config'),
+    
+    # Protocol Guide API
+    path('dify/protocol-guide/knowledge/retrieval', views.dify_protocol_guide_search, name='dify_protocol_guide_knowledge_no_slash'),
+    path('dify/protocol-guide/knowledge/retrieval/', views.dify_protocol_guide_search, name='dify_protocol_guide_knowledge'),
+    path('protocol-guide/chat/', views.protocol_guide_chat, name='protocol_guide_chat'),
+    path('protocol-guide/config/', views.protocol_guide_config, name='protocol_guide_config'),
     
     # Chat Usage Statistics API
     path('chat/statistics/', views.chat_usage_statistics, name='chat_usage_statistics'),

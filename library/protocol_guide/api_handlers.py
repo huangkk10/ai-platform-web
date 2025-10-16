@@ -8,8 +8,7 @@ Protocol Guide API 處理器
 """
 
 from library.common.knowledge_base import BaseKnowledgeBaseAPIHandler
-# 注意：這裡假設已經創建了 ProtocolGuide Model
-# 實際使用時需要先創建 Model: backend/api/models.py
+from api.models import ProtocolGuide
 
 
 class ProtocolGuideAPIHandler(BaseKnowledgeBaseAPIHandler):
@@ -26,7 +25,7 @@ class ProtocolGuideAPIHandler(BaseKnowledgeBaseAPIHandler):
     knowledge_id = 'protocol_guide_db'      # Dify 知識庫 ID
     config_key = 'protocol_guide'           # 配置鍵名
     source_table = 'protocol_guide'         # 資料表名
-    model_class = None  # ProtocolGuide   # Model 類別（需要先創建）
+    model_class = ProtocolGuide             # Model 類別
     
     @classmethod
     def get_search_service(cls):

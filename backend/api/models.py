@@ -665,6 +665,73 @@ class RVTGuide(models.Model):
         self.save(update_fields=['content', 'updated_at'])
 
 
+class ProtocolGuide(models.Model):
+    """Protocol 測試指南知識庫模型 - 簡化版（與 RVTGuide 結構一致）"""
+    
+    # 基本識別欄位
+    title = models.CharField(max_length=300, verbose_name="文檔標題", help_text="文檔的顯示標題")
+    
+    # 內容欄位
+    content = models.TextField(verbose_name="文檔內容", help_text="文檔的主要內容")
+    
+    # 時間戳記
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="建立時間")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新時間")
+    
+    class Meta:
+        ordering = ['title']
+        verbose_name = "Protocol 測試指南"
+        verbose_name_plural = "Protocol 測試指南"
+        db_table = 'protocol_guide'
+    
+    def __str__(self):
+        return self.title
+    
+    def get_search_content(self):
+        """獲取用於搜索的完整內容"""
+        search_text = f"{self.title} {self.content}"
+        return search_text
+    
+    def get_active_images(self):
+        """獲取所有啟用的圖片（使用通用內容類型）"""
+        from django.contrib.contenttypes.models import ContentType
+        content_type = ContentType.objects.get_for_model(self)
+        return ContentImage.objects.filter(
+            content_type=content_type,
+            object_id=self.id,
+            is_active=True
+        ).order_by('display_order')
+    
+    def get_primary_image(self):
+        """獲取主要圖片"""
+        return self.get_active_images().filter(is_primary=True).first()
+    
+    def get_image_count(self):
+        """獲取圖片數量"""
+        return self.get_active_images().count()
+    
+    def has_images(self):
+        """是否有圖片"""
+        return self.get_image_count() > 0
+    
+    def get_images_summary(self):
+        """獲取圖片摘要資訊（用於向量化）"""
+        images = self.get_active_images()
+        if not images.exists():
+            return ""
+        
+        summaries = []
+        for img in images:
+            parts = [f"圖片{img.display_order}"]
+            if img.title:
+                parts.append(f"標題:{img.title}")
+            if img.description:
+                parts.append(f"說明:{img.description}")
+            summaries.append(" ".join(parts))
+        
+        return f"包含{len(summaries)}張圖片: " + "; ".join(summaries)
+
+
 class ContentImage(models.Model):
     """通用內容圖片模型 - 可用於不同類型的內容"""
     

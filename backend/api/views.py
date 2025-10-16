@@ -15,10 +15,10 @@ import logging
 import sys
 import os
 import time
-from .models import UserProfile, Project, Task, KnowIssue, TestClass, OCRTestClass, OCRStorageBenchmark, RVTGuide, ContentImage
+from .models import UserProfile, Project, Task, KnowIssue, TestClass, OCRTestClass, OCRStorageBenchmark, RVTGuide, ProtocolGuide, ContentImage
 # RVT Guide 序列化器已模組化至 library/rvt_guide/serializers/
 # 但通過 api/serializers.py 保持向後兼容，因此此處導入方式無需修改
-from .serializers import UserSerializer, UserProfileSerializer, UserPermissionSerializer, ProjectSerializer, TaskSerializer, KnowIssueSerializer, TestClassSerializer, OCRTestClassSerializer, OCRStorageBenchmarkSerializer, OCRStorageBenchmarkListSerializer, RVTGuideSerializer, RVTGuideListSerializer, ContentImageSerializer, RVTGuideWithImagesSerializer
+from .serializers import UserSerializer, UserProfileSerializer, UserPermissionSerializer, ProjectSerializer, TaskSerializer, KnowIssueSerializer, TestClassSerializer, OCRTestClassSerializer, OCRStorageBenchmarkSerializer, OCRStorageBenchmarkListSerializer, RVTGuideSerializer, RVTGuideListSerializer, ProtocolGuideSerializer, ProtocolGuideListSerializer, ContentImageSerializer, RVTGuideWithImagesSerializer
 from rest_framework.exceptions import ValidationError
 
 # 導入向量搜索服務
@@ -909,6 +909,23 @@ def search_rvt_guide_knowledge(query_text, limit=5):
     except Exception as e:
         logger = logging.getLogger(__name__)
         logger.error(f"RVT Guide 搜索失敗: {str(e)}")
+        return []
+
+
+def search_protocol_guide_knowledge(query_text, limit=5):
+    """
+    在 PostgreSQL 中搜索 Protocol Guide 知識庫
+    
+    使用 library/protocol_guide/search_service.py 統一實現
+    """
+    try:
+        # 使用 Protocol Guide Library
+        from library.protocol_guide.search_service import ProtocolGuideSearchService
+        service = ProtocolGuideSearchService()
+        return service.search_knowledge(query_text, limit=limit)
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error(f"Protocol Guide 搜索失敗: {str(e)}")
         return []
 
 
@@ -2042,6 +2059,176 @@ class RVTGuideViewSet(viewsets.ModelViewSet):
             elif self.action == 'list':
                 return RVTGuideListSerializer
             return RVTGuideSerializer
+
+
+# ============= Protocol Guide 相關 API =============
+
+# 檢查 Protocol Guide Library 是否可用
+PROTOCOL_GUIDE_LIBRARY_AVAILABLE = False
+ProtocolGuideViewSetManager = None
+ProtocolGuideAPIHandler = None
+
+try:
+    from library.protocol_guide import (
+        ProtocolGuideViewSetManager,
+        ProtocolGuideAPIHandler
+    )
+    PROTOCOL_GUIDE_LIBRARY_AVAILABLE = True
+    logger.info("✅ Protocol Guide Library 載入成功")
+except ImportError as e:
+    logger.warning(f"⚠️  Protocol Guide Library 無法載入: {str(e)}")
+    logger.warning("將使用備用實現（功能受限）")
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class ProtocolGuideViewSet(viewsets.ModelViewSet):
+    """Protocol Guide ViewSet - 使用 library 統一管理"""
+    queryset = ProtocolGuide.objects.all()
+    serializer_class = ProtocolGuideSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.viewset_manager = None
+        if PROTOCOL_GUIDE_LIBRARY_AVAILABLE and ProtocolGuideViewSetManager:
+            self.viewset_manager = ProtocolGuideViewSetManager()
+    
+    def get_serializer_class(self):
+        """根據操作類型選擇合適的序列化器"""
+        if self.viewset_manager:
+            return self.viewset_manager.get_serializer_class(self.action)
+        else:
+            if self.action == 'list':
+                return ProtocolGuideListSerializer
+            return ProtocolGuideSerializer
+    
+    def perform_create(self, serializer):
+        """建立新的 Protocol Guide"""
+        if self.viewset_manager:
+            return self.viewset_manager.perform_create(serializer)
+        else:
+            return serializer.save()
+    
+    def perform_update(self, serializer):
+        """更新現有的 Protocol Guide"""
+        if self.viewset_manager:
+            return self.viewset_manager.perform_update(serializer)
+        else:
+            return serializer.save()
+    
+    def perform_destroy(self, instance):
+        """刪除 Protocol Guide 時同時刪除對應的向量資料"""
+        if self.viewset_manager:
+            return self.viewset_manager.perform_destroy(instance)
+        else:
+            logger.warning("ViewSet Manager 不可用，使用簡化刪除邏輯")
+            instance.delete()
+    
+    def get_queryset(self):
+        """支援搜尋和篩選"""
+        base_queryset = ProtocolGuide.objects.all()
+        
+        if self.viewset_manager:
+            return self.viewset_manager.get_queryset(base_queryset, self.request.query_params)
+        else:
+            # 備用實現 - 簡化的篩選
+            search = self.request.query_params.get('search', None)
+            protocol_name = self.request.query_params.get('protocol_name', None)
+            
+            if search:
+                base_queryset = base_queryset.filter(
+                    models.Q(title__icontains=search) |
+                    models.Q(content__icontains=search) |
+                    models.Q(protocol_name__icontains=search)
+                )
+            
+            if protocol_name:
+                base_queryset = base_queryset.filter(protocol_name__icontains=protocol_name)
+            
+            return base_queryset.order_by('-created_at')
+    
+    @action(detail=False, methods=['get'])
+    def statistics(self, request):
+        """獲取統計資料"""
+        queryset = self.get_queryset()
+        
+        if self.viewset_manager:
+            return self.viewset_manager.get_statistics_data(queryset)
+        else:
+            try:
+                total_guides = queryset.count()
+                protocol_stats = queryset.values('protocol_name').annotate(
+                    count=Count('id')
+                ).order_by('-count')
+                
+                return Response({
+                    'total_guides': total_guides,
+                    'protocol_distribution': list(protocol_stats),
+                    'message': '完整統計功能需要 Protocol Guide library 支持'
+                }, status=status.HTTP_200_OK)
+            except Exception as e:
+                logger.error(f"統計資料獲取失敗: {str(e)}")
+                return Response({
+                    'error': f'統計資料獲取失敗: {str(e)}'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def dify_protocol_guide_search(request):
+    """Dify Protocol 知識庫搜索 API"""
+    if PROTOCOL_GUIDE_LIBRARY_AVAILABLE and ProtocolGuideAPIHandler:
+        return ProtocolGuideAPIHandler.handle_dify_search_api(request)
+    else:
+        # 備用實現
+        logger.warning("Protocol Guide Library 不可用，使用備用搜索")
+        try:
+            query = request.data.get('query', '')
+            records = list(ProtocolGuide.objects.filter(
+                models.Q(title__icontains=query) |
+                models.Q(content__icontains=query) |
+                models.Q(protocol_name__icontains=query)
+            )[:5].values('id', 'title', 'protocol_name', 'content'))
+            
+            return Response({
+                'records': [{
+                    'content': f"{r['protocol_name']} - {r['title']}\n\n{r['content'][:500]}",
+                    'score': 0.5,
+                    'title': r['title'],
+                    'metadata': {'protocol_name': r['protocol_name']}
+                } for r in records]
+            })
+        except Exception as e:
+            logger.error(f"Protocol Guide 搜索失敗: {str(e)}")
+            return Response({'error': str(e)}, status=500)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def protocol_guide_chat(request):
+    """Protocol Guide 聊天 API"""
+    if PROTOCOL_GUIDE_LIBRARY_AVAILABLE and ProtocolGuideAPIHandler:
+        return ProtocolGuideAPIHandler.handle_chat_api(request)
+    else:
+        return Response({
+            'error': 'Protocol Guide Library 未安裝，聊天功能不可用'
+        }, status=503)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def protocol_guide_config(request):
+    """Protocol Guide 配置 API"""
+    if PROTOCOL_GUIDE_LIBRARY_AVAILABLE and ProtocolGuideAPIHandler:
+        return ProtocolGuideAPIHandler.handle_config_api(request)
+    else:
+        return Response({
+            'name': 'Protocol Guide System',
+            'description': 'Protocol 測試指南系統',
+            'version': '1.0.0',
+            'features': ['search', 'basic_crud'],
+            'library_available': False
+        })
 
 
 # ============= 系統狀態監控 API =============

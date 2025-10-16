@@ -8,6 +8,7 @@ Protocol Guide 向量服務
 """
 
 from library.common.knowledge_base import BaseKnowledgeBaseVectorService
+from api.models import ProtocolGuide
 
 
 class ProtocolGuideVectorService(BaseKnowledgeBaseVectorService):
@@ -22,7 +23,25 @@ class ProtocolGuideVectorService(BaseKnowledgeBaseVectorService):
     
     # 設定必要的類別屬性
     source_table = 'protocol_guide'
-    model_class = None  # ProtocolGuide
+    model_class = ProtocolGuide
+    
+    def _format_content_for_embedding(self, instance):
+        """
+        格式化內容用於向量化（簡化版，與 RVTGuide 一致）
+        
+        組合標題和內容，加上圖片摘要
+        """
+        content_parts = [
+            f"Title: {instance.title}",
+            f"Content: {instance.content}",
+        ]
+        
+        # 添加圖片摘要
+        images_summary = instance.get_images_summary()
+        if images_summary:
+            content_parts.append(images_summary)
+        
+        return ' | '.join(content_parts)
     
     # 如果需要自定義向量化內容，可以覆寫：
     # def _get_content_for_vectorization(self, instance):

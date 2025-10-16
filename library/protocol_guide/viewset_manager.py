@@ -8,8 +8,8 @@ Protocol Guide ViewSet 管理器
 """
 
 from library.common.knowledge_base import BaseKnowledgeBaseViewSetManager
-# 注意：這裡假設已經創建了相關的 Serializers
-# 實際使用時需要先創建: backend/api/serializers.py
+from api.models import ProtocolGuide
+from api.serializers import ProtocolGuideSerializer, ProtocolGuideListSerializer
 
 
 class ProtocolGuideViewSetManager(BaseKnowledgeBaseViewSetManager):
@@ -27,10 +27,14 @@ class ProtocolGuideViewSetManager(BaseKnowledgeBaseViewSetManager):
     """
     
     # 設定必要的類別屬性
-    model_class = None              # ProtocolGuide
-    serializer_class = None         # ProtocolGuideSerializer
-    list_serializer_class = None    # ProtocolGuideListSerializer
+    model_class = ProtocolGuide
     source_table = 'protocol_guide'
+    
+    def __init__(self):
+        # 延遲導入避免循環導入
+        self.serializer_class = ProtocolGuideSerializer
+        self.list_serializer_class = ProtocolGuideListSerializer
+        super().__init__()
     
     def get_vector_service(self):
         """返回向量服務實例"""

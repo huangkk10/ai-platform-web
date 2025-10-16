@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import UserProfile, Project, Task, KnowIssue, TestClass, OCRTestClass, OCRStorageBenchmark, RVTGuide, ContentImage
+from .models import UserProfile, Project, Task, KnowIssue, TestClass, OCRTestClass, OCRStorageBenchmark, RVTGuide, ProtocolGuide, ContentImage
 
 # 導入通用序列化器（適用於所有知識庫）
 from library.common.serializers import ContentImageSerializer
@@ -288,3 +288,54 @@ class OCRTestClassSerializer(serializers.ModelSerializer):
 # 現有程式碼無需修改，可直接使用這些序列化器
 #
 # ============================================================================
+
+
+# ============================================================================
+# Protocol Guide 序列化器
+# ============================================================================
+
+class ProtocolGuideSerializer(serializers.ModelSerializer):
+    """Protocol Guide 完整序列化器 - 簡化版（與 RVTGuideSerializer 結構一致）"""
+    
+    class Meta:
+        model = ProtocolGuide
+        fields = [
+            'id', 'title',
+            'content',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = [
+            'id', 'created_at', 'updated_at'
+        ]
+
+
+class ProtocolGuideListSerializer(serializers.ModelSerializer):
+    """Protocol Guide 列表序列化器 - 輕量級，用於列表視圖"""
+    
+    class Meta:
+        model = ProtocolGuide
+        fields = [
+            'id', 'title',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class ProtocolGuideWithImagesSerializer(serializers.ModelSerializer):
+    """Protocol Guide 帶圖片序列化器 - 包含關聯的圖片資訊"""
+    images = ContentImageSerializer(source='get_active_images', many=True, read_only=True)
+    image_count = serializers.IntegerField(source='get_image_count', read_only=True)
+    has_images = serializers.BooleanField(source='has_images', read_only=True)
+    primary_image = ContentImageSerializer(source='get_primary_image', read_only=True)
+    
+    class Meta:
+        model = ProtocolGuide
+        fields = [
+            'id', 'title',
+            'content',
+            'created_at', 'updated_at',
+            # 圖片相關欄位
+            'images', 'image_count', 'has_images', 'primary_image'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at', 
+                           'images', 'image_count', 'has_images', 'primary_image']
