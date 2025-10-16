@@ -42,11 +42,27 @@ class RVTGuideViewSetManager(BaseKnowledgeBaseViewSetManager):
     source_table = 'rvt_guide'
     
     def __init__(self):
-        super().__init__()
-        # 延遲導入避免循環導入
+        # 延遲導入避免循環導入 - 必須在 super().__init__() 之前設定
         from api.serializers import RVTGuideSerializer, RVTGuideListSerializer
         self.serializer_class = RVTGuideSerializer
         self.list_serializer_class = RVTGuideListSerializer
+        
+        # 調用父類初始化（會驗證必要屬性）
+        super().__init__()
+    
+    def get_queryset(self, base_queryset, query_params):
+        """
+        提供 queryset 給 ViewSet 使用
+        
+        Args:
+            base_queryset: 基礎查詢集
+            query_params: 查詢參數
+            
+        Returns:
+            過濾後的查詢集
+        """
+        # 使用父類的 get_filtered_queryset 進行過濾
+        return self.get_filtered_queryset(base_queryset, query_params)
     
     def get_vector_service(self):
         """
