@@ -2,6 +2,16 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import UserProfile, Project, Task, KnowIssue, TestClass, OCRTestClass, OCRStorageBenchmark, RVTGuide, ContentImage
 
+# 導入通用序列化器（適用於所有知識庫）
+from library.common.serializers import ContentImageSerializer
+
+# 導入模組化的 RVT Guide 序列化器
+from library.rvt_guide.serializers import (
+    RVTGuideSerializer,
+    RVTGuideListSerializer,
+    RVTGuideWithImagesSerializer
+)
+
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False, style={'input_type': 'password'})
@@ -264,90 +274,17 @@ class OCRTestClassSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_by', 'created_by_name', 'created_at', 'updated_at']
 
 
-class RVTGuideSerializer(serializers.ModelSerializer):
-    """RVT Guide 完整序列化器"""
-    
-    class Meta:
-        model = RVTGuide
-        fields = [
-            'id', 'title',
-            'content',
-            'created_at', 'updated_at'
-        ]
-        read_only_fields = [
-            'id', 'created_at', 'updated_at'
-        ]
-
-
-class RVTGuideListSerializer(serializers.ModelSerializer):
-    """RVT Guide 列表序列化器 - 用於列表視圖，包含較少字段以提升性能"""
-    
-    class Meta:
-        model = RVTGuide
-        fields = [
-            'id', 'title',
-            'created_at', 'updated_at'
-        ]
-        read_only_fields = [
-            'id', 'created_at', 'updated_at'
-        ]
-
-
-class ContentImageSerializer(serializers.ModelSerializer):
-    """通用內容圖片序列化器"""
-    data_url = serializers.SerializerMethodField()
-    size_display = serializers.SerializerMethodField()
-    dimensions_display = serializers.SerializerMethodField()
-    
-    class Meta:
-        model = ContentImage
-        fields = [
-            'id', 'title', 'description', 'filename', 'content_type_mime',
-            'file_size', 'width', 'height', 'display_order', 'is_primary',
-            'is_active', 'created_at', 'updated_at', 'data_url', 
-            'size_display', 'dimensions_display'
-        ]
-        read_only_fields = [
-            'id', 'filename', 'content_type_mime', 'file_size', 'width', 
-            'height', 'created_at', 'updated_at', 'data_url',
-            'size_display', 'dimensions_display'
-        ]
-    
-    def get_data_url(self, obj):
-        return obj.get_data_url()
-    
-    def get_size_display(self, obj):
-        return obj.get_size_display()
-    
-    def get_dimensions_display(self, obj):
-        return obj.get_dimensions_display()
-
-
-class RVTGuideWithImagesSerializer(serializers.ModelSerializer):
-    """包含圖片的 RVT Guide 序列化器"""
-    images = ContentImageSerializer(many=True, read_only=True)
-    active_images = serializers.SerializerMethodField()
-    primary_image = serializers.SerializerMethodField()
-    image_count = serializers.SerializerMethodField()
-    has_images = serializers.SerializerMethodField()
-    
-    class Meta:
-        model = RVTGuide
-        fields = [
-            'id', 'title', 'content', 'created_at', 'updated_at',
-            'images', 'active_images', 'primary_image', 'image_count', 'has_images'
-        ]
-    
-    def get_active_images(self, obj):
-        images = obj.get_active_images()
-        return ContentImageSerializer(images, many=True).data
-    
-    def get_primary_image(self, obj):
-        primary = obj.get_primary_image()
-        return ContentImageSerializer(primary).data if primary else None
-    
-    def get_image_count(self, obj):
-        return obj.get_image_count()
-    
-    def get_has_images(self, obj):
-        return obj.has_images()
+# ============================================================================
+# RVT Guide 序列化器已移至模組化結構
+# ============================================================================
+# 
+# 原本在此文件中定義的序列化器已移至：
+#   - RVTGuideSerializer           → library/rvt_guide/serializers/base.py
+#   - RVTGuideListSerializer       → library/rvt_guide/serializers/list.py
+#   - ContentImageSerializer       → library/rvt_guide/serializers/with_images.py
+#   - RVTGuideWithImagesSerializer → library/rvt_guide/serializers/with_images.py
+#
+# 所有序列化器已在檔案開頭導入，保持向後兼容性
+# 現有程式碼無需修改，可直接使用這些序列化器
+#
+# ============================================================================

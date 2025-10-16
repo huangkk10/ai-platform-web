@@ -16,6 +16,8 @@ import sys
 import os
 import time
 from .models import UserProfile, Project, Task, KnowIssue, TestClass, OCRTestClass, OCRStorageBenchmark, RVTGuide, ContentImage
+# RVT Guide 序列化器已模組化至 library/rvt_guide/serializers/
+# 但通過 api/serializers.py 保持向後兼容，因此此處導入方式無需修改
 from .serializers import UserSerializer, UserProfileSerializer, UserPermissionSerializer, ProjectSerializer, TaskSerializer, KnowIssueSerializer, TestClassSerializer, OCRTestClassSerializer, OCRStorageBenchmarkSerializer, OCRStorageBenchmarkListSerializer, RVTGuideSerializer, RVTGuideListSerializer, ContentImageSerializer, RVTGuideWithImagesSerializer
 from rest_framework.exceptions import ValidationError
 
