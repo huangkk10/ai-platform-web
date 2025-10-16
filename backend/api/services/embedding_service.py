@@ -331,6 +331,9 @@ def search_rvt_guide_with_vectors(query: str, limit: int = 5, threshold: float =
     """
     使用向量搜索 RVT Guide (1024維 - 預設)
     
+    ⚠️ 向後兼容函數 - 已重構使用 vector_search_helper
+    🔗 新代碼建議直接使用 RVTGuideSearchService.search_knowledge()
+    
     Args:
         query: 查詢文本
         limit: 返回結果數量
@@ -339,22 +342,19 @@ def search_rvt_guide_with_vectors(query: str, limit: int = 5, threshold: float =
     Returns:
         搜索結果列表
     """
-    service = get_embedding_service()  # 現在預設使用 1024 維
+    from library.common.knowledge_base.vector_search_helper import search_with_vectors_generic
+    from api.models import RVTGuide
     
-    # 搜索相似向量
-    vector_results = service.search_similar_documents(
+    # 使用通用 helper（內部會自動處理 DB 查詢和格式化）
+    return search_with_vectors_generic(
         query=query,
+        model_class=RVTGuide,
         source_table='rvt_guide',
         limit=limit,
         threshold=threshold,
-        use_1024_table=True  # 使用新的 1024 維表格
+        use_1024=True,
+        content_formatter=_format_rvt_guide_content  # 使用特殊的內容格式化
     )
-    
-    if not vector_results:
-        logger.info("向量搜索無結果")
-        return []
-    
-    return _get_rvt_guide_results(vector_results, "1024維")
 
 def search_rvt_guide_with_vectors_768_legacy(query: str, limit: int = 5, threshold: float = 0.3) -> List[dict]:
     """
@@ -387,6 +387,11 @@ def search_rvt_guide_with_vectors_768_legacy(query: str, limit: int = 5, thresho
 
 def _get_rvt_guide_results(vector_results: List[dict], version_info: str) -> List[dict]:
     """
+    ⚠️ DEPRECATED - 已棄用，保留以防回滾需要
+    
+    此函數已被 vector_search_helper.format_vector_results() 取代
+    新代碼請使用 search_with_vectors_generic() 或 RVTGuideSearchService
+    
     獲取 RVT Guide 的完整結果資料
     
     Args:
@@ -459,9 +464,32 @@ def _get_rvt_guide_results(vector_results: List[dict], version_info: str) -> Lis
         return []
 
 
+def _format_rvt_guide_content(item):
+    """
+    RVT Guide 特殊的內容格式化邏輯
+    
+    包含圖片檢測和提示
+    """
+    content = f"文檔標題: {item.title}\n"
+    
+    # 檢查是否包含圖片
+    has_images = any(keyword in item.content.lower() for keyword in [
+        '🖼️', '--- 相關圖片 ---', '圖片', '截圖', 'image', 'picture'
+    ])
+    
+    if has_images:
+        content += "📸 **重要：此內容包含相關圖片說明，請在回答時提及並引導用戶查看圖片資訊**\n\n"
+    
+    content += f"內容: {item.content}\n"
+    return content
+
+
 def search_know_issue_with_vectors(query: str, top_k: int = 5, threshold: float = 0.3) -> List[dict]:
     """
-    🆕 使用向量搜索 Know Issue (1024維)
+    使用向量搜索 Know Issue (1024維)
+    
+    ⚠️ 向後兼容函數 - 已重構使用 vector_search_helper
+    🔗 新代碼建議直接使用 KnowIssueSearchService.search_knowledge()
     
     Args:
         query: 查詢文本
@@ -471,31 +499,28 @@ def search_know_issue_with_vectors(query: str, top_k: int = 5, threshold: float 
     Returns:
         搜索結果列表
     """
-    try:
-        service = get_embedding_service()  # 使用 1024 維模型
-        
-        # 搜索相似向量
-        vector_results = service.search_similar_documents(
-            query=query,
-            source_table='know_issue',
-            limit=top_k,
-            use_1024_table=True  # 使用 1024 維表格
-        )
-        
-        if not vector_results:
-            logger.info("Know Issue 向量搜索無結果")
-            return []
-        
-        return _get_know_issue_results(vector_results, "1024維")
-        
-    except Exception as e:
-        logger.error(f"Know Issue 向量搜索失敗: {str(e)}")
-        return []
+    from library.common.knowledge_base.vector_search_helper import search_with_vectors_generic
+    from api.models import KnowIssue
+    
+    # 使用通用 helper（內部會自動處理 DB 查詢和格式化）
+    return search_with_vectors_generic(
+        query=query,
+        model_class=KnowIssue,
+        source_table='know_issue',
+        limit=top_k,
+        threshold=threshold,
+        use_1024=True
+    )
 
 
 def _get_know_issue_results(vector_results: List[dict], version_info: str) -> List[dict]:
     """
-    🆕 從向量搜索結果獲取 Know Issue 詳細資料
+    ⚠️ DEPRECATED - 已棄用，保留以防回滾需要
+    
+    此函數已被 vector_search_helper.format_vector_results() 取代
+    新代碼請使用 search_with_vectors_generic() 或 KnowIssueSearchService
+    
+    從向量搜索結果獲取 Know Issue 詳細資料
     
     Args:
         vector_results: 向量搜索原始結果

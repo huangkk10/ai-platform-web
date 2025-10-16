@@ -37,12 +37,20 @@ from .base_api_handler import BaseKnowledgeBaseAPIHandler
 from .base_viewset_manager import BaseKnowledgeBaseViewSetManager
 from .base_search_service import BaseKnowledgeBaseSearchService
 from .base_vector_service import BaseKnowledgeBaseVectorService
+from .vector_search_helper import (
+    search_with_vectors_generic,
+    fetch_records_by_ids,
+    format_vector_results,
+)
 
 __all__ = [
     'BaseKnowledgeBaseAPIHandler',
     'BaseKnowledgeBaseViewSetManager',
     'BaseKnowledgeBaseSearchService',
     'BaseKnowledgeBaseVectorService',
+    'search_with_vectors_generic',
+    'fetch_records_by_ids',
+    'format_vector_results',
 ]
 
 __version__ = '1.0.0'

@@ -90,21 +90,30 @@ class BaseKnowledgeBaseSearchService(ABC):
     
     def search_with_vectors(self, query, limit=5):
         """
-        使用向量進行搜索
+        使用向量進行搜索 (通用實現 - 已重構)
         
-        子類可以覆寫此方法來使用自定義的向量搜索邏輯
+        ✨ 重構亮點：
+        - 使用通用的 vector_search_helper 模組
+        - 所有知識庫共用此實現
+        - 子類無需覆寫，除非有特殊邏輯
+        
+        子類可以通過覆寫 _get_item_content() 來自定義內容格式化
         """
         try:
-            from api.services.embedding_service import search_rvt_guide_with_vectors
+            from .vector_search_helper import search_with_vectors_generic
             
-            # 使用向量搜索
-            results = search_rvt_guide_with_vectors(
+            # 調用通用向量搜尋 helper
+            results = search_with_vectors_generic(
                 query=query,
+                model_class=self.model_class,
+                source_table=self.source_table,
                 limit=limit,
-                source_table=self.source_table
+                threshold=0.0,  # 不在這裡過濾，交給上層 (search_knowledge) 處理
+                use_1024=True,  # 預設使用 1024 維向量
+                content_formatter=self._get_item_content  # 傳入子類的內容格式化方法
             )
             
-            return self._format_search_results(results)
+            return results
             
         except Exception as e:
             self.logger.error(f"向量搜索錯誤: {str(e)}")

@@ -4,7 +4,10 @@ Protocol Guide 搜索服務
 
 使用基礎類別快速實現 Protocol Guide 的搜索功能。
 
-代碼量：僅 10 行！（對比原始方式的 200+ 行）
+✨ 重構後：代碼從 ~100 行減少至 ~30 行！
+- 移除了 search_with_vectors 覆寫（現在使用基類的通用實現）
+- 向量搜尋邏輯由 vector_search_helper 統一處理
+- Protocol Guide 和 RVT Guide 使用相同的底層方法
 """
 
 from library.common.knowledge_base import BaseKnowledgeBaseSearchService
@@ -17,8 +20,13 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
     
     繼承自 BaseKnowledgeBaseSearchService，自動獲得：
     - search_knowledge()       - 智能搜索（向量+關鍵字）
-    - search_with_vectors()    - 向量搜索
+    - search_with_vectors()    - 向量搜索 (使用通用 helper)
     - search_with_keywords()   - 關鍵字搜索
+    
+    ✅ 重構優勢：
+    - 不需要覆寫 search_with_vectors()
+    - 與 RVT Guide 使用相同的實現方式
+    - 代碼簡潔，易於維護
     """
     
     # 設定必要的類別屬性
@@ -35,61 +43,12 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
         super().__init__()
     
     def get_vector_service(self):
+        """獲取向量服務（用於自動生成向量）"""
         from .vector_service import ProtocolGuideVectorService
         return ProtocolGuideVectorService()
     
-    def search_with_vectors(self, query, limit=5):
-        """
-        使用向量進行搜索 (Protocol Guide 專用)
-        
-        覆寫基礎類別方法，使用通用的向量搜索服務
-        """
-        try:
-            from api.services.embedding_service import get_embedding_service
-            
-            # 使用 1024 維模型進行向量搜索
-            embedding_service = get_embedding_service('ultra_high')
-            results = embedding_service.search_similar_documents(
-                query=query,
-                source_table=self.source_table,
-                limit=limit,
-                threshold=0.0,  # 在這裡不過濾，交給上層處理
-                use_1024_table=True
-            )
-            
-            # 補充完整的記錄內容
-            formatted_results = []
-            for result in results:
-                try:
-                    # 查詢實際的 Protocol Guide 記錄
-                    item = self.model_class.objects.get(id=result['source_id'])
-                    formatted_results.append({
-                        'content': self._get_item_content(item),
-                        'score': float(result['similarity_score']),
-                        'title': item.title,
-                        'metadata': {
-                            'id': item.id,
-                            'created_at': item.created_at.isoformat(),
-                            'updated_at': item.updated_at.isoformat(),
-                        }
-                    })
-                except self.model_class.DoesNotExist:
-                    self.logger.warning(f"找不到 Protocol Guide ID: {result['source_id']}")
-                    continue
-            
-            return formatted_results
-            
-        except Exception as e:
-            self.logger.error(f"向量搜索錯誤: {str(e)}")
-            return []
-    
-    # 如果需要自定義搜索邏輯，可以覆寫：
+    # 可選：如果需要自定義內容格式化邏輯，可以覆寫此方法
     # def _get_item_content(self, item):
     #     """自定義內容獲取邏輯"""
-    #     # 組合多個欄位作為搜索內容
-    #     content_parts = [
-    #         f"Protocol: {item.protocol_name}",
-    #         f"Title: {item.title}",
-    #         f"Content: {item.content}",
-    #     ]
-    #     return ' '.join(content_parts)
+    #     return f"標題: {item.title}\n內容: {item.content}"
+
