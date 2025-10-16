@@ -38,7 +38,7 @@ const MarkdownEditorPage = () => {
     <Space>
       <Button
         icon={<ArrowLeftOutlined />}
-        onClick={() => navigate('/rvt-assistant')}
+        onClick={() => navigate('/knowledge/rvt-log')}
       >
         返回
       </Button>
