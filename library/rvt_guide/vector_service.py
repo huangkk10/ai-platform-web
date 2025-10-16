@@ -38,7 +38,9 @@ class RVTGuideVectorService(BaseKnowledgeBaseVectorService):
     
     def _format_content_for_embedding(self, instance):
         """
-        覆寫父類方法 - 自定義 RVT Guide 內容格式化邏輯
+        格式化內容用於向量化（統一版本）
+        
+        與 Protocol Guide 保持一致，只使用資料庫實際存在的欄位
         
         Args:
             instance: RVTGuide 實例
@@ -46,35 +48,14 @@ class RVTGuideVectorService(BaseKnowledgeBaseVectorService):
         Returns:
             str: 格式化後的內容
         """
-        content_parts = []
+        content_parts = [
+            f"標題: {instance.title}",
+            f"內容: {instance.content}",
+        ]
         
-        # 標題
-        if hasattr(instance, 'title') and instance.title:
-            content_parts.append(f"標題: {instance.title}")
+        # 添加圖片摘要
+        images_summary = instance.get_images_summary()
+        if images_summary:
+            content_parts.append(images_summary)
         
-        # 內容
-        if hasattr(instance, 'content') and instance.content:
-            content_parts.append(f"內容: {instance.content}")
-        
-        # 關鍵字
-        if hasattr(instance, 'keywords') and instance.keywords:
-            content_parts.append(f"關鍵字: {instance.keywords}")
-        
-        # 子分類
-        if hasattr(instance, 'sub_category') and instance.sub_category:
-            content_parts.append(f"分類: {instance.sub_category}")
-        
-        # 文檔名稱
-        if hasattr(instance, 'document_name') and instance.document_name:
-            content_parts.append(f"文檔: {instance.document_name}")
-        
-        # 🆕 圖片摘要資訊 - 使用新的便利方法
-        if hasattr(instance, 'get_images_summary'):
-            try:
-                images_summary = instance.get_images_summary()
-                if images_summary:
-                    content_parts.append(images_summary)
-            except Exception as e:
-                self.logger.warning(f"取得圖片摘要失敗: {str(e)}")
-        
-        return "\n".join(content_parts)
+        return ' | '.join(content_parts)
