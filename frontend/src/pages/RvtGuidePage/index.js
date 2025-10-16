@@ -7,20 +7,34 @@ import {
 import { useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../../contexts/AuthContext';
-import useRvtGuideList from '../../hooks/useRvtGuideList';
+import { knowledgeBaseConfigs } from '../../config/knowledgeBaseConfig';
+import useKnowledgeBaseList from '../../hooks/useKnowledgeBaseList';
 import { createRvtGuideColumns, showDeleteConfirm } from './columns';
 import GuideDetailModal from '../../components/GuideDetailModal';
 
 /**
  * RVT Assistant 知識庫頁面
  * 顯示 RVT Guide 列表，支持查看、編輯、刪除等操作
+ * 
+ * 🔧 使用配置驅動架構：
+ * - 配置文件: config/knowledgeBaseConfig.js
+ * - 通用 Hook: hooks/useKnowledgeBaseList.js
  */
 const RvtGuidePage = () => {
   const { user, isAuthenticated, loading: authLoading, initialized } = useAuth();
   const navigate = useNavigate();
   
-  // 使用自定義 Hook 管理數據
-  const { guides, loading, fetchGuides, getGuideDetail, deleteGuide } = useRvtGuideList(initialized, isAuthenticated);
+  // 獲取 RVT Assistant 配置
+  const config = knowledgeBaseConfigs['rvt-assistant'];
+  
+  // 使用通用 Hook 管理數據
+  const { 
+    items: guides, 
+    loading, 
+    fetchItems: fetchGuides, 
+    getItemDetail: getGuideDetail, 
+    deleteItem: deleteGuide 
+  } = useKnowledgeBaseList(config, initialized, isAuthenticated);
   
   // Modal 狀態管理
   const [detailModalState, setDetailModalState] = useState({
@@ -35,18 +49,20 @@ const RvtGuidePage = () => {
     }
   }, [initialized, isAuthenticated, fetchGuides]);
 
-  // 監聽來自 TopHeader 的重新整理事件
+  // 監聽來自 TopHeader 的重新整理事件（使用配置中的事件名稱）
   useEffect(() => {
     const handleReload = () => {
       fetchGuides();
     };
     
-    window.addEventListener('rvt-guide-reload', handleReload);
+    // 使用配置中定義的事件名稱
+    const eventName = config.events.reload;
+    window.addEventListener(eventName, handleReload);
     
     return () => {
-      window.removeEventListener('rvt-guide-reload', handleReload);
+      window.removeEventListener(eventName, handleReload);
     };
-  }, [fetchGuides]);
+  }, [config.events.reload, fetchGuides]);
 
   // 處理查看詳細內容
   const handleViewDetail = async (record) => {
@@ -61,16 +77,18 @@ const RvtGuidePage = () => {
     }
   };
 
-  // 處理刪除
+  // 處理刪除（使用配置中的權限判斷）
   const handleDelete = (record) => {
-    if (!user?.is_staff) {
+    // 使用配置中定義的權限判斷
+    if (!config.permissions.canDelete(user)) {
       message.error('您沒有權限執行此操作');
       return;
     }
 
+    // 使用配置中的刪除確認文字
     showDeleteConfirm(record, async (id, title) => {
       await deleteGuide(id, title);
-    });
+    }, config);
   };
 
   // 關閉 Modal
@@ -81,16 +99,18 @@ const RvtGuidePage = () => {
     });
   };
 
-  // 編輯文檔
+  // 編輯文檔（使用配置中的路由）
   const handleEditGuide = (id) => {
     handleCloseModal();
-    navigate(`/knowledge/rvt-guide/markdown-edit/${id}`);
+    // 使用配置中定義的路由生成方法
+    const editPath = config.routes.getEditPath(id);
+    navigate(editPath);
   };
 
-  // 生成表格列配置
+  // 生成表格列配置（傳入 config 以支持配置驅動）
   const columns = useMemo(
-    () => createRvtGuideColumns(navigate, user, handleViewDetail, handleDelete),
-    [navigate, user]
+    () => createRvtGuideColumns(navigate, user, handleViewDetail, handleDelete, config),
+    [navigate, user, config, handleViewDetail, handleDelete]
   );
 
   // 載入中狀態
@@ -98,11 +118,11 @@ const RvtGuidePage = () => {
     return <div style={{ padding: '20px' }}>載入中...</div>;
   }
 
-  // 未認證狀態
+  // 未認證狀態（使用配置中的標題）
   if (!isAuthenticated) {
     return (
-      <Card title="RVT Assistant 知識庫" style={{ margin: '20px' }}>
-        <p>請先登入以查看 RVT Assistant 知識庫內容。</p>
+      <Card title={config.labels.pageTitle} style={{ margin: '20px' }}>
+        <p>請先登入以查看 {config.labels.pageTitle} 內容。</p>
       </Card>
     );
   }
@@ -127,14 +147,8 @@ const RvtGuidePage = () => {
             dataSource={guides}
             rowKey="id"
             loading={loading}
-            scroll={{ x: 1400, y: 'calc(100vh - 220px)' }}
-            pagination={{
-              showSizeChanger: true,
-              showQuickJumper: true,
-              showTotal: (total, range) => `第 ${range[0]}-${range[1]} 項，共 ${total} 項`,
-              pageSize: 10,
-              pageSizeOptions: ['10', '20', '50', '100'],
-            }}
+            scroll={config.table.scroll}
+            pagination={config.table.pagination}
             size="middle"
           />
         </div>
