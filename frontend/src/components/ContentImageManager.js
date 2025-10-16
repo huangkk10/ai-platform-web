@@ -16,10 +16,14 @@ const { TextArea } = Input;
 /**
  * 通用內容圖片管理組件
  * 可用於不同類型的內容（RVT Guide、Know Issue 等）
+ * 
+ * 支援兩種模式：
+ * 1. 正常模式 (stagingMode=false)：需要 contentId，直接調用 API 上傳
+ * 2. 暫存模式 (stagingMode=true)：不需要 contentId，圖片暫存在 state 中，供父組件在儲存時批量上傳
  */
 const ContentImageManager = ({ 
   contentType = 'rvt-guide',  // 內容類型：'rvt-guide', 'know-issue' 等
-  contentId,                   // 內容 ID
+  contentId,                   // 內容 ID（正常模式必須，暫存模式可選）
   images = [],                 // 現有圖片列表
   onImagesChange,             // 圖片變更回調
   onContentUpdate,            // 內容更新回調 (用於重新載入父組件資料)
@@ -28,9 +32,12 @@ const ContentImageManager = ({
   maxImages = 10,             // 最大圖片數量
   maxSizeMB = 2,              // 單個圖片最大大小 (MB)
   title = "圖片管理",          // 組件標題
-  readonly = false             // 是否只讀模式
+  readonly = false,            // 是否只讀模式
+  stagingMode = false,        // 🆕 暫存模式（新建文檔時使用）
+  onGetStagedImages           // 🆕 暫存模式：獲取暫存圖片的回調函數
 }) => {
   const [imageList, setImageList] = useState(images);
+  const [stagedImages, setStagedImages] = useState([]); // 🆕 暫存的圖片
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingImage, setEditingImage] = useState(null);
   const [uploadLoading, setUploadLoading] = useState(false);
@@ -40,6 +47,16 @@ const ContentImageManager = ({
   useEffect(() => {
     setImageList(images);
   }, [images]);
+  
+  // 🆕 暴露 getStagedImages 方法給父組件
+  useEffect(() => {
+    if (stagingMode && onGetStagedImages) {
+      onGetStagedImages(() => stagedImages);
+    }
+  }, [stagingMode, stagedImages, onGetStagedImages]);
+  
+  // 🆕 獲取當前顯示的圖片列表（正常模式 = imageList，暫存模式 = stagedImages）
+  const displayImages = stagingMode ? stagedImages : imageList;
   
   // 獲取 API 端點
   const getApiEndpoint = () => {
@@ -101,7 +118,20 @@ const ContentImageManager = ({
     }
   };
   
-  // 上傳圖片
+  // 🆕 讀取圖片為 Base64 (暫存模式使用)
+  const readFileAsBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+  
+  // 🆕 產生臨時 ID (暫存模式使用)
+  const generateTempId = () => `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  // 上傳圖片 (支援雙模式)
   const handleUpload = async (file) => {
     if (readonly) {
       message.warning('唯讀模式下無法上傳圖片');
@@ -109,7 +139,8 @@ const ContentImageManager = ({
     }
     
     // 檢查數量限制
-    if (imageList.length >= maxImages) {
+    const currentCount = stagingMode ? stagedImages.length : imageList.length;
+    if (currentCount >= maxImages) {
       message.error(`最多只能上傳 ${maxImages} 張圖片`);
       return false;
     }
@@ -130,12 +161,52 @@ const ContentImageManager = ({
     
     setUploadLoading(true);
     
-    const formData = new FormData();
-    formData.append('image', file);
-    formData.append('content_type', contentType);
-    formData.append('content_id', contentId);
-    
     try {
+      // 🆕 暫存模式：將圖片存在 state 中
+      if (stagingMode) {
+        const base64 = await readFileAsBase64(file);
+        const tempImage = {
+          id: generateTempId(),
+          filename: file.name,
+          data_url: base64,
+          file: file,  // 保留原始 File 對象供後續上傳
+          title: '',
+          description: '',
+          is_primary: stagedImages.length === 0, // 第一張自動設為主圖
+          size_display: `${(file.size / 1024).toFixed(2)} KB`,
+          dimensions_display: '處理中...',
+          isStaged: true  // 標記為暫存圖片
+        };
+        
+        // 嘗試讀取圖片尺寸 (使用原生 HTMLImageElement，避免與 antd Image 衝突)
+        const img = document.createElement('img');
+        img.onload = () => {
+          tempImage.dimensions_display = `${img.width} x ${img.height}`;
+          setStagedImages(prev => 
+            prev.map(item => item.id === tempImage.id ? tempImage : item)
+          );
+        };
+        img.src = base64;
+        
+        const updatedList = [...stagedImages, tempImage];
+        setStagedImages(updatedList);
+        
+        // 在游標位置插入圖片資訊
+        if (onImageInsert) {
+          insertImageAtCursor(tempImage);
+        }
+        
+        message.success('圖片已暫存，儲存文檔時將自動上傳');
+        setUploadLoading(false);
+        return false;
+      }
+      
+      // 正常模式：直接調用 API 上傳
+      const formData = new FormData();
+      formData.append('image', file);
+      formData.append('content_type', contentType);
+      formData.append('content_id', contentId);
+      
       const response = await axios.post(getApiEndpoint(), formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
@@ -169,13 +240,22 @@ const ContentImageManager = ({
     return false; // 阻止預設上傳行為
   };
   
-  // 刪除圖片
+  // 刪除圖片 (支援雙模式)
   const handleDelete = async (imageId) => {
     if (readonly) {
       message.warning('唯讀模式下無法刪除圖片');
       return;
     }
     
+    // 🆕 暫存模式：直接從 state 中移除
+    if (stagingMode) {
+      const updatedList = stagedImages.filter(img => img.id !== imageId);
+      setStagedImages(updatedList);
+      message.success('已移除暫存圖片');
+      return;
+    }
+    
+    // 正常模式：調用 API 刪除
     try {
       await axios.delete(`${getApiEndpoint()}${imageId}/`);
       
@@ -196,13 +276,25 @@ const ContentImageManager = ({
     }
   };
   
-  // 設為主要圖片
+  // 設為主要圖片 (支援雙模式)
   const handleSetPrimary = async (imageId) => {
     if (readonly) {
       message.warning('唯讀模式下無法修改主要圖片');
       return;
     }
     
+    // 🆕 暫存模式：更新 state
+    if (stagingMode) {
+      const updatedList = stagedImages.map(img => ({
+        ...img,
+        is_primary: img.id === imageId
+      }));
+      setStagedImages(updatedList);
+      message.success('主要圖片設定成功（暫存）');
+      return;
+    }
+    
+    // 正常模式：調用 API
     try {
       const endpoint = contentType === 'rvt-guide' 
         ? `/api/rvt-guides/${contentId}/set_primary_image/`
@@ -230,13 +322,27 @@ const ContentImageManager = ({
     }
   };
   
-    // 編輯圖片資訊
+  // 編輯圖片資訊 (支援雙模式)
   const handleEdit = async (values) => {
     if (readonly) {
       message.warning('唯讀模式下無法編輯圖片');
       return;
     }
     
+    // 🆕 暫存模式：更新 state
+    if (stagingMode) {
+      const updatedList = stagedImages.map(img => 
+        img.id === editingImage.id ? { ...img, ...values } : img
+      );
+      setStagedImages(updatedList);
+      setEditModalVisible(false);
+      setEditingImage(null);
+      form.resetFields();
+      message.success('圖片資訊已更新（暫存）');
+      return;
+    }
+    
+    // 正常模式：調用 API
     try {
       const response = await axios.patch(`${getApiEndpoint()}${editingImage.id}/`, values);
       
@@ -263,7 +369,7 @@ const ContentImageManager = ({
     }
   };
   
-  // 拖拽排序
+  // 拖拽排序 (支援雙模式)
   const handleDragEnd = async (result) => {
     if (readonly) {
       message.warning('唯讀模式下無法調整順序');
@@ -272,11 +378,20 @@ const ContentImageManager = ({
     
     if (!result.destination) return;
     
+    // 🆕 暫存模式：直接更新 state
+    if (stagingMode) {
+      const reorderedImages = Array.from(stagedImages);
+      const [moved] = reorderedImages.splice(result.source.index, 1);
+      reorderedImages.splice(result.destination.index, 0, moved);
+      setStagedImages(reorderedImages);
+      return;
+    }
+    
+    // 正常模式：更新本地並調用 API
     const reorderedImages = Array.from(imageList);
     const [moved] = reorderedImages.splice(result.source.index, 1);
     reorderedImages.splice(result.destination.index, 0, moved);
     
-    // 更新本地狀態
     setImageList(reorderedImages);
     
     // 發送排序到後端
@@ -351,18 +466,27 @@ const ContentImageManager = ({
       {onImageInsert && !readonly && (
         <div style={{
           padding: '12px',
-          backgroundColor: '#f0f9ff',
-          border: '1px solid #bae7ff',
+          backgroundColor: stagingMode ? '#fff7e6' : '#f0f9ff',
+          border: `1px solid ${stagingMode ? '#ffd591' : '#bae7ff'}`,
           borderRadius: '6px',
           marginBottom: '16px',
           fontSize: '14px',
-          color: '#0958d9'
+          color: stagingMode ? '#d46b08' : '#0958d9'
         }}>
           <Space>
-            <span>💡</span>
+            <span>{stagingMode ? '⚡' : '💡'}</span>
             <span>
-              <strong>游標插入模式：</strong>
-              上傳圖片時會在文字編輯區域的游標位置插入圖片資訊，而不是在文檔末尾添加
+              {stagingMode ? (
+                <>
+                  <strong>暫存模式：</strong>
+                  圖片將暫存於瀏覽器中，儲存文檔時統一上傳。圖片資訊會在游標位置插入。
+                </>
+              ) : (
+                <>
+                  <strong>游標插入模式：</strong>
+                  上傳圖片時會在文字編輯區域的游標位置插入圖片資訊，而不是在文檔末尾添加
+                </>
+              )}
             </span>
           </Space>
         </div>
@@ -379,9 +503,12 @@ const ContentImageManager = ({
               loading={uploadLoading}
             >
               <Button icon={<PlusOutlined />} type="dashed" loading={uploadLoading}>
-                上傳圖片
+                {stagingMode ? '暫存圖片' : '上傳圖片'}
               </Button>
             </Upload>
+            {stagingMode && displayImages.length > 0 && (
+              <Tag color="orange">已暫存 {displayImages.length} 張</Tag>
+            )}
           </Space>
           
           <div className="batch-info">
@@ -391,7 +518,7 @@ const ContentImageManager = ({
       )}
       
       {/* 圖片列表 - 支援拖拽排序 */}
-      {imageList.length > 0 ? (
+      {displayImages.length > 0 ? (
         <DragDropContext onDragEnd={handleDragEnd}>
           <Droppable droppableId="images" direction="horizontal">
             {(provided) => (
@@ -400,7 +527,7 @@ const ContentImageManager = ({
                 {...provided.droppableProps}
                 style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}
               >
-                {imageList.map((image, index) => (
+                {displayImages.map((image, index) => (
                   <Draggable
                     key={image.id}
                     draggableId={image.id.toString()}
@@ -445,6 +572,23 @@ const ContentImageManager = ({
                               {image.is_primary && (
                                 <div className="primary-badge">
                                   <StarFilled /> 主要
+                                </div>
+                              )}
+                              
+                              {/* 暫存標記 */}
+                              {image.isStaged && (
+                                <div style={{
+                                  position: 'absolute',
+                                  top: '8px',
+                                  right: '8px',
+                                  backgroundColor: '#fa8c16',
+                                  color: 'white',
+                                  padding: '2px 8px',
+                                  borderRadius: '4px',
+                                  fontSize: '12px',
+                                  fontWeight: 'bold'
+                                }}>
+                                  暫存
                                 </div>
                               )}
                             </div>

@@ -79,10 +79,10 @@ function AppLayout() {
         // Markdown 編輯器頁面標題（整頁模式）
         if (pathname.startsWith('/knowledge/rvt-guide/markdown-edit/')) {
           const id = pathname.split('/').pop();
-          return { text: '編輯 RVT Guide (Markdown 編輯器)', id: id };
+          return { text: '編輯 RVT Guide', id: id };
         }
         if (pathname === '/knowledge/rvt-guide/markdown-create') {
-          return { text: '新建 RVT Guide (Markdown 編輯器)', id: null };
+          return { text: '新建 RVT Guide', id: null };
         }
         return '';
     }

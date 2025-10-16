@@ -90,6 +90,7 @@ const MarkdownEditorPage = () => {
   const navigate = useNavigate();
   const { id } = useParams(); // 如果是編輯模式，會有 id
   const mdEditorRef = useRef(null);
+  const getStagedImagesRef = useRef(null); // 🆕 暫存圖片獲取函數引用
 
   // 使用 RVT Guide 資料管理 Hook
   const {
@@ -102,7 +103,8 @@ const MarkdownEditorPage = () => {
     saveGuideData,
     handleTitleChange,
     handleContentChange,
-    setFormData
+    setFormData,
+    setSaving
   } = useRvtGuideData(id, navigate);
 
   // 使用圖片管理 Hook
@@ -151,12 +153,96 @@ const MarkdownEditorPage = () => {
 
 
 
-  // 處理儲存 - 使用 Hook 的方法
+  // 🆕 處理儲存 - 支援暫存圖片上傳
   const handleSave = async () => {
-    await saveGuideData(formData, {
-      navigateAfterSave: true,
-      redirectPath: '/knowledge/rvt-log'
-    });
+    try {
+      // 先儲存文檔本體
+      const result = await saveGuideData(formData, {
+        navigateAfterSave: false, // 先不導航，等圖片上傳完成
+        redirectPath: '/knowledge/rvt-log'
+      });
+      
+      if (!result) return; // 儲存失敗，不繼續
+      
+      // 如果是新建模式且有暫存圖片，批量上傳
+      if (!isEditMode && getStagedImagesRef.current) {
+        const stagedImages = getStagedImagesRef.current();
+        
+        if (stagedImages && stagedImages.length > 0) {
+          console.log('📤 開始上傳暫存圖片:', stagedImages.length, '張');
+          setSaving(true);
+          
+          // 顯示上傳進度提示
+          const hideLoading = message.loading(`正在上傳圖片 (0/${stagedImages.length})...`, 0);
+          
+          try {
+            // 逐個上傳暫存圖片
+            let successCount = 0;
+            let failCount = 0;
+            
+            for (const stagedImage of stagedImages) {
+              try {
+                const formData = new FormData();
+                formData.append('image', stagedImage.file);
+                formData.append('content_type', 'rvt-guide');
+                formData.append('content_id', result.id);
+                
+                if (stagedImage.title) {
+                  formData.append('title', stagedImage.title);
+                }
+                if (stagedImage.description) {
+                  formData.append('description', stagedImage.description);
+                }
+                if (stagedImage.is_primary) {
+                  formData.append('is_primary', 'true');
+                }
+                
+                await axios.post('/api/content-images/', formData, {
+                  headers: { 'Content-Type': 'multipart/form-data' }
+                });
+                
+                successCount++;
+                console.log(`✅ 圖片上傳成功 (${successCount}/${stagedImages.length}):`, stagedImage.filename);
+                
+                // 更新進度提示
+                hideLoading();
+                message.loading(`正在上傳圖片 (${successCount}/${stagedImages.length})...`, 0.5);
+              } catch (error) {
+                failCount++;
+                console.error('❌ 圖片上傳失敗:', stagedImage.filename, error);
+              }
+            }
+            
+            // 關閉進度提示
+            hideLoading();
+            
+            // 顯示結果
+            if (successCount > 0 && failCount === 0) {
+              message.success(`文檔和 ${successCount} 張圖片已成功儲存！`);
+            } else if (successCount > 0) {
+              message.warning(`文檔已儲存，但 ${failCount} 張圖片上傳失敗`);
+            } else {
+              message.error('文檔已儲存，但所有圖片上傳失敗');
+            }
+          } catch (error) {
+            hideLoading(); // 確保關閉進度提示
+            console.error('❌ 批量上傳過程異常:', error);
+            message.error('文檔已儲存，但圖片上傳過程發生錯誤');
+          } finally {
+            setSaving(false);
+          }
+        }
+      }
+      
+      // 🎯 導航到列表頁 (使用 setTimeout 確保 message 顯示後再跳轉)
+      setTimeout(() => {
+        navigate('/knowledge/rvt-log');
+      }, 300);
+      
+    } catch (error) {
+      console.error('❌ 儲存過程發生錯誤:', error);
+      setSaving(false);
+    }
   };
 
   // 處理返回
@@ -231,7 +317,7 @@ const MarkdownEditorPage = () => {
 
           {/* Markdown 編輯器 */}
           <Card 
-            title="內容編輯 (支援 Markdown 語法)" 
+            title="內容編輯" 
             size="small" 
             style={{ 
               flex: 1, 
@@ -257,17 +343,10 @@ const MarkdownEditorPage = () => {
               borderBottom: 'none',
               borderRadius: '6px 6px 0 0'
             }}>
-              <Tooltip title={isEditMode ? "管理文檔圖片" : "儲存後可管理圖片"}>
+              <Tooltip title={isEditMode ? "管理文檔圖片" : "暫存圖片（儲存時上傳）"}>
                 <Button
                   icon={<PictureOutlined />}
-                  onClick={() => {
-                    if (isEditMode) {
-                      toggleDrawer();
-                    } else {
-                      message.warning('請先儲存文檔後才能管理圖片');
-                    }
-                  }}
-                  disabled={!isEditMode}
+                  onClick={toggleDrawer}
                   size="small"
                   type={drawerVisible ? "primary" : "default"}
                   style={{ 
@@ -275,7 +354,7 @@ const MarkdownEditorPage = () => {
                     height: '28px'
                   }}
                 >
-                  📷 圖片管理
+                  📷 圖片管理 {!isEditMode && '(暫存)'}
                 </Button>
               </Tooltip>
             </div>
@@ -350,14 +429,13 @@ const MarkdownEditorPage = () => {
       )}
 
       {/* 全螢幕模式下的浮動圖片管理按鈕 */}
-      {isFullScreen && isEditMode && (
+      {isFullScreen && (
         <div style={{ position: 'fixed', top: '60px', right: '20px', zIndex: 9999 }}>
           <Button
             icon={<PictureOutlined />}
             onClick={() => {
               console.log('🖱️ 全螢幕按鈕被點擊');
               toggleDrawer();
-              // 可以使用 Hook 提供的方法: exitFullScreen(), toggleFullScreen() 等
             }}
             type="primary"
             size="large"
@@ -371,7 +449,7 @@ const MarkdownEditorPage = () => {
               borderColor: drawerVisible ? '#52c41a' : '#1890ff'
             }}
           >
-            📷 圖片管理
+            📷 圖片管理 {!isEditMode && '(暫存)'}
           </Button>
         </div>
       )}
@@ -386,7 +464,7 @@ const MarkdownEditorPage = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <PictureOutlined style={{ color: '#1890ff' }} />
             <span>圖片管理</span>
-            {isEditMode && (
+            {isEditMode ? (
               <span style={{ 
                 fontSize: '12px', 
                 color: '#666', 
@@ -396,12 +474,23 @@ const MarkdownEditorPage = () => {
               }}>
                 ID: {id}
               </span>
+            ) : (
+              <span style={{ 
+                fontSize: '12px', 
+                color: '#fa8c16', 
+                backgroundColor: '#fff7e6',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                border: '1px solid #ffd591'
+              }}>
+                暫存模式
+              </span>
             )}
           </div>
         }
         placement="right"
         width={450}
-        open={drawerVisible && isEditMode}
+        open={drawerVisible}
         onClose={toggleDrawer}
         bodyStyle={{ padding: '12px' }}
         headerStyle={{ 
@@ -420,29 +509,22 @@ const MarkdownEditorPage = () => {
           </Tooltip>
         }
       >
-        {isEditMode ? (
-          <ContentImageManager
-            contentType="rvt-guide"
-            contentId={id}
-            images={images}
-            onImagesChange={handleImagesChange}
-            onContentUpdate={handleContentUpdate}
-            onImageInsert={insertImageAtCursor}
-            cursorPosition={cursorPosition}
-            maxImages={10}
-            maxSizeMB={2}
-            title=""
-          />
-        ) : (
-          <div style={{ 
-            textAlign: 'center', 
-            padding: '40px 20px',
-            color: '#999'
-          }}>
-            <PictureOutlined style={{ fontSize: '48px', marginBottom: '16px' }} />
-            <div>請先儲存文檔後才能管理圖片</div>
-          </div>
-        )}
+        <ContentImageManager
+          contentType="rvt-guide"
+          contentId={id}
+          images={images}
+          onImagesChange={handleImagesChange}
+          onContentUpdate={handleContentUpdate}
+          onImageInsert={insertImageAtCursor}
+          cursorPosition={cursorPosition}
+          maxImages={10}
+          maxSizeMB={2}
+          title=""
+          stagingMode={!isEditMode}
+          onGetStagedImages={(getterFn) => {
+            getStagedImagesRef.current = getterFn;
+          }}
+        />
       </Drawer>
     </div>
   );

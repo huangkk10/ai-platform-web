@@ -336,7 +336,7 @@ const MarkdownEditorForm = ({
               marginBottom: '8px', 
               fontWeight: 'bold' 
             }}>
-              內容編輯 (支援 Markdown 語法) *
+              內容編輯 *
             </label>
             
             <div className="markdown-editor-container" style={{ 
