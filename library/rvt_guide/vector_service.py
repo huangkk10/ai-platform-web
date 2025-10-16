@@ -8,87 +8,37 @@ RVT Guide 向量服務
 - 向量搜索
 
 減少 views.py 中向量處理相關程式碼
+
+✨ 已遷移至新架構 - 繼承 BaseKnowledgeBaseVectorService
 """
 
 import logging
+from library.common.knowledge_base import BaseKnowledgeBaseVectorService
+from api.models import RVTGuide
 
 logger = logging.getLogger(__name__)
 
 
-class RVTGuideVectorService:
-    """RVT Guide 向量服務 - 統一管理向量相關操作"""
+class RVTGuideVectorService(BaseKnowledgeBaseVectorService):
+    """
+    RVT Guide 向量服務 - 繼承基礎向量服務
     
-    def __init__(self):
-        self.logger = logger
-        self._embedding_service = None
+    ✅ 已遷移至新架構，代碼從 253 行減少至 ~40 行
     
-    @property
-    def embedding_service(self):
-        """獲取 embedding 服務"""
-        if self._embedding_service is None:
-            try:
-                # 動態導入 embedding_service 避免循環導入
-                import sys
-                import os
-                
-                # 確保可以找到 Django app 路徑
-                current_dir = os.path.dirname(os.path.abspath(__file__))
-                backend_dir = os.path.join(os.path.dirname(os.path.dirname(current_dir)), 'backend')
-                if backend_dir not in sys.path:
-                    sys.path.insert(0, backend_dir)
-                
-                from api.services.embedding_service import get_embedding_service
-                self._embedding_service = get_embedding_service()  # 使用 1024 維模型
-                self.logger.info("✅ Embedding service 初始化成功")
-            except ImportError as e:
-                self.logger.warning(f"無法導入 embedding_service: {e}")
-                self._embedding_service = None
-            except Exception as e:
-                self.logger.error(f"Embedding service 初始化失敗: {e}")
-                self._embedding_service = None
-        return self._embedding_service
+    繼承自 BaseKnowledgeBaseVectorService，自動獲得：
+    - generate_and_store_vector(): 生成並存儲向量
+    - delete_vector(): 刪除向量
+    - batch_generate_vectors(): 批量生成向量
+    - rebuild_all_vectors(): 重建所有向量
+    """
     
-    def generate_and_store_vector(self, instance, action='create'):
-        """
-        為 RVT Guide 生成並存儲向量資料
-        
-        Args:
-            instance: RVTGuide 實例
-            action: 操作類型 ('create' 或 'update')
-            
-        Returns:
-            bool: 成功返回 True，失敗返回 False
-        """
-        try:
-            if not self.embedding_service:
-                self.logger.warning("Embedding service 不可用，跳過向量生成")
-                return False
-            
-            # 格式化內容用於向量化
-            content = self._format_content_for_embedding(instance)
-            
-            # 生成並儲存向量
-            success = self.embedding_service.store_document_embedding(
-                source_table='rvt_guide',
-                source_id=instance.id,
-                content=content,
-                use_1024_table=True  # 使用 1024 維表格
-            )
-            
-            if success:
-                self.logger.info(f"✅ RVT Guide 向量生成成功 ({action}): ID {instance.id}")
-            else:
-                self.logger.error(f"❌ RVT Guide 向量生成失敗 ({action}): ID {instance.id}")
-                
-            return success
-                
-        except Exception as e:
-            self.logger.error(f"❌ RVT Guide 向量生成異常 ({action}): ID {instance.id} - {str(e)}")
-            return False
+    # 設定必要屬性
+    source_table = 'rvt_guide'
+    model_class = RVTGuide
     
     def _format_content_for_embedding(self, instance):
         """
-        格式化 RVT Guide 內容用於向量化
+        覆寫父類方法 - 自定義 RVT Guide 內容格式化邏輯
         
         Args:
             instance: RVTGuide 實例
@@ -128,126 +78,3 @@ class RVTGuideVectorService:
                 self.logger.warning(f"取得圖片摘要失敗: {str(e)}")
         
         return "\n".join(content_parts)
-    
-    def delete_vector(self, instance):
-        """
-        刪除 RVT Guide 的向量資料
-        
-        Args:
-            instance: RVTGuide 實例
-            
-        Returns:
-            bool: 成功返回 True，失敗返回 False
-        """
-        try:
-            if not self.embedding_service:
-                self.logger.warning("Embedding service 不可用，跳過向量刪除")
-                return False
-            
-            # 使用新的 delete_document_embedding 方法
-            success_1024 = False
-            success_768 = False
-            
-            if hasattr(self.embedding_service, 'delete_document_embedding'):
-                # 刪除 1024 維向量（預設）
-                success_1024 = self.embedding_service.delete_document_embedding(
-                    source_table='rvt_guide',
-                    source_id=instance.id,
-                    use_1024_table=True
-                )
-                
-                # 刪除 768 維向量（備用）
-                success_768 = self.embedding_service.delete_document_embedding(
-                    source_table='rvt_guide',
-                    source_id=instance.id,
-                    use_1024_table=False
-                )
-                
-                if success_1024 or success_768:
-                    dimensions = []
-                    if success_1024:
-                        dimensions.append("1024維")
-                    if success_768:
-                        dimensions.append("768維")
-                    self.logger.info(f"✅ RVT Guide 向量刪除成功 ({', '.join(dimensions)}): ID {instance.id}")
-                    return True
-                else:
-                    self.logger.warning(f"⚠️  未找到 RVT Guide 對應的向量資料: ID {instance.id}")
-                    return False
-                    
-            else:
-                self.logger.warning("Embedding service 不支援向量刪除")
-                return False
-                
-        except Exception as e:
-            self.logger.error(f"❌ RVT Guide 向量刪除異常: ID {instance.id} - {str(e)}")
-            return False
-    
-    def batch_generate_vectors(self, instances):
-        """
-        批量生成向量
-        
-        Args:
-            instances: RVTGuide 實例列表
-            
-        Returns:
-            dict: 批量操作結果統計
-        """
-        result = {
-            'total': len(instances),
-            'success': 0,
-            'failed': 0,
-            'errors': []
-        }
-        
-        for instance in instances:
-            try:
-                success = self.generate_and_store_vector(instance, action='batch')
-                if success:
-                    result['success'] += 1
-                else:
-                    result['failed'] += 1
-                    result['errors'].append(f"ID {instance.id}: 向量生成失敗")
-            except Exception as e:
-                result['failed'] += 1
-                result['errors'].append(f"ID {instance.id}: {str(e)}")
-        
-        self.logger.info(f"批量向量生成完成: {result}")
-        return result
-    
-    def rebuild_all_vectors(self, queryset=None):
-        """
-        重建所有 RVT Guide 的向量
-        
-        Args:
-            queryset: 可選的查詢集，如果不提供則處理所有記錄
-            
-        Returns:
-            dict: 重建結果統計
-        """
-        try:
-            if queryset is None:
-                import sys
-                import os
-                
-                # 確保可以找到 Django app 路徑
-                current_dir = os.path.dirname(os.path.abspath(__file__))
-                backend_dir = os.path.join(os.path.dirname(os.path.dirname(current_dir)), 'backend')
-                if backend_dir not in sys.path:
-                    sys.path.insert(0, backend_dir)
-                
-                from api.models import RVTGuide
-                queryset = RVTGuide.objects.all()
-            
-            self.logger.info(f"開始重建 {queryset.count()} 個 RVT Guide 的向量")
-            
-            return self.batch_generate_vectors(queryset)
-            
-        except Exception as e:
-            self.logger.error(f"重建向量失敗: {str(e)}")
-            return {
-                'total': 0,
-                'success': 0,
-                'failed': 0,
-                'errors': [str(e)]
-            }

@@ -7,6 +7,8 @@ RVT Guide API 處理器
 - 配置資訊 API
 
 減少 views.py 中的程式碼量
+
+✨ 已遷移至新架構 - 繼承 BaseKnowledgeBaseAPIHandler
 """
 
 import json
@@ -16,88 +18,39 @@ import requests
 from django.http import JsonResponse
 from rest_framework import status
 from rest_framework.response import Response
+from library.common.knowledge_base import BaseKnowledgeBaseAPIHandler
+from api.models import RVTGuide
 
 logger = logging.getLogger(__name__)
 
 
-class RVTGuideAPIHandler:
-    """RVT Guide API 處理器 - 統一管理所有 RVT Guide API"""
+class RVTGuideAPIHandler(BaseKnowledgeBaseAPIHandler):
+    """
+    RVT Guide API 處理器 - 繼承基礎 API 處理器
     
-    @staticmethod
-    def handle_dify_search_api(request):
-        """
-        處理 Dify RVT Guide 外部知識庫搜索 API
-        
-        取代原本 views.py 中的 dify_rvt_guide_search 函數
-        """
-        try:
-            from ..data_processing.database_search import DatabaseSearchService
-            
-            # 記錄請求來源
-            logger.info(f"Dify RVT Guide API request from: {request.META.get('REMOTE_ADDR')}")
-            
-            # 解析請求數據
-            data = json.loads(request.body) if request.body else {}
-            query = data.get('query', '')
-            knowledge_id = data.get('knowledge_id', 'rvt_guide_db')
-            retrieval_setting = data.get('retrieval_setting', {})
-            
-            top_k = retrieval_setting.get('top_k', 5)
-            score_threshold = retrieval_setting.get('score_threshold', 0.0)
-            
-            logger.info(f"RVT Guide search - Query: {query}, Top K: {top_k}, Score threshold: {score_threshold}")
-            
-            # 驗證必要參數
-            if not query:
-                return Response({
-                    'error_code': 2001,
-                    'error_msg': 'Query parameter is required'
-                }, status=status.HTTP_400_BAD_REQUEST)
-            
-            # 使用統一的搜索服務
-            from .search_service import RVTGuideSearchService
-            search_service = RVTGuideSearchService()
-            search_results = search_service.search_knowledge(query, limit=top_k)
-            
-            # 過濾分數低於閾值的結果
-            filtered_results = [
-                result for result in search_results 
-                if result['score'] >= score_threshold
-            ]
-            
-            logger.info(f"RVT Guide search found {len(search_results)} results, {len(filtered_results)} after filtering")
-            
-            # 構建符合 Dify 規格的響應，並包含圖片資訊
-            records = []
-            for result in filtered_results:
-                record = {
-                    'content': result['content'],
-                    'score': result['score'],
-                    'title': result['title'],
-                    'metadata': result['metadata']
-                }
-                records.append(record)
-                logger.info(f"Added RVT Guide record: {record['title']} (images: {len(result['metadata'].get('image_filenames', []))})")
-            
-            response_data = {
-                'records': records
-            }
-            
-            logger.info(f"RVT Guide API response: Found {len(records)} results")
-            
-            return Response(response_data, status=status.HTTP_200_OK)
-            
-        except json.JSONDecodeError:
-            return Response({
-                'error_code': 1001,
-                'error_msg': 'Invalid JSON format'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            logger.error(f"Dify RVT Guide search error: {str(e)}")
-            return Response({
-                'error_code': 2001,
-                'error_msg': 'Internal server error'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    ✅ 已遷移至新架構，代碼從 317 行減少至 ~80 行
+    
+    繼承自 BaseKnowledgeBaseAPIHandler，自動獲得：
+    - handle_dify_search_api(): Dify 搜索 API
+    - handle_chat_api(): 聊天 API
+    - handle_config_api(): 配置 API
+    - perform_search(): 統一搜索邏輯
+    """
+    
+    # 設定必要屬性
+    knowledge_id = 'rvt_guide_db'
+    config_key = 'rvt_assistant'
+    source_table = 'rvt_guide'
+    model_class = RVTGuide
+    
+    @classmethod
+    def get_search_service(cls):
+        """獲取搜索服務實例（父類需要）"""
+        from .search_service import RVTGuideSearchService
+        return RVTGuideSearchService()
+    
+    # ⚠️  以下方法保留，因為包含 RVT Guide 特定的複雜邏輯（對話記錄、圖片處理等）
+    # 如果將來這些邏輯也通用化，可以進一步遷移至基礎類別
     
     @staticmethod
     def handle_chat_api(request):

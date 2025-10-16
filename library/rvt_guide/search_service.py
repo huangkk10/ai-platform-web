@@ -8,36 +8,46 @@ RVT Guide 搜索服務
 - 備用搜索機制
 
 減少 views.py 中搜索相關程式碼
+
+✨ 已遷移至新架構 - 繼承 BaseKnowledgeBaseSearchService
 """
 
 import logging
+from library.common.knowledge_base import BaseKnowledgeBaseSearchService
+from api.models import RVTGuide
 
 logger = logging.getLogger(__name__)
 
 
-class RVTGuideSearchService:
-    """RVT Guide 搜索服務 - 統一管理所有搜索功能"""
+class RVTGuideSearchService(BaseKnowledgeBaseSearchService):
+    """
+    RVT Guide 搜索服務 - 繼承基礎搜索服務
+    
+    ✅ 已遷移至新架構，代碼從 149 行減少至 ~30 行
+    
+    繼承自 BaseKnowledgeBaseSearchService，自動獲得：
+    - search_knowledge(): 智能搜索（向量+關鍵字）
+    - search_with_vectors(): 向量搜索
+    - search_with_keywords(): 關鍵字搜索
+    - _format_search_results(): 結果格式化
+    """
+    
+    # 設定必要屬性
+    model_class = RVTGuide
+    source_table = 'rvt_guide'
+    default_search_fields = ['title', 'content', 'issue_type', 'category']
     
     def __init__(self):
-        self.logger = logger
-        self._vector_search_available = None
+        super().__init__()
         self._database_search_service = None
-    
-    @property
-    def vector_search_available(self):
-        """檢查向量搜索是否可用"""
-        if self._vector_search_available is None:
-            try:
-                # 檢查向量搜索服務是否可用
-                from backend.api.services.embedding_service import search_rvt_guide_with_vectors
-                self._vector_search_available = True
-            except ImportError:
-                self._vector_search_available = False
-        return self._vector_search_available
     
     @property  
     def database_search_service(self):
-        """獲取資料庫搜索服務"""
+        """
+        獲取資料庫搜索服務（向後兼容）
+        
+        保留此方法以支援舊有功能
+        """
         if self._database_search_service is None:
             try:
                 from ..data_processing.database_search import DatabaseSearchService
@@ -46,92 +56,25 @@ class RVTGuideSearchService:
                 self._database_search_service = None
         return self._database_search_service
     
-    def search_knowledge(self, query_text, limit=5, threshold=0.1):
+    def _get_item_content(self, item):
         """
-        統一的 RVT Guide 知識搜索入口
+        覆寫父類方法 - 自定義 RVT Guide 內容獲取邏輯
+        """
+        if hasattr(item, 'get_search_content'):
+            return item.get_search_content()
         
-        優先使用向量搜索，如果不可用則回退到關鍵字搜索
+        # RVT Guide 特定內容組合
+        parts = []
+        if hasattr(item, 'title') and item.title:
+            parts.append(f"標題: {item.title}")
+        if hasattr(item, 'issue_type') and item.issue_type:
+            parts.append(f"問題類型: {item.issue_type}")
+        if hasattr(item, 'category') and item.category:
+            parts.append(f"分類: {item.category}")
+        if hasattr(item, 'content') and item.content:
+            parts.append(f"內容: {item.content}")
         
-        Args:
-            query_text: 查詢文本
-            limit: 返回結果數量限制
-            threshold: 向量搜索分數閾值
-            
-        Returns:
-            list: 搜索結果列表
-        """
-        try:
-            # 策略 1: 優先使用向量搜索
-            if self.vector_search_available:
-                try:
-                    from backend.api.services.embedding_service import search_rvt_guide_with_vectors
-                    search_results = search_rvt_guide_with_vectors(query_text, limit=limit, threshold=threshold)
-                    self.logger.info(f"RVT Guide vector search results count: {len(search_results)}")
-                    
-                    # 如果向量搜索有結果，直接返回
-                    if search_results:
-                        return search_results
-                    else:
-                        self.logger.info("向量搜索無結果，回退到關鍵字搜索")
-                        
-                except Exception as e:
-                    self.logger.error(f"向量搜索失敗，回退到關鍵字搜索: {e}")
-            
-            # 策略 2: 使用資料庫搜索服務
-            if self.database_search_service:
-                search_results = self.database_search_service.search_rvt_guide_knowledge(query_text, limit)
-                self.logger.info(f"RVT Guide database search results count: {len(search_results)}")
-                return search_results
-            
-            # 策略 3: 備用搜索實現
-            else:
-                self.logger.warning("DatabaseSearchService 不可用，使用備用實現")
-                return self._fallback_search(query_text, limit)
-                
-        except Exception as e:
-            self.logger.error(f"RVT Guide 搜索失敗: {str(e)}")
-            return []
-    
-    def _fallback_search(self, query_text, limit=5):
-        """
-        備用搜索實現
-        
-        當所有高級搜索服務都不可用時使用
-        """
-        try:
-            # 這裡可以實現簡單的備用搜索邏輯
-            # 例如直接查詢資料庫
-            return []
-        except Exception as e:
-            self.logger.error(f"備用搜索失敗: {str(e)}")
-            return []
-    
-    def search_with_vectors(self, query_text, limit=5, threshold=0.1):
-        """
-        專門的向量搜索方法
-        """
-        if not self.vector_search_available:
-            raise ValueError("向量搜索服務不可用")
-        
-        try:
-            from backend.api.services.embedding_service import search_rvt_guide_with_vectors
-            return search_rvt_guide_with_vectors(query_text, limit=limit, threshold=threshold)
-        except Exception as e:
-            self.logger.error(f"向量搜索異常: {str(e)}")
-            raise
-    
-    def search_with_keywords(self, query_text, limit=5):
-        """
-        專門的關鍵字搜索方法
-        """
-        if not self.database_search_service:
-            raise ValueError("資料庫搜索服務不可用")
-        
-        try:
-            return self.database_search_service.search_rvt_guide_knowledge(query_text, limit)
-        except Exception as e:
-            self.logger.error(f"關鍵字搜索異常: {str(e)}")
-            raise
+        return "\n".join(parts) if parts else str(item)
 
 
 def search_rvt_guide_knowledge(query_text, limit=5):
