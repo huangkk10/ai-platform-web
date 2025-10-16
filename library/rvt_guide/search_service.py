@@ -35,7 +35,7 @@ class RVTGuideSearchService(BaseKnowledgeBaseSearchService):
     # 設定必要屬性
     model_class = RVTGuide
     source_table = 'rvt_guide'
-    default_search_fields = ['title', 'content', 'issue_type', 'category']
+    default_search_fields = ['title', 'content']
     
     def __init__(self):
         super().__init__()
@@ -55,26 +55,6 @@ class RVTGuideSearchService(BaseKnowledgeBaseSearchService):
             except ImportError:
                 self._database_search_service = None
         return self._database_search_service
-    
-    def _get_item_content(self, item):
-        """
-        覆寫父類方法 - 自定義 RVT Guide 內容獲取邏輯
-        """
-        if hasattr(item, 'get_search_content'):
-            return item.get_search_content()
-        
-        # RVT Guide 特定內容組合
-        parts = []
-        if hasattr(item, 'title') and item.title:
-            parts.append(f"標題: {item.title}")
-        if hasattr(item, 'issue_type') and item.issue_type:
-            parts.append(f"問題類型: {item.issue_type}")
-        if hasattr(item, 'category') and item.category:
-            parts.append(f"分類: {item.category}")
-        if hasattr(item, 'content') and item.content:
-            parts.append(f"內容: {item.content}")
-        
-        return "\n".join(parts) if parts else str(item)
 
 
 def search_rvt_guide_knowledge(query_text, limit=5):
