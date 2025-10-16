@@ -61,7 +61,16 @@ export const createKnowledgeBaseColumns = (
           icon={<EyeOutlined />}
           size="small"
           type="text"
-          onClick={() => handleViewDetail(record)}
+          onClick={() => {
+            // 如果配置中有預覽路由，導航到整頁預覽
+            if (config.routes?.preview) {
+              const previewPath = config.routes.preview.replace(':id', record.id);
+              navigate(previewPath);
+            } else {
+              // 否則使用傳統 Modal
+              handleViewDetail(record);
+            }
+          }}
           title="查看詳細內容"
           style={{ color: '#1890ff' }}
         />

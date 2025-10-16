@@ -14,6 +14,7 @@ import QueryPage from './pages/QueryPage';
 import SettingsPage from './pages/SettingsPage';
 import KnowIssuePage from './pages/KnowIssuePage';
 import RvtGuidePage from './pages/RvtGuidePage';
+import GuidePreviewPage from './pages/GuidePreviewPage';
 import OcrStorageBenchmarkPage from './pages/OcrStorageBenchmarkPage';
 import TestClassManagementPage from './pages/TestClassManagementPage';
 import IntegratedUserManagementPage from './pages/admin/IntegratedUserManagementPage';
@@ -83,6 +84,11 @@ function AppLayout() {
         }
         if (pathname === '/knowledge/rvt-guide/markdown-create') {
           return { text: '新建 RVT Guide', id: null };
+        }
+        // 預覽頁面標題
+        if (pathname.startsWith('/knowledge/rvt-guide/preview/')) {
+          const id = pathname.split('/').pop();
+          return { text: 'RVT Guide 預覽', id: id };
         }
         return '';
     }
@@ -198,6 +204,11 @@ function AppLayout() {
             <Route path="/knowledge/rvt-log" element={
               <ProtectedRoute permission="kbRVTAssistant" fallbackTitle="Knowledge Base 存取受限">
                 <RvtGuidePage />
+              </ProtectedRoute>
+            } />
+            <Route path="/knowledge/rvt-guide/preview/:id" element={
+              <ProtectedRoute permission="kbRVTAssistant" fallbackTitle="Knowledge Base 存取受限">
+                <GuidePreviewPage />
               </ProtectedRoute>
             } />
             <Route path="/knowledge/rvt-guide/markdown-create" element={

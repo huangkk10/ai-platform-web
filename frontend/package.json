@@ -10,8 +10,10 @@
   },
   "markdownSystem": {
     "primary": "react-markdown",
-    "version": "^10.1.0", 
-    "plugins": ["remark-gfm"],
+    "version": "^10.1.0",
+    "plugins": [
+      "remark-gfm"
+    ],
     "fallback": "markdown-it (for editors only)",
     "note": "Migrated from markdown-it to react-markdown for better React integration and table+image rendering"
   },
@@ -34,6 +36,8 @@
     "react-router-dom": "^6.30.1",
     "react-scripts": "5.0.1",
     "recharts": "^3.2.1",
+    "rehype-highlight": "^7.0.2",
+    "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
     "web-vitals": "^2.1.4"
   },

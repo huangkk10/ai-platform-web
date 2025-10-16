@@ -1,0 +1,106 @@
+/* Guide 預覽頁面樣式 */
+
+.guide-preview-container {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #f0f2f5;
+}
+
+.guide-preview-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.guide-preview-card {
+  max-width: 1200px;
+  margin: 0 auto;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* 載入中狀態 */
+.guide-preview-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: calc(100vh - 64px);
+  background-color: #fff;
+}
+
+/* 錯誤狀態 */
+.guide-preview-error {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px 20px;
+  min-height: calc(100vh - 64px);
+}
+
+/* 文檔元信息 */
+.guide-preview-meta {
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.guide-preview-meta:last-of-type {
+  margin-bottom: 24px;
+}
+
+.meta-label {
+  color: #8c8c8c;
+  margin-right: 8px;
+  font-weight: 500;
+}
+
+.meta-value {
+  color: #262626;
+}
+
+/* Markdown 內容區域 */
+.guide-preview-content {
+  padding: 24px 0;
+  min-height: 400px;
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+  .guide-preview-wrapper {
+    padding: 16px;
+  }
+  
+  .guide-preview-card {
+    box-shadow: none;
+  }
+  
+  .guide-preview-content {
+    padding: 16px 0;
+  }
+}
+
+/* 打印樣式 */
+@media print {
+  .guide-preview-container {
+    height: auto;
+  }
+  
+  /* 隱藏 TopHeader */
+  .guide-preview-container > div:first-child {
+    display: none;
+  }
+  
+  .guide-preview-wrapper {
+    padding: 0;
+  }
+  
+  .guide-preview-card {
+    box-shadow: none;
+    border: none;
+  }
+  
+  .guide-preview-meta {
+    border-bottom: 1px solid #ccc;
+  }
+}

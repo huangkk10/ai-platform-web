@@ -25,8 +25,11 @@ export const knowledgeBaseConfigs = {
       list: '/knowledge/rvt-log',                           // 列表頁
       create: '/knowledge/rvt-guide/markdown-create',       // 新建頁
       edit: '/knowledge/rvt-guide/markdown-edit/:id',       // 編輯頁
+      preview: '/knowledge/rvt-guide/preview/:id',          // 預覽頁
       // 輔助方法：生成編輯路徑
       getEditPath: (id) => `/knowledge/rvt-guide/markdown-edit/${id}`,
+      // 輔助方法：生成預覽路徑
+      getPreviewPath: (id) => `/knowledge/rvt-guide/preview/${id}`,
     },
     
     // ===== 事件名稱 =====
