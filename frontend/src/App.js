@@ -14,6 +14,7 @@ import QueryPage from './pages/QueryPage';
 import SettingsPage from './pages/SettingsPage';
 import KnowIssuePage from './pages/KnowIssuePage';
 import RvtGuidePage from './pages/RvtGuidePage';
+import ProtocolGuidePage from './pages/ProtocolGuidePage';
 import GuidePreviewPage from './pages/GuidePreviewPage';
 import OcrStorageBenchmarkPage from './pages/OcrStorageBenchmarkPage';
 import TestClassManagementPage from './pages/TestClassManagementPage';
@@ -72,6 +73,8 @@ function AppLayout() {
         return 'Protocol RAG';
       case '/knowledge/rvt-log':
         return 'RVT Assistant 知識庫';
+      case '/knowledge/protocol-log':
+        return 'Protocol Assistant 知識庫';
       case '/admin/user-management':
         return '用戶權限管理';
       case '/admin/rvt-analytics':
@@ -84,6 +87,14 @@ function AppLayout() {
         }
         if (pathname === '/knowledge/rvt-guide/markdown-create') {
           return { text: '新建 RVT Guide', id: null };
+        }
+        // Protocol Guide Markdown 編輯器頁面標題
+        if (pathname.startsWith('/knowledge/protocol-guide/markdown-edit/')) {
+          const id = pathname.split('/').pop();
+          return { text: '編輯 Protocol Guide', id: id };
+        }
+        if (pathname === '/knowledge/protocol-guide/markdown-create') {
+          return { text: '新建 Protocol Guide', id: null };
         }
         // 預覽頁面標題
         if (pathname.startsWith('/knowledge/rvt-guide/preview/')) {
@@ -134,17 +145,45 @@ function AppLayout() {
       );
     }
     
+    // Protocol Assistant 知識庫頁面的按鈕
+    if (pathname === '/knowledge/protocol-log') {
+      return (
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <Button 
+            icon={<ReloadOutlined />} 
+            onClick={() => {
+              // 觸發自定義事件通知頁面重新載入
+              window.dispatchEvent(new CustomEvent('protocol-guide-reload'));
+            }}
+            size="large"
+          >
+            重新整理
+          </Button>
+          <Button
+            type="primary"
+            size="large"
+            icon={<PlusOutlined />}
+            onClick={() => navigate('/knowledge/protocol-guide/markdown-create')}
+          >
+            新增 Protocol Guide
+          </Button>
+        </div>
+      );
+    }
+    
     // Markdown 編輯器頁面的按鈕（整頁模式）
-    if (pathname.startsWith('/knowledge/rvt-guide/markdown-')) {
+    if (pathname.startsWith('/knowledge/rvt-guide/markdown-') || pathname.startsWith('/knowledge/protocol-guide/markdown-')) {
       // 這些按鈕會在 TopHeader 中顯示
       // 更新按鈕通過全局事件觸發，MarkdownEditorPage 會監聽該事件
       const isEditMode = pathname.includes('/markdown-edit/');
+      const isProtocolGuide = pathname.includes('/protocol-guide/');
+      const returnPath = isProtocolGuide ? '/knowledge/protocol-log' : '/knowledge/rvt-log';
       
       return (
         <div style={{ display: 'flex', gap: '12px' }}>
           <Button 
             icon={<ArrowLeftOutlined />} 
-            onClick={() => navigate('/knowledge/rvt-log')}
+            onClick={() => navigate(returnPath)}
             size="large"
           >
             返回列表
@@ -206,6 +245,11 @@ function AppLayout() {
                 <RvtGuidePage />
               </ProtectedRoute>
             } />
+            <Route path="/knowledge/protocol-log" element={
+              <ProtectedRoute permission="kbProtocolAssistant" fallbackTitle="Knowledge Base 存取受限">
+                <ProtocolGuidePage />
+              </ProtectedRoute>
+            } />
             <Route path="/knowledge/rvt-guide/preview/:id" element={
               <ProtectedRoute permission="kbRVTAssistant" fallbackTitle="Knowledge Base 存取受限">
                 <GuidePreviewPage />
@@ -218,6 +262,16 @@ function AppLayout() {
             } />
             <Route path="/knowledge/rvt-guide/markdown-edit/:id" element={
               <ProtectedRoute permission="kbRVTAssistant" fallbackTitle="Knowledge Base 存取受限">
+                <MarkdownEditorPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/knowledge/protocol-guide/markdown-create" element={
+              <ProtectedRoute permission="kbProtocolAssistant" fallbackTitle="Knowledge Base 存取受限">
+                <MarkdownEditorPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/knowledge/protocol-guide/markdown-edit/:id" element={
+              <ProtectedRoute permission="kbProtocolAssistant" fallbackTitle="Knowledge Base 存取受限">
                 <MarkdownEditorPage />
               </ProtectedRoute>
             } />

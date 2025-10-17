@@ -11,6 +11,7 @@ import {
   MessageOutlined,
   FileTextOutlined,
   BarChartOutlined,
+  ToolOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 import smiLogo from '../assets/images/smi.png';
@@ -73,6 +74,9 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       case 'rvt-log':
         navigate('/knowledge/rvt-log');
         break;
+      case 'protocol-log':
+        navigate('/knowledge/protocol-log');
+        break;
       case 'ocr-storage-benchmark':
         navigate('/knowledge/ocr-storage-benchmark');
         break;
@@ -128,6 +132,11 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       // RVT Assistant 知識庫 - 需要 kb_rvt_assistant 權限
       if (isAuthenticated && user && hasPermission('kbRVTAssistant')) {
         children.push({ key: 'rvt-log', icon: <DatabaseOutlined />, label: 'RVT Assistant' });
+      }
+
+      // Protocol Assistant 知識庫 - 需要 kb_protocol_assistant 權限
+      if (isAuthenticated && user && hasPermission('kbProtocolAssistant')) {
+        children.push({ key: 'protocol-log', icon: <ToolOutlined />, label: 'Protocol Assistant' });
       }
 
       return children;

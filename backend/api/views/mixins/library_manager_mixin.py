@@ -53,48 +53,54 @@ class LibraryManagerMixin:
             logger.warning(f"{library_name}: 未指定 library_available_flag")
             return
         
-        # 從 globals 獲取 flag（需要在 ViewSet 文件中已導入）
-        library_available = globals().get(library_flag_name, False)
+        # 從 ViewSet 類別的 module 獲取 flag（正確的 scope）
+        viewset_module = self.__class__.__module__
+        import sys
+        module = sys.modules.get(viewset_module)
+        
+        library_available = getattr(module, library_flag_name, False) if module else False
         
         if not library_available:
             logger.warning(f"{library_name} 不可用，將使用備用實現")
-            return
+            # 不要 return！仍然需要初始化 fallback manager
+        else:
+            # 只有當 Library 可用時才初始化主 Manager
+            manager_class_name = config.get('manager_class')
+            manager_factory_name = config.get('manager_factory')
+            
+            if manager_factory_name:
+                manager_factory = getattr(module, manager_factory_name, None) if module else None
+                if manager_factory:
+                    try:
+                        self._manager = manager_factory()
+                        logger.info(f"✅ {library_name} Manager 初始化成功 (工廠方法)")
+                    except Exception as e:
+                        logger.error(f"❌ {library_name} Manager 工廠方法失敗: {str(e)}")
+                else:
+                    logger.warning(f"⚠️ {library_name} Manager 工廠方法 '{manager_factory_name}' 不可用")
+            elif manager_class_name:
+                manager_class = getattr(module, manager_class_name, None) if module else None
+                if manager_class:
+                    try:
+                        self._manager = manager_class()
+                        logger.info(f"✅ {library_name} Manager 初始化成功 (直接實例化)")
+                    except Exception as e:
+                        logger.error(f"❌ {library_name} Manager 實例化失敗: {str(e)}")
+                else:
+                    logger.warning(f"⚠️ {library_name} Manager 類別 '{manager_class_name}' 不可用")
         
-        # 初始化主 Manager
-        manager_class_name = config.get('manager_class')
-        manager_factory_name = config.get('manager_factory')
-        
-        if manager_factory_name:
-            manager_factory = globals().get(manager_factory_name)
-            if manager_factory:
-                try:
-                    self._manager = manager_factory()
-                    logger.info(f"✅ {library_name} Manager 初始化成功 (工廠方法)")
-                except Exception as e:
-                    logger.error(f"❌ {library_name} Manager 工廠方法失敗: {str(e)}")
-            else:
-                logger.warning(f"⚠️ {library_name} Manager 工廠方法 '{manager_factory_name}' 不可用")
-        elif manager_class_name:
-            manager_class = globals().get(manager_class_name)
-            if manager_class:
-                try:
-                    self._manager = manager_class()
-                    logger.info(f"✅ {library_name} Manager 初始化成功 (直接實例化)")
-                except Exception as e:
-                    logger.error(f"❌ {library_name} Manager 實例化失敗: {str(e)}")
-            else:
-                logger.warning(f"⚠️ {library_name} Manager 類別 '{manager_class_name}' 不可用")
-        
-        # 初始化 Fallback Manager (可選)
+        # 總是嘗試初始化 Fallback Manager (無論主 Library 是否可用)
         fallback_factory_name = config.get('fallback_manager_factory')
         if fallback_factory_name:
-            fallback_factory = globals().get(fallback_factory_name)
+            fallback_factory = getattr(module, fallback_factory_name, None) if module else None
             if fallback_factory:
                 try:
                     self._fallback_manager = fallback_factory()
                     logger.info(f"✅ {library_name} Fallback Manager 初始化成功")
                 except Exception as e:
                     logger.error(f"❌ {library_name} Fallback Manager 失敗: {str(e)}")
+            else:
+                logger.warning(f"⚠️ {library_name} Fallback Manager 工廠方法 '{fallback_factory_name}' 不可用 in module {viewset_module}")
     
     def has_manager(self) -> bool:
         """檢查是否有可用的 Manager"""

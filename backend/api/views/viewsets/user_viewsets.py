@@ -187,9 +187,9 @@ class UserProfileViewSet(LibraryManagerMixin, FallbackLogicMixin, viewsets.Model
                 )
         
         if self.has_manager():
-            return self._manager.handle_get_my_profile(request)
+            return self._manager.handle_get_my_profile(request.user)
         elif self.has_fallback_manager():
-            return self._fallback_manager.handle_get_my_profile_fallback(request)
+            return self._fallback_manager.handle_get_my_profile_fallback(request.user)
         else:
             return emergency_response()
 
@@ -202,9 +202,9 @@ class UserProfileViewSet(LibraryManagerMixin, FallbackLogicMixin, viewsets.Model
         ✅ 重構後：統一使用三層備用（含緊急備用實現）
         """
         if self.has_manager():
-            return self._manager.handle_list_user_permissions(request)
+            return self._manager.handle_list_user_permissions(request.user)
         elif self.has_fallback_manager():
-            return self._fallback_manager.handle_list_user_permissions_fallback(request)
+            return self._fallback_manager.handle_list_user_permissions_fallback(request.user)
         else:
             # 🚨 緊急備用實現：直接查詢資料庫
             logger.warning("使用緊急備用 list_user_permissions 實現")
@@ -230,10 +230,15 @@ class UserProfileViewSet(LibraryManagerMixin, FallbackLogicMixin, viewsets.Model
         ✅ 重構後：統一使用三層備用
         """
         if self.has_manager():
-            return self._manager.handle_manage_permissions(request, pk)
+            return self._manager.handle_manage_permissions(request.user, int(pk), request.data)
         elif self.has_fallback_manager():
             try:
-                return self._fallback_manager.handle_manage_permissions_fallback(request, pk)
+                return self._fallback_manager.handle_action_fallback(
+                    action='manage_permissions',
+                    user=request.user,
+                    target_user_id=int(pk),
+                    update_data=request.data
+                )
             except Exception as e:
                 logger.error(f"Fallback manage_permissions error: {str(e)}")
                 return Response(
@@ -254,10 +259,10 @@ class UserProfileViewSet(LibraryManagerMixin, FallbackLogicMixin, viewsets.Model
         ✅ 重構後：統一使用三層備用
         """
         if self.has_manager():
-            return self._manager.handle_bulk_update_permissions(request)
+            return self._manager.handle_bulk_update_permissions(request.user, request.data)
         elif self.has_fallback_manager():
             try:
-                return self._fallback_manager.handle_bulk_update_permissions_fallback(request)
+                return self._fallback_manager.handle_bulk_permissions_fallback(request.user, request.data)
             except Exception as e:
                 logger.error(f"Fallback bulk_update_permissions error: {str(e)}")
                 return Response(
@@ -278,9 +283,9 @@ class UserProfileViewSet(LibraryManagerMixin, FallbackLogicMixin, viewsets.Model
         ✅ 重構後：統一使用三層備用（含緊急備用實現）
         """
         if self.has_manager():
-            return self._manager.handle_get_my_permissions(request)
+            return self._manager.handle_get_my_permissions(request.user)
         elif self.has_fallback_manager():
-            return self._fallback_manager.handle_get_my_permissions_fallback(request)
+            return self._fallback_manager.handle_get_my_permissions_fallback(request.user)
         else:
             # 🚨 緊急備用實現：直接查詢資料庫
             logger.warning("使用緊急備用 get_my_permissions 實現")

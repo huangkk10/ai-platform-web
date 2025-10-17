@@ -28,6 +28,8 @@ class UserProfile(models.Model):
                                    help_text="是否可使用知識庫版本的 AI OCR 功能")
     kb_rvt_assistant = models.BooleanField(default=False, verbose_name="知識庫 RVT Assistant 權限", 
                                           help_text="是否可使用知識庫版本的 RVT Assistant 功能")
+    kb_protocol_assistant = models.BooleanField(default=False, verbose_name="知識庫 Protocol Assistant 權限", 
+                                               help_text="是否可使用知識庫版本的 Protocol Assistant 功能")
     
     # 管理權限欄位
     is_super_admin = models.BooleanField(default=False, verbose_name="超級管理員", 
@@ -55,6 +57,8 @@ class UserProfile(models.Model):
             permissions.append("KB AI OCR")
         if self.kb_rvt_assistant:
             permissions.append("KB RVT Assistant")
+        if self.kb_protocol_assistant:
+            permissions.append("KB Protocol Assistant")
         
         if self.is_super_admin:
             permissions.append("超級管理員")
@@ -67,7 +71,7 @@ class UserProfile(models.Model):
     
     def has_any_kb_permission(self):
         """檢查是否擁有任何知識庫功能權限"""
-        return any([self.kb_protocol_rag, self.kb_ai_ocr, self.kb_rvt_assistant])
+        return any([self.kb_protocol_rag, self.kb_ai_ocr, self.kb_rvt_assistant, self.kb_protocol_assistant])
     
     def can_manage_permissions(self):
         """檢查是否可以管理其他用戶權限"""

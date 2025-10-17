@@ -77,6 +77,7 @@ export const AuthProvider = ({ children }) => {
           kbProtocolRAG: response.data.data.kb_protocol_rag,
           kbAIOCR: response.data.data.kb_ai_ocr,
           kbRVTAssistant: response.data.data.kb_rvt_assistant,
+          kbProtocolAssistant: response.data.data.kb_protocol_assistant,
           isSuperAdmin: response.data.data.is_super_admin,
           canManagePermissions: response.data.data.can_manage_permissions
         };
@@ -186,7 +187,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const hasAnyKBPermission = () => {
-    return permissions.kbProtocolRAG || permissions.kbAIOCR || permissions.kbRVTAssistant;
+    return permissions.kbProtocolRAG || permissions.kbAIOCR || permissions.kbRVTAssistant || permissions.kbProtocolAssistant;
   };
 
   const canManagePermissions = () => {

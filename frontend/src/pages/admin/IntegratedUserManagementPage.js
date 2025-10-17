@@ -97,6 +97,7 @@ const IntegratedUserManagementPage = () => {
             kb_protocol_rag: false,
             kb_ai_ocr: false,
             kb_rvt_assistant: false,
+            kb_protocol_assistant: false,
             is_super_admin: false
           }
         };
@@ -123,6 +124,7 @@ const IntegratedUserManagementPage = () => {
         kb_protocol_rag,
         kb_ai_ocr,
         kb_rvt_assistant,
+        kb_protocol_assistant,
         is_super_admin,
         ...basicUserData
       } = values;
@@ -134,6 +136,7 @@ const IntegratedUserManagementPage = () => {
         kb_protocol_rag,
         kb_ai_ocr,
         kb_rvt_assistant,
+        kb_protocol_assistant,
         is_super_admin
       };
 
@@ -218,6 +221,7 @@ const IntegratedUserManagementPage = () => {
       kb_protocol_rag: userData.permissions?.kb_protocol_rag || false,
       kb_ai_ocr: userData.permissions?.kb_ai_ocr || false,
       kb_rvt_assistant: userData.permissions?.kb_rvt_assistant || false,
+      kb_protocol_assistant: userData.permissions?.kb_protocol_assistant || false,
       is_super_admin: userData.permissions?.is_super_admin || false
     });
     setModalVisible(true);
@@ -256,6 +260,7 @@ const IntegratedUserManagementPage = () => {
     if (permissions.kb_protocol_rag) tags.push(<Tag key="kb_protocol" color="green">KB Protocol RAG</Tag>);
     if (permissions.kb_ai_ocr) tags.push(<Tag key="kb_ocr" color="green">KB AI OCR</Tag>);
     if (permissions.kb_rvt_assistant) tags.push(<Tag key="kb_rvt" color="green">KB RVT Assistant</Tag>);
+    if (permissions.kb_protocol_assistant) tags.push(<Tag key="kb_protocol_assistant" color="green">KB Protocol Assistant</Tag>);
     
     return tags.length > 0 ? tags : <Tag color="default">無特殊權限</Tag>;
   };
@@ -625,6 +630,13 @@ const IntegratedUserManagementPage = () => {
                   valuePropName="checked"
                 >
                   <Checkbox>知識庫 RVT Assistant</Checkbox>
+                </Form.Item>
+                
+                <Form.Item
+                  name="kb_protocol_assistant"
+                  valuePropName="checked"
+                >
+                  <Checkbox>知識庫 Protocol Assistant</Checkbox>
                 </Form.Item>
               </Card>
             </Col>

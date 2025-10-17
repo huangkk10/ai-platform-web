@@ -47,6 +47,7 @@ const PermissionManagementPage = () => {
     { key: 'kb_protocol_rag', label: '知識庫 Protocol RAG', description: '知識庫版本的Protocol RAG功能' },
     { key: 'kb_ai_ocr', label: '知識庫 AI OCR', description: '知識庫版本的AI OCR功能' },
     { key: 'kb_rvt_assistant', label: '知識庫 RVT Assistant', description: '知識庫版本的RVT Assistant功能' },
+    { key: 'kb_protocol_assistant', label: '知識庫 Protocol Assistant', description: '知識庫版本的Protocol Assistant功能' },
     { key: 'is_super_admin', label: '超級管理員', description: '可以管理所有用戶權限的超級管理員' }
   ];
 
@@ -92,6 +93,7 @@ const PermissionManagementPage = () => {
       kb_protocol_rag: record.kb_protocol_rag,
       kb_ai_ocr: record.kb_ai_ocr,
       kb_rvt_assistant: record.kb_rvt_assistant,
+      kb_protocol_assistant: record.kb_protocol_assistant,
       is_super_admin: record.is_super_admin
     });
     setModalVisible(true);
@@ -259,6 +261,15 @@ const PermissionManagementPage = () => {
                   KB RVT Assistant {record.kb_rvt_assistant ? '✓' : '✗'}
                 </Tag>
               </Tooltip>
+              <Tooltip title="知識庫版本的Protocol Assistant功能">
+                <Tag 
+                  color={record.kb_protocol_assistant ? 'blue' : 'default'}
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => handleQuickToggle(record.user.id, 'kb_protocol_assistant', record.kb_protocol_assistant)}
+                >
+                  KB Protocol Assistant {record.kb_protocol_assistant ? '✓' : '✗'}
+                </Tag>
+              </Tooltip>
             </Space>
           </Col>
         </Row>
@@ -389,6 +400,7 @@ const PermissionManagementPage = () => {
                 kb_protocol_rag: editingUser.kb_protocol_rag,
                 kb_ai_ocr: editingUser.kb_ai_ocr,
                 kb_rvt_assistant: editingUser.kb_rvt_assistant,
+                kb_protocol_assistant: editingUser.kb_protocol_assistant,
                 is_super_admin: editingUser.is_super_admin
               }}
             >
@@ -434,7 +446,7 @@ const PermissionManagementPage = () => {
 
               <Divider orientation="left">知識庫權限</Divider>
               <Row gutter={16}>
-                <Col span={8}>
+                <Col span={6}>
                   <Form.Item 
                     name="kb_protocol_rag" 
                     label="知識庫 Protocol RAG" 
@@ -444,7 +456,7 @@ const PermissionManagementPage = () => {
                     <Switch />
                   </Form.Item>
                 </Col>
-                <Col span={8}>
+                <Col span={6}>
                   <Form.Item 
                     name="kb_ai_ocr" 
                     label="知識庫 AI OCR" 
@@ -454,12 +466,22 @@ const PermissionManagementPage = () => {
                     <Switch />
                   </Form.Item>
                 </Col>
-                <Col span={8}>
+                <Col span={6}>
                   <Form.Item 
                     name="kb_rvt_assistant" 
                     label="知識庫 RVT Assistant" 
                     valuePropName="checked"
                     tooltip="知識庫版本的RVT Assistant功能"
+                  >
+                    <Switch />
+                  </Form.Item>
+                </Col>
+                <Col span={6}>
+                  <Form.Item 
+                    name="kb_protocol_assistant" 
+                    label="知識庫 Protocol Assistant" 
+                    valuePropName="checked"
+                    tooltip="知識庫版本的Protocol Assistant功能"
                   >
                     <Switch />
                   </Form.Item>
