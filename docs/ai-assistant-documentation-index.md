@@ -16,9 +16,9 @@
 - "Celery Beat 是怎麼運作的？"
 
 **參考文檔**：
-1. **🎯 主要參考**: `/docs/celery-beat-architecture-guide.md`
-2. **AI 指導**: `/docs/ai-guidance-vector-architecture.md`
-3. **快速參考**: `/docs/vector-update-quick-reference.md`
+1. **🎯 主要參考**: `/docs/architecture/celery-beat-architecture-guide.md`
+2. **AI 指導**: `/docs/architecture/ai-guidance-vector-architecture.md`
+3. **快速參考**: `/docs/vector-search/vector-update-quick-reference.md`
 
 **核心回答要點**：
 - 聚類分析：**每天凌晨 3:30** 執行
@@ -33,10 +33,10 @@
 - "向量維度是多少？"
 
 **參考文檔**：
-1. **🎯 主要參考**: `/docs/vector-search-guide.md`
-2. **AI 指導**: `/docs/ai-vector-search-guide.md`
-3. **技術概覽**: `/docs/vector-search-overview.md`
-4. **升級記錄**: `/docs/vector-upgrade-1024-summary.md`
+1. **🎯 主要參考**: `/docs/vector-search/vector-search-guide.md`
+2. **AI 指導**: `/docs/vector-search/ai-vector-search-guide.md`
+3. **技術概覽**: `/docs/vector-search/vector-search-overview.md`
+4. **升級記錄**: `/docs/vector-search/vector-upgrade-1024-summary.md`
 
 **核心回答要點**：
 - 模型：intfloat/multilingual-e5-large (1024維)
@@ -50,8 +50,8 @@
 - "如何減少 views.py 的代碼？"
 
 **參考文檔**：
-1. **🎯 主要參考**: `/docs/rvt-guide-refactoring-report.md`
-2. **UI 規範**: `/docs/ui-component-guidelines.md`
+1. **🎯 主要參考**: `/docs/refactoring-reports/rvt-guide-refactoring-report.md`
+2. **UI 規範**: `/docs/development/ui-component-guidelines.md`
 
 **核心回答要點**：
 - 代碼減少 77% (335行 → 77行)
@@ -65,9 +65,9 @@
 - "AI 聊天 API 如何使用？"
 
 **參考文檔**：
-1. **配置指南**: `/docs/guide/dify-external-knowledge-api-guide.md`
-2. **設置說明**: `/docs/guide/dify-app-config-usage.md`
-3. **API 整合**: `/docs/guide/api-integration.md`
+1. **配置指南**: `/docs/ai-integration/dify-external-knowledge-api-guide.md`
+2. **設置說明**: `/docs/ai-integration/dify-app-config-usage.md`
+3. **API 整合**: `/docs/ai-integration/api-integration.md`
 
 ### 🏗️ **RVT Assistant 資料庫與向量系統** ⭐ **NEW**
 **常見問題**：
@@ -77,9 +77,9 @@
 - "圖片更新會影響向量嗎？"
 
 **參考文檔**：
-1. **🎯 完整架構**: `/docs/rvt-assistant-database-vector-architecture.md` ⭐ **主要參考**
-2. **向量搜索指南**: `/docs/vector-search-guide.md`
-3. **AI 向量指導**: `/docs/ai-vector-search-guide.md`
+1. **🎯 完整架構**: `/docs/architecture/rvt-assistant-database-vector-architecture.md` ⭐ **主要參考**
+2. **向量搜索指南**: `/docs/vector-search/vector-search-guide.md`
+3. **AI 向量指導**: `/docs/vector-search/ai-vector-search-guide.md`
 
 **核心回答要點**：
 - **自動向量化**：CREATE/UPDATE 時自動觸發
@@ -96,11 +96,11 @@
 - "分析模式有哪些？如何選擇？"
 
 **參考文檔**：
-1. **🎯 完整架構**: `/docs/rvt-analytics-system-architecture.md` ⭐ **主要參考**
+1. **🎯 完整架構**: `/docs/architecture/rvt-analytics-system-architecture.md` ⭐ **主要參考**
 2. **🤖 AI 快速參考**: `/docs/ai-rvt-analytics-quick-reference.md` ⭐ **診斷必備**
-3. **🔄 流程圖解**: `/docs/rvt-analytics-workflow-diagrams.md`
-4. **向量架構**: `/docs/ai-guidance-vector-architecture.md`
-5. **定時任務**: `/docs/vector-database-scheduled-update-architecture.md`
+3. **🔄 流程圖解**: `/docs/features/rvt-analytics-workflow-diagrams.md`
+4. **向量架構**: `/docs/architecture/ai-guidance-vector-architecture.md`
+5. **定時任務**: `/docs/architecture/vector-database-scheduled-update-architecture.md`
 
 **核心回答要點**：
 - **三種分析模式**：聚類(`clustered`) / 頻率(`frequency`) / **智慧(`smart`)** ⭐ 推薦
@@ -116,8 +116,8 @@
 - "組件庫標準是什麼？"
 
 **參考文檔**：
-1. **🎯 主要參考**: `/docs/ui-component-guidelines.md`
-2. **前端指南**: `/docs/guide/frontend-development.md`
+1. **🎯 主要參考**: `/docs/development/ui-component-guidelines.md`
+2. **前端指南**: `/docs/development/frontend-development.md`
 
 **核心回答要點**：
 - **強制使用 Ant Design** 作為唯一 UI 框架
@@ -131,8 +131,8 @@
 - "容器間如何通信？"
 
 **參考文檔**：
-1. **Docker 指南**: `/docs/guide/docker-installation.md`
-2. **Celery 架構**: `/docs/celery-beat-architecture-guide.md`
+1. **Docker 指南**: `/docs/deployment/docker-installation.md`
+2. **Celery 架構**: `/docs/architecture/celery-beat-architecture-guide.md`
 
 ## 🚨 **重要提醒給 AI 助手**
 
