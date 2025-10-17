@@ -100,6 +100,461 @@ import { Input } from 'semantic-ui-react';  // 禁止
 - `KnowIssuePage.js` - 複雜表單和資料管理
 - 所有新頁面都應參考這些標準實現
 
+# 🎯 AI Assistant 標準範本架構（以 RVT Assistant 為範例）
+
+## 📘 概述
+**RVT Assistant 是專案中 AI Assistant 功能的標準範本**，未來所有新的 Assistant（如 Protocol Assistant、QA Assistant 等）都應該參考此架構模式進行開發。
+
+## 🏗️ 標準 Assistant 架構組成
+
+### 1️⃣ **前端架構（React）**
+
+#### 📁 目錄結構標準
+```
+frontend/src/
+├── pages/
+│   ├── RvtAssistantChatPage.js      # 聊天介面主頁面
+│   ├── RvtAssistantChatPage.css     # 專用樣式
+│   ├── RVTAnalyticsPage.js          # 分析儀表板
+│   └── RvtGuidePage/                # 知識庫管理頁面
+│       └── index.js                 # 使用配置驅動架構
+├── hooks/
+│   ├── useRvtChat.js                # 聊天 API 通訊邏輯
+│   ├── useRvtGuideData.js           # 知識庫資料管理
+│   └── useRvtGuideList.js           # 知識庫列表操作
+├── config/
+│   └── knowledgeBaseConfig.js       # 知識庫配置（支援多 Assistant）
+└── components/
+    └── KnowledgeBase/               # 通用知識庫組件
+        ├── KnowledgeBasePage.jsx    # 通用頁面組件
+        └── createKnowledgeBaseColumns.js  # 通用欄位生成
+```
+
+#### 🎨 前端核心組件
+```javascript
+// 1. 聊天頁面（主要互動介面）
+RvtAssistantChatPage.js
+├── useRvtChat Hook         // API 通訊
+├── useMessageStorage Hook  // 訊息持久化
+├── useMessageFeedback Hook // 用戶反饋
+└── MessageList Component   // 訊息列表展示
+
+// 2. 知識庫管理頁面（配置驅動）
+RvtGuidePage/index.js
+├── knowledgeBaseConfigs['rvt-assistant']  // 配置物件
+├── KnowledgeBasePage                       // 通用頁面
+└── GuideDetailModal                        // 詳細資料彈窗
+
+// 3. 分析儀表板（數據可視化）
+RVTAnalyticsPage.js
+├── 問題分類統計
+├── 用戶滿意度分析
+└── 趨勢分析圖表
+```
+
+#### ⚙️ 配置驅動模式（關鍵特性）
+```javascript
+// config/knowledgeBaseConfig.js
+export const knowledgeBaseConfigs = {
+  'rvt-assistant': {
+    apiEndpoint: '/api/rvt-guides/',
+    routes: { list, create, edit, preview },
+    labels: { pageTitle, createButton, ... },
+    permissions: { canDelete, canEdit, canView },
+    // ... 完整配置
+  },
+  // 🚀 新增 Assistant 只需添加新配置
+  'protocol-assistant': { /* 複製並修改 */ },
+  'qa-assistant': { /* 複製並修改 */ }
+};
+```
+
+### 2️⃣ **後端架構（Django）**
+
+#### 📁 Library 模組結構標準
+```
+backend/library/
+└── rvt_guide/                    # Assistant Library 根目錄
+    ├── __init__.py               # 導出主要接口
+    ├── viewset_manager.py        # ViewSet 管理器
+    ├── api_handlers.py           # API 處理邏輯
+    ├── fallback_handlers.py      # 降級處理
+    ├── search_service.py         # 搜尋服務
+    ├── vector_service.py         # 向量服務
+    └── serializers/              # 序列化器
+        ├── guide_serializer.py
+        └── image_serializer.py
+```
+
+#### 📁 相關 Library 模組
+```
+backend/library/
+├── rvt_guide/              # 知識庫核心功能
+├── rvt_analytics/          # 分析統計功能
+│   ├── question_classifier.py      # 問題分類器
+│   ├── satisfaction_analyzer.py    # 滿意度分析
+│   ├── statistics_manager.py       # 統計管理
+│   └── report_generator.py         # 報告生成
+├── conversation_management/  # 對話管理（共用）
+└── dify_integration/        # Dify AI 整合（共用）
+```
+
+#### 🔧 ViewSet 架構（使用 Mixins）
+```python
+# backend/api/views/viewsets/knowledge_viewsets.py
+class RVTGuideViewSet(
+    LibraryManagerMixin,        # Library 管理
+    FallbackLogicMixin,         # 降級邏輯
+    VectorManagementMixin,      # 向量管理
+    viewsets.ModelViewSet
+):
+    """RVT Assistant 知識庫 ViewSet"""
+    
+    # 配置 Manager 類別
+    manager_config = {
+        'library_available_flag': 'RVT_GUIDE_LIBRARY_AVAILABLE',
+        'manager_class': 'RVTGuideViewSetManager',
+    }
+    
+    # 標準 CRUD + 自訂 Actions
+    @action(detail=False, methods=['post'])
+    def chat(self, request):
+        """聊天 API"""
+        pass
+    
+    @action(detail=False, methods=['get'])
+    def config(self, request):
+        """配置 API"""
+        pass
+    
+    @action(detail=False, methods=['post'])
+    def upload_image(self, request):
+        """圖片上傳 API"""
+        pass
+```
+
+### 3️⃣ **資料庫架構**
+
+#### 📊 核心資料表
+```sql
+-- 知識庫主表
+CREATE TABLE rvt_guide (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(500),
+    content TEXT,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    created_by_id INTEGER REFERENCES auth_user(id)
+);
+
+-- 圖片資料表（關聯）
+CREATE TABLE content_images (
+    id SERIAL PRIMARY KEY,
+    rvt_guide_id INTEGER REFERENCES rvt_guide(id),
+    image BYTEA,
+    filename VARCHAR(255),
+    uploaded_at TIMESTAMP
+);
+
+-- 對話記錄表
+CREATE TABLE chat_conversations (
+    id SERIAL PRIMARY KEY,
+    conversation_id UUID UNIQUE,
+    user_id INTEGER REFERENCES auth_user(id),
+    system_type VARCHAR(50),  -- 'rvt_assistant', 'protocol_assistant'
+    created_at TIMESTAMP
+);
+
+-- 聊天訊息表
+CREATE TABLE chat_messages (
+    id SERIAL PRIMARY KEY,
+    conversation_id UUID REFERENCES chat_conversations(conversation_id),
+    role VARCHAR(20),  -- 'user', 'assistant'
+    content TEXT,
+    created_at TIMESTAMP
+);
+```
+
+#### 🔍 向量資料庫（pgvector）
+```sql
+-- 向量嵌入表（支援語義搜尋）
+CREATE TABLE document_embeddings_1024 (
+    id SERIAL PRIMARY KEY,
+    source_type VARCHAR(50),     -- 'rvt_guide', 'protocol_guide'
+    source_id INTEGER,           -- 對應的知識庫 ID
+    content_chunk TEXT,          -- 文本片段
+    embedding vector(1024),      -- 1024 維向量
+    metadata JSONB,              -- 額外資料
+    created_at TIMESTAMP
+);
+
+-- 向量相似度搜尋索引
+CREATE INDEX ON document_embeddings_1024 
+USING ivfflat (embedding vector_cosine_ops);
+```
+
+### 4️⃣ **AI 整合架構**
+
+#### 🤖 Dify 整合
+```python
+# library/dify_integration/
+DifyRequestManager
+├── send_chat_request()      # 發送聊天請求
+├── send_feedback()          # 發送反饋
+└── handle_response()        # 處理回應
+
+# 配置管理
+DifyConfigManager
+├── get_app_config()         # 獲取應用配置
+└── validate_config()        # 驗證配置
+```
+
+#### 📡 API 端點對應
+```
+# 前端 → Django Backend → Dify
+POST /api/rvt-guide/chat/
+  → DifyRequestManager.send_chat_request()
+    → Dify API: /v1/chat-messages
+      → RAG 檢索 + LLM 生成
+        → 回應給用戶
+```
+
+### 5️⃣ **分析與監控**
+
+#### 📊 分析系統組件
+```python
+# library/rvt_analytics/
+QuestionClassifier       # 問題智能分類
+SatisfactionAnalyzer     # 滿意度分析
+StatisticsManager        # 統計數據管理
+ReportGenerator          # 報告生成器
+```
+
+#### 📈 分析 API 端點
+```
+GET /api/rvt-analytics/overview/          # 總覽數據
+GET /api/rvt-analytics/questions/         # 問題分析
+GET /api/rvt-analytics/satisfaction/      # 滿意度分析
+GET /api/rvt-analytics/trends/            # 趨勢分析
+```
+
+## 🚀 創建新 Assistant 的標準流程
+
+### 步驟 1：配置檔案設定（10 分鐘）
+```javascript
+// frontend/src/config/knowledgeBaseConfig.js
+export const knowledgeBaseConfigs = {
+  // ... 現有的 rvt-assistant 配置
+  
+  // ✅ 新增 Protocol Assistant
+  'protocol-assistant': {
+    apiEndpoint: '/api/protocol-guides/',
+    pageSize: 100,
+    routes: {
+      list: '/knowledge/protocol-log',
+      create: '/knowledge/protocol-guide/markdown-create',
+      edit: '/knowledge/protocol-guide/markdown-edit/:id',
+      getEditPath: (id) => `/knowledge/protocol-guide/markdown-edit/${id}`,
+    },
+    labels: {
+      pageTitle: 'Protocol Assistant 知識庫',
+      createButton: '新增 Protocol Guide',
+      // ... 其他標籤
+    },
+    permissions: {
+      canDelete: (user) => user?.is_staff === true,
+      canEdit: (user) => !!user,
+    },
+    // ... 其他配置
+  }
+};
+```
+
+### 步驟 2：創建前端頁面（20 行代碼）
+```javascript
+// frontend/src/pages/ProtocolGuidePage/index.js
+import React from 'react';
+import { knowledgeBaseConfigs } from '../../config/knowledgeBaseConfig';
+import KnowledgeBasePage from '../../components/KnowledgeBase/KnowledgeBasePage';
+import GuideDetailModal from '../../components/GuideDetailModal';
+
+const ProtocolGuidePage = () => {
+  const config = knowledgeBaseConfigs['protocol-assistant'];
+  
+  return (
+    <KnowledgeBasePage
+      config={config}
+      DetailModal={GuideDetailModal}
+    />
+  );
+};
+
+export default ProtocolGuidePage;
+```
+
+### 步驟 3：建立 Backend Library
+```python
+# backend/library/protocol_guide/__init__.py
+"""
+Protocol Assistant Library
+參考 rvt_guide 結構建立
+"""
+
+from .viewset_manager import ProtocolGuideViewSetManager
+from .api_handlers import ProtocolGuideAPIHandler
+from .search_service import ProtocolGuideSearchService
+from .vector_service import ProtocolGuideVectorService
+
+PROTOCOL_GUIDE_LIBRARY_AVAILABLE = True
+
+__all__ = [
+    'ProtocolGuideViewSetManager',
+    'ProtocolGuideAPIHandler',
+    'PROTOCOL_GUIDE_LIBRARY_AVAILABLE',
+]
+```
+
+### 步驟 4：創建 Django Model
+```python
+# backend/api/models.py
+class ProtocolGuide(models.Model):
+    """Protocol Assistant 知識庫"""
+    title = models.CharField(max_length=500)
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    
+    class Meta:
+        db_table = 'protocol_guide'
+        ordering = ['-created_at']
+```
+
+### 步驟 5：創建 ViewSet（使用 Mixins）
+```python
+# backend/api/views/viewsets/knowledge_viewsets.py
+from library.protocol_guide import ProtocolGuideViewSetManager
+
+class ProtocolGuideViewSet(
+    LibraryManagerMixin,
+    FallbackLogicMixin,
+    VectorManagementMixin,
+    viewsets.ModelViewSet
+):
+    """Protocol Assistant 知識庫 ViewSet"""
+    queryset = ProtocolGuide.objects.all()
+    serializer_class = ProtocolGuideSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    manager_config = {
+        'library_available_flag': 'PROTOCOL_GUIDE_LIBRARY_AVAILABLE',
+        'manager_class': 'ProtocolGuideViewSetManager',
+    }
+    
+    @action(detail=False, methods=['post'])
+    def chat(self, request):
+        """聊天 API（複製 RVT 邏輯）"""
+        return self._execute_with_library(
+            'handle_chat_request',
+            request,
+            fallback_method='_fallback_chat'
+        )
+```
+
+### 步驟 6：註冊路由
+```python
+# backend/api/urls.py
+router.register(r'protocol-guides', views.ProtocolGuideViewSet)
+```
+
+### 步驟 7：配置 Dify 應用
+```python
+# library/config/dify_app_configs.py
+DIFY_APPS['protocol-assistant'] = DifyAppConfig(
+    app_name="Protocol Known Issue System",
+    api_key="app-xxxxxxxxxxxxx",
+    api_url="http://10.10.172.37/v1/chat-messages",
+    knowledge_base_id="protocol_database",
+    system_type="protocol_assistant"
+)
+```
+
+## ✅ 完整功能檢查清單
+
+新 Assistant 開發時，應包含以下功能：
+
+### 前端功能
+- [ ] 聊天介面（RvtAssistantChatPage）
+- [ ] 知識庫管理頁面（RvtGuidePage）
+- [ ] 分析儀表板（RVTAnalyticsPage）
+- [ ] 訊息持久化（localStorage）
+- [ ] 用戶反饋機制（點讚/點踩）
+- [ ] 錯誤處理和重試機制
+- [ ] 響應式設計（Ant Design）
+
+### 後端功能
+- [ ] RESTful CRUD API
+- [ ] 聊天 API（/chat/）
+- [ ] 配置 API（/config/）
+- [ ] 圖片上傳 API（/upload_image/）
+- [ ] 向量搜尋整合
+- [ ] Dify AI 整合
+- [ ] 對話記錄管理
+- [ ] 權限控制
+
+### 資料庫功能
+- [ ] 知識庫主表
+- [ ] 關聯圖片表
+- [ ] 對話記錄表
+- [ ] 訊息記錄表
+- [ ] 向量嵌入表（pgvector）
+- [ ] 適當的索引和約束
+
+### 分析功能
+- [ ] 問題分類統計
+- [ ] 用戶滿意度分析
+- [ ] 使用趨勢分析
+- [ ] 回應時間監控
+- [ ] 數據可視化
+
+### AI 整合
+- [ ] Dify 應用配置
+- [ ] RAG 檢索配置
+- [ ] 提示詞工程
+- [ ] 回應格式化
+- [ ] 錯誤處理
+
+## 📚 關鍵參考文件
+
+### 架構文檔
+- `/docs/architecture/rvt-assistant-database-vector-architecture.md` - 資料庫與向量架構
+- `/docs/architecture/rvt-analytics-system-architecture.md` - 分析系統架構
+- `/docs/architecture/vector-database-scheduled-update-architecture.md` - 向量更新架構
+
+### 開發指南
+- `/docs/development/ui-component-guidelines.md` - UI 組件規範
+- `/docs/ai-integration/dify-app-config-usage.md` - Dify 配置使用
+
+### 程式碼範例
+- `frontend/src/pages/RvtAssistantChatPage.js` - 聊天頁面範例
+- `frontend/src/pages/RvtGuidePage/index.js` - 知識庫頁面範例
+- `backend/api/views/viewsets/knowledge_viewsets.py` - ViewSet 範例
+- `backend/library/rvt_guide/` - Library 結構範例
+
+## 🎯 核心設計原則
+
+1. **配置驅動** - 最大化使用配置，最小化代碼重複
+2. **Library 分離** - 業務邏輯從 ViewSet 分離到 Library
+3. **Mixins 架構** - 使用 Mixins 實現可重用邏輯
+4. **統一標準** - 所有 Assistant 遵循相同的架構模式
+5. **可擴展性** - 易於添加新功能和新 Assistant
+6. **向量整合** - 內建向量搜尋和 RAG 支援
+7. **分析優先** - 每個 Assistant 都包含完整分析功能
+
+---
+
+**🎉 使用 RVT Assistant 作為範本，新的 Assistant 可以在 1-2 天內完成開發！**
+
 # AI Platform 專案功能架構
 
 ## 🎯 專案概述
@@ -173,11 +628,12 @@ import { Input } from 'semantic-ui-react';  // 禁止
   - 資料預覽和編輯
   - localStorage 狀態持久化
   - 自動完成功能
-- **RVT Assistant** (`RvtGuidePage.js`) 
+- **RVT Assistant** (`RvtGuidePage.js`) 🎯 **[標準範本]**
   - 智能助手指導文檔管理
   - 完整 CRUD 操作界面
   - 高級表格展示和過濾
   - 響應式設計
+  - **作為所有 Assistant 功能的標準參考架構**
 - **查詢頁面** (`QueryPage.js`)
 - **設定頁面** (`SettingsPage.js`)
 - **測試類別管理** (`TestClassManagementPage.js`)
@@ -250,7 +706,7 @@ POST /api/dify/knowledge/retrieval/ - Dify 外部知識庫 (多知識源)
 2. **Project** (專案) → **Task** (任務)
 3. **TestClass** (測試類別) → **KnowIssue** (問題)
 4. **Employee** (簡化員工) / **DifyEmployee** (完整員工)
-5. **RvtGuide** (RVT Assistant 指導文檔)
+5. **RvtGuide** (RVT Assistant 指導文檔) 🎯 **[範本架構]**
 
 ## 🚀 部署特色
 - **Docker Compose 多服務編排**
@@ -642,6 +1098,7 @@ if client.test_connection():
 ### 🎨 UI 開發規範
 - **UI 組件規範**: `/docs/development/ui-component-guidelines.md` - Ant Design 使用標準
 - **前端開發指南**: `/docs/development/frontend-development.md` - React 開發規範
+- **AI Assistant 範本指南**: `/docs/development/assistant-template-guide.md` - 🎯 使用 RVT Assistant 作為範本創建新 Assistant
 
 ### 🤖 AI 整合
 - **Dify 外部知識庫**: `/docs/ai-integration/dify-external-knowledge-api-guide.md`

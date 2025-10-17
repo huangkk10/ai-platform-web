@@ -14,6 +14,7 @@
 
 ### 📁 [development/](./development/) - 開發指南
 開發人員必備的技術指南：
+- `assistant-template-guide.md` - 🎯 **AI Assistant 標準範本指南**（使用 RVT Assistant 作為範本）
 - `backend-development.md` - 後端開發指南
 - `frontend-development.md` - 前端開發指南
 - `ui-component-guidelines.md` - UI 組件使用規範
