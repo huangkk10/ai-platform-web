@@ -1135,7 +1135,10 @@ class OCRTestClassViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         """委託給 AI OCR Library 實現"""
         if self._manager:
-            return self._manager.get_permissions(self)
+            result = self._manager.get_permissions_for_action(self.action, self.request.user)
+            if result is None:
+                self.permission_denied(self.request, message='只有管理員才能管理OCR測試類別')
+            return result
         else:
             # 備用實現
             if self.action in ['list', 'retrieve']:
@@ -1148,18 +1151,20 @@ class OCRTestClassViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """委託給 AI OCR Library 實現"""
         if self._manager:
-            return self._manager.perform_create(self, serializer)
+            return self._manager.perform_create(serializer, self.request.user)
         else:
             # 備用實現
             serializer.save(created_by=self.request.user)
     
     def get_queryset(self):
         """委託給 AI OCR Library 實現"""
+        base_queryset = OCRTestClass.objects.all()
+        
         if self._manager:
-            return self._manager.get_queryset(self)
+            return self._manager.get_filtered_queryset(base_queryset, self.request.query_params)
         else:
             # 備用實現
-            queryset = OCRTestClass.objects.all()
+            queryset = base_queryset
             search = self.request.query_params.get('search', None)
             if search:
                 queryset = queryset.filter(name__icontains=search)
@@ -1197,7 +1202,7 @@ class OCRStorageBenchmarkViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self):
         """委託給 AI OCR Library 實現"""
         if self._manager:
-            return self._manager.get_serializer_class(self)
+            return self._manager.get_serializer_class(self.action)
         else:
             # 備用實現
             if self.action == 'list':
@@ -1207,7 +1212,7 @@ class OCRStorageBenchmarkViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """委託給 AI OCR Library 實現"""
         if self._manager:
-            return self._manager.perform_create(self, serializer)
+            return self._manager.perform_create(serializer, self.request.user)
         else:
             # 備用實現
             serializer.save(uploaded_by=self.request.user)
@@ -1749,7 +1754,7 @@ class RVTGuideViewSet(viewsets.ModelViewSet):
         base_queryset = RVTGuide.objects.all()
         
         if self.viewset_manager:
-            return self.viewset_manager.get_queryset(base_queryset, self.request.query_params)
+            return self.viewset_manager.get_filtered_queryset(base_queryset, self.request.query_params)
         else:
             # 備用實現 - 簡化的篩選
             search = self.request.query_params.get('search', None)
