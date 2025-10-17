@@ -94,16 +94,98 @@ class DifyKnowledgeSearchHandler:
     Dify 知識庫搜索處理器
     
     負責根據不同的 knowledge_id 調用相應的搜索服務
+    
+    🆕 支援依賴注入模式，消除循環依賴風險
     """
     
-    def __init__(self):
+    def __init__(self, search_functions=None):
+        """
+        初始化搜索處理器
+        
+        Args:
+            search_functions: 可選的搜索函數字典（依賴注入）
+                {
+                    'know_issue': callable,
+                    'rvt_guide': callable,
+                    'protocol_guide': callable,
+                    'ocr_benchmark': callable,
+                    'employee': callable,
+                }
+                如果提供，將使用注入的函數；
+                如果為 None，將嘗試從 library 內部導入。
+        """
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
-        self._initialize_search_services()
+        
+        if search_functions:
+            # 使用注入的搜索函數（依賴注入模式）
+            self._set_injected_search_functions(search_functions)
+            self.logger.info("✅ 使用依賴注入的搜索函數")
+        else:
+            # 備用：從 library 內部導入（避免依賴 api.views）
+            self._initialize_search_services_from_library()
+            self.logger.info("⚠️ 使用 library 內部搜索服務（備用模式）")
     
-    def _initialize_search_services(self):
-        """初始化各種搜索服務"""
+    def _set_injected_search_functions(self, search_functions):
+        """
+        設置注入的搜索函數（依賴注入模式）
+        
+        Args:
+            search_functions: 搜索函數字典
+        """
+        self.search_know_issue_knowledge = search_functions.get(
+            'know_issue', self._fallback_search
+        )
+        self.search_rvt_guide_knowledge = search_functions.get(
+            'rvt_guide', self._fallback_search
+        )
+        self.search_protocol_guide_knowledge = search_functions.get(
+            'protocol_guide', self._fallback_search
+        )
+        self.search_ocr_storage_benchmark = search_functions.get(
+            'ocr_benchmark', self._fallback_search
+        )
+        self.search_postgres_knowledge = search_functions.get(
+            'employee', self._fallback_search
+        )
+        
+        # 向量搜索（暫時不支援注入，使用動態導入）
         try:
-            # 導入向量搜索服務（動態導入）
+            import importlib
+            embedding_module = importlib.import_module('api.services.embedding_service')
+            self.search_rvt_guide_with_vectors = getattr(embedding_module, 'search_rvt_guide_with_vectors', None)
+            self.vector_search_available = self.search_rvt_guide_with_vectors is not None
+        except ImportError:
+            self.vector_search_available = False
+            self.search_rvt_guide_with_vectors = None
+        
+        self.logger.debug("依賴注入設置完成")
+    
+    def _initialize_search_services_from_library(self):
+        """
+        從 library 內部組件初始化搜索服務（備用模式）
+        
+        🎯 此方法不再依賴 api.views，而是直接從 library 導入。
+        這消除了循環依賴風險。
+        """
+        try:
+            # 從 library 內部導入搜索服務
+            from library.data_processing.database_search import DatabaseSearchService
+            from library.rvt_guide.search_service import RVTGuideSearchService
+            from library.protocol_guide.search_service import ProtocolGuideSearchService
+            
+            # 創建服務實例
+            db_service = DatabaseSearchService()
+            rvt_service = RVTGuideSearchService()
+            protocol_service = ProtocolGuideSearchService()
+            
+            # 設置搜索函數
+            self.search_know_issue_knowledge = db_service.search_know_issue_knowledge
+            self.search_rvt_guide_knowledge = rvt_service.search_knowledge
+            self.search_protocol_guide_knowledge = protocol_service.search_knowledge
+            self.search_ocr_storage_benchmark = db_service.search_ocr_storage_benchmark
+            self.search_postgres_knowledge = db_service.search_postgres_knowledge
+            
+            # 向量搜索服務
             try:
                 import importlib
                 embedding_module = importlib.import_module('api.services.embedding_service')
@@ -118,21 +200,37 @@ class DifyKnowledgeSearchHandler:
                 self.vector_search_available = False
                 self.search_rvt_guide_with_vectors = None
                 self.logger.warning("⚠️ 向量搜索模組不可用")
-                
-            # 導入各種搜索函數
-            self._import_search_functions()
             
+            self.logger.info("✅ 從 library 內部初始化搜索服務成功")
+            
+        except ImportError as e:
+            self.logger.error(f"Library 內部初始化失敗: {e}")
+            self._set_fallback_services()
         except Exception as e:
-            self.logger.error(f"初始化搜索服務失敗: {e}")
+            self.logger.error(f"搜索服務初始化異常: {e}")
             self._set_fallback_services()
     
+    def _initialize_search_services(self):
+        """
+        @deprecated 此方法已過時，保留僅為向後兼容
+        
+        舊版初始化方法，會從 api.views 動態導入（有循環依賴風險）。
+        新代碼應該使用依賴注入或 _initialize_search_services_from_library()。
+        """
+        self.logger.warning("⚠️ 使用過時的 _initialize_search_services() 方法")
+        self._initialize_search_services_from_library()
+    
     def _import_search_functions(self):
-        """導入搜索函數（動態導入避免循環依賴）"""
+        """
+        @deprecated 此方法已過時，不再使用
+        
+        舊版方法會從 api.views 動態導入搜索函數，存在循環依賴風險。
+        已被 _initialize_search_services_from_library() 取代。
+        """
+        self.logger.warning("⚠️ _import_search_functions() 已過時，建議使用依賴注入")
+        # 為了向後兼容，嘗試從 api.views 導入
         try:
-            # 動態導入避免循環依賴問題
             import importlib
-            
-            # 嘗試從 views 模組導入搜索函數
             views_module = importlib.import_module('api.views')
             
             self.search_know_issue_knowledge = getattr(views_module, 'search_know_issue_knowledge', self._fallback_search)
@@ -141,7 +239,7 @@ class DifyKnowledgeSearchHandler:
             self.search_ocr_storage_benchmark = getattr(views_module, 'search_ocr_storage_benchmark', self._fallback_search)
             self.search_postgres_knowledge = getattr(views_module, 'search_postgres_knowledge', self._fallback_search)
             
-            self.logger.info("✅ 成功動態導入搜索函數")
+            self.logger.info("✅ 成功動態導入搜索函數（舊版方法）")
             
         except ImportError as e:
             self.logger.error(f"動態導入搜索函數失敗: {e}")
@@ -467,9 +565,42 @@ class DifyKnowledgeManager:
 
 # 便利函數和工廠方法
 
-def create_dify_knowledge_search_handler():
-    """創建 Dify 知識搜索處理器"""
-    return DifyKnowledgeSearchHandler()
+def create_dify_knowledge_search_handler(search_functions=None):
+    """
+    創建 Dify 知識搜索處理器 - 工廠函數
+    
+    🆕 支援依賴注入模式
+    
+    Args:
+        search_functions: 可選的搜索函數字典（依賴注入）
+            {
+                'know_issue': callable,
+                'rvt_guide': callable,
+                'protocol_guide': callable,
+                'ocr_benchmark': callable,
+                'employee': callable,
+            }
+            如果提供，將使用注入的函數；
+            如果為 None，將從 library 內部導入。
+        
+    Returns:
+        DifyKnowledgeSearchHandler: 配置好的搜索處理器實例
+        
+    Examples:
+        # 方式 1：使用依賴注入（推薦）
+        from library.data_processing.database_search import DatabaseSearchService
+        db_service = DatabaseSearchService()
+        search_functions = {
+            'know_issue': db_service.search_know_issue_knowledge,
+            'rvt_guide': db_service.search_rvt_guide_knowledge,
+            ...
+        }
+        handler = create_dify_knowledge_search_handler(search_functions)
+        
+        # 方式 2：使用內部導入（備用）
+        handler = create_dify_knowledge_search_handler()
+    """
+    return DifyKnowledgeSearchHandler(search_functions=search_functions)
 
 def create_dify_knowledge_api_processor():
     """創建 Dify 知識 API 處理器"""

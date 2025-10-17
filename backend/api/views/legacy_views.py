@@ -15,15 +15,15 @@ import logging
 import sys
 import os
 import time
-from .models import UserProfile, Project, Task, KnowIssue, TestClass, OCRTestClass, OCRStorageBenchmark, RVTGuide, ProtocolGuide, ContentImage
+from api.models import UserProfile, Project, Task, KnowIssue, TestClass, OCRTestClass, OCRStorageBenchmark, RVTGuide, ProtocolGuide, ContentImage
 # RVT Guide 序列化器已模組化至 library/rvt_guide/serializers/
 # 但通過 api/serializers.py 保持向後兼容，因此此處導入方式無需修改
-from .serializers import UserSerializer, UserProfileSerializer, UserPermissionSerializer, ProjectSerializer, TaskSerializer, KnowIssueSerializer, TestClassSerializer, OCRTestClassSerializer, OCRStorageBenchmarkSerializer, OCRStorageBenchmarkListSerializer, RVTGuideSerializer, RVTGuideListSerializer, ProtocolGuideSerializer, ProtocolGuideListSerializer, ContentImageSerializer, RVTGuideWithImagesSerializer
+from api.serializers import UserSerializer, UserProfileSerializer, UserPermissionSerializer, ProjectSerializer, TaskSerializer, KnowIssueSerializer, TestClassSerializer, OCRTestClassSerializer, OCRStorageBenchmarkSerializer, OCRStorageBenchmarkListSerializer, RVTGuideSerializer, RVTGuideListSerializer, ProtocolGuideSerializer, ProtocolGuideListSerializer, ContentImageSerializer, RVTGuideWithImagesSerializer
 from rest_framework.exceptions import ValidationError
 
 # 導入向量搜索服務
 try:
-    from .services.embedding_service import search_rvt_guide_with_vectors, get_embedding_service
+    from api.services.embedding_service import search_rvt_guide_with_vectors, get_embedding_service
     VECTOR_SEARCH_AVAILABLE = True
 except ImportError as e:
     VECTOR_SEARCH_AVAILABLE = False
@@ -863,224 +863,18 @@ class TaskViewSet(viewsets.ModelViewSet):
 
 
 
-# ============= 🚨 重要：搜索函數已重構到 Library =============
-# 以下搜索函數已移動到 library/data_processing/database_search.py
-# 保留這些函數定義是為了向後相容性
-# 新代碼應該使用：from library.data_processing.database_search import DatabaseSearchService
-
-def search_know_issue_knowledge(query_text, limit=5):
-    """
-    【向後兼容】此函數已遷移至 library/data_processing/database_search.py
-    現在調用 library 中的新實現
-    """
-    try:
-        # 如果 library 可用，使用新的實現
-        if DatabaseSearchService:
-            service = DatabaseSearchService()
-            return service.search_know_issue_knowledge(query_text, limit)
-        else:
-            # 備用實現 (如果 library 不可用)
-            logger = logging.getLogger(__name__)
-            logger.warning("DatabaseSearchService 不可用，使用備用實現")
-            return []
-    except Exception as e:
-        logger = logging.getLogger(__name__)
-        logger.error(f"Know Issue 搜索失敗: {str(e)}")
-        return []
-
-
-def search_rvt_guide_knowledge(query_text, limit=5):
-    """
-    在 PostgreSQL 中搜索 RVT Guide 知識庫
-    
-    🚨 已重構：此函數已移動到 library/data_processing/database_search.py
-    建議使用：DatabaseSearchService.search_rvt_guide_knowledge(query_text, limit)
-    """
-    try:
-        # 如果 library 可用，使用新的實現
-        if DatabaseSearchService:
-            service = DatabaseSearchService()
-            return service.search_rvt_guide_knowledge(query_text, limit)
-        else:
-            # 備用實現 (如果 library 不可用)
-            logger = logging.getLogger(__name__)
-            logger.warning("DatabaseSearchService 不可用，使用備用實現")
-            return []
-    except Exception as e:
-        logger = logging.getLogger(__name__)
-        logger.error(f"RVT Guide 搜索失敗: {str(e)}")
-        return []
-
-
-def search_protocol_guide_knowledge(query_text, limit=5):
-    """
-    在 PostgreSQL 中搜索 Protocol Guide 知識庫
-    
-    使用 library/protocol_guide/search_service.py 統一實現
-    """
-    try:
-        # 使用 Protocol Guide Library
-        from library.protocol_guide.search_service import ProtocolGuideSearchService
-        service = ProtocolGuideSearchService()
-        return service.search_knowledge(query_text, limit=limit)
-    except Exception as e:
-        logger = logging.getLogger(__name__)
-        logger.error(f"Protocol Guide 搜索失敗: {str(e)}")
-        return []
-
-
-def search_ocr_storage_benchmark(query_text, limit=5):
-    """
-    搜索 OCR Storage Benchmark 資料 - 使用 AI OCR Library 統一實現
-    
-    � 重構後：優先使用 library/ai_ocr/search_service.py
-    �🚨 已重構：原功能已移動到 library/data_processing/database_search.py
-    """
-    try:
-        if AI_OCR_LIBRARY_AVAILABLE and search_ocr_storage_benchmark_unified:
-            # 🆕 優先使用 AI OCR library 中的統一搜索服務
-            return search_ocr_storage_benchmark_unified(query_text, limit)
-        elif DatabaseSearchService:
-            # 備用：使用原有的資料庫搜索服務
-            service = DatabaseSearchService()
-            return service.search_ocr_storage_benchmark(query_text, limit)
-        else:
-            # 最終備用實現
-            logger.warning("AI OCR Library 和 DatabaseSearchService 都不可用，使用最基本備用")
-            return []
-    except Exception as e:
-        logger.error(f"OCR Storage Benchmark 搜索失敗: {str(e)}")
-        return []
-
-
-@api_view(['POST'])
-@permission_classes([])  # 公開 API，但會檢查 Authorization header
-@csrf_exempt
-def dify_knowledge_search(request):
-    """
-    Dify 外部知識 API 端點 - 使用 Dify Knowledge Library 統一實現
-    
-    🔄 重構後：直接使用 library/dify_knowledge/ 處理
-    """
-    try:
-        if DIFY_KNOWLEDGE_LIBRARY_AVAILABLE and handle_dify_knowledge_search_api:
-            # 使用 Dify Knowledge library 中的統一 API 處理器
-            return handle_dify_knowledge_search_api(request)
-        else:
-            # 使用備用實現
-            logger.warning("Dify Knowledge Library 不可用，使用備用實現")
-            try:
-                from library.dify_knowledge.fallback_handlers import fallback_dify_knowledge_search
-                return fallback_dify_knowledge_search(request)
-            except ImportError:
-                # 最終備用方案
-                logger.error("Dify Knowledge Library 完全不可用")
-                return Response({
-                    'error_code': 2001,
-                    'error_msg': 'Knowledge search service temporarily unavailable'
-                }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-                
-    except Exception as e:
-        logger.error(f"Dify knowledge search error: {str(e)}")
-        return Response({
-            'error_code': 2001,
-            'error_msg': 'Internal server error'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-@api_view(['POST'])
-@permission_classes([])  # 公開 API，但會檢查 Authorization header
-@csrf_exempt
-def dify_know_issue_search(request):
-    """
-    Dify Know Issue 外部知識庫 API 端點 - 使用 library 統一實現
-    
-    🔄 重構後：直接使用 library/know_issue/ 處理
-    """
-    try:
-        if KNOW_ISSUE_LIBRARY_AVAILABLE and handle_dify_know_issue_search_api:
-            # 使用 Know Issue library 中的 API 處理器
-            return handle_dify_know_issue_search_api(request)
-        else:
-            # 使用備用實現
-            logger.warning("Know Issue Library 不可用，使用備用實現")
-            try:
-                from library.know_issue.fallback_handlers import fallback_dify_know_issue_search
-                return fallback_dify_know_issue_search(request)
-            except ImportError:
-                # 最終備用方案
-                logger.error("Know Issue Library 完全不可用")
-                return Response({
-                    'error_code': 2001,
-                    'error_msg': 'Know Issue search service temporarily unavailable'
-                }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-            
-    except Exception as e:
-        logger.error(f"Dify Know Issue search error: {str(e)}")
-        return Response({
-            'error_code': 2001,
-            'error_msg': 'Internal server error'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-@api_view(['POST'])
-@permission_classes([])  # 公開 API，但會檢查 Authorization header
-@csrf_exempt
-def dify_ocr_storage_benchmark_search(request):
-    """
-    Dify OCR Storage Benchmark 外部知識庫 API 端點 - 使用 AI OCR Library 實現
-    
-    🔄 重構後：主要邏輯和備用實現都在 library 中維護
-    """
-    try:
-        if AI_OCR_LIBRARY_AVAILABLE and AIOCRAPIHandler:
-            # 使用 AI OCR library 中的 API 處理器
-            return AIOCRAPIHandler.handle_dify_ocr_storage_benchmark_search_api(request)
-        elif fallback_dify_ocr_storage_benchmark_search:
-            # 使用 library 中維護的備用實現
-            return fallback_dify_ocr_storage_benchmark_search(request)
-        else:
-            # library 完全不可用時的最終錯誤處理
-            logger.error("AI OCR Library 完全不可用")
-            return Response({
-                'error_code': 2001,
-                'error_msg': 'OCR Storage Benchmark search service temporarily unavailable'
-            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-            
-    except Exception as e:
-        logger.error(f"Dify OCR Storage Benchmark search error: {str(e)}")
-        return Response({
-            'error_code': 2001,
-            'error_msg': 'Internal server error'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-@api_view(['POST'])
-@permission_classes([])  # 公開 API，但會檢查 Authorization header
-@csrf_exempt
-def dify_rvt_guide_search(request):
-    """
-    Dify RVT Guide 外部知識庫搜索 API - 使用 library 統一實現
-    """
-    try:
-        if RVT_GUIDE_LIBRARY_AVAILABLE and RVTGuideAPIHandler:
-            return RVTGuideAPIHandler.handle_dify_search_api(request)
-        elif fallback_dify_rvt_guide_search:
-            # 使用 library 中的備用實現
-            return fallback_dify_rvt_guide_search(request)
-        else:
-            # library 完全不可用時的最終錯誤處理
-            logger.error("RVT Guide library 完全不可用")
-            return Response({
-                'error_code': 2001,
-                'error_msg': 'RVT Guide service temporarily unavailable'
-            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-    except Exception as e:
-        logger.error(f"Dify RVT Guide search error: {str(e)}")
-        return Response({
-            'error_code': 2001,
-            'error_msg': 'Internal server error'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+# ============= 🚨 重要：Dify 知識庫 API 已重構 =============
+# Dify 外部知識庫相關的 API 已移動到 views/dify_knowledge_views.py
+# 搜索函數和 API 端點現在使用依賴注入模式，避免循環依賴
+# 
+# 如需使用 Dify API，請導入：
+# from .dify_knowledge_views import (
+#     dify_knowledge_search,
+#     dify_know_issue_search,
+#     dify_ocr_storage_benchmark_search,
+#     dify_rvt_guide_search,
+#     dify_protocol_guide_search,
+# )
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -2173,34 +1967,7 @@ class ProtocolGuideViewSet(viewsets.ModelViewSet):
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@api_view(['POST'])
-@permission_classes([permissions.AllowAny])
-def dify_protocol_guide_search(request):
-    """Dify Protocol 知識庫搜索 API"""
-    if PROTOCOL_GUIDE_LIBRARY_AVAILABLE and ProtocolGuideAPIHandler:
-        return ProtocolGuideAPIHandler.handle_dify_search_api(request)
-    else:
-        # 備用實現
-        logger.warning("Protocol Guide Library 不可用，使用備用搜索")
-        try:
-            query = request.data.get('query', '')
-            records = list(ProtocolGuide.objects.filter(
-                models.Q(title__icontains=query) |
-                models.Q(content__icontains=query) |
-                models.Q(protocol_name__icontains=query)
-            )[:5].values('id', 'title', 'protocol_name', 'content'))
-            
-            return Response({
-                'records': [{
-                    'content': f"{r['protocol_name']} - {r['title']}\n\n{r['content'][:500]}",
-                    'score': 0.5,
-                    'title': r['title'],
-                    'metadata': {'protocol_name': r['protocol_name']}
-                } for r in records]
-            })
-        except Exception as e:
-            logger.error(f"Protocol Guide 搜索失敗: {str(e)}")
-            return Response({'error': str(e)}, status=500)
+# dify_protocol_guide_search 已移至 views/dify_knowledge_views.py
 
 
 @api_view(['POST'])
@@ -2586,7 +2353,7 @@ def rvt_analytics_feedback(request):
                     }, status=400)
                 
                 # 簡化的備用處理 - 直接更新數據庫
-                from .models import ChatMessage
+                from api.models import ChatMessage
                 try:
                     message = ChatMessage.objects.get(message_id=message_id)
                     message.is_helpful = is_helpful
@@ -2653,7 +2420,7 @@ def rvt_analytics_overview(request):
                 # 簡化的統計
                 from django.utils import timezone
                 from datetime import timedelta
-                from .models import ConversationSession, ChatMessage
+                from api.models import ConversationSession, ChatMessage
                 
                 start_date = timezone.now() - timedelta(days=days)
                 
@@ -2723,7 +2490,7 @@ def rvt_analytics_questions(request):
                 # 簡化的問題分析
                 from django.utils import timezone
                 from datetime import timedelta
-                from .models import ChatMessage
+                from api.models import ChatMessage
                 from collections import Counter
                 
                 start_date = timezone.now() - timedelta(days=days)
@@ -2788,7 +2555,7 @@ def rvt_analytics_satisfaction(request):
                 # 簡化的滿意度分析
                 from django.utils import timezone
                 from datetime import timedelta
-                from .models import ChatMessage
+                from api.models import ChatMessage
                 
                 start_date = timezone.now() - timedelta(days=days)
                 
