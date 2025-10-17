@@ -5,10 +5,14 @@ API Views 統一導出接口
 本模組提供統一的 views 導出接口，保持向後兼容性。
 
 重構說明：
-- 原有的 views.py 已拆分為：
-  - dify_knowledge_views.py: Dify 外部知識庫 API
-  - auth_views.py: 用戶認證相關 API ✅ 新增
-  - legacy_views.py: 其他所有 API 和 ViewSets
+- 原有的 3,110 行 legacy_views.py 已完全拆分為 7 個模組化文件：
+  - dify_knowledge_views.py: Dify 外部知識庫 API (10 函數)
+  - auth_views.py: 用戶認證相關 API (5 函數)
+  - dify_chat_views.py: Dify 聊天 API (7 函數)
+  - dify_config_views.py: Dify 配置 API (3 函數)
+  - analytics_views.py: 分析統計 API (14 函數)
+  - viewsets.py: 所有 ViewSet 類別 (11 類別)
+  - system_monitoring_views.py: 系統監控 API (3 函數)
 - 通過此 __init__.py 統一導出，確保現有代碼無需修改
 - 依賴注入模式消除了循環依賴風險
 
@@ -25,10 +29,12 @@ API Views 統一導出接口
     # 方式 3：從子模組導入（最明確）
     from api.views.dify_knowledge_views import dify_knowledge_search
     from api.views.auth_views import user_login_api
-    from api.views.legacy_views import UserViewSet
+    from api.views.viewsets import UserViewSet
 
 Created: 2025-10-17
+Updated: 2025-10-17 (Completed modularization)
 Author: AI Platform Team
+Version: 2.0.0
 """
 
 # ============= Dify 知識庫 API 導出 =============
