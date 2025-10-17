@@ -199,17 +199,28 @@ class UserProfileViewSet(LibraryManagerMixin, FallbackLogicMixin, viewsets.Model
         """
         獲取所有用戶的權限列表
         
-        ✅ 重構後：統一使用三層備用
+        ✅ 重構後：統一使用三層備用（含緊急備用實現）
         """
         if self.has_manager():
             return self._manager.handle_list_user_permissions(request)
         elif self.has_fallback_manager():
             return self._fallback_manager.handle_list_user_permissions_fallback(request)
         else:
-            return Response(
-                {'error': 'Permission management not available'},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE
-            )
+            # 🚨 緊急備用實現：直接查詢資料庫
+            logger.warning("使用緊急備用 list_user_permissions 實現")
+            if not request.user.is_superuser:
+                return Response(
+                    {'error': '權限不足'}, 
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            profiles = UserProfile.objects.all().select_related('user').order_by('user__username')
+            serializer = UserPermissionSerializer(profiles, many=True)
+            return Response({
+                'success': True, 
+                'data': serializer.data, 
+                'count': len(serializer.data)
+            })
 
     @action(detail=True, methods=['patch'], url_path='permissions')
     def manage_permissions(self, request, pk=None):
@@ -264,14 +275,21 @@ class UserProfileViewSet(LibraryManagerMixin, FallbackLogicMixin, viewsets.Model
         """
         獲取當前用戶的權限資訊
         
-        ✅ 重構後：統一使用三層備用
+        ✅ 重構後：統一使用三層備用（含緊急備用實現）
         """
         if self.has_manager():
             return self._manager.handle_get_my_permissions(request)
         elif self.has_fallback_manager():
             return self._fallback_manager.handle_get_my_permissions_fallback(request)
         else:
-            return Response(
-                {'error': 'Permission information not available'},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE
-            )
+            # 🚨 緊急備用實現：直接查詢資料庫
+            logger.warning("使用緊急備用 get_my_permissions 實現")
+            try:
+                profile = UserProfile.objects.get(user=request.user)
+                serializer = UserPermissionSerializer(profile)
+                return Response({'success': True, 'data': serializer.data})
+            except UserProfile.DoesNotExist:
+                return Response(
+                    {'error': '用戶檔案不存在'}, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
