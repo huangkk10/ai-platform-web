@@ -7,6 +7,7 @@ API Views 統一導出接口
 重構說明：
 - 原有的 views.py 已拆分為：
   - dify_knowledge_views.py: Dify 外部知識庫 API
+  - auth_views.py: 用戶認證相關 API ✅ 新增
   - legacy_views.py: 其他所有 API 和 ViewSets
 - 通過此 __init__.py 統一導出，確保現有代碼無需修改
 - 依賴注入模式消除了循環依賴風險
@@ -15,13 +16,15 @@ API Views 統一導出接口
     # 方式 1：傳統導入（仍然可用）
     from api import views
     views.dify_knowledge_search(request)
+    views.user_login_api(request)
     views.UserViewSet
     
     # 方式 2：直接導入（推薦）
-    from api.views import dify_knowledge_search, UserViewSet
+    from api.views import dify_knowledge_search, user_login_api, UserViewSet
     
     # 方式 3：從子模組導入（最明確）
     from api.views.dify_knowledge_views import dify_knowledge_search
+    from api.views.auth_views import user_login_api
     from api.views.legacy_views import UserViewSet
 
 Created: 2025-10-17
@@ -50,52 +53,45 @@ from .dify_knowledge_views import (
 )
 
 
-# ============= 其他所有 Views 導出 =============
+# ============= 認證 API 導出 =============
 
-from .legacy_views import (
-    # 認證相關 API
+from .auth_views import (
     user_login_api,
     user_register,
     user_logout,
-    user_info,
     change_password,
-    
-    # ViewSet 類別
-    UserViewSet,
-    UserProfileViewSet,
-    ProjectViewSet,
-    TaskViewSet,
-    KnowIssueViewSet,
-    TestClassViewSet,
-    OCRTestClassViewSet,
-    OCRStorageBenchmarkViewSet,
-    RVTGuideViewSet,
-    ProtocolGuideViewSet,
-    ContentImageViewSet,
-    
-    # Dify Chat API
+    user_info,
+)
+
+
+# ============= Dify Chat API 導出 =============
+
+from .dify_chat_views import (
+    # Chat APIs
     dify_chat,
     dify_chat_with_file,
-    dify_config_info,
     dify_ocr_chat,
-    
-    # RVT Guide Chat API
     rvt_guide_chat,
-    rvt_guide_config,
-    
-    # Protocol Guide Chat API
     protocol_guide_chat,
-    protocol_guide_config,
     
     # Chat 使用統計 API
     chat_usage_statistics,
     record_chat_usage,
-    
-    # 系統監控 API
-    simple_system_status,
-    basic_system_status,
-    system_logs,
-    
+)
+
+
+# ============= Dify Config API 導出 =============
+
+from .dify_config_views import (
+    dify_config_info,
+    rvt_guide_config,
+    protocol_guide_config,
+)
+
+
+# ============= Analytics API 導出 =============
+
+from .analytics_views import (
     # 對話管理 API
     conversation_list,
     conversation_detail,
@@ -116,6 +112,44 @@ from .legacy_views import (
     vectorize_chat_message,
     intelligent_question_classify,
 )
+
+
+# ============= ViewSets 導出 =============
+
+from .viewsets import (
+    UserViewSet,
+    UserProfileViewSet,
+    ProjectViewSet,
+    TaskViewSet,
+    KnowIssueViewSet,
+    TestClassViewSet,
+    OCRTestClassViewSet,
+    OCRStorageBenchmarkViewSet,
+    RVTGuideViewSet,
+    ProtocolGuideViewSet,
+    ContentImageViewSet,
+)
+
+
+# ============= System Monitoring API 導出 =============
+
+from .system_monitoring_views import (
+    system_logs,
+    simple_system_status,
+    basic_system_status,
+)
+
+
+# ============= 清理完成 =============
+# legacy_views.py 已被完全拆分為以下模組：
+# - dify_knowledge_views.py: Dify 知識庫 API (10 個函數)
+# - auth_views.py: 用戶認證 API (5 個函數)
+# - dify_chat_views.py: Dify 聊天 API (7 個函數)
+# - dify_config_views.py: Dify 配置 API (3 個函數)
+# - analytics_views.py: 分析統計 API (14 個函數)
+# - viewsets.py: 所有 ViewSet 類別 (11 個類別)
+# - system_monitoring_views.py: 系統監控 API (3 個函數)
+# 總計: 53 個 API 端點，完全模組化
 
 
 # ============= __all__ 定義（可選但推薦） =============
