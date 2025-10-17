@@ -530,33 +530,142 @@ if client.test_connection():
         print(f"回應: {result['answer']}")
 ```
 
-## 📚 重要文檔索引
+# 📚 文檔分類與創建指引
 
-### 🔍 向量搜尋系統
-- **完整指南**: `/docs/vector-search-guide.md` - 向量搜尋系統的完整建立和使用方法
-- **快速參考**: `/docs/vector-search-quick-reference.md` - 常用命令和故障排除
-- **AI 專用指南**: `/docs/ai-vector-search-guide.md` - AI 助手的操作指南和最佳實踐
+## 🗂️ **AI 創建文檔時的強制分類規則**
 
-### 🎨 UI 開發規範
-- **UI 組件規範**: `/docs/ui-component-guidelines.md` - Ant Design 使用標準
-- **前端開發指南**: `/docs/guide/frontend-development.md` - React 開發規範
+**重要：AI 在創建新文檔時必須按照以下分類標準將文件放入對應目錄**
 
-### 🤖 AI 整合
-- **Dify 外部知識庫**: `/docs/guide/dify-external-knowledge-api-guide.md`
-- **API 整合**: `/docs/guide/api-integration.md`
-- **AI 指令說明**: `/docs/ai_instructions.md`
+### 📁 **docs/ 目錄結構與分類規則**
 
-### 💻 開發指南
-- **後端開發**: `/docs/guide/backend-development.md`
-- **Docker 安裝**: `/docs/guide/docker-installation.md`
+#### 1. **`docs/architecture/` - 系統架構相關**
+**放置條件**：系統設計、架構說明、技術架構文檔
+**範例內容**：
+- 向量資料庫架構設計
+- Celery Beat 任務調度架構
+- 系統組件關聯圖
+- 微服務架構說明
+- 資料流設計文檔
+
+#### 2. **`docs/development/` - 開發指南**
+**放置條件**：開發規範、編碼指南、技術標準
+**範例內容**：
+- 前端/後端開發規範
+- UI 組件使用指南
+- 代碼風格指南
+- 配置管理說明
+- Commit 訊息規範
+
+#### 3. **`docs/deployment/` - 部署與環境設置**
+**放置條件**：部署流程、環境配置、基礎設施
+**範例內容**：
+- Docker 容器部署
+- 資料庫安裝配置
+- 環境變數設定
+- 監控工具設置
+- CI/CD 流程
+
+#### 4. **`docs/ai-integration/` - AI 整合相關**
+**放置條件**：AI 系統整合、外部 AI 服務配置
+**範例內容**：
+- Dify 整合配置
+- 外部 AI API 使用
+- 機器學習模型配置
+- AI 服務串接指南
+- 智能功能開發
+
+#### 5. **`docs/vector-search/` - 向量搜尋系統**
+**放置條件**：向量搜尋功能相關的所有文檔
+**範例內容**：
+- 向量搜尋實作指南
+- 向量模型配置
+- 搜尋效能優化
+- 向量資料庫操作
+- 搜尋演算法說明
+
+#### 6. **`docs/features/` - 功能模組文檔**
+**放置條件**：具體功能模組的說明和使用指南
+**範例內容**：
+- 業務功能說明
+- 用戶操作指南
+- 功能實作報告
+- 工作流程圖
+- 系統功能架構
+
+#### 7. **`docs/refactoring-reports/` - 重構報告**
+**放置條件**：系統重構、代碼改進的記錄文檔
+**範例內容**：
+- 重構前後對比
+- 效能改善報告
+- 代碼優化記錄
+- 架構升級說明
+- 技術債務清理
+
+#### 8. **`docs/testing/` - 測試相關**
+**放置條件**：測試工具、測試指南、QA 文檔
+**範例內容**：
+- 單元測試指南
+- 整合測試說明
+- 測試工具使用
+- 自動化測試配置
+- 測試案例文檔
+
+### 🎯 **AI 文檔創建檢查清單**
+
+在創建任何 `.md` 文檔時，AI 必須：
+
+1. **� 確定分類**：根據文檔內容確定所屬的 8 個分類之一
+2. **🎯 選擇目錄**：將文檔放入對應的子目錄中
+3. **📝 命名規範**：使用小寫字母、連字號分隔的檔名
+4. **🔗 更新索引**：如果是重要文檔，考慮更新 `docs/README.md`
+
+### 🚫 **禁止的做法**
+- ❌ 不要將文檔直接放在 `docs/` 根目錄（除非是索引文件）
+- ❌ 不要創建新的分類目錄（使用現有的 8 個分類）
+- ❌ 不要混合不同類型的內容在同一文檔中
+
+### ✅ **推薦的做法**
+- ✅ 根據主要內容選擇最合適的分類
+- ✅ 使用清晰的檔名表達文檔用途
+- ✅ 在文檔開頭添加用途說明
+- ✅ 交叉引用相關文檔
 
 ---
 
-**更新日期**: 2024-09-24  
-**版本**: v2.1  
-**狀態**: ✅ 已整合 UI 規範  
-**主要特色**: Ant Design First + Dify AI 整合  
+## �📚 重要文檔索引（已更新路徑）
+
+### 🔍 向量搜尋系統
+- **完整指南**: `/docs/vector-search/vector-search-guide.md` - 向量搜尋系統的完整建立和使用方法
+- **快速參考**: `/docs/vector-search/vector-search-quick-reference.md` - 常用命令和故障排除
+- **AI 專用指南**: `/docs/vector-search/ai-vector-search-guide.md` - AI 助手的操作指南和最佳實踐
+
+### 🎨 UI 開發規範
+- **UI 組件規範**: `/docs/development/ui-component-guidelines.md` - Ant Design 使用標準
+- **前端開發指南**: `/docs/development/frontend-development.md` - React 開發規範
+
+### 🤖 AI 整合
+- **Dify 外部知識庫**: `/docs/ai-integration/dify-external-knowledge-api-guide.md`
+- **API 整合**: `/docs/ai-integration/api-integration.md`
+- **AI 指令說明**: `/docs/ai_instructions.md`
+
+### 💻 開發指南
+- **後端開發**: `/docs/development/backend-development.md`
+- **Docker 安裝**: `/docs/deployment/docker-installation.md`
+
+---
+
+**更新日期**: 2025-10-18  
+**版本**: v2.2  
+**狀態**: ✅ 已整合文檔分類指引  
+**主要特色**: Ant Design First + Dify AI 整合 + 文檔自動分類  
 **負責人**: AI Platform Team
+
+### 📝 **v2.2 更新內容**
+- ✅ 新增完整的文檔分類指引
+- ✅ 定義 8 個標準文檔分類目錄
+- ✅ 提供 AI 文檔創建檢查清單
+- ✅ 更新所有文檔路徑引用
+- ✅ 建立文檔命名和放置規範
 
 `````
 `````
