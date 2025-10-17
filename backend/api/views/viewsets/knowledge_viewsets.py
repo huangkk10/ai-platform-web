@@ -329,8 +329,8 @@ class RVTGuideViewSet(
                 return RVTGuideListSerializer
             return RVTGuideSerializer
         
-        if self.viewset_manager:
-            serializer_class = self.viewset_manager.get_serializer_class(self.action)
+        if self.has_manager():
+            serializer_class = self._manager.get_serializer_class(self.action)
             if include_images and self.action in ['retrieve', 'list']:
                 return RVTGuideWithImagesSerializer
             return serializer_class
@@ -351,15 +351,15 @@ class RVTGuideViewSet(
                 ).order_by('-created_at')
             return base_queryset.order_by('-created_at')
         
-        if self.viewset_manager:
-            return self.viewset_manager.get_filtered_queryset(base_queryset, self.request.query_params)
+        if self.has_manager():
+            return self._manager.get_filtered_queryset(base_queryset, self.request.query_params)
         
         return emergency_filter()
 
     def perform_create(self, serializer):
         """建立新的 RVT Guide + 自動向量生成"""
-        if self.viewset_manager:
-            instance = self.viewset_manager.perform_create(serializer)
+        if self.has_manager():
+            instance = self._manager.perform_create(serializer)
         else:
             instance = serializer.save()
         
@@ -369,8 +369,8 @@ class RVTGuideViewSet(
 
     def perform_update(self, serializer):
         """更新現有的 RVT Guide + 自動向量更新"""
-        if self.viewset_manager:
-            instance = self.viewset_manager.perform_update(serializer)
+        if self.has_manager():
+            instance = self._manager.perform_update(serializer)
         else:
             instance = serializer.save()
         
@@ -384,8 +384,8 @@ class RVTGuideViewSet(
         self.delete_vector_for_instance(instance)
         
         # 委託給 ViewSet Manager 或直接刪除
-        if self.viewset_manager:
-            self.viewset_manager.perform_destroy(instance)
+        if self.has_manager():
+            self._manager.perform_destroy(instance)
         else:
             logger.warning("ViewSet Manager 不可用，使用簡化刪除邏輯")
             instance.delete()
@@ -395,8 +395,8 @@ class RVTGuideViewSet(
         """獲取統計資料"""
         queryset = self.get_queryset()
         
-        if self.viewset_manager:
-            return self.viewset_manager.get_statistics_data(queryset)
+        if self.has_manager():
+            return self._manager.get_statistics_data(queryset)
         else:
             # 備用實現 - 基本統計
             try:
@@ -505,8 +505,8 @@ class ProtocolGuideViewSet(
 
     def get_serializer_class(self):
         """根據操作類型選擇合適的序列化器"""
-        if self.viewset_manager:
-            return self.viewset_manager.get_serializer_class(self.action)
+        if self.has_manager():
+            return self._manager.get_serializer_class(self.action)
         else:
             if self.action == 'list':
                 return ProtocolGuideListSerializer
@@ -537,15 +537,15 @@ class ProtocolGuideViewSet(
             
             return base_queryset_filtered.order_by('-created_at')
         
-        if self.viewset_manager:
-            return self.viewset_manager.get_queryset(base_queryset, self.request.query_params)
+        if self.has_manager():
+            return self._manager.get_queryset(base_queryset, self.request.query_params)
         
         return emergency_filter()
 
     def perform_create(self, serializer):
         """建立新的 Protocol Guide + 自動向量生成"""
-        if self.viewset_manager:
-            instance = self.viewset_manager.perform_create(serializer)
+        if self.has_manager():
+            instance = self._manager.perform_create(serializer)
         else:
             instance = serializer.save()
         
@@ -555,8 +555,8 @@ class ProtocolGuideViewSet(
 
     def perform_update(self, serializer):
         """更新現有的 Protocol Guide + 自動向量更新"""
-        if self.viewset_manager:
-            instance = self.viewset_manager.perform_update(serializer)
+        if self.has_manager():
+            instance = self._manager.perform_update(serializer)
         else:
             instance = serializer.save()
         
@@ -570,8 +570,8 @@ class ProtocolGuideViewSet(
         self.delete_vector_for_instance(instance)
         
         # 委託給 ViewSet Manager 或直接刪除
-        if self.viewset_manager:
-            self.viewset_manager.perform_destroy(instance)
+        if self.has_manager():
+            self._manager.perform_destroy(instance)
         else:
             logger.warning("ViewSet Manager 不可用，使用簡化刪除邏輯")
             instance.delete()
@@ -581,8 +581,8 @@ class ProtocolGuideViewSet(
         """獲取統計資料"""
         queryset = self.get_queryset()
         
-        if self.viewset_manager:
-            return self.viewset_manager.get_statistics_data(queryset)
+        if self.has_manager():
+            return self._manager.get_statistics_data(queryset)
         else:
             try:
                 total_guides = queryset.count()
