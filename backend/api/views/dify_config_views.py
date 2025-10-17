@@ -64,6 +64,20 @@ def dify_config_info(request):
     獲取 Dify 配置資訊 - 用於前端顯示（使用 Protocol Known Issue 配置）
     """
     try:
+        # 檢查 library 是否可用
+        if get_protocol_known_issue_config is None:
+            logger.warning("Protocol Known Issue Config library 不可用，返回預設配置")
+            return Response({
+                'success': True,
+                'config': {
+                    'name': 'Protocol Known Issue System',
+                    'description': 'Protocol 測試問題追蹤系統',
+                    'version': '1.0.0',
+                    'features': ['chat', 'knowledge_search', 'issue_tracking'],
+                    'library_available': False
+                }
+            }, status=status.HTTP_200_OK)
+        
         # 使用 Protocol Known Issue 配置
         config = get_protocol_known_issue_config()
         
