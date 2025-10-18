@@ -101,6 +101,10 @@ function AppLayout() {
           const id = pathname.split('/').pop();
           return { text: 'RVT Guide 預覽', id: id };
         }
+        if (pathname.startsWith('/knowledge/protocol-guide/preview/')) {
+          const id = pathname.split('/').pop();
+          return { text: 'Protocol Guide 預覽', id: id };
+        }
         return '';
     }
   };
@@ -108,8 +112,8 @@ function AppLayout() {
   const getExtraActions = (pathname, navigate) => {
     if ((pathname === '/know-issue-chat' || pathname === '/log-analyze-chat' || pathname === '/rvt-assistant-chat') && clearChatFunction) {
       return (
-        <Button 
-          icon={<DeleteOutlined />} 
+        <Button
+          icon={<DeleteOutlined />}
           onClick={clearChatFunction}
           type="text"
           style={{ color: '#666' }}
@@ -118,13 +122,13 @@ function AppLayout() {
         </Button>
       );
     }
-    
+
     // RVT Assistant 知識庫頁面的按鈕
     if (pathname === '/knowledge/rvt-log') {
       return (
         <div style={{ display: 'flex', gap: '12px' }}>
-          <Button 
-            icon={<ReloadOutlined />} 
+          <Button
+            icon={<ReloadOutlined />}
             onClick={() => {
               // 觸發自定義事件通知頁面重新載入
               window.dispatchEvent(new CustomEvent('rvt-guide-reload'));
@@ -144,13 +148,13 @@ function AppLayout() {
         </div>
       );
     }
-    
+
     // Protocol Assistant 知識庫頁面的按鈕
     if (pathname === '/knowledge/protocol-log') {
       return (
         <div style={{ display: 'flex', gap: '12px' }}>
-          <Button 
-            icon={<ReloadOutlined />} 
+          <Button
+            icon={<ReloadOutlined />}
             onClick={() => {
               // 觸發自定義事件通知頁面重新載入
               window.dispatchEvent(new CustomEvent('protocol-guide-reload'));
@@ -170,7 +174,7 @@ function AppLayout() {
         </div>
       );
     }
-    
+
     // Markdown 編輯器頁面的按鈕（整頁模式）
     if (pathname.startsWith('/knowledge/rvt-guide/markdown-') || pathname.startsWith('/knowledge/protocol-guide/markdown-')) {
       // 這些按鈕會在 TopHeader 中顯示
@@ -178,11 +182,11 @@ function AppLayout() {
       const isEditMode = pathname.includes('/markdown-edit/');
       const isProtocolGuide = pathname.includes('/protocol-guide/');
       const returnPath = isProtocolGuide ? '/knowledge/protocol-log' : '/knowledge/rvt-log';
-      
+
       return (
         <div style={{ display: 'flex', gap: '12px' }}>
-          <Button 
-            icon={<ArrowLeftOutlined />} 
+          <Button
+            icon={<ArrowLeftOutlined />}
             onClick={() => navigate(returnPath)}
             size="large"
           >
@@ -202,7 +206,7 @@ function AppLayout() {
         </div>
       );
     }
-    
+
     return null;
   };
 
@@ -211,20 +215,20 @@ function AppLayout() {
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Sidebar 
+      <Sidebar
         collapsed={collapsed}
         onCollapse={toggleSidebar}
       />
-      
+
       <Layout style={{ marginLeft: collapsed ? 80 : 300, transition: 'margin-left 0.2s' }}>
-        <TopHeader 
-          collapsed={collapsed} 
+        <TopHeader
+          collapsed={collapsed}
           onToggleSidebar={toggleSidebar}
           pageTitle={currentPageTitle}
           extraActions={currentExtraActions}
         />
-        
-        <Content style={{ 
+
+        <Content style={{
           marginTop: 64,
           background: '#f5f5f5',
           minHeight: 'calc(100vh - 64px)',
@@ -252,6 +256,11 @@ function AppLayout() {
             } />
             <Route path="/knowledge/rvt-guide/preview/:id" element={
               <ProtectedRoute permission="kbRVTAssistant" fallbackTitle="Knowledge Base 存取受限">
+                <GuidePreviewPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/knowledge/protocol-guide/preview/:id" element={
+              <ProtectedRoute permission="kbProtocolAssistant" fallbackTitle="Knowledge Base 存取受限">
                 <GuidePreviewPage />
               </ProtectedRoute>
             } />

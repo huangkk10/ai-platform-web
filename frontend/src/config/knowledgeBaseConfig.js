@@ -19,7 +19,7 @@ export const knowledgeBaseConfigs = {
     // ===== API 配置 =====
     apiEndpoint: '/api/rvt-guides/',
     pageSize: 100, // 列表每頁顯示數量
-    
+
     // ===== 路由配置 =====
     routes: {
       list: '/knowledge/rvt-log',                           // 列表頁
@@ -31,12 +31,12 @@ export const knowledgeBaseConfigs = {
       // 輔助方法：生成預覽路徑
       getPreviewPath: (id) => `/knowledge/rvt-guide/preview/${id}`,
     },
-    
+
     // ===== 事件名稱 =====
     events: {
       reload: 'rvt-guide-reload',  // 重新載入列表的事件名稱
     },
-    
+
     // ===== 顯示文字 =====
     labels: {
       pageTitle: 'RVT Assistant 知識庫',
@@ -53,7 +53,7 @@ export const knowledgeBaseConfigs = {
       detailSuccess: '文檔詳細資料載入成功',
       detailFailed: '獲取詳細資料失敗',
     },
-    
+
     // ===== Table 欄位配置 =====
     columns: {
       primaryField: 'title',      // 主要顯示欄位
@@ -63,7 +63,7 @@ export const knowledgeBaseConfigs = {
       // 可擴展：未來可添加額外欄位
       extraColumns: [],
     },
-    
+
     // ===== 權限配置 =====
     permissions: {
       // 刪除權限：只有管理員可以刪除
@@ -73,7 +73,7 @@ export const knowledgeBaseConfigs = {
       // 查看權限：所有已登入用戶都可以查看
       canView: (user) => !!user,
     },
-    
+
     // ===== Table 配置 =====
     table: {
       scroll: { x: 1400, y: 'calc(100vh - 220px)' },
@@ -95,18 +95,21 @@ export const knowledgeBaseConfigs = {
   'protocol-assistant': {
     apiEndpoint: '/api/protocol-guides/',
     pageSize: 100,
-    
+
     routes: {
       list: '/knowledge/protocol-log',
       create: '/knowledge/protocol-guide/markdown-create',
       edit: '/knowledge/protocol-guide/markdown-edit/:id',
+      preview: '/knowledge/protocol-guide/preview/:id',          // 預覽頁
       getEditPath: (id) => `/knowledge/protocol-guide/markdown-edit/${id}`,
+      // 輔助方法：生成預覽路徑
+      getPreviewPath: (id) => `/knowledge/protocol-guide/preview/${id}`,
     },
-    
+
     events: {
       reload: 'protocol-guide-reload',
     },
-    
+
     labels: {
       pageTitle: 'Protocol Assistant 知識庫',
       createButton: '新增 Protocol Guide',
@@ -122,7 +125,7 @@ export const knowledgeBaseConfigs = {
       detailSuccess: '文檔詳細資料載入成功',
       detailFailed: '獲取詳細資料失敗',
     },
-    
+
     columns: {
       primaryField: 'title',
       dateField: 'created_at',
@@ -130,13 +133,13 @@ export const knowledgeBaseConfigs = {
       sortOrder: 'descend',
       extraColumns: [],
     },
-    
+
     permissions: {
       canDelete: (user) => user?.is_staff === true,
       canEdit: (user) => !!user,
       canView: (user) => !!user,
     },
-    
+
     table: {
       scroll: { x: 1400, y: 'calc(100vh - 220px)' },
       pagination: {

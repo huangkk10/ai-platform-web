@@ -31,10 +31,13 @@ import './GuidePreviewPage.css';
 const GuidePreviewPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  
-  // 獲取配置
-  const config = knowledgeBaseConfigs['rvt-assistant'];
-  
+  const location = window.location || { pathname: '' };
+
+  // 🎯 根據 URL 路徑自動識別配置
+  const isProtocolGuide = location.pathname?.includes('/protocol-guide/');
+  const configKey = isProtocolGuide ? 'protocol-assistant' : 'rvt-assistant';
+  const config = knowledgeBaseConfigs[configKey];
+
   // 使用 Hook 載入數據
   const { guide, loading, error } = useGuidePreview(id, config);
 
@@ -45,17 +48,17 @@ const GuidePreviewPage = () => {
   const CustomImage = ({ src, alt, ...props }) => {
     // 檢測是否為 IMG:ID 格式
     const imgIdMatch = (src || alt || '').match(/IMG:(\d+)/);
-    
+
     if (imgIdMatch) {
       const imageId = imgIdMatch[1];
       console.log(`🖼️ 檢測到圖片引用: IMG:${imageId}`);
-      
+
       // 使用 ContentRenderer 的圖片處理邏輯
       // 注意：ContentRenderer 期望接收完整的內容字符串
       // 這裡我們只渲染單個圖片標記
       return (
         <div style={{ margin: '16px 0' }}>
-          <ContentRenderer 
+          <ContentRenderer
             content={`[IMG:${imageId}]`}
             showImageTitles={true}
             showImageDescriptions={true}
@@ -65,12 +68,12 @@ const GuidePreviewPage = () => {
         </div>
       );
     }
-    
+
     // 普通圖片（標準 URL）
     return (
-      <img 
-        src={src} 
-        alt={alt} 
+      <img
+        src={src}
+        alt={alt}
         style={{
           maxWidth: '100%',
           height: 'auto',
@@ -93,12 +96,12 @@ const GuidePreviewPage = () => {
     components: {
       // 自定義圖片渲染
       img: CustomImage,
-      
+
       // 自定義表格渲染
       table: ({ node, ...props }) => (
         <table className="markdown-table" {...props} />
       ),
-      
+
       // 自定義代碼塊渲染
       code: ({ node, inline, className, children, ...props }) => {
         if (inline) {
@@ -112,7 +115,7 @@ const GuidePreviewPage = () => {
           </pre>
         );
       },
-      
+
       // 自定義標題渲染（添加錨點）
       h1: ({ node, children, ...props }) => (
         <h1 id={String(children).toLowerCase().replace(/\s+/g, '-')} {...props}>
@@ -133,22 +136,22 @@ const GuidePreviewPage = () => {
    */
   const processContent = (content) => {
     if (!content) return '';
-    
+
     let processed = content;
-    
+
     // 修復表格分隔線格式
     processed = fixAllMarkdownTables(processed);
-    
+
     // 🎯 關鍵：將 [IMG:ID] 轉換為 Markdown 圖片格式 ![IMG:ID](IMG:ID)
     // 這樣 ReactMarkdown 才會調用 CustomImage 組件
     processed = convertImageReferencesToMarkdown(processed);
-    
+
     console.log('📝 內容處理完成', {
       original: content.length,
       processed: processed.length,
       hasImages: processed.includes('![IMG:')
     });
-    
+
     return processed;
   };
 
@@ -261,7 +264,7 @@ const GuidePreviewPage = () => {
         pageTitle={guide.title || '文檔預覽'}
         extraActions={extraActions}
       />
-      
+
       <div className="guide-preview-wrapper">
         <Card className="guide-preview-card">
           {/* 文檔元信息 */}
@@ -271,7 +274,7 @@ const GuidePreviewPage = () => {
               <span className="meta-value">{guide.full_category_name}</span>
             </div>
           )}
-          
+
           {guide.created_at && (
             <div className="guide-preview-meta">
               <span className="meta-label">建立時間：</span>
@@ -280,7 +283,7 @@ const GuidePreviewPage = () => {
               </span>
             </div>
           )}
-          
+
           {/* Markdown 內容 */}
           <div className="guide-preview-content markdown-content">
             <ReactMarkdown {...markdownConfig}>
