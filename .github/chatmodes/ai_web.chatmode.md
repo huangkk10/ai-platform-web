@@ -1388,6 +1388,633 @@ if client.test_connection():
 
 ---
 
+# 🔮 向量資料庫生成與管理完整指南
+
+## 📋 概述
+本指南詳細說明如何為任何 Assistant 知識庫建立和管理向量資料庫，實現語義搜尋和 RAG（檢索增強生成）功能。
+
+## 🎯 核心概念
+
+### 什麼是向量資料庫？
+向量資料庫將文本內容轉換為高維向量（embeddings），使系統能夠理解內容的語義，而不僅僅是關鍵字匹配。
+
+**應用場景**：
+- 🔍 **語義搜尋**：理解用戶問題的真實意圖
+- 🤖 **RAG 整合**：為 AI 助手提供相關知識上下文
+- 📊 **相似內容推薦**：找出相關的文檔或問題
+- 🎯 **智能分類**：自動將內容分類到適當的類別
+
+### 系統架構
+```
+知識庫資料 (protocol_guide, rvt_guide, etc.)
+    ↓
+向量化服務 (VectorService)
+    ↓
+Embedding 模型 (intfloat/multilingual-e5-large, 1024 維)
+    ↓
+向量儲存 (document_embeddings 表)
+    ↓
+IVFFlat 索引（快速相似度搜尋）
+    ↓
+RAG / 語義搜尋應用
+```
+
+## 🏗️ 標準向量維度：1024 維
+
+**⚠️ 重要規範**：
+- **所有新的向量資料都必須使用 1024 維**
+- **Embedding 模型**：`intfloat/multilingual-e5-large`
+- **向量表**：`document_embeddings`（統一表，支援多知識源）
+
+### 為什麼是 1024 維？
+1. **模型選擇**：`multilingual-e5-large` 是目前最佳的多語言模型（支援中文）
+2. **精準度高**：1024 維提供更好的語義理解
+3. **標準化**：統一維度方便管理和維護
+4. **向後相容**：避免維度不一致導致的錯誤
+
+## 📊 資料庫結構
+
+### 統一向量表：`document_embeddings`
+```sql
+CREATE TABLE document_embeddings (
+    id SERIAL PRIMARY KEY,
+    source_table VARCHAR(100) NOT NULL,    -- 來源表名稱 (如 'protocol_guide', 'rvt_guide')
+    source_id INTEGER NOT NULL,            -- 來源記錄 ID
+    text_content TEXT,                     -- 原始文本內容（用於檢索結果展示）
+    content_hash VARCHAR(64),              -- 內容雜湊值（用於檢測內容變更）
+    embedding vector(1024),                -- 1024 維向量（⚠️ 固定維度）
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(source_table, source_id)        -- 確保每筆來源資料只有一個向量
+);
+
+-- 必要索引
+CREATE INDEX idx_document_embeddings_source 
+    ON document_embeddings(source_table, source_id);
+
+CREATE INDEX idx_document_embeddings_created 
+    ON document_embeddings(created_at);
+
+-- 向量相似度搜尋索引（IVFFlat）
+CREATE INDEX idx_document_embeddings_vector 
+    ON document_embeddings 
+    USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+```
+
+**索引說明**：
+- `idx_document_embeddings_source`：快速查找特定來源的向量
+- `idx_document_embeddings_created`：時間排序查詢
+- `idx_document_embeddings_vector`：IVFFlat 近似最近鄰搜尋（餘弦相似度）
+
+## 🚀 向量自動生成機制
+
+### 1. **ViewSet 配置（推薦方式）**
+
+新的 Assistant 應該使用 `VectorManagementMixin` 實現自動向量生成：
+
+```python
+# backend/api/views/viewsets/knowledge_viewsets.py
+
+class XxxGuideViewSet(
+    LibraryManagerMixin,
+    FallbackLogicMixin,
+    VectorManagementMixin,      # ✅ 添加向量管理 Mixin
+    viewsets.ModelViewSet
+):
+    """Xxx Assistant 知識庫 ViewSet"""
+    queryset = XxxGuide.objects.all()
+    serializer_class = XxxGuideSerializer
+    
+    # ✅ 向量配置（必須設定）
+    vector_config = {
+        'source_table': 'xxx_guide',           # 來源表名
+        'use_1024_table': True,                # ⚠️ 必須設為 True（使用 1024 維）
+        'content_fields': ['title', 'content'], # 要向量化的欄位
+        'vector_enabled': True                  # 啟用向量生成
+    }
+```
+
+### 2. **Library Vector Service**
+
+每個 Assistant 需要實現自己的 VectorService：
+
+```python
+# library/xxx_guide/vector_service.py
+
+from library.common.knowledge_base.base_vector_service import BaseKnowledgeBaseVectorService
+
+class XxxGuideVectorService(BaseKnowledgeBaseVectorService):
+    """Xxx Assistant 向量服務"""
+    
+    source_table = 'xxx_guide'
+    model_class = XxxGuide
+    
+    def _format_content_for_embedding(self, instance):
+        """
+        格式化內容用於向量化
+        ⚠️ 重要：決定 AI 能「理解」的內容格式
+        """
+        # 組合所有重要欄位
+        content_parts = [
+            f"Title: {instance.title}",
+            f"Content: {instance.content}",
+        ]
+        
+        # 可選：加入其他欄位
+        if hasattr(instance, 'category') and instance.category:
+            content_parts.append(f"Category: {instance.category}")
+        
+        return " | ".join(content_parts)
+```
+
+**最佳實踐**：
+- 將標題和內容都包含在向量中
+- 使用分隔符（如 `|` 或換行）組織內容
+- 包含重要的元數據（分類、標籤等）
+- 不要包含過長的內容（建議 < 5000 字元）
+
+### 3. **ViewSet Manager 整合**
+
+```python
+# library/xxx_guide/viewset_manager.py
+
+from library.common.knowledge_base.base_viewset_manager import BaseKnowledgeBaseViewSetManager
+from .vector_service import XxxGuideVectorService
+
+class XxxGuideViewSetManager(BaseKnowledgeBaseViewSetManager):
+    """Xxx Guide ViewSet 管理器"""
+    
+    def __init__(self):
+        super().__init__()
+        self.vector_service = XxxGuideVectorService()
+    
+    def perform_create(self, serializer):
+        """創建時自動生成向量"""
+        instance = serializer.save()
+        # ✅ 自動生成向量
+        self.generate_vector_for_instance(instance, action='create')
+        return instance
+    
+    def perform_update(self, serializer):
+        """更新時自動更新向量"""
+        instance = serializer.save()
+        # ✅ 自動更新向量
+        self.generate_vector_for_instance(instance, action='update')
+        return instance
+    
+    def perform_destroy(self, instance):
+        """刪除時自動刪除向量"""
+        # ✅ 先刪除向量
+        self.vector_service.delete_vector(instance.id)
+        instance.delete()
+```
+
+## 🔧 手動向量生成（補救措施）
+
+### 場景 1：舊資料沒有向量
+
+如果透過 Django shell 或 management command 直接插入資料，需要手動生成向量：
+
+```bash
+# 進入 Django 容器
+docker exec -it ai-django bash
+
+# 啟動 Django shell
+python manage.py shell
+```
+
+```python
+# 在 Django shell 中執行
+
+from api.services.embedding_service import get_embedding_service
+from api.models import XxxGuide
+
+# 初始化服務
+service = get_embedding_service()
+
+# 批量生成向量
+success_count = 0
+fail_count = 0
+
+for guide in XxxGuide.objects.all():
+    try:
+        # 格式化內容
+        content = f"Title: {guide.title}\n\nContent:\n{guide.content}"
+        
+        # 生成並儲存向量
+        service.store_document_embedding(
+            source_table='xxx_guide',
+            source_id=guide.id,
+            content=content,
+            use_1024_table=False  # 使用統一的 document_embeddings 表
+        )
+        
+        success_count += 1
+        print(f"✅ Guide {guide.id} ({guide.title[:30]}...) - 向量生成成功")
+        
+    except Exception as e:
+        fail_count += 1
+        print(f"❌ Guide {guide.id} 失敗: {str(e)}")
+
+print(f"\n總計: {success_count} 成功, {fail_count} 失敗")
+```
+
+### 場景 2：檢查向量是否存在
+
+```python
+# 在 Django shell 中執行
+
+from django.db import connection
+
+# 查詢向量狀態
+with connection.cursor() as cursor:
+    cursor.execute("""
+        SELECT 
+            source_table,
+            COUNT(*) as vector_count,
+            COUNT(DISTINCT source_id) as unique_records,
+            vector_dims(embedding) as dimension
+        FROM document_embeddings 
+        WHERE source_table = 'xxx_guide'
+        GROUP BY source_table, vector_dims(embedding);
+    """)
+    
+    results = cursor.fetchall()
+    for row in results:
+        print(f"來源表: {row[0]}")
+        print(f"向量數量: {row[1]}")
+        print(f"唯一記錄: {row[2]}")
+        print(f"向量維度: {row[3]}")
+```
+
+### 場景 3：重新生成所有向量
+
+```python
+# 刪除舊向量並重新生成
+
+from django.db import connection
+
+# 1. 刪除特定來源的所有向量
+with connection.cursor() as cursor:
+    cursor.execute("DELETE FROM document_embeddings WHERE source_table = 'xxx_guide'")
+    deleted_count = cursor.rowcount
+    print(f"已刪除 {deleted_count} 個舊向量")
+
+# 2. 重新生成（使用上面的批量生成代碼）
+# ... (重複場景 1 的代碼)
+```
+
+## 🔍 向量維度遷移指南
+
+### 問題場景：發現向量維度不一致
+
+**症狀**：
+- 向量生成失敗，錯誤訊息：`expected 384 dimensions, not 1024`
+- 或：`expected 1024 dimensions, not 384`
+
+**診斷步驟**：
+
+```sql
+-- 1. 檢查資料庫表的向量維度
+docker exec postgres_db psql -U postgres -d ai_platform -c "
+SELECT 
+    column_name,
+    format_type(a.atttypid, a.atttypmod) as data_type
+FROM pg_catalog.pg_attribute a
+WHERE a.attrelid = 'document_embeddings'::regclass
+  AND a.attname = 'embedding'
+  AND NOT a.attisdropped;
+"
+
+-- 2. 檢查現有向量的維度
+docker exec postgres_db psql -U postgres -d ai_platform -c "
+SELECT 
+    source_table,
+    COUNT(*) as count,
+    vector_dims(embedding) as dimension
+FROM document_embeddings 
+GROUP BY source_table, vector_dims(embedding);
+"
+```
+
+### 遷移到 1024 維（標準步驟）
+
+**⚠️ 注意：此操作會刪除所有現有向量，請先備份！**
+
+```sql
+-- Step 1: 備份現有資料（可選）
+docker exec postgres_db psql -U postgres -d ai_platform -c "
+CREATE TABLE document_embeddings_backup_$(date +%Y%m%d) AS 
+SELECT * FROM document_embeddings;
+"
+
+-- Step 2: 檢查資料數量
+docker exec postgres_db psql -U postgres -d ai_platform -c "
+SELECT COUNT(*) FROM document_embeddings;
+"
+
+-- Step 3: 刪除舊表（如果資料量為 0 或已備份）
+docker exec postgres_db psql -U postgres -d ai_platform -c "
+DROP TABLE IF EXISTS document_embeddings CASCADE;
+"
+
+-- Step 4: 創建新的 1024 維表
+docker exec postgres_db psql -U postgres -d ai_platform -c "
+CREATE TABLE document_embeddings (
+    id SERIAL PRIMARY KEY,
+    source_table VARCHAR(100) NOT NULL,
+    source_id INTEGER NOT NULL,
+    text_content TEXT,
+    content_hash VARCHAR(64),
+    embedding vector(1024),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(source_table, source_id)
+);
+"
+
+-- Step 5: 創建索引
+docker exec postgres_db psql -U postgres -d ai_platform -c "
+CREATE INDEX idx_document_embeddings_source 
+    ON document_embeddings(source_table, source_id);
+
+CREATE INDEX idx_document_embeddings_created 
+    ON document_embeddings(created_at);
+
+CREATE INDEX idx_document_embeddings_vector 
+    ON document_embeddings 
+    USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+"
+
+-- Step 6: 驗證新表結構
+docker exec postgres_db psql -U postgres -d ai_platform -c "
+SELECT 
+    column_name,
+    format_type(a.atttypid, a.atttypmod) as data_type
+FROM pg_catalog.pg_attribute a
+WHERE a.attrelid = 'document_embeddings'::regclass
+  AND a.attname = 'embedding'
+  AND NOT a.attisdropped;
+"
+```
+
+**預期結果**：應該看到 `embedding | vector(1024)`
+
+### Step 7: 重新生成所有向量
+
+使用上面「場景 1：舊資料沒有向量」的 Python 腳本，為所有知識庫重新生成向量。
+
+## ✅ 向量生成檢查清單
+
+### 新增 Assistant 時必須確認：
+
+#### 1. **資料庫層面**
+- [ ] `document_embeddings` 表存在
+- [ ] 向量維度為 `vector(1024)`
+- [ ] 三個索引都已創建（source、created、vector）
+
+#### 2. **程式碼層面**
+- [ ] `library/xxx_guide/vector_service.py` 已實現
+- [ ] `VectorService` 繼承自 `BaseKnowledgeBaseVectorService`
+- [ ] `_format_content_for_embedding()` 方法已實現
+- [ ] `ViewSet` 使用 `VectorManagementMixin`
+- [ ] `vector_config` 設定正確（`use_1024_table: True`）
+
+#### 3. **功能驗證**
+- [ ] 透過 API 新增資料後，自動生成向量
+- [ ] 更新資料後，向量自動更新
+- [ ] 刪除資料後，向量自動刪除
+- [ ] 向量維度確認為 1024
+
+## 🧪 測試向量生成
+
+### 1. **透過 API 創建資料（推薦）**
+
+```bash
+# 使用 curl 測試
+curl -X POST "http://localhost/api/xxx-guides/" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Token YOUR_TOKEN" \
+  -d '{
+    "title": "測試向量生成",
+    "content": "這是一個測試內容，用於驗證向量是否自動生成。"
+  }'
+```
+
+### 2. **驗證向量是否生成**
+
+```sql
+-- 查詢最新生成的向量
+docker exec postgres_db psql -U postgres -d ai_platform -c "
+SELECT 
+    id,
+    source_table,
+    source_id,
+    LENGTH(text_content) as content_length,
+    vector_dims(embedding) as vector_dimension,
+    created_at
+FROM document_embeddings 
+WHERE source_table = 'xxx_guide'
+ORDER BY created_at DESC 
+LIMIT 5;
+"
+```
+
+### 3. **測試語義搜尋**
+
+```python
+# 在 Django shell 中測試
+
+from api.services.embedding_service import get_embedding_service
+
+service = get_embedding_service()
+
+# 執行語義搜尋
+query = "如何進行測試？"
+results = service.semantic_search(
+    query=query,
+    source_table='xxx_guide',
+    top_k=3,
+    threshold=0.7
+)
+
+# 顯示結果
+for i, result in enumerate(results, 1):
+    print(f"\n結果 {i}:")
+    print(f"  相似度: {result['similarity']:.2%}")
+    print(f"  標題: {result['title']}")
+    print(f"  內容: {result['content'][:100]}...")
+```
+
+## 🎯 最佳實踐
+
+### 1. **內容格式化**
+```python
+# ✅ 好的格式化
+def _format_content_for_embedding(self, instance):
+    return f"Title: {instance.title} | Content: {instance.content}"
+
+# ❌ 不好的格式化
+def _format_content_for_embedding(self, instance):
+    return instance.content  # 缺少標題和結構
+```
+
+### 2. **內容長度控制**
+```python
+def _format_content_for_embedding(self, instance):
+    content = f"Title: {instance.title} | Content: {instance.content}"
+    
+    # 限制長度（避免 token 超限）
+    MAX_LENGTH = 5000
+    if len(content) > MAX_LENGTH:
+        content = content[:MAX_LENGTH] + "..."
+    
+    return content
+```
+
+### 3. **錯誤處理**
+```python
+def generate_vector_for_instance(self, instance, action='create'):
+    try:
+        self.vector_service.generate_and_store_vector(instance)
+        logger.info(f"✅ 向量生成成功: {instance.id}")
+    except Exception as e:
+        logger.error(f"❌ 向量生成失敗: {instance.id}, 錯誤: {str(e)}")
+        # 不要因為向量生成失敗而阻止資料創建
+        pass
+```
+
+### 4. **批量生成優化**
+```python
+def batch_generate_vectors(self, batch_size=10):
+    """批量生成向量（效能優化）"""
+    guides = XxxGuide.objects.filter(
+        id__in=Subquery(
+            DocumentEmbedding.objects.filter(
+                source_table='xxx_guide'
+            ).values('source_id')
+        )
+    )[:batch_size]
+    
+    for guide in guides:
+        self.generate_and_store_vector(guide)
+```
+
+## 🚨 常見問題與解決方案
+
+### 問題 1：向量生成失敗 - 維度不匹配
+**錯誤訊息**：`expected 384 dimensions, not 1024`
+
+**解決方案**：
+1. 檢查資料庫表定義：`SELECT format_type(...) FROM pg_catalog.pg_attribute`
+2. 如果是 `vector(384)`，需要遷移到 1024 維（見上方遷移指南）
+
+### 問題 2：向量生成失敗 - 模型載入錯誤
+**錯誤訊息**：`Model not found` 或 `Connection timeout`
+
+**解決方案**：
+```python
+# 確認模型路徑和網絡連接
+from api.services.embedding_service import get_embedding_service
+
+service = get_embedding_service()
+# 第一次會下載模型，需要等待 30-60 秒
+```
+
+### 問題 3：搜尋結果不準確
+**症狀**：搜尋結果與預期不符
+
+**解決方案**：
+1. 檢查 `_format_content_for_embedding()` 是否包含足夠資訊
+2. 調整 `threshold` 參數（降低閾值以獲得更多結果）
+3. 檢查向量是否為最新（可能需要重新生成）
+
+### 問題 4：IVFFlat 索引警告
+**警告訊息**：`index does not have enough items`
+
+**解決方案**：
+- 這是正常的！當資料少於 100 筆時會出現此警告
+- IVFFlat 需要一定數量的資料才能優化
+- 資料量 < 1000 筆時，可以忽略此警告
+- 資料量 > 1000 筆時，調整 `lists` 參數：
+  ```sql
+  DROP INDEX idx_document_embeddings_vector;
+  CREATE INDEX idx_document_embeddings_vector 
+      ON document_embeddings 
+      USING ivfflat (embedding vector_cosine_ops) 
+      WITH (lists = 200);  -- 根據資料量調整
+  ```
+
+## 📊 效能優化
+
+### 1. **索引參數調整**
+```sql
+-- 資料量 < 1000：lists = 100
+-- 資料量 1000-10000：lists = 200
+-- 資料量 > 10000：lists = sqrt(資料量)
+
+-- 動態計算最佳 lists 參數
+SELECT CEIL(SQRT(COUNT(*))) as optimal_lists 
+FROM document_embeddings;
+```
+
+### 2. **批量處理**
+```python
+# 使用批量處理避免頻繁的資料庫連接
+from django.db import transaction
+
+@transaction.atomic
+def batch_generate_vectors(guide_ids):
+    for guide_id in guide_ids:
+        guide = XxxGuide.objects.get(id=guide_id)
+        service.generate_and_store_vector(guide)
+```
+
+### 3. **非同步處理（進階）**
+```python
+# 使用 Celery 非同步生成向量
+from celery import shared_task
+
+@shared_task
+def async_generate_vector(guide_id):
+    guide = XxxGuide.objects.get(id=guide_id)
+    service = XxxGuideVectorService()
+    service.generate_and_store_vector(guide)
+```
+
+## 📚 相關文檔參考
+
+- **向量搜尋完整指南**：`/docs/vector-search/vector-search-guide.md`
+- **向量搜尋快速參考**：`/docs/vector-search/vector-search-quick-reference.md`
+- **RVT Assistant 向量架構**：`/docs/architecture/rvt-assistant-database-vector-architecture.md`
+- **Protocol Assistant 向量設置報告**：`/docs/features/protocol-assistant-vector-database-setup.md`
+
+## 🎓 學習資源
+
+### Embedding 模型
+- **intfloat/multilingual-e5-large**: 1024 維多語言模型
+- 支援語言：英文、中文、日文等 100+ 種語言
+- 適用場景：知識庫、文檔檢索、語義搜尋
+
+### pgvector
+- PostgreSQL 向量擴展
+- 支援多種距離度量：cosine、L2、inner product
+- 索引類型：IVFFlat、HNSW
+
+### 向量搜尋算法
+- **餘弦相似度 (Cosine Similarity)**：最常用，範圍 [-1, 1]
+- **歐氏距離 (L2 Distance)**：適合物理空間距離
+- **內積 (Inner Product)**：適合推薦系統
+
+---
+
+**📅 更新日期**: 2025-10-19  
+**📝 版本**: v1.0  
+**✍️ 作者**: AI Platform Team  
+**🎯 用途**: AI Assistant 向量資料庫標準化操作指南
+
+---
+
 ## �📚 重要文檔索引（已更新路徑）
 
 ### 🔍 向量搜尋系統
