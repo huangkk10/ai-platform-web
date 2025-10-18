@@ -553,7 +553,307 @@ DIFY_APPS['protocol-assistant'] = DifyAppConfig(
 
 ---
 
-**🎉 使用 RVT Assistant 作為範本，新的 Assistant 可以在 1-2 天內完成開發！**
+## 🚀 新增 Assistant 知識庫的標準化流程
+
+### ⚠️ 重要規範
+**當需要新增任何 Web xxx Assistant 知識庫時，AI 必須遵守以下標準化流程：**
+
+### 📋 必要步驟檢查清單
+
+#### 1️⃣ **資料庫欄位格式（必須與 RVT Assistant 一致）**
+```python
+# backend/api/models.py
+class XxxGuide(models.Model):
+    """Xxx Assistant 知識庫 - 欄位格式必須與 RVTGuide 完全相同"""
+    
+    # ✅ 必須包含的標準欄位
+    title = models.CharField(max_length=300, verbose_name="文檔標題")
+    content = models.TextField(verbose_name="文檔內容")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="建立時間")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新時間")
+    
+    class Meta:
+        db_table = 'xxx_guide'  # 表名格式：xxx_guide
+        ordering = ['title']
+        verbose_name = "Xxx Assistant 知識庫"
+        verbose_name_plural = "Xxx Assistant 知識庫"
+```
+
+**🔴 強制要求**：
+- 欄位名稱：`title`, `content`, `created_at`, `updated_at`（不可更改）
+- 欄位類型：必須與 RVTGuide 相同
+- 表名格式：`{assistant_name}_guide`（小寫 + 底線）
+
+#### 2️⃣ **前端配置（knowledgeBaseConfig.js）**
+```javascript
+// frontend/src/config/knowledgeBaseConfig.js
+export const knowledgeBaseConfigs = {
+  // ✅ 新增配置（複製 rvt-assistant 配置並修改）
+  'xxx-assistant': {
+    apiEndpoint: '/api/xxx-guides/',
+    pageSize: 100,
+    
+    routes: {
+      list: '/knowledge/xxx-log',
+      create: '/knowledge/xxx-guide/markdown-create',
+      edit: '/knowledge/xxx-guide/markdown-edit/:id',
+      preview: '/knowledge/xxx-guide/preview/:id',  // ⚠️ 必須添加預覽路由
+      getEditPath: (id) => `/knowledge/xxx-guide/markdown-edit/${id}`,
+      getPreviewPath: (id) => `/knowledge/xxx-guide/preview/${id}`,  // ⚠️ 必須添加
+    },
+    
+    events: {
+      reload: 'xxx-guide-reload',
+    },
+    
+    labels: {
+      pageTitle: 'Xxx Assistant 知識庫',
+      createButton: '新增 Xxx Guide',
+      // ... 其他標籤
+    },
+    
+    columns: {
+      primaryField: 'title',
+      dateField: 'created_at',
+      sortField: 'created_at',
+      sortOrder: 'descend',
+      extraColumns: [],
+    },
+    
+    permissions: {
+      canDelete: (user) => user?.is_staff === true,
+      canEdit: (user) => !!user,
+      canView: (user) => !!user,
+    },
+    
+    table: {
+      scroll: { x: 1400, y: 'calc(100vh - 220px)' },
+      pagination: {
+        defaultPageSize: 10,
+        pageSizeOptions: ['10', '20', '50', '100'],
+        showSizeChanger: true,
+        showQuickJumper: true,
+        showTotal: (total, range) => `第 ${range[0]}-${range[1]} 項，共 ${total} 項`,
+      },
+    },
+  },
+};
+```
+
+#### 3️⃣ **前端路由配置（App.js）**
+```javascript
+// frontend/src/App.js
+
+// ✅ 必須添加的路由（4 個）
+<Route path="/knowledge/xxx-log" element={
+  <ProtectedRoute permission="kbXxxAssistant" fallbackTitle="Knowledge Base 存取受限">
+    <XxxGuidePage />
+  </ProtectedRoute>
+} />
+
+<Route path="/knowledge/xxx-guide/preview/:id" element={
+  <ProtectedRoute permission="kbXxxAssistant" fallbackTitle="Knowledge Base 存取受限">
+    <GuidePreviewPage />  {/* ⚠️ 使用通用預覽頁面 */}
+  </ProtectedRoute>
+} />
+
+<Route path="/knowledge/xxx-guide/markdown-create" element={
+  <ProtectedRoute permission="kbXxxAssistant" fallbackTitle="Knowledge Base 存取受限">
+    <MarkdownEditorPage />
+  </ProtectedRoute>
+} />
+
+<Route path="/knowledge/xxx-guide/markdown-edit/:id" element={
+  <ProtectedRoute permission="kbXxxAssistant" fallbackTitle="Knowledge Base 存取受限">
+    <MarkdownEditorPage />
+  </ProtectedRoute>
+} />
+```
+
+**⚠️ 同時必須更新 App.js 中的頁面標題和按鈕配置**：
+```javascript
+// 預覽頁面標題
+if (pathname.startsWith('/knowledge/xxx-guide/preview/')) {
+  const id = pathname.split('/').pop();
+  return { text: 'Xxx Guide 預覽', id: id };
+}
+
+// Markdown 編輯器標題
+if (pathname.startsWith('/knowledge/xxx-guide/markdown-edit/')) {
+  const id = pathname.split('/').pop();
+  return { text: '編輯 Xxx Guide', id: id };
+}
+if (pathname === '/knowledge/xxx-guide/markdown-create') {
+  return { text: '新建 Xxx Guide', id: null };
+}
+
+// 列表頁按鈕
+if (pathname === '/knowledge/xxx-log') {
+  return (
+    <div style={{ display: 'flex', gap: '12px' }}>
+      <Button icon={<ReloadOutlined />} onClick={() => {
+        window.dispatchEvent(new CustomEvent('xxx-guide-reload'));
+      }} size="large">
+        重新整理
+      </Button>
+      <Button type="primary" size="large" icon={<PlusOutlined />}
+        onClick={() => navigate('/knowledge/xxx-guide/markdown-create')}>
+        新增 Xxx Guide
+      </Button>
+    </div>
+  );
+}
+```
+
+#### 4️⃣ **使用者權限配置（UserProfile Model）**
+```python
+# backend/api/models.py - UserProfile
+
+class UserProfile(models.Model):
+    # ... 現有欄位
+    
+    # ✅ 必須添加新的權限欄位
+    kb_xxx_assistant = models.BooleanField(
+        default=False, 
+        verbose_name="Xxx Assistant 知識庫權限",
+        help_text="是否允許存取 Xxx Assistant 知識庫"
+    )
+```
+
+**⚠️ 添加權限欄位後必須執行**：
+```bash
+# 創建 migration
+docker exec ai-django python manage.py makemigrations
+
+# 執行 migration
+docker exec ai-django python manage.py migrate
+```
+
+#### 5️⃣ **前端權限對應（UserContext.js）**
+```javascript
+// frontend/src/contexts/UserContext.js
+
+const permissions = {
+  // ... 現有權限
+  
+  // ✅ 添加新的權限映射
+  kbXxxAssistant: profile?.kb_xxx_assistant || false,
+};
+```
+
+#### 6️⃣ **使用者編輯表單（UserEditModal.js）**
+```javascript
+// frontend/src/components/UserEditModal.js
+
+// ✅ 在知識庫權限區塊添加新的 Checkbox
+<Card title="知識庫功能" size="small" style={{ marginBottom: '16px' }}>
+  {/* 現有的權限 Checkbox */}
+  <Form.Item name="kb_rvt_assistant" valuePropName="checked">
+    <Checkbox>RVT Assistant 知識庫</Checkbox>
+  </Form.Item>
+  <Form.Item name="kb_protocol_assistant" valuePropName="checked">
+    <Checkbox>Protocol Assistant 知識庫</Checkbox>
+  </Form.Item>
+  
+  {/* ✅ 新增的權限 Checkbox */}
+  <Form.Item name="kb_xxx_assistant" valuePropName="checked">
+    <Checkbox>Xxx Assistant 知識庫</Checkbox>
+  </Form.Item>
+</Card>
+```
+
+#### 7️⃣ **側邊欄選單（Sidebar.js）**
+```javascript
+// frontend/src/components/Sidebar.js
+
+// ✅ 在 Knowledge Base 子選單中添加新項目
+{
+  key: 'knowledge',
+  icon: <BookOutlined />,
+  label: 'Knowledge Base',
+  children: [
+    // 現有項目...
+    {
+      key: '/knowledge/xxx-log',
+      label: 'Xxx Assistant',
+      onClick: () => navigate('/knowledge/xxx-log'),
+    },
+  ],
+}
+```
+
+#### 8️⃣ **後端 ViewSet 和 API 註冊**
+```python
+# backend/api/views/viewsets/knowledge_viewsets.py
+class XxxGuideViewSet(viewsets.ModelViewSet):
+    """Xxx Assistant 知識庫 ViewSet"""
+    queryset = XxxGuide.objects.all()
+    serializer_class = XxxGuideSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+# backend/api/urls.py
+router.register(r'xxx-guides', views.XxxGuideViewSet)
+```
+
+### 📊 完整檢查清單
+
+創建新 Assistant 知識庫時，AI 必須確認以下所有項目：
+
+**資料庫層面**：
+- [ ] Model 欄位與 RVTGuide 完全一致（title, content, created_at, updated_at）
+- [ ] 表名格式正確（xxx_guide）
+- [ ] Migration 已創建並執行
+
+**前端配置層面**：
+- [ ] knowledgeBaseConfig.js 添加完整配置（包含 preview 路由）
+- [ ] App.js 添加 4 個路由（list, preview, create, edit）
+- [ ] App.js 添加頁面標題配置
+- [ ] App.js 添加按鈕操作配置
+- [ ] GuidePreviewPage 支援新 Assistant（自動識別路徑）
+
+**權限管理層面**：
+- [ ] UserProfile 添加新的 kb_xxx_assistant 欄位
+- [ ] UserContext.js 添加權限映射
+- [ ] UserEditModal.js 添加權限 Checkbox（在知識庫功能卡片中）
+- [ ] ProtectedRoute 使用正確的權限名稱（kbXxxAssistant）
+
+**導航層面**：
+- [ ] Sidebar.js 添加選單項目
+
+**後端 API 層面**：
+- [ ] ViewSet 創建完成
+- [ ] Serializer 創建完成
+- [ ] URL 路由註冊完成
+
+### 🎯 命名規範
+
+**必須遵守的命名規範**：
+
+| 項目 | 格式 | 範例 |
+|------|------|------|
+| 資料庫表名 | `{name}_guide` | `protocol_guide`, `qa_guide` |
+| Django Model | `{Name}Guide` | `ProtocolGuide`, `QaGuide` |
+| 配置 Key | `{name}-assistant` | `protocol-assistant`, `qa-assistant` |
+| API 端點 | `/api/{name}-guides/` | `/api/protocol-guides/` |
+| 前端路由前綴 | `/knowledge/{name}-` | `/knowledge/protocol-`, `/knowledge/qa-` |
+| 權限欄位 | `kb_{name}_assistant` | `kb_protocol_assistant` |
+| 權限 Key | `kb{Name}Assistant` | `kbProtocolAssistant` |
+| 事件名稱 | `{name}-guide-reload` | `protocol-guide-reload` |
+
+### ⚠️ 常見錯誤提醒
+
+AI 在創建新 Assistant 時必須避免以下錯誤：
+
+1. **❌ 忘記添加 preview 路由** - 會導致資料預覽功能無法使用
+2. **❌ 資料庫欄位不一致** - 必須與 RVTGuide 完全相同
+3. **❌ 權限欄位命名錯誤** - 必須使用 `kb_{name}_assistant` 格式
+4. **❌ 忘記更新 GuidePreviewPage** - 需要支援多 Assistant 路徑識別
+5. **❌ 忘記在 UserEditModal 添加 Checkbox** - 導致管理員無法設置權限
+6. **❌ 忘記執行 Migration** - 導致資料庫表未創建
+
+---
+
+**🎉 使用 RVT Assistant 作為範本，嚴格遵循以上標準化流程，新的 Assistant 可以在 1-2 天內完成開發！**
 
 # AI Platform 專案功能架構
 
