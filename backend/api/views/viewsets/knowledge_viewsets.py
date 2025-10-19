@@ -601,6 +601,109 @@ class ProtocolGuideViewSet(
     # ========================================
 
     @action(detail=False, methods=['post'])
+    def search(self, request):
+        """
+        Protocol Guide 預設搜尋 API（段落級別）
+        
+        ⚠️ 已切換為段落級別搜尋（2025-10-20）
+        - 基於公平對比測試結果，段落搜尋在準確度、速度、內容精簡度三個維度都顯著優於整篇搜尋
+        - 測試結果：95% 勝率、相似度 +3-6%、速度快 68%、內容精簡 98.1%
+        - 詳細報告：docs/testing/fair-vector-search-comparison-results.md
+        
+        此端點直接調用 search_sections() 的段落搜尋邏輯。
+        如需使用舊版整篇搜尋，請使用 search_legacy() 端點（已保留作為備份）。
+        
+        請求參數：
+        - query (str): 搜尋查詢
+        - limit (int): 結果數量，預設 5
+        - threshold (float): 相似度閾值，預設 0.7
+        
+        回應：
+        {
+            "results": [
+                {
+                    "section_id": 1,
+                    "guide_id": 3,
+                    "title": "Protocol 配置指南",
+                    "content": "段落內容...",
+                    "similarity": 0.89,
+                    "level": 2
+                }
+            ],
+            "total": 5,
+            "search_type": "section"
+        }
+        """
+        logger.info(f"📊 使用段落搜尋（新系統）: query={request.data.get('query', '')}")
+        
+        # ✅ 直接調用段落搜尋邏輯
+        return self.search_sections(request)
+
+    @action(detail=False, methods=['post'])
+    def search_legacy(self, request):
+        """
+        舊版整篇文檔搜尋（保留作為備份）
+        
+        ⚠️ 此端點僅用於特殊情況或對比測試
+        - 建議使用新的段落搜尋 search() 端點
+        - 整篇搜尋會返回完整文檔內容（內容較長）
+        
+        請求參數：
+        - query (str): 搜尋查詢
+        - limit (int): 結果數量，預設 5
+        - threshold (float): 相似度閾值，預設 0.7
+        
+        回應：
+        {
+            "results": [
+                {
+                    "id": 3,
+                    "title": "Protocol 完整指南",
+                    "content": "完整文檔內容...",
+                    "score": 0.86
+                }
+            ],
+            "total": 5,
+            "search_type": "document"
+        }
+        """
+        logger.info(f"📊 使用整篇搜尋（舊系統）: query={request.data.get('query', '')}")
+        
+        try:
+            from api.services.embedding_service import get_embedding_service
+            
+            query = request.data.get('query', '')
+            limit = request.data.get('limit', 5)
+            threshold = request.data.get('threshold', 0.7)
+            
+            if not query:
+                return Response({
+                    'error': '請提供搜尋查詢'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 使用舊版整篇向量搜尋
+            embedding_service = get_embedding_service()
+            results = embedding_service.search_similar_documents(
+                query=query,
+                source_table='protocol_guide',
+                limit=limit,
+                threshold=threshold
+            )
+            
+            return Response({
+                'results': results,
+                'total': len(results),
+                'search_type': 'document',
+                'warning': '此為舊版搜尋，建議使用新的段落搜尋 /search/ 端點'
+            })
+            
+        except Exception as e:
+            logger.error(f"整篇搜尋失敗: {str(e)}")
+            return Response({
+                'error': f'整篇搜尋失敗: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'])
     def search_sections(self, request):
         """
         段落級別語義搜尋 API
