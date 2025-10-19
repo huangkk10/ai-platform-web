@@ -55,3 +55,4 @@ temp/
 # Build outputs
 dist/
 build/
+backend/tests/test_vector_search/reports

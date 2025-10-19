@@ -41,21 +41,135 @@ class ProtocolGuideViewSetManager(BaseKnowledgeBaseViewSetManager):
         from .vector_service import ProtocolGuideVectorService
         return ProtocolGuideVectorService()
     
-    # 如果需要特殊的創建邏輯（例如自動生成 Protocol ID），可以覆寫：
-    # def perform_create(self, serializer):
-    #     """自定義創建邏輯"""
-    #     instance = serializer.save()
-    #     
-    #     # 生成特殊的 Protocol ID
-    #     instance.protocol_id = self._generate_protocol_id(instance)
-    #     instance.save()
-    #     
-    #     # 調用基礎類別的向量生成
-    #     self.generate_vector_for_instance(instance, action='create')
-    #     
-    #     return instance
-    # 
-    # def _generate_protocol_id(self, instance):
-    #     """生成 Protocol ID"""
-    #     # 自定義 ID 生成邏輯
-    #     return f"PROTO-{instance.id:04d}"
+    def perform_create(self, serializer):
+        """
+        創建 Protocol Guide 時自動生成段落向量
+        
+        流程：
+        1. 保存實例到資料庫
+        2. 生成整篇文檔向量（舊系統）
+        3. 生成段落向量（新系統）
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        # 1. 保存實例
+        instance = serializer.save()
+        
+        # 2. 生成整篇文檔向量（使用基礎類別）
+        try:
+            self.generate_vector_for_instance(instance, action='create')
+            logger.info(f"✅ Protocol Guide {instance.id} 整篇文檔向量生成成功")
+        except Exception as e:
+            logger.error(f"❌ 整篇文檔向量生成失敗: {str(e)}")
+        
+        # 3. 生成段落向量（新系統）
+        try:
+            from library.common.knowledge_base.section_vectorization_service import SectionVectorizationService
+            
+            vectorization_service = SectionVectorizationService()
+            section_count = vectorization_service.vectorize_document_sections(
+                source_table='protocol_guide',
+                source_id=instance.id,
+                markdown_content=instance.content,
+                metadata={
+                    'title': instance.title,
+                    'protocol_name': instance.protocol_name,
+                    'version': instance.version
+                }
+            )
+            logger.info(f"✅ Protocol Guide {instance.id} 段落向量生成成功 ({section_count} 個段落)")
+        except Exception as e:
+            logger.error(f"❌ 段落向量生成失敗: {str(e)}")
+        
+        return instance
+    
+    def perform_update(self, serializer):
+        """
+        更新 Protocol Guide 時自動更新段落向量
+        
+        流程：
+        1. 保存更新到資料庫
+        2. 更新整篇文檔向量（舊系統）
+        3. 刪除舊段落向量
+        4. 重新生成新段落向量（新系統）
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        # 1. 保存更新
+        instance = serializer.save()
+        
+        # 2. 更新整篇文檔向量（使用基礎類別）
+        try:
+            self.generate_vector_for_instance(instance, action='update')
+            logger.info(f"✅ Protocol Guide {instance.id} 整篇文檔向量更新成功")
+        except Exception as e:
+            logger.error(f"❌ 整篇文檔向量更新失敗: {str(e)}")
+        
+        # 3. 刪除舊段落向量並重新生成
+        try:
+            from library.common.knowledge_base.section_vectorization_service import SectionVectorizationService
+            
+            vectorization_service = SectionVectorizationService()
+            
+            # 刪除舊向量
+            vectorization_service.delete_document_sections(
+                source_table='protocol_guide',
+                source_id=instance.id
+            )
+            
+            # 重新生成
+            section_count = vectorization_service.vectorize_document_sections(
+                source_table='protocol_guide',
+                source_id=instance.id,
+                markdown_content=instance.content,
+                metadata={
+                    'title': instance.title,
+                    'protocol_name': instance.protocol_name,
+                    'version': instance.version
+                }
+            )
+            logger.info(f"✅ Protocol Guide {instance.id} 段落向量更新成功 ({section_count} 個段落)")
+        except Exception as e:
+            logger.error(f"❌ 段落向量更新失敗: {str(e)}")
+        
+        return instance
+    
+    def perform_destroy(self, instance):
+        """
+        刪除 Protocol Guide 時同時刪除段落向量
+        
+        流程：
+        1. 刪除整篇文檔向量（舊系統）
+        2. 刪除所有段落向量（新系統）
+        3. 刪除實例
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        guide_id = instance.id
+        
+        # 1. 刪除整篇文檔向量
+        try:
+            vector_service = self.get_vector_service()
+            vector_service.delete_vector(guide_id)
+            logger.info(f"✅ Protocol Guide {guide_id} 整篇文檔向量刪除成功")
+        except Exception as e:
+            logger.error(f"❌ 整篇文檔向量刪除失敗: {str(e)}")
+        
+        # 2. 刪除段落向量
+        try:
+            from library.common.knowledge_base.section_vectorization_service import SectionVectorizationService
+            
+            vectorization_service = SectionVectorizationService()
+            vectorization_service.delete_document_sections(
+                source_table='protocol_guide',
+                source_id=guide_id
+            )
+            logger.info(f"✅ Protocol Guide {guide_id} 段落向量刪除成功")
+        except Exception as e:
+            logger.error(f"❌ 段落向量刪除失敗: {str(e)}")
+        
+        # 3. 刪除實例
+        instance.delete()

@@ -595,3 +595,338 @@ class ProtocolGuideViewSet(
                 return Response({
                     'error': f'統計資料獲取失敗: {str(e)}'
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    # ========================================
+    # 🚀 段落搜尋系統 API (Chunking System)
+    # ========================================
+
+    @action(detail=False, methods=['post'])
+    def search_sections(self, request):
+        """
+        段落級別語義搜尋 API
+        
+        使用 Chunking 技術，在段落級別進行精準搜尋。
+        
+        請求參數：
+        - query (str): 搜尋查詢
+        - limit (int): 結果數量，預設 5
+        - threshold (float): 相似度閾值，預設 0.7
+        - min_level (int): 最小標題層級，預設 None
+        - max_level (int): 最大標題層級，預設 None
+        - with_context (bool): 是否包含上下文，預設 False
+        - context_window (int): 上下文視窗大小，預設 1
+        
+        回應：
+        {
+            "results": [
+                {
+                    "section_id": 1,
+                    "source_id": 1,
+                    "section_title": "測試環境準備",
+                    "section_path": "ULINK Protocol 測試基礎指南 > 環境設置 > 測試環境準備",
+                    "content": "段落內容...",
+                    "similarity": 0.9145,
+                    "level": 3,
+                    "parent_title": "環境設置"
+                }
+            ],
+            "total": 3,
+            "query": "ULINK 測試環境",
+            "search_type": "section"
+        }
+        """
+        try:
+            # 獲取請求參數
+            query = request.data.get('query', '')
+            limit = request.data.get('limit', 5)
+            threshold = request.data.get('threshold', 0.7)
+            min_level = request.data.get('min_level', None)
+            max_level = request.data.get('max_level', None)
+            with_context = request.data.get('with_context', False)
+            context_window = request.data.get('context_window', 1)
+            
+            if not query:
+                return Response({
+                    'error': '請提供搜尋查詢'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 導入段落搜尋服務
+            from library.common.knowledge_base.section_search_service import SectionSearchService
+            
+            # 初始化服務
+            search_service = SectionSearchService()
+            
+            # 執行搜尋
+            if with_context:
+                raw_results = search_service.search_with_context(
+                    query=query,
+                    source_table='protocol_guide',
+                    limit=limit,
+                    threshold=threshold,
+                    min_level=min_level,
+                    max_level=max_level,
+                    context_window=context_window
+                )
+            else:
+                raw_results = search_service.search_sections(
+                    query=query,
+                    source_table='protocol_guide',
+                    limit=limit,
+                    threshold=threshold,
+                    min_level=min_level,
+                    max_level=max_level
+                )
+            
+            # 標準化結果格式（適配前端）
+            results = []
+            for result in raw_results:
+                results.append({
+                    'section_id': result.get('section_id'),
+                    'source_id': result.get('source_id'),
+                    'section_title': result.get('heading_text', ''),  # 使用 heading_text
+                    'section_path': result.get('section_path', ''),
+                    'content': result.get('content', ''),
+                    'similarity': result.get('similarity', 0.0),
+                    'level': result.get('heading_level', 0),  # 使用 heading_level
+                    'word_count': result.get('word_count', 0),
+                    'has_code': result.get('has_code', False),
+                    'has_images': result.get('has_images', False)
+                })
+            
+            return Response({
+                'results': results,
+                'total': len(results),
+                'query': query,
+                'search_type': 'section',
+                'with_context': with_context
+            })
+            
+        except Exception as e:
+            logger.error(f"段落搜尋失敗: {str(e)}")
+            return Response({
+                'error': f'段落搜尋失敗: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'])
+    def compare_search(self, request):
+        """
+        新舊搜尋系統對比 API
+        
+        同時執行整篇文檔搜尋（舊系統）和段落搜尋（新系統），
+        並提供詳細的對比數據。
+        
+        請求參數：
+        - query (str): 搜尋查詢
+        - limit (int): 每個系統的結果數量，預設 3
+        
+        回應：
+        {
+            "query": "ULINK 測試環境",
+            "old_system": {
+                "results": [...],
+                "avg_content_length": 1443,
+                "avg_similarity": 0.8662,
+                "search_type": "document"
+            },
+            "new_system": {
+                "results": [...],
+                "avg_content_length": 52,
+                "avg_similarity": 0.9145,
+                "search_type": "section"
+            },
+            "comparison": {
+                "content_length_reduction": "96.4%",
+                "similarity_improvement": "+4.8%",
+                "precision_gain": "+5.6%"
+            }
+        }
+        """
+        try:
+            query = request.data.get('query', '')
+            limit = request.data.get('limit', 3)
+            
+            if not query:
+                return Response({
+                    'error': '請提供搜尋查詢'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 導入服務
+            from api.services.embedding_service import get_embedding_service
+            from library.common.knowledge_base.section_search_service import SectionSearchService
+            from django.db import connection
+            
+            embedding_service = get_embedding_service()
+            section_service = SectionSearchService()
+            
+            # 1. 生成查詢向量
+            query_embedding = embedding_service.generate_embedding(query)
+            
+            # 2. 舊系統搜尋（整篇文檔）
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT 
+                        de.source_id,
+                        pg.title,
+                        pg.content,
+                        1 - (de.embedding <=> %s::vector) as similarity
+                    FROM document_embeddings de
+                    JOIN protocol_guide pg ON de.source_id = pg.id
+                    WHERE de.source_table = 'protocol_guide'
+                    ORDER BY de.embedding <=> %s::vector
+                    LIMIT %s
+                """, [query_embedding, query_embedding, limit])
+                
+                old_results = []
+                for row in cursor.fetchall():
+                    old_results.append({
+                        'source_id': row[0],
+                        'title': row[1],
+                        'content': row[2],
+                        'content_length': len(row[2]),
+                        'similarity': float(row[3])
+                    })
+            
+            # 3. 新系統搜尋（段落級別）
+            new_results = section_service.search_sections(
+                query=query,
+                source_table='protocol_guide',
+                limit=limit,
+                threshold=0.0  # 不過濾，取 top limit
+            )
+            
+            # 4. 計算統計數據
+            old_avg_length = sum(r['content_length'] for r in old_results) / len(old_results) if old_results else 0
+            old_avg_similarity = sum(r['similarity'] for r in old_results) / len(old_results) if old_results else 0
+            
+            new_avg_length = sum(len(r.get('content', '')) for r in new_results) / len(new_results) if new_results else 0
+            new_avg_similarity = sum(r['similarity'] for r in new_results) / len(new_results) if new_results else 0
+            
+            # 5. 計算改善比例
+            length_reduction = ((old_avg_length - new_avg_length) / old_avg_length * 100) if old_avg_length > 0 else 0
+            similarity_improvement = ((new_avg_similarity - old_avg_similarity) / old_avg_similarity * 100) if old_avg_similarity > 0 else 0
+            
+            return Response({
+                'query': query,
+                'old_system': {
+                    'results': old_results,
+                    'avg_content_length': round(old_avg_length, 2),
+                    'avg_similarity': round(old_avg_similarity * 100, 2),
+                    'search_type': 'document',
+                    'system': '整篇文檔搜尋'
+                },
+                'new_system': {
+                    'results': new_results,
+                    'avg_content_length': round(new_avg_length, 2),
+                    'avg_similarity': round(new_avg_similarity * 100, 2),
+                    'search_type': 'section',
+                    'system': '段落級別搜尋'
+                },
+                'comparison': {
+                    'content_length_reduction': f"{length_reduction:.1f}%",
+                    'similarity_improvement': f"{similarity_improvement:+.1f}%",
+                    'conclusion': '新系統更精準' if new_avg_similarity > old_avg_similarity else '舊系統更精準'
+                }
+            })
+            
+        except Exception as e:
+            logger.error(f"對比搜尋失敗: {str(e)}")
+            return Response({
+                'error': f'對比搜尋失敗: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'])
+    def regenerate_section_vectors(self, request):
+        """
+        重新生成段落向量 API
+        
+        用於：
+        1. 新增文檔後批量生成段落向量
+        2. 內容更新後重新生成段落向量
+        3. 向量系統升級後批量遷移
+        
+        請求參數：
+        - guide_ids (list): 要處理的 Guide ID 列表，空表示全部
+        - force (bool): 是否強制重新生成（刪除舊向量），預設 False
+        
+        回應：
+        {
+            "processed": 5,
+            "success": 4,
+            "failed": 1,
+            "details": [
+                {"guide_id": 1, "sections": 23, "status": "success"},
+                {"guide_id": 2, "sections": 0, "status": "failed", "error": "..."}
+            ]
+        }
+        """
+        try:
+            guide_ids = request.data.get('guide_ids', [])
+            force = request.data.get('force', False)
+            
+            # 導入服務
+            from library.common.knowledge_base.section_vectorization_service import SectionVectorizationService
+            
+            vectorization_service = SectionVectorizationService()
+            
+            # 確定要處理的 Guide
+            if guide_ids:
+                guides = ProtocolGuide.objects.filter(id__in=guide_ids)
+            else:
+                guides = ProtocolGuide.objects.all()
+            
+            results = []
+            success_count = 0
+            failed_count = 0
+            
+            for guide in guides:
+                try:
+                    # 如果強制重新生成，先刪除舊向量
+                    if force:
+                        vectorization_service.delete_document_sections(
+                            source_table='protocol_guide',
+                            source_id=guide.id
+                        )
+                    
+                    # 生成新向量
+                    section_count = vectorization_service.vectorize_document_sections(
+                        source_table='protocol_guide',
+                        source_id=guide.id,
+                        markdown_content=guide.content,
+                        metadata={
+                            'title': guide.title,
+                            'protocol_name': guide.protocol_name,
+                            'version': guide.version
+                        }
+                    )
+                    
+                    results.append({
+                        'guide_id': guide.id,
+                        'title': guide.title,
+                        'sections': section_count,
+                        'status': 'success'
+                    })
+                    success_count += 1
+                    
+                except Exception as e:
+                    logger.error(f"Guide {guide.id} 向量生成失敗: {str(e)}")
+                    results.append({
+                        'guide_id': guide.id,
+                        'title': guide.title,
+                        'sections': 0,
+                        'status': 'failed',
+                        'error': str(e)
+                    })
+                    failed_count += 1
+            
+            return Response({
+                'processed': len(guides),
+                'success': success_count,
+                'failed': failed_count,
+                'details': results
+            })
+            
+        except Exception as e:
+            logger.error(f"批量生成段落向量失敗: {str(e)}")
+            return Response({
+                'error': f'批量生成段落向量失敗: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

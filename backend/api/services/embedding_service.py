@@ -164,7 +164,8 @@ class OpenSourceEmbeddingService:
             content_hash = self.get_content_hash(content)
             
             # 選擇目標表格
-            target_table = 'document_embeddings_1024' if use_1024_table else 'document_embeddings'
+            # 注意：document_embeddings 表已經是 1024 維，統一使用它
+            target_table = 'document_embeddings'
             
             # 檢查是否已存在且內容未變更
             with connection.cursor() as cursor:
@@ -215,7 +216,8 @@ class OpenSourceEmbeddingService:
         """
         try:
             # 選擇目標表格
-            target_table = 'document_embeddings_1024' if use_1024_table else 'document_embeddings'
+            # 注意：document_embeddings 表已經是 1024 維，統一使用它
+            target_table = 'document_embeddings'
             
             # 刪除向量記錄
             with connection.cursor() as cursor:
@@ -257,7 +259,8 @@ class OpenSourceEmbeddingService:
             query_embedding = self.generate_embedding(query)
             
             # 選擇目標表格
-            target_table = 'document_embeddings_1024' if use_1024_table else 'document_embeddings'
+            # 注意：document_embeddings 表已經是 1024 維，統一使用它
+            target_table = 'document_embeddings'
             
             # 構建 SQL 查詢
             sql_parts = []
