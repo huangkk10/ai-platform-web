@@ -119,101 +119,77 @@ const ProtocolAssistantChatPage = ({ collapsed = false }) => {
   }
 
   return (
-    <Layout className="protocol-assistant-chat-page" style={{ height: '100vh', overflow: 'hidden' }}>
-      <Content style={{ 
-        display: 'flex', 
-        flexDirection: 'column',
-        height: '100%',
-        padding: '16px',
-        backgroundColor: '#f5f5f5'
-      }}>
-        {/* 聊天訊息區域 */}
-        <div style={{ 
-          flex: 1, 
-          overflowY: 'auto', 
-          padding: '16px',
-          backgroundColor: 'white',
-          borderRadius: '8px',
-          marginBottom: '16px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+    <Layout style={{ height: '100vh', background: '#f5f5f5' }} className="chat-page protocol-assistant-chat-page">
+      <Content style={{ display: 'flex', flexDirection: 'column', padding: '0', height: '100%', paddingTop: '64px' }}>
+        <MessageList
+          messages={messages}
+          loading={loading}
+          loadingStartTime={loadingStartTime}
+          feedbackStates={feedbackStates}
+          onFeedback={submitFeedback}
+          messagesEndRef={messagesEndRef}
+        />
+        <div className="input-area" style={{
+          position: 'fixed',
+          bottom: 0,
+          left: collapsed ? 80 : 300,
+          right: 0,
+          transition: 'left 0.2s',
+          zIndex: 10,
+          background: 'white',
+          borderTop: '1px solid #e8e8e8',
+          padding: '16px 24px',
+          boxShadow: '0 -2px 8px rgba(0, 0, 0, 0.06)'
         }}>
-          <MessageList 
-            messages={messages}
-            feedbackStates={feedbackStates}
-            onFeedback={submitFeedback}
-            assistantName="Protocol Assistant"
-          />
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* 輸入區域 */}
-        <div style={{ 
-          backgroundColor: 'white',
-          padding: '16px',
-          borderRadius: '8px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-        }}>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+          <div className="input-container" style={{
+            display: 'flex',
+            alignItems: 'flex-end',
+            gap: '8px',
+            maxWidth: '800px',
+            margin: '0 auto'
+          }}>
             <TextArea
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="請輸入您的 Protocol 相關問題..."
-              autoSize={{ minRows: 2, maxRows: 6 }}
+              placeholder={`請描述你的 Protocol 問題... (按 Enter 發送，Shift + Enter 換行${protocolConfig ? ` • ${protocolConfig.app_name}` : ''})`}
+              autoSize={{ minRows: 1, maxRows: 12 }}
               disabled={loading}
+              className="chat-input-area"
               style={{ 
+                borderRadius: '20px', 
+                resize: 'none',
                 flex: 1,
-                fontFamily: "'Microsoft JhengHei', sans-serif",
-                fontSize: '14px'
+                padding: '12px 16px',
+                fontSize: '14px',
+                border: '1px solid #d9d9d9',
+                transition: 'all 0.3s'
               }}
             />
-            <div style={{ display: 'flex', gap: '8px' }}>
-              {loading && (
-                <button
-                  onClick={stopRequest}
-                  className="stop-button"
-                  style={{
-                    padding: '8px 16px',
-                    backgroundColor: '#ff4d4f',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
-                >
-                  <MinusSquareFilled />
-                  停止生成
-                </button>
-              )}
-              <button
-                onClick={handleSendMessage}
-                disabled={loading || !inputMessage.trim()}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: loading || !inputMessage.trim() ? '#d9d9d9' : '#1890ff',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: loading || !inputMessage.trim() ? 'not-allowed' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-              >
-                <SendOutlined />
-                發送
-              </button>
-            </div>
+            <button
+              onClick={loading ? stopRequest : handleSendMessage}
+              disabled={!loading && !inputMessage.trim()}
+              title={loading ? "點擊停止當前任務" : "發送消息"}
+              style={{ 
+                borderRadius: '50%', 
+                width: '40px', 
+                height: '40px',
+                marginLeft: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: loading ? '#595959' : (!inputMessage.trim() ? '#d9d9d9' : '#1890ff'),
+                color: '#fff',
+                border: `1px solid ${loading ? '#595959' : (!inputMessage.trim() ? '#d9d9d9' : '#1890ff')}`,
+                cursor: (loading || inputMessage.trim()) ? 'pointer' : 'not-allowed',
+                fontSize: '16px',
+                transition: 'all 0.3s ease',
+                outline: 'none'
+              }}
+            >
+              {loading ? <MinusSquareFilled /> : <SendOutlined />}
+            </button>
           </div>
-          
-          {protocolConfig && (
-            <div style={{ marginTop: '8px', fontSize: '12px', color: '#666' }}>
-              💡 提示：AI 分析可能需要 10-30 秒，請耐心等待
-            </div>
-          )}
         </div>
       </Content>
     </Layout>
