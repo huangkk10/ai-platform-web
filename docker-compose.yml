@@ -30,7 +30,7 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -61,7 +61,7 @@ services:
     ports:
       - "6379:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -92,7 +92,8 @@ services:
     volumes:
       - ./backend:/app
       - ./library:/app/library
-      - ./config:/app/config  # 添加配置目錄掛載
+      - ./config:/app/config # 添加配置目錄掛載
+      - ./logs:/app/logs # 添加 logs 目錄掛載
       - static_files:/app/static
       - media_files:/app/media
     depends_on:
@@ -124,6 +125,7 @@ services:
       - ./backend:/app
       - ./library:/app/library
       - ./config:/app/config
+      - ./logs:/app/logs # 添加 logs 目錄掛載
       - static_files:/app/static
       - media_files:/app/media
     depends_on:
@@ -156,9 +158,10 @@ services:
       - ./backend:/app
       - ./library:/app/library
       - ./config:/app/config
+      - ./logs:/app/logs # 添加 logs 目錄掛載
       - static_files:/app/static
       - media_files:/app/media
-      - celery_beat_data:/app/celerybeat-schedule  # 持久化 Beat 排程
+      - celery_beat_data:/app/celerybeat-schedule # 持久化 Beat 排程
     depends_on:
       - postgres
       - redis

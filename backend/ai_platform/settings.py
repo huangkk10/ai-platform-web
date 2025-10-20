@@ -194,7 +194,7 @@ LOGGING = {
     'disable_existing_loggers': False,
     'formatters': {
         'verbose': {
-            'format': '[{levelname}] {asctime} {name} {process:d} {thread:d} {message}',
+            'format': '[{levelname}] {asctime} | {name} | {funcName} | Line {lineno} | {message}',
             'style': '{',
         },
         'simple': {
@@ -207,21 +207,63 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'simple',
         },
+        # 一般 log 檔案（按大小輪替）
+        'file': {
+            'level': 'INFO',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': '/app/logs/django.log',
+            'maxBytes': 10 * 1024 * 1024,  # 10 MB
+            'backupCount': 10,  # 保留 10 個備份檔案
+            'formatter': 'verbose',
+            'encoding': 'utf-8',
+        },
+        # 錯誤 log 檔案（只記錄 ERROR 以上）
+        'error_file': {
+            'level': 'ERROR',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': '/app/logs/django_error.log',
+            'maxBytes': 10 * 1024 * 1024,  # 10 MB
+            'backupCount': 5,  # 保留 5 個備份檔案
+            'formatter': 'verbose',
+            'encoding': 'utf-8',
+        },
+        # Dify 請求專用 log（詳細記錄）
+        'dify_requests_file': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': '/app/logs/dify_requests.log',
+            'maxBytes': 20 * 1024 * 1024,  # 20 MB
+            'backupCount': 15,
+            'formatter': 'verbose',
+            'encoding': 'utf-8',
+        },
     },
     'loggers': {
         'api.views': {
-            'handlers': ['console'],
+            'handlers': ['console', 'file', 'error_file'],
             'level': 'INFO',
             'propagate': True,
         },
         'django': {
-            'handlers': ['console'],
+            'handlers': ['console', 'file', 'error_file'],
             'level': 'INFO',
+            'propagate': False,
+        },
+        # Library 模組 logger
+        'library': {
+            'handlers': ['console', 'file', 'error_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        # Dify 整合專用 logger
+        'library.dify_integration': {
+            'handlers': ['console', 'dify_requests_file', 'error_file'],
+            'level': 'DEBUG',
             'propagate': False,
         },
     },
     'root': {
-        'handlers': ['console'],
+        'handlers': ['console', 'file', 'error_file'],
         'level': 'INFO',
     },
 }
