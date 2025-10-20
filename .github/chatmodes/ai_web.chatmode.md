@@ -1263,8 +1263,390 @@ docker exec ai-django python manage.py shell -c "from api.models import Employee
 專案已建立統一的 Dify 應用配置管理系統，避免配置散落各處。
 
 **配置文件位置**：
-- `/library/config/dify_app_configs.py` - 應用配置管理
+- `/library/config/dify_config_manager.py` - 統一配置管理器（主要）
+- `/library/config/dify_app_configs.py` - 應用配置管理（舊版）
 - `docs/guide/dify-app-config-usage.md` - 完整使用指南
+
+---
+
+## 🚀 新增 Dify App 配置的標準流程（以 RVT Guide 為範本）
+
+### ⚠️ 重要規範
+**當需要新增任何 Dify 工作室的新 App 時，AI 必須遵守以下標準化流程：**
+
+### 📋 標準化流程步驟
+
+#### 1️⃣ **在 `dify_config_manager.py` 中添加新配置方法**
+
+**參考範本**：使用 `_get_rvt_guide_config()` 作為標準範本
+
+```python
+# library/config/dify_config_manager.py
+
+@classmethod
+def _get_xxx_guide_config(cls):
+    """動態獲取 Xxx Guide 配置"""
+    ai_pc_ip = cls._get_ai_pc_ip()
+    return {
+        'api_url': f'http://{ai_pc_ip}/v1/chat-messages',
+        'api_key': 'app-xxxxxxxxxxxxxxxxxx',  # ⚠️ 從 Dify 工作室獲取
+        'base_url': f'http://{ai_pc_ip}',
+        'app_name': 'Xxx Guide',               # App 名稱
+        'workspace': 'Xxx_Guide',              # 工作室名稱（與 Dify 保持一致）
+        'description': 'Dify Chat 應用，用於 Xxx 相關指導和協助',
+        'features': ['Xxx 指導', '技術支援', 'Xxx 流程管理'],
+        'timeout': 75,  # 超時時間（秒）
+        'response_mode': 'blocking'  # 或 'streaming'
+    }
+```
+
+**🔴 強制要求**：
+- `api_key`：必須從 Dify 工作室複製正確的 App API Key
+- `workspace`：必須與 Dify 工作室中的命名一致（通常使用 `_` 分隔）
+- `timeout`：根據應用複雜度設定（簡單查詢 60 秒，複雜分析 75-120 秒）
+
+#### 2️⃣ **更新 `SUPPORTED_APPS` 字典**
+
+```python
+# library/config/dify_config_manager.py - DifyConfigManager 類別中
+
+# 支援的應用類型
+SUPPORTED_APPS = {
+    'protocol_known_issue': 'Protocol Known Issue System',
+    'protocol_guide': 'Protocol Guide',
+    'rvt_guide': 'RVT Guide',
+    'xxx_guide': 'Xxx Guide',  # ✅ 新增這一行
+    'report_analyzer_3': 'Report Analyzer 3',
+    'ai_ocr': 'AI OCR System',
+}
+```
+
+**命名規範**：
+- Key 格式：`{name}_guide` 或 `{name}_{type}`（小寫 + 底線）
+- Value 格式：`{Name} Guide` 或完整應用名稱
+
+#### 3️⃣ **在 `_get_config_dict()` 方法中添加分支**
+
+```python
+# library/config/dify_config_manager.py
+
+def _get_config_dict(self, app_type: str) -> Dict[str, Any]:
+    """獲取配置字典"""
+    if app_type == 'protocol_known_issue':
+        base_config = self._get_protocol_known_issue_system_config()
+        return self._get_base_config_with_env_override(base_config, 'DIFY_PROTOCOL')
+    elif app_type == 'protocol_guide':
+        base_config = self._get_protocol_guide_config()
+        return self._get_base_config_with_env_override(base_config, 'DIFY_PROTOCOL_GUIDE')
+    elif app_type == 'rvt_guide':
+        base_config = self._get_rvt_guide_config()
+        return self._get_base_config_with_env_override(base_config, 'DIFY_RVT_GUIDE')
+    # ✅ 新增這個分支
+    elif app_type == 'xxx_guide':
+        base_config = self._get_xxx_guide_config()
+        return self._get_base_config_with_env_override(base_config, 'DIFY_XXX_GUIDE')
+    elif app_type == 'report_analyzer_3':
+        base_config = self._get_report_analyzer_3_config()
+        return self._get_base_config_with_env_override(base_config, 'DIFY_REPORT_ANALYZER')
+    # ... 其他分支
+```
+
+**環境變數前綴規範**：
+- 格式：`DIFY_{APP_NAME_UPPER}`
+- 範例：`DIFY_PROTOCOL_GUIDE`、`DIFY_XXX_GUIDE`
+- 用途：允許透過環境變數覆蓋配置（可選）
+
+#### 4️⃣ **添加類別便利方法（Class Method）**
+
+```python
+# library/config/dify_config_manager.py - DifyConfigManager 類別中
+
+def get_xxx_guide_config(self) -> DifyAppConfig:
+    """
+    獲取 Xxx Guide 配置的便利方法
+    
+    Returns:
+        DifyAppConfig: Xxx Guide 配置
+    """
+    return self.get_app_config('xxx_guide')
+```
+
+#### 5️⃣ **添加全局便利函數（推薦使用）**
+
+```python
+# library/config/dify_config_manager.py - 文件末尾
+
+def get_xxx_guide_config() -> DifyAppConfig:
+    """
+    獲取 Xxx Guide 配置的便利函數
+    
+    Returns:
+        DifyAppConfig: Xxx Guide 配置對象
+    """
+    return default_config_manager.get_xxx_guide_config()
+```
+
+#### 6️⃣ **添加向後兼容的字典函數（可選）**
+
+```python
+# library/config/dify_config_manager.py - 文件末尾
+
+def get_xxx_guide_config_dict() -> Dict[str, Any]:
+    """
+    獲取 Xxx Guide 配置字典（向後兼容）
+    
+    Returns:
+        Dict[str, Any]: 配置字典
+    """
+    return get_xxx_guide_config().to_dict()
+```
+
+---
+
+### 🎯 完整範例：以 Protocol Guide 為例
+
+**步驟說明**：假設您要新增 `Protocol Guide` 的 Dify App，API Key 為 `app-MgZZOhADkEmdUrj2DtQLJ23G`
+
+#### 實際修改內容：
+
+```python
+# 1. 新增配置方法（參考 RVT Guide）
+@classmethod
+def _get_protocol_guide_config(cls):
+    """動態獲取 Protocol Guide 配置"""
+    ai_pc_ip = cls._get_ai_pc_ip()
+    return {
+        'api_url': f'http://{ai_pc_ip}/v1/chat-messages',
+        'api_key': 'app-MgZZOhADkEmdUrj2DtQLJ23G',  # 從 Dify 複製
+        'base_url': f'http://{ai_pc_ip}',
+        'app_name': 'Protocol Guide',
+        'workspace': 'Protocol_Guide',
+        'description': 'Dify Chat 應用，用於 Protocol 相關指導和協助',
+        'features': ['Protocol 指導', '技術支援', 'Protocol 流程管理'],
+        'timeout': 75,
+        'response_mode': 'blocking'
+    }
+
+# 2. 更新 SUPPORTED_APPS
+SUPPORTED_APPS = {
+    'protocol_known_issue': 'Protocol Known Issue System',
+    'protocol_guide': 'Protocol Guide',  # ✅ 新增
+    'rvt_guide': 'RVT Guide',
+    # ...
+}
+
+# 3. 更新 _get_config_dict
+elif app_type == 'protocol_guide':
+    base_config = self._get_protocol_guide_config()
+    return self._get_base_config_with_env_override(base_config, 'DIFY_PROTOCOL_GUIDE')
+
+# 4. 添加類別便利方法
+def get_protocol_guide_config(self) -> DifyAppConfig:
+    return self.get_app_config('protocol_guide')
+
+# 5. 添加全局便利函數
+def get_protocol_guide_config() -> DifyAppConfig:
+    return default_config_manager.get_protocol_guide_config()
+
+# 6. 添加字典函數（可選）
+def get_protocol_guide_config_dict() -> Dict[str, Any]:
+    return get_protocol_guide_config().to_dict()
+```
+
+---
+
+### ✅ 使用新配置的方法
+
+#### 方法 1：使用全局便利函數（推薦）
+```python
+from library.config.dify_config_manager import get_protocol_guide_config
+
+# 獲取配置
+config = get_protocol_guide_config()
+
+# 訪問配置屬性
+print(config.api_key)      # app-MgZZOhADkEmdUrj2DtQLJ23G
+print(config.api_url)      # http://10.10.172.37/v1/chat-messages
+print(config.app_name)     # Protocol Guide
+print(config.workspace)    # Protocol_Guide
+print(config.timeout)      # 75
+
+# 轉換為字典
+config_dict = config.to_dict()
+
+# 獲取安全配置（隱藏 API Key）
+safe_config = config.get_safe_config()
+print(safe_config['api_key_prefix'])  # app-MgZZOh...
+```
+
+#### 方法 2：使用配置管理器
+```python
+from library.config.dify_config_manager import DifyConfigManager
+
+manager = DifyConfigManager()
+
+# 獲取配置
+config = manager.get_protocol_guide_config()
+
+# 或使用通用方法
+config = manager.get_app_config('protocol_guide')
+```
+
+#### 方法 3：整合到 Dify Request Manager
+```python
+from library.config.dify_config_manager import get_protocol_guide_config
+from library.dify_integration.dify_request_manager import DifyRequestManager
+
+# 獲取配置
+config = get_protocol_guide_config()
+
+# 創建請求管理器
+request_manager = DifyRequestManager(
+    api_url=config.api_url,
+    api_key=config.api_key,
+    timeout=config.timeout
+)
+
+# 發送聊天請求
+response = request_manager.send_chat_request(
+    query="請說明 Protocol 測試流程",
+    user_id="user_123"
+)
+```
+
+---
+
+### 🔍 驗證配置是否正確
+
+#### 驗證單個配置
+```python
+from library.config.dify_config_manager import get_protocol_guide_config
+
+config = get_protocol_guide_config()
+
+# 驗證配置
+if config.validate():
+    print("✅ 配置驗證成功")
+    print(f"App Name: {config.app_name}")
+    print(f"Workspace: {config.workspace}")
+    print(f"API URL: {config.api_url}")
+else:
+    print("❌ 配置驗證失敗")
+```
+
+#### 驗證所有配置
+```python
+from library.config.dify_config_manager import validate_all_dify_configs
+
+results = validate_all_dify_configs()
+
+for app_type, is_valid in results.items():
+    status = "✅" if is_valid else "❌"
+    print(f"{status} {app_type}: {'有效' if is_valid else '無效'}")
+```
+
+#### 查看所有安全配置
+```python
+from library.config.dify_config_manager import get_all_dify_configs_safe
+
+configs = get_all_dify_configs_safe()
+
+for app_type, config in configs.items():
+    print(f"\n📱 {app_type}:")
+    print(f"  App Name: {config.get('app_name')}")
+    print(f"  API Key Prefix: {config.get('api_key_prefix')}")
+    print(f"  Timeout: {config.get('timeout')}")
+```
+
+---
+
+### 📊 完整檢查清單
+
+添加新 Dify App 配置時，AI 必須確認以下所有項目：
+
+**配置層面**：
+- [ ] `_get_xxx_guide_config()` 方法已添加（參考 RVT Guide）
+- [ ] `SUPPORTED_APPS` 字典已更新
+- [ ] `_get_config_dict()` 方法已添加對應分支
+- [ ] API Key 從 Dify 工作室正確複製
+- [ ] Workspace 名稱與 Dify 一致
+
+**便利函數層面**：
+- [ ] 類別便利方法已添加（`get_xxx_guide_config()`）
+- [ ] 全局便利函數已添加（建議使用）
+- [ ] 字典函數已添加（可選，向後兼容）
+
+**驗證層面**：
+- [ ] 配置驗證通過（`config.validate()` 返回 `True`）
+- [ ] API Key 格式正確（以 `app-` 開頭）
+- [ ] API URL 可訪問
+- [ ] Timeout 設定合理
+
+**文檔層面**：
+- [ ] 在相關文檔中記錄新配置（可選）
+- [ ] 更新 API 使用示例（如需要）
+
+---
+
+### 🎯 命名規範總結
+
+| 項目 | 格式 | 範例 |
+|------|------|------|
+| App Type Key | `{name}_guide` 或 `{name}_{type}` | `protocol_guide`, `rvt_guide` |
+| 配置方法名 | `_get_{name}_guide_config` | `_get_protocol_guide_config` |
+| 環境變數前綴 | `DIFY_{NAME_UPPER}` | `DIFY_PROTOCOL_GUIDE` |
+| 便利方法名 | `get_{name}_guide_config` | `get_protocol_guide_config` |
+| Workspace | `{Name}_Guide` | `Protocol_Guide`, `RVT_Guide` |
+
+---
+
+### ⚠️ 常見錯誤提醒
+
+AI 在添加新 Dify App 配置時必須避免以下錯誤：
+
+1. **❌ API Key 錯誤** - 必須從 Dify 工作室複製完整的 API Key
+2. **❌ Workspace 名稱不一致** - 必須與 Dify 工作室中的命名完全一致
+3. **❌ 忘記更新 SUPPORTED_APPS** - 導致配置無法被識別
+4. **❌ 忘記添加 _get_config_dict 分支** - 導致無法獲取配置
+5. **❌ Timeout 設定過短** - 可能導致請求超時失敗
+6. **❌ 環境變數前綴重複** - 導致配置衝突
+
+---
+
+### 🎓 參考範本：RVT Guide
+
+**完整的參考實現**：請查看 `library/config/dify_config_manager.py` 中的 `_get_rvt_guide_config()` 方法
+
+```python
+@classmethod
+def _get_rvt_guide_config(cls):
+    """動態獲取 RVT Guide 配置"""
+    ai_pc_ip = cls._get_ai_pc_ip()
+    return {
+        'api_url': f'http://{ai_pc_ip}/v1/chat-messages',
+        'api_key': 'app-Lp4mlfIWHqMWPHTlzF9ywT4F',
+        'base_url': f'http://{ai_pc_ip}',
+        'app_name': 'RVT Guide',
+        'workspace': 'RVT_Guide',
+        'description': 'Dify Chat 應用，用於 RVT 相關指導和協助',
+        'features': ['RVT 指導', '技術支援', 'RVT 流程管理'],
+        'timeout': 75,
+        'response_mode': 'blocking'
+    }
+```
+
+**使用此範本創建新配置時**：
+1. 複製整個方法
+2. 修改方法名稱（`_get_xxx_guide_config`）
+3. 更新 API Key、App Name、Workspace
+4. 調整 description 和 features
+5. 根據需要調整 timeout
+
+---
+
+**🎉 遵循以上標準化流程，新的 Dify App 配置可以在 5 分鐘內完成添加！**
+
+---
 
 ### 🎯 Protocol Known Issue System 配置
 
