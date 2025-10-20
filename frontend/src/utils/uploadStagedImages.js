@@ -7,12 +7,87 @@ import axios from 'axios';
 import { message } from 'antd';
 
 /**
+ * 獲取內容 API 端點
+ * @param {string} contentType - 內容類型
+ * @returns {string} API 端點
+ */
+const getContentApiEndpoint = (contentType) => {
+  switch (contentType) {
+    case 'rvt-guide':
+      return '/api/rvt-guides/';
+    case 'protocol-guide':
+      return '/api/protocol-guides/';
+    default:
+      console.warn(`⚠️ 未知的內容類型: ${contentType}`);
+      return `/api/${contentType}s/`;
+  }
+};
+
+/**
+ * 替換內容中的圖片 ID（temp_xxx → 實際 ID）
+ * @param {number|string} contentId - 內容 ID
+ * @param {string} contentType - 內容類型
+ * @param {Object} imageIdMap - 圖片 ID 映射 {temp_xxx: 實際ID}
+ * @returns {Promise<void>}
+ */
+const replaceImageIdsInContent = async (contentId, contentType, imageIdMap) => {
+  if (!imageIdMap || Object.keys(imageIdMap).length === 0) {
+    console.log('📭 沒有需要替換的圖片 ID');
+    return;
+  }
+
+  try {
+    // 1. 獲取當前文檔內容
+    const contentEndpoint = getContentApiEndpoint(contentType);
+    const getResponse = await axios.get(`${contentEndpoint}${contentId}/`, {
+      withCredentials: true,
+    });
+
+    let currentContent = getResponse.data.content || '';
+    console.log('📄 當前內容長度:', currentContent.length);
+
+    // 2. 替換所有 temp_ ID 為實際 ID
+    let updatedContent = currentContent;
+    let replacementCount = 0;
+
+    for (const [tempId, realId] of Object.entries(imageIdMap)) {
+      const tempPattern = new RegExp(`\\[IMG:${tempId}\\]`, 'g');
+      const matches = updatedContent.match(tempPattern);
+      
+      if (matches) {
+        updatedContent = updatedContent.replace(tempPattern, `[IMG:${realId}]`);
+        replacementCount += matches.length;
+        console.log(`🔄 替換: [IMG:${tempId}] → [IMG:${realId}] (${matches.length} 處)`);
+      }
+    }
+
+    // 3. 如果有替換，更新文檔
+    if (replacementCount > 0) {
+      console.log(`📝 總共替換 ${replacementCount} 處圖片引用，準備更新文檔...`);
+      
+      await axios.put(
+        `${contentEndpoint}${contentId}/`,
+        { content: updatedContent },
+        { withCredentials: true }
+      );
+
+      console.log('✅ 文檔內容更新成功');
+    } else {
+      console.log('ℹ️ 內容中沒有找到需要替換的 temp_ 標記');
+    }
+  } catch (error) {
+    console.error('❌ 替換圖片 ID 時發生錯誤:', error);
+    throw error;
+  }
+};
+
+/**
  * 上傳暫存圖片
  * @param {number|string} contentId - 內容 ID
  * @param {string} contentType - 內容類型 ('rvt-guide', 'protocol-guide', etc.)
  * @param {Array} stagedImages - 暫存的圖片列表
  * @param {string} apiEndpoint - API 端點（可選，默認 /api/content-images/）
- * @returns {Promise<{success: number, failed: number, errors: Array}>}
+ * @returns {Promise<{success: number, failed: number, errors: Array, imageIdMap: Object}>}
  */
 export const uploadStagedImages = async (
   contentId,
@@ -22,7 +97,7 @@ export const uploadStagedImages = async (
 ) => {
   if (!stagedImages || stagedImages.length === 0) {
     console.log('📭 沒有暫存圖片需要上傳');
-    return { success: 0, failed: 0, errors: [] };
+    return { success: 0, failed: 0, errors: [], imageIdMap: {} };
   }
 
   console.log(`📤 開始上傳暫存圖片: ${stagedImages.length} 張`);
@@ -38,6 +113,7 @@ export const uploadStagedImages = async (
   let successCount = 0;
   let failCount = 0;
   const errors = [];
+  const imageIdMap = {}; // 🆕 儲存 temp_xxx → 實際 ID 的映射
 
   try {
     // 逐個上傳暫存圖片
@@ -84,15 +160,25 @@ export const uploadStagedImages = async (
         }
 
         // 上傳圖片
-        await axios.post(apiEndpoint, formData, {
+        const response = await axios.post(apiEndpoint, formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
           withCredentials: true,
         });
 
+        // 🆕 保存 temp ID 到實際 ID 的映射
+        const uploadedImageId = response.data.id;
+        const tempId = stagedImage.id;
+        
+        if (tempId && String(tempId).startsWith('temp_')) {
+          imageIdMap[tempId] = uploadedImageId;
+          console.log(`🔗 ID 映射: ${tempId} → ${uploadedImageId}`);
+        }
+
         successCount++;
         console.log(
           `✅ 圖片上傳成功 (${successCount}/${stagedImages.length}):`,
-          stagedImage.filename
+          stagedImage.filename,
+          `(ID: ${uploadedImageId})`
         );
 
         // 更新進度提示
@@ -119,6 +205,18 @@ export const uploadStagedImages = async (
     // 關閉進度提示
     hideLoading();
 
+    // 🆕 如果有圖片上傳成功且存在 ID 映射，替換內容中的 temp_ 標記
+    if (successCount > 0 && Object.keys(imageIdMap).length > 0) {
+      try {
+        console.log('🔄 開始替換內容中的圖片 ID...');
+        await replaceImageIdsInContent(contentId, contentType, imageIdMap);
+        console.log('✅ 內容中的圖片 ID 替換成功');
+      } catch (error) {
+        console.error('⚠️ 替換圖片 ID 失敗（不影響上傳）:', error);
+        // 不拋出錯誤，因為圖片已經上傳成功
+      }
+    }
+
     // 顯示最終結果
     if (successCount > 0 && failCount === 0) {
       message.success(`文檔和 ${successCount} 張圖片已成功儲存！`);
@@ -132,6 +230,7 @@ export const uploadStagedImages = async (
       success: successCount,
       failed: failCount,
       errors,
+      imageIdMap, // 🆕 返回 ID 映射
     };
   } catch (error) {
     hideLoading();
@@ -142,6 +241,7 @@ export const uploadStagedImages = async (
       success: successCount,
       failed: failCount + (stagedImages.length - successCount - failCount),
       errors: [...errors, { filename: 'unknown', error: error.message }],
+      imageIdMap: {}, // 🆕 返回空映射
     };
   }
 };
