@@ -2433,5 +2433,358 @@ def async_generate_vector(guide_id):
 - ✅ 更新所有文檔路徑引用
 - ✅ 建立文檔命名和放置規範
 
+---
+
+# 🚨 AI Assistant 開發常見錯誤與防範指南
+
+## ⚠️ 關鍵問題：聊天訊息重複顯示（Loading Block 問題）
+
+### 📋 問題描述
+**症狀**：在開發新的 AI Assistant（如 Protocol Assistant）時，用戶發送訊息後會出現：
+1. ❌ **雙重白色載入區塊**：一個在訊息列表中，一個在底部
+2. ❌ **空白訊息殘留**：AI 回應後，訊息列表中會保留一個空白的 loading 訊息
+3. ✅ **RVT Assistant 正常**：相同功能的 RVT Assistant 只顯示底部的載入指示器
+
+### 🔍 根本原因分析
+
+**錯誤的訊息處理模式**（Protocol Assistant 初始版本）：
+```javascript
+// ❌ 錯誤做法：在發送請求前就添加空訊息
+const sendMessage = async (message) => {
+  const userMessage = { role: 'user', content: message };
+  
+  // 1. 創建空的 assistant 訊息（帶 loading: true）
+  const assistantMessage = {
+    role: 'assistant',
+    content: '',
+    loading: true,  // ⚠️ 這會在 UI 中顯示 loading 區塊
+    message_id: null
+  };
+  
+  // 2. 立即添加空訊息到列表
+  setMessages(prev => [...prev, userMessage, assistantMessage]);
+  
+  // 3. 發送 API 請求
+  const response = await api.post('/chat/', { message });
+  
+  // 4. 更新訊息內容
+  setMessages(prev => prev.map(msg => 
+    msg.loading && msg.role === 'assistant' 
+      ? { ...msg, content: response.data.answer, loading: false }
+      : msg
+  ));
+};
+```
+
+**問題所在**：
+- 步驟 2 添加的 `assistantMessage` 會立即在 MessageList 中渲染
+- 因為 `loading: true`，MessageList 會顯示 `<LoadingIndicator>`
+- 同時底部也有一個固定的 LoadingIndicator
+- 結果：**兩個 loading 區塊同時出現**
+
+---
+
+**正確的訊息處理模式**（RVT Assistant 範本）：
+```javascript
+// ✅ 正確做法：等待 API 回應後再添加完整訊息
+const sendMessage = async (message) => {
+  const userMessage = { role: 'user', content: message };
+  
+  // 1. 只添加用戶訊息
+  setMessages(prev => [...prev, userMessage]);
+  
+  // 2. 發送 API 請求（此時底部顯示 loading）
+  setLoading(true);
+  const response = await api.post('/chat/', { message });
+  setLoading(false);
+  
+  // 3. 收到回應後，創建完整的 assistant 訊息
+  const assistantMessage = {
+    role: 'assistant',
+    content: response.data.answer,
+    message_id: response.data.message_id,
+    conversation_id: response.data.conversation_id,
+    response_time: response.data.response_time,
+    tokens: response.data.tokens
+  };
+  
+  // 4. 添加完整訊息（不帶 loading 標記）
+  setMessages(prev => [...prev, assistantMessage]);
+};
+```
+
+**正確做法的優點**：
+- ✅ 訊息列表中**不會**出現 loading 訊息
+- ✅ 只有底部的 LoadingIndicator 顯示（由 `isLoading` state 控制）
+- ✅ AI 回應後直接顯示完整內容，無需更新現有訊息
+- ✅ 程式碼更簡潔，邏輯更清晰
+
+---
+
+### 🛠️ 修復步驟（完整對比）
+
+#### **修復前**（錯誤版本）
+```javascript
+// frontend/src/hooks/useProtocolAssistantChat.js
+
+const sendMessage = async (message) => {
+  // ... 省略其他代碼
+
+  // ❌ 問題 1：創建空訊息
+  const assistantMessage = {
+    role: 'assistant',
+    content: '',
+    loading: true,  // 這會導致顯示 loading block
+    message_id: null,
+    conversation_id: currentConversationId
+  };
+
+  // ❌ 問題 2：立即添加到列表
+  setMessages(prev => [...prev, userMessage, assistantMessage]);
+
+  // ... 發送請求
+
+  // ❌ 問題 3：使用 map 更新訊息
+  setMessages(prev => prev.map(msg => 
+    msg.loading && msg.role === 'assistant'
+      ? { ...msg, content: data.answer, loading: false, ... }
+      : msg
+  ));
+};
+```
+
+#### **修復後**（正確版本）
+```javascript
+// frontend/src/hooks/useProtocolAssistantChat.js
+
+const sendMessage = async (message) => {
+  // ... 省略其他代碼
+
+  // ✅ 修正 1：只添加用戶訊息
+  setMessages(prev => [...prev, userMessage]);
+
+  // ... 發送請求（loading 由 isLoading state 控制）
+
+  // ✅ 修正 2：收到回應後創建完整訊息（無 loading）
+  const assistantMessage = {
+    role: 'assistant',
+    content: data.answer,
+    message_id: data.message_id,
+    conversation_id: data.conversation_id,
+    response_time: data.response_time,
+    tokens: data.tokens
+  };
+
+  // ✅ 修正 3：直接添加完整訊息（不是更新）
+  setMessages(prev => [...prev, assistantMessage]);
+};
+```
+
+---
+
+### 📋 AI 開發新 Assistant 的強制檢查清單
+
+**在創建任何新的 AI Assistant Chat 功能時，AI 必須確認：**
+
+#### 1. **訊息處理模式檢查**
+- [ ] ✅ 發送請求**前**：只添加 `userMessage`（不添加 assistant 訊息）
+- [ ] ✅ 等待 API 回應**後**：創建完整的 `assistantMessage`（包含所有欄位）
+- [ ] ✅ 不使用 `loading: true` 標記（loading 由 `isLoading` state 控制）
+- [ ] ❌ **禁止**在請求前創建空的 assistant 訊息
+- [ ] ❌ **禁止**使用 `map()` 更新訊息內容（應該使用直接添加）
+
+#### 2. **Loading 狀態管理**
+- [ ] ✅ 使用 `isLoading` state 控制底部 LoadingIndicator
+- [ ] ✅ 請求開始：`setIsLoading(true)`
+- [ ] ✅ 請求結束/錯誤：`setIsLoading(false)`
+- [ ] ❌ **禁止**在訊息物件中使用 `loading` 屬性
+
+#### 3. **Hook 實作參考**
+- [ ] ✅ **必須**參考 `useRvtChat.js` 作為標準範本
+- [ ] ✅ 複製 `sendMessage` 函數的完整邏輯
+- [ ] ✅ 保持訊息物件結構一致（role, content, message_id, etc.）
+- [ ] ❌ **不要**自創不同的訊息處理模式
+
+#### 4. **測試驗證**
+- [ ] ✅ 發送測試訊息，確認**只有底部**顯示 loading
+- [ ] ✅ AI 回應後，訊息列表中**沒有**空白或 loading 訊息
+- [ ] ✅ 對比 RVT Assistant 行為，確保完全一致
+
+---
+
+### 📝 標準範本：useRvtChat.js（正確實作）
+
+```javascript
+// frontend/src/hooks/useRvtChat.js
+// ✅ 這是所有新 Assistant Hook 的標準範本
+
+const sendMessage = async (message) => {
+  if (!message.trim() || isLoading) return;
+
+  const userMessage = {
+    role: 'user',
+    content: message,
+    timestamp: new Date().toISOString()
+  };
+
+  // ✅ 步驟 1：只添加用戶訊息
+  setMessages(prev => [...prev, userMessage]);
+  setInputMessage('');
+  setIsLoading(true);  // 顯示底部 loading
+
+  try {
+    // ✅ 步驟 2：發送 API 請求
+    const response = await api.post('/api/rvt-guide/chat/', {
+      message: message,
+      conversation_id: currentConversationId
+    });
+
+    const data = response.data;
+
+    // ✅ 步驟 3：創建完整的 assistant 訊息
+    const assistantMessage = {
+      role: 'assistant',
+      content: data.answer,
+      message_id: data.message_id,
+      conversation_id: data.conversation_id,
+      response_time: data.response_time,
+      tokens: data.tokens,
+      timestamp: new Date().toISOString()
+    };
+
+    // ✅ 步驟 4：直接添加完整訊息（concat 或 spread）
+    setMessages(prev => [...prev, assistantMessage]);
+    
+    // 更新 conversation_id
+    if (data.conversation_id && !currentConversationId) {
+      setCurrentConversationId(data.conversation_id);
+    }
+
+  } catch (error) {
+    console.error('發送訊息失敗:', error);
+    setError('發送訊息失敗，請稍後再試');
+  } finally {
+    setIsLoading(false);  // 隱藏 loading
+  }
+};
+```
+
+---
+
+### 🎯 設計原則總結
+
+| 原則 | ✅ 正確做法 | ❌ 錯誤做法 |
+|------|------------|------------|
+| **訊息添加時機** | 收到 API 回應後再添加 | 請求前就添加空訊息 |
+| **Loading 顯示** | 使用 `isLoading` state | 使用 `loading: true` 屬性 |
+| **訊息更新方式** | 直接添加新訊息 (`concat`) | 使用 `map()` 更新現有訊息 |
+| **訊息完整性** | 添加時包含所有必要欄位 | 先添加空訊息再填充 |
+| **參考範本** | 完全複製 `useRvtChat.js` | 自創新的實作模式 |
+
+---
+
+### 🔍 問題診斷流程
+
+**當發現聊天介面出現重複或異常的 loading 區塊時：**
+
+1. **定位問題檔案**
+   ```bash
+   # 檢查 Hook 檔案
+   frontend/src/hooks/use{AssistantName}Chat.js
+   ```
+
+2. **對比標準範本**
+   ```bash
+   # 打開標準範本
+   code frontend/src/hooks/useRvtChat.js
+   
+   # 對比問題檔案
+   code frontend/src/hooks/useProtocolAssistantChat.js
+   ```
+
+3. **檢查關鍵差異**
+   - [ ] 是否在請求前添加了 assistant 訊息？
+   - [ ] 是否使用了 `loading: true` 屬性？
+   - [ ] 是否使用 `map()` 更新訊息？
+
+4. **應用修復**
+   - 刪除請求前的訊息添加邏輯
+   - 改為在收到回應後才添加訊息
+   - 使用 `[...prev, newMessage]` 而非 `prev.map()`
+
+5. **測試驗證**
+   ```bash
+   # 重啟前端容器
+   docker compose restart ai-react
+   
+   # 在瀏覽器中測試
+   # 1. 刷新頁面 (F5)
+   # 2. 發送測試訊息
+   # 3. 確認只有底部顯示 loading
+   # 4. 確認 AI 回應後沒有空白訊息
+   ```
+
+---
+
+### 📚 相關檔案清單
+
+**標準範本檔案**（✅ 正確實作）：
+- `frontend/src/hooks/useRvtChat.js` - RVT Assistant Hook（標準範本）
+- `frontend/src/pages/RvtAssistantChatPage.js` - RVT 聊天頁面
+- `frontend/src/components/chat/MessageList.jsx` - 訊息列表組件
+- `frontend/src/components/chat/LoadingIndicator.jsx` - Loading 指示器
+
+**需要修復的檔案**（❌ 曾經錯誤）：
+- `frontend/src/hooks/useProtocolAssistantChat.js` - Protocol Assistant Hook
+  - **問題**：請求前添加空訊息，使用 loading 屬性
+  - **修復**：改為請求後添加完整訊息
+  - **狀態**：✅ 已修復（2025-01-20）
+
+---
+
+### 💡 最佳實踐建議
+
+1. **永遠使用 RVT Assistant 作為範本**
+   ```javascript
+   // ✅ 創建新 Assistant 時
+   cp frontend/src/hooks/useRvtChat.js frontend/src/hooks/useXxxChat.js
+   # 然後只修改 API 端點和命名
+   ```
+
+2. **不要過度優化或改進**
+   - RVT Assistant 的實作已經過驗證
+   - 保持模式一致性比創新更重要
+   - 如果有改進想法，先在 RVT 上測試
+
+3. **Code Review 檢查項目**
+   - [ ] 訊息添加邏輯是否與 RVT 一致
+   - [ ] 是否沒有使用 `loading` 屬性
+   - [ ] 是否使用直接添加而非 map 更新
+   - [ ] Loading 狀態管理是否正確
+
+4. **測試時對比 RVT**
+   - 同時打開 RVT Assistant 和新 Assistant
+   - 發送相同訊息
+   - 比較 UI 行為是否完全一致
+
+---
+
+### 📅 更新記錄
+
+**2025-01-20**：
+- 🔍 **發現問題**：Protocol Assistant 出現重複 loading 區塊
+- 🔬 **根因分析**：對比 RVT 和 Protocol 的訊息處理邏輯差異
+- ✅ **修復完成**：重構 `useProtocolAssistantChat.js` 使用 RVT 模式
+- 📝 **文檔更新**：添加本章節到 AI chatmode 指引中
+
+**經驗教訓**：
+- ⚠️ **不要自創模式**：已有成功範本（useRvtChat）時，應完全複製
+- ⚠️ **提前對比**：開發新功能時，先找到對應的標準範本
+- ⚠️ **測試對比**：新功能應與標準範本行為完全一致
+
+---
+
+**🎯 這個問題的核心教訓：當有標準範本（如 RVT Assistant）時，新功能應該 100% 複製其模式，而不是嘗試改進或優化。一致性 > 創新性。**
+
 `````
 `````
