@@ -24,6 +24,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { markdownComponents } from '../components/markdown/MarkdownComponents';
 import { fixAllMarkdownTables } from '../utils/markdownTableFixer';
+import { convertImageReferencesToMarkdown } from '../utils/imageReferenceConverter';
 import '../components/markdown/ReactMarkdown.css';
 import './DevMarkdownTestPage.css';
 
@@ -117,6 +118,15 @@ greeting('World');
 
 這是一個 [連結範例](https://www.example.com)
 
+### 圖片引用格式
+您可以使用 \`[IMG:ID]\` 格式來引用資料庫中的圖片：
+
+🖼️ [IMG:1] (範例圖片引用)
+
+**注意**：圖片會自動從 API 載入並顯示。如果看不到圖片，請確認：
+- 圖片 ID 是否存在於資料庫中
+- 您是否有權限訪問該圖片
+
 ---
 
 ## 標題層級
@@ -146,7 +156,13 @@ const DevMarkdownTestPage = () => {
 
     // 處理 Markdown 內容（修復表格等）
     useEffect(() => {
-        const processed = fixAllMarkdownTables(markdownText);
+        // 步驟 1：修復表格格式
+        let processed = fixAllMarkdownTables(markdownText);
+
+        // 步驟 2：將 [IMG:ID] 轉換為 Markdown 圖片格式 ![IMG:ID](IMG:ID)
+        // 這樣 ReactMarkdown 才會調用 CustomImage 組件來顯示實際圖片
+        processed = convertImageReferencesToMarkdown(processed);
+
         setProcessedMarkdown(processed);
 
         // 自動保存到 localStorage（防抖處理）
