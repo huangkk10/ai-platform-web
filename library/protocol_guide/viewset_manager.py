@@ -141,19 +141,29 @@ class ProtocolGuideViewSetManager(BaseKnowledgeBaseViewSetManager):
         刪除 Protocol Guide 時同時刪除段落向量
         
         流程：
-        1. 刪除整篇文檔向量（舊系統）
-        2. 刪除所有段落向量（新系統）
-        3. 刪除實例
+        1. 保存 ID 和 pk
+        2. 刪除整篇文檔向量（舊系統）
+        3. 刪除所有段落向量（新系統）
+        4. 使用 QuerySet 刪除實例（避免 instance.id 被修改的問題）
         """
         import logging
         logger = logging.getLogger(__name__)
         
+        # ⚠️ 重要：先保存 ID 和 PK，因為後續操作可能會修改 instance
         guide_id = instance.id
+        guide_pk = instance.pk
         
-        # 1. 刪除整篇文檔向量
+        # 1. 刪除整篇文檔向量（使用 ID 直接刪除，避免 instance 被修改）
         try:
-            vector_service = self.get_vector_service()
-            vector_service.delete_vector(guide_id)
+            from api.services.embedding_service import get_embedding_service
+            service = get_embedding_service()
+            
+            # 直接使用 ID 刪除，不依賴 instance 對象
+            service.delete_document_embedding(
+                source_table='protocol_guide',
+                source_id=guide_id,
+                use_1024_table=True
+            )
             logger.info(f"✅ Protocol Guide {guide_id} 整篇文檔向量刪除成功")
         except Exception as e:
             logger.error(f"❌ 整篇文檔向量刪除失敗: {str(e)}")
@@ -171,5 +181,6 @@ class ProtocolGuideViewSetManager(BaseKnowledgeBaseViewSetManager):
         except Exception as e:
             logger.error(f"❌ 段落向量刪除失敗: {str(e)}")
         
-        # 3. 刪除實例
-        instance.delete()
+        # 3. 使用 QuerySet 方式刪除實例（避免 instance.id = None 的問題）
+        # 這種方式更安全，不會觸發 Django 的 instance.id = None 檢查
+        ProtocolGuide.objects.filter(pk=guide_pk).delete()
