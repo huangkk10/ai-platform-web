@@ -93,8 +93,8 @@ export const EDITOR_CONFIGS = {
     labels: {
       title: 'Protocol 標題 *',
       content: 'Protocol 內容編輯',
-      imageManager: '協議圖片管理',
-      imageManagerStaging: '協議圖片管理 (暫存)',
+      imageManager: 'Protocol 圖片管理',
+      imageManagerStaging: 'Protocol 圖片管理 (暫存)',
       saveButton: '儲存協議',
       cancelButton: '取消',
       createTitle: '新建 Protocol Guide',

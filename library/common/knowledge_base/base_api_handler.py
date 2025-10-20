@@ -265,7 +265,16 @@ class BaseKnowledgeBaseAPIHandler(ABC):
                 'inputs': {},
                 'query': message,
                 'response_mode': 'blocking',
-                'user': f"{cls.get_source_table()}_user_{request.user.id if request.user.is_authenticated else 'guest'}"
+                'user': f"{cls.get_source_table()}_user_{request.user.id if request.user.is_authenticated else 'guest'}",
+                # 🔧 添加檢索設定：強制使用 Score 閾值過濾
+                'retrieval_model': {
+                    'search_method': 'semantic_search',
+                    'reranking_enable': False,
+                    'reranking_mode': None,
+                    'top_k': 3,
+                    'score_threshold_enabled': True,
+                    'score_threshold': 0.75  # 設定 Score 閾值為 0.75
+                }
             }
             
             if conversation_id:
