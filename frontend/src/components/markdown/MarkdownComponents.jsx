@@ -268,7 +268,18 @@ export const CustomImage = ({ src, alt, title, ...props }) => {
     );
   }
   
-  // 對於其他圖片，顯示佔位符
+  // 對於其他圖片，基本驗證後再決定是否顯示佔位符
+  const displayText = alt || title || src;
+  
+  // 🎯 基本驗證：檔名至少 5 個字元且格式正確
+  if (displayText && /\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(displayText)) {
+    if (displayText.length < 5) {
+      console.log('⚠️ CustomImage: 忽略檔名過短:', displayText);
+      return null;
+    }
+  }
+  
+  // 顯示佔位符
   return (
     <span 
       className="image-placeholder"
@@ -286,7 +297,7 @@ export const CustomImage = ({ src, alt, title, ...props }) => {
       }}
     >
       <PictureOutlined style={{ fontSize: '12px' }} />
-      <span>圖片: {alt || title || src}</span>
+      <span>圖片: {displayText}</span>
     </span>
   );
 };

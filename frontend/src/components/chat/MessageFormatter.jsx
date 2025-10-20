@@ -182,13 +182,24 @@ const MessageFormatter = ({
         
         // 🎯 進一步驗證圖片檔名的有效性
         const validImages = remainingImages.filter(filename => {
-          const isValid = filename && 
+          const basicCheck = filename && 
             filename.length >= 10 && 
             /\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(filename) &&
             !/[\s\n\r,，。()]/.test(filename);
           
+          if (!basicCheck) {
+            console.log('⚠️ MessageFormatter: 過濾無效圖片檔名（基本檢查）:', filename);
+            return false;
+          }
+          
+          // 🎯 進階檢查：避免誤判簡短檔名
+          const filenameWithoutExt = filename.replace(/\.(png|jpg|jpeg|gif|bmp|webp)$/i, '');
+          const hasMinLength = filenameWithoutExt.length >= 5;
+          const hasSpecialChars = /[-_]/.test(filenameWithoutExt);
+          const isValid = hasMinLength || hasSpecialChars;
+          
           if (!isValid) {
-            console.log('⚠️ MessageFormatter: 過濾無效圖片檔名:', filename);
+            console.log('⚠️ MessageFormatter: 過濾無效圖片檔名（檔名太短）:', filename);
           }
           
           return isValid;
@@ -241,9 +252,18 @@ const MessageFormatter = ({
       console.log('📸 在最後顯示剩餘圖片:', remainingImages);
       
       // 再次過濾有效圖片
-      const finalValidImages = remainingImages.filter(filename => 
-        filename && filename.length >= 8 && /\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(filename)
-      );
+      const finalValidImages = remainingImages.filter(filename => {
+        if (!filename || filename.length < 8 || !/\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(filename)) {
+          return false;
+        }
+        
+        // 🎯 進階檢查：避免誤判簡短檔名
+        const filenameWithoutExt = filename.replace(/\.(png|jpg|jpeg|gif|bmp|webp)$/i, '');
+        const hasMinLength = filenameWithoutExt.length >= 5;
+        const hasSpecialChars = /[-_]/.test(filenameWithoutExt);
+        
+        return hasMinLength || hasSpecialChars;
+      });
       
       if (finalValidImages.length > 0) {
         result.push(

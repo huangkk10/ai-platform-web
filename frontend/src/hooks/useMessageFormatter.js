@@ -62,13 +62,13 @@ const useMessageFormatter = () => {
     const contentImages = extractImagesFromContent(content);
     console.log('🔍 從 content 提取到的圖片:', contentImages);
     
-    // 合併並驗證圖片檔名
+    // 合併並驗證圖片檔名（只進行基本格式檢查）
     [...metadataImages, ...contentImages].forEach(filename => {
-      // 🎯 更嚴格的圖片檔名驗證
       if (filename && 
-          filename.length >= 10 && 
+          filename.length >= 5 && 
           /\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(filename) &&
           !/[\s\n\r,，。()]/.test(filename)) {
+        
         imageFilenames.add(filename);
         console.log('✅ 有效圖片檔名:', filename);
       } else {
@@ -117,12 +117,15 @@ const useMessageFormatter = () => {
   /**
    * 分離 IMG:ID 格式的混合內容
    * 將包含 **[IMG:1]** 格式的內容分離為文字和圖片部分
+   * 🔧 修復：同時匹配並移除 [IMG:ID] 後面的檔名文字（如 "1.1.jpg"）
    * 
    * @param {string} content - 包含 IMG:ID 格式的內容
    * @returns {Array} - 分離後的內容段落陣列
    */
   const parseImgIdContent = (content) => {
-    const parts = content.split(/(\*?\*?\[IMG:\d+\]\*?\*?)/g);
+    // 🔧 修復：匹配 [IMG:ID] 以及後面可選的空格和檔名（如 " 1.1.jpg"）
+    // 檔名格式：空格 + 字母/數字/點/底線/連字號 + 圖片副檔名
+    const parts = content.split(/(\*?\*?\[IMG:\d+\]\*?\*?\s*[\w.-]*\.(?:png|jpg|jpeg|gif|bmp|webp)?\s*)/gi);
     
     return parts.filter(part => part.trim()).map((part, index) => {
       const isImageRef = /\*?\*?\[IMG:\d+\]\*?\*?/.test(part);
@@ -130,7 +133,8 @@ const useMessageFormatter = () => {
       if (isImageRef) {
         return {
           type: 'image',
-          content: part.replace(/^\*+|\*+$/g, ''), // 移除前後的 * 符號
+          // 🔧 修復：移除前後的 * 符號，以及後面的檔名文字
+          content: part.replace(/^\*+|\*+$/g, '').replace(/\s+[\w.-]+\.(png|jpg|jpeg|gif|bmp|webp)\s*$/i, ''),
           index
         };
       } else {

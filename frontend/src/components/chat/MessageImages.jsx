@@ -21,13 +21,14 @@ const MessageImages = ({ filenames, onImageLoad }) => {
         return;
       }
 
-      // 過濾明顯無效的檔名
+      // 過濾明顯無效的檔名（只進行基本檢查，不限制檔名長度）
       const validFilenames = filenames.filter(filename => {
+        // 基本檢查：必須是有效的檔名格式
         const isValid = filename && 
           typeof filename === 'string' && 
-          filename.length >= 8 && 
+          filename.length >= 5 &&  // 最少 5 個字元（如 a.jpg）
           /\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(filename) &&
-          !/[\s\n\r,，。()]/.test(filename);
+          !/[\s\n\r,，。()]/.test(filename);  // 不包含空格或中文標點
         
         if (!isValid) {
           console.log('⚠️ MessageImages: 過濾無效檔名:', filename);
@@ -191,34 +192,9 @@ const MessageImages = ({ filenames, onImageLoad }) => {
   }
 
   if (images.length === 0) {
-    // 沒有載入到圖片，顯示檔名連結
-    return (
-      <div style={{ margin: '8px 0' }}>
-        <div style={{ fontSize: '12px', color: '#666', marginBottom: '6px' }}>
-          📸 相關圖片 ({filenames.length} 張)：
-        </div>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          {filenames.map((filename, index) => (
-            <div 
-              key={index} 
-              style={{ 
-                padding: '6px 10px', 
-                backgroundColor: '#f0f0f0', 
-                border: '1px solid #d9d9d9',
-                borderRadius: '6px',
-                fontSize: '12px',
-                color: '#666'
-              }}
-            >
-              🖼️ {filename.length > 30 ? filename.substring(0, 30) + '...' : filename}
-            </div>
-          ))}
-        </div>
-        <div style={{ fontSize: '11px', color: '#999', marginTop: '8px' }}>
-          💡 圖片資料暫時無法載入，請前往知識庫查看
-        </div>
-      </div>
-    );
+    // 🔧 修復：沒有載入到圖片時，不顯示任何內容（避免顯示無效檔名）
+    console.log('⚠️ MessageImages: 沒有有效圖片可顯示，不渲染任何內容');
+    return null;
   }
 
   // 有成功載入圖片，直接顯示

@@ -23,18 +23,39 @@ export const loadImagesData = async (filenames) => {
   
   // 🧹 預先過濾明顯無效的檔名
   const validFilenames = filenames.filter(filename => {
-    const isValid = filename && 
-                   filename.length >= 8 && 
-                   /\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(filename) &&
-                   !/[\s\n\r,，。()]/.test(filename); // 不包含空格或標點
-    console.log(`🔍 檔名驗證: "${filename}" -> ${isValid ? '✅ 有效' : '❌ 無效'}`);
+    // 基本檢查
+    const basicCheck = filename && 
+                       filename.length >= 8 && 
+                       /\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(filename) &&
+                       !/[\s\n\r,，。()]/.test(filename); // 不包含空格或標點
+    
+    if (!basicCheck) {
+      console.log(`🔍 檔名驗證: "${filename}" -> ❌ 無效（基本檢查失敗）`);
+      return false;
+    }
+    
+    // 🎯 進階檢查：避免誤判簡短檔名（如 "1.1.jpg", "a.png"）
+    // 有效的圖片檔名應該是：
+    // 1. 檔名部分至少 5 個字元（不含副檔名）
+    // 2. 或者包含連字號、底線等特殊字元（kisspng-xxx, screenshot_xxx）
+    const filenameWithoutExt = filename.replace(/\.(png|jpg|jpeg|gif|bmp|webp)$/i, '');
+    const hasMinLength = filenameWithoutExt.length >= 5;
+    const hasSpecialChars = /[-_]/.test(filenameWithoutExt);
+    
+    const isValid = hasMinLength || hasSpecialChars;
+    
+    console.log(`🔍 檔名驗證: "${filename}" -> ${isValid ? '✅ 有效' : '❌ 無效（檔名太短或無特殊字元）'}`);
+    console.log(`  - 檔名部分長度: ${filenameWithoutExt.length} (需要 >= 5)`);
+    console.log(`  - 包含特殊字元: ${hasSpecialChars}`);
     
     // 記錄驗證結果
     loadDebugInfo.validationResults[filename] = {
       isValid,
       length: filename?.length || 0,
+      filenamePartLength: filenameWithoutExt.length,
       hasExtension: /\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(filename || ''),
-      hasInvalidChars: /[\s\n\r,，。()]/.test(filename || '')
+      hasInvalidChars: /[\s\n\r,，。()]/.test(filename || ''),
+      hasSpecialChars
     };
     
     return isValid;
@@ -234,8 +255,17 @@ export const extractImagesFromMetadata = (metadata) => {
                   filename.length >= 8 && 
                   /^[a-zA-Z0-9\-_.]+\.(?:png|jpg|jpeg|gif|bmp|webp)$/i.test(filename)) {
                 
-                imageFilenames.add(filename);
-                console.log(`✅ metadata 模式${patternIndex + 1}提取: "${filename}"`);
+                // 🎯 進階檢查：避免誤判簡短檔名
+                const filenameWithoutExt = filename.replace(/\.(png|jpg|jpeg|gif|bmp|webp)$/i, '');
+                const hasMinLength = filenameWithoutExt.length >= 5;
+                const hasSpecialChars = /[-_]/.test(filenameWithoutExt);
+                
+                if (hasMinLength || hasSpecialChars) {
+                  imageFilenames.add(filename);
+                  console.log(`✅ metadata 模式${patternIndex + 1}提取: "${filename}"`);
+                } else {
+                  console.log(`❌ metadata 模式${patternIndex + 1}檔名太短: "${filename}"`);
+                }
               }
             }
           });
@@ -297,9 +327,18 @@ export const extractImagesFromContent = (content) => {
           /^[a-zA-Z0-9\-_.]+\.(?:png|jpg|jpeg|gif|bmp|webp)$/i.test(filename) &&
           !/[\s\n\r,，。()]/.test(filename)) {
         
-        imageFilenames.add(filename);
-        patternMatches++;
-        console.log(`✅ 模式${index + 1}匹配: "${filename}"`);
+        // 🎯 進階檢查：避免誤判簡短檔名
+        const filenameWithoutExt = filename.replace(/\.(png|jpg|jpeg|gif|bmp|webp)$/i, '');
+        const hasMinLength = filenameWithoutExt.length >= 5;
+        const hasSpecialChars = /[-_]/.test(filenameWithoutExt);
+        
+        if (hasMinLength || hasSpecialChars) {
+          imageFilenames.add(filename);
+          patternMatches++;
+          console.log(`✅ 模式${index + 1}匹配: "${filename}"`);
+        } else {
+          console.log(`❌ 模式${index + 1}檔名太短或無特殊字元: "${filename}"`);
+        }
       } else {
         console.log(`❌ 模式${index + 1}無效檔名: "${filename}"`);
       }
