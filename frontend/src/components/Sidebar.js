@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Layout, Menu, Avatar, Space, Typography } from 'antd';
+import { Layout, Menu, Avatar, Space, Typography, Dropdown } from 'antd';
 import {
   SettingOutlined,
   MenuFoldOutlined,
@@ -12,6 +12,7 @@ import {
   FileTextOutlined,
   BarChartOutlined,
   ToolOutlined,
+  RightOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 import smiLogo from '../assets/images/smi.png';
@@ -22,6 +23,7 @@ const { Text } = Typography;
 const Sidebar = ({ collapsed, onCollapse }) => {
   const { user, isAuthenticated, initialized, hasPermission, canManagePermissions } = useAuth();
   const navigate = useNavigate();
+  const [knowledgeMenuVisible, setKnowledgeMenuVisible] = useState(false);
 
   // 動態生成頂部選單項目，根據用戶權限
   const getTopMenuItems = () => {
@@ -111,42 +113,72 @@ const Sidebar = ({ collapsed, onCollapse }) => {
     // 基本選單項目（移除查詢結果）
     const basicItems = [];
 
-    // knowledge submenu for authenticated users - 根據權限動態生成子項目
-    const getKnowledgeChildren = () => {
-      const children = [];
+    // 獲取知識庫子項目用於 Dropdown
+    const getKnowledgeMenuItems = () => {
+      const items = [];
 
       // Protocol RAG 知識庫 - 需要 kb_protocol_rag 權限
       if (isAuthenticated && user && hasPermission('kbProtocolRAG')) {
-        children.push({ key: 'know-issue', icon: <DatabaseOutlined />, label: 'Protocol RAG' });
+        items.push({ 
+          key: 'know-issue', 
+          icon: <DatabaseOutlined />, 
+          label: 'Protocol RAG',
+          onClick: () => navigate('/knowledge/know-issue')
+        });
       }
 
       // AI OCR 知識庫 - 需要 kb_ai_ocr 權限
       if (isAuthenticated && user && hasPermission('kbAIOCR')) {
-        children.push({
+        items.push({
           key: 'ocr-storage-benchmark', 
           icon: <BarChartOutlined />, 
-          label: 'AI OCR'
+          label: 'AI OCR',
+          onClick: () => navigate('/knowledge/ocr-storage-benchmark')
         });
       }
 
       // RVT Assistant 知識庫 - 需要 kb_rvt_assistant 權限
       if (isAuthenticated && user && hasPermission('kbRVTAssistant')) {
-        children.push({ key: 'rvt-log', icon: <DatabaseOutlined />, label: 'RVT Assistant' });
+        items.push({ 
+          key: 'rvt-log', 
+          icon: <DatabaseOutlined />, 
+          label: 'RVT Assistant',
+          onClick: () => navigate('/knowledge/rvt-log')
+        });
       }
 
       // Protocol Assistant 知識庫 - 需要 kb_protocol_assistant 權限
       if (isAuthenticated && user && hasPermission('kbProtocolAssistant')) {
-        children.push({ key: 'protocol-log', icon: <ToolOutlined />, label: 'Protocol Assistant' });
+        items.push({ 
+          key: 'protocol-log', 
+          icon: <ToolOutlined />, 
+          label: 'Protocol Assistant',
+          onClick: () => navigate('/knowledge/protocol-log')
+        });
       }
 
-      return children;
+      return items;
     };
 
-    const knowledgeSubmenu = {
+    // 知識庫選單項目 - 不使用 children，改用自定義渲染
+    const knowledgeMenuItem = {
       key: 'knowledge',
       icon: <DatabaseOutlined />,
-      label: '知識庫',
-      children: getKnowledgeChildren(),
+      label: (
+        <Dropdown
+          menu={{ items: getKnowledgeMenuItems() }}
+          placement="right"
+          trigger={['hover']}
+          overlayClassName="knowledge-submenu-popup"
+          open={knowledgeMenuVisible}
+          onOpenChange={setKnowledgeMenuVisible}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+            知識庫
+            <RightOutlined style={{ fontSize: '12px', marginLeft: '8px' }} />
+          </span>
+        </Dropdown>
+      ),
     };
 
     // admin submenu - 只有管理員可見
@@ -192,10 +224,10 @@ const Sidebar = ({ collapsed, onCollapse }) => {
     const isAdminPage = currentPath.startsWith('/admin/');
     
     // 知識庫選單 - 需要任何知識庫權限
-    const knowledgeChildren = getKnowledgeChildren();
-    if ((initialized && isAuthenticated && user && knowledgeChildren.length > 0) || 
+    const knowledgeMenuItems = getKnowledgeMenuItems();
+    if ((initialized && isAuthenticated && user && knowledgeMenuItems.length > 0) || 
         (!initialized && isKnowledgePage)) {
-      items.push(knowledgeSubmenu);
+      items.push(knowledgeMenuItem);
     }
     
     // 管理功能選單 - 需要管理權限

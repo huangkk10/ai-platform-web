@@ -579,6 +579,46 @@
   height: 32px;
 }
 
+/* 知識庫懸停子選單樣式 */
+.knowledge-submenu-popup {
+  background: transparent !important;
+  padding: 0 !important;
+}
+
+.knowledge-submenu-popup .ant-dropdown-menu {
+  background: #2c3e50 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  padding: 4px 0 !important;
+  min-width: 200px !important;
+}
+
+.knowledge-submenu-popup .ant-dropdown-menu-item {
+  color: #ecf0f1 !important;
+  padding: 8px 16px !important;
+  margin: 2px 8px !important;
+  border-radius: 6px !important;
+  transition: all 0.2s ease !important;
+  font-size: 16px !important;
+}
+
+.knowledge-submenu-popup .ant-dropdown-menu-item:hover {
+  background: rgba(52, 152, 219, 0.3) !important;
+  color: #fff !important;
+}
+
+.knowledge-submenu-popup .ant-dropdown-menu-item-selected {
+  background: #3498db !important;
+  color: #fff !important;
+}
+
+/* 知識庫子選單圖標樣式 */
+.knowledge-submenu-popup .ant-dropdown-menu-item .anticon {
+  font-size: 16px !important;
+  margin-right: 8px !important;
+  color: inherit !important;
+}
+
 /* 響應式設計 - 管理頁面 */
 @media (max-width: 768px) {
   .admin-page {
