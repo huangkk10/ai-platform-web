@@ -1,41 +1,43 @@
 import { useState, useEffect, useCallback } from 'react';
 
 // localStorage 相關常數 - 基于用户ID隔离
-const STORAGE_KEY_PREFIX = 'rvt-assistant-chat-messages';
-const CONVERSATION_ID_KEY_PREFIX = 'rvt-assistant-chat-conversation-id';
+// 注意：現在使用動態的 storageKey 參數，不再硬編碼
 const MAX_STORAGE_DAYS = 7; // 最多保存 7 天
 const MAX_MESSAGES = 200; // 最多保存 200 條消息
 
-// 预设欢迎消息常量
+// 預設通用歡迎消息（當沒有提供自訂歡迎訊息時使用）
 const DEFAULT_WELCOME_MESSAGE = {
   id: 1,
   type: 'assistant',
-  content: '🛠️ 歡迎使用 RVT Assistant！我是你的 RVT 測試專家助手，可以協助你解決 RVT 相關的問題。\n\n**我可以幫助你：**\n- RVT 測試流程指導\n- 故障排除和問題診斷\n- RVT 工具使用方法\n\n現在就開始吧！有什麼 RVT 相關的問題需要協助嗎？',
+  content: '🛠️ 歡迎使用 Assistant！我是你的智能助手，可以協助你解決相關的問題。\n\n現在就開始吧！有什麼問題需要協助嗎？',
   timestamp: new Date()
 };
 
 /**
  * 获取用户特定的存储键
+ * @param {string} storageKey - 存储键前缀（例如：'rvt', 'protocol-assistant'）
  * @param {string|number} userId - 用户ID
  * @returns {string} - 存储键
  */
-const getUserStorageKey = (userId) => `${STORAGE_KEY_PREFIX}-${userId || 'guest'}`;
+const getUserStorageKey = (storageKey, userId) => `${storageKey}-chat-messages-${userId || 'guest'}`;
 
 /**
  * 获取用户特定的对话ID键
+ * @param {string} storageKey - 存储键前缀
  * @param {string|number} userId - 用户ID
  * @returns {string} - 对话ID键
  */
-const getUserConversationKey = (userId) => `${CONVERSATION_ID_KEY_PREFIX}-${userId || 'guest'}`;
+const getUserConversationKey = (storageKey, userId) => `${storageKey}-chat-conversation-id-${userId || 'guest'}`;
 
 /**
  * 保存消息到 localStorage
  * @param {Array} messages - 消息列表
+ * @param {string} storageKey - 存储键前缀
  * @param {string|number} userId - 用户ID
  */
-const saveMessagesToStorage = (messages, userId) => {
+const saveMessagesToStorage = (messages, storageKey, userId) => {
   try {
-    const storageKey = getUserStorageKey(userId);
+    const key = getUserStorageKey(storageKey, userId);
     const data = {
       messages: messages.map(msg => ({
         ...msg,
@@ -44,8 +46,8 @@ const saveMessagesToStorage = (messages, userId) => {
       savedAt: new Date().toISOString(),
       userId: userId || 'guest'
     };
-    localStorage.setItem(storageKey, JSON.stringify(data));
-    // console.log(`💾 保存对话记录 - 用户: ${userId || 'guest'}, 消息数: ${messages.length}`);
+    localStorage.setItem(key, JSON.stringify(data));
+    // console.log(`💾 保存对话记录 - 类型: ${storageKey}, 用户: ${userId || 'guest'}, 消息数: ${messages.length}`);
   } catch (error) {
     console.warn('保存對話記錄失敗:', error);
   }
@@ -53,15 +55,16 @@ const saveMessagesToStorage = (messages, userId) => {
 
 /**
  * 从 localStorage 加载消息
+ * @param {string} storageKey - 存储键前缀
  * @param {string|number} userId - 用户ID
  * @returns {Array|null} - 消息列表或null
  */
-const loadMessagesFromStorage = (userId) => {
+const loadMessagesFromStorage = (storageKey, userId) => {
   try {
-    const storageKey = getUserStorageKey(userId);
-    const stored = localStorage.getItem(storageKey);
+    const key = getUserStorageKey(storageKey, userId);
+    const stored = localStorage.getItem(key);
     if (!stored) {
-      // console.log(`📂 未找到对话记录 - 用户: ${userId || 'guest'}`);
+      // console.log(`📂 未找到对话记录 - 类型: ${storageKey}, 用户: ${userId || 'guest'}`);
       return null;
     }
     
@@ -73,15 +76,15 @@ const loadMessagesFromStorage = (userId) => {
     // 检查数据是否属于正确的用户
     if (data.userId !== (userId || 'guest')) {
       // console.log(`🔄 用户不匹配，清除旧数据 - 存储用户: ${data.userId}, 当前用户: ${userId || 'guest'}`);
-      localStorage.removeItem(storageKey);
+      localStorage.removeItem(key);
       return null;
     }
     
     // 檢查是否過期
     if (daysDiff > MAX_STORAGE_DAYS) {
-      // console.log(`⏰ 对话记录已过期 - 用户: ${userId || 'guest'}`);
-      localStorage.removeItem(storageKey);
-      localStorage.removeItem(getUserConversationKey(userId));
+      // console.log(`⏰ 对话记录已过期 - 类型: ${storageKey}, 用户: ${userId || 'guest'}`);
+      localStorage.removeItem(key);
+      localStorage.removeItem(getUserConversationKey(storageKey, userId));
       return null;
     }
     
@@ -96,12 +99,12 @@ const loadMessagesFromStorage = (userId) => {
       return messages.slice(-MAX_MESSAGES);
     }
     
-    // console.log(`📖 载入对话记录 - 用户: ${userId || 'guest'}, 消息数: ${messages.length}`);
+    // console.log(`📖 载入对话记录 - 类型: ${storageKey}, 用户: ${userId || 'guest'}, 消息数: ${messages.length}`);
     return messages;
   } catch (error) {
     console.warn('讀取對話記錄失敗:', error);
-    const storageKey = getUserStorageKey(userId);
-    localStorage.removeItem(storageKey);
+    const key = getUserStorageKey(storageKey, userId);
+    localStorage.removeItem(key);
     return null;
   }
 };
@@ -109,14 +112,15 @@ const loadMessagesFromStorage = (userId) => {
 /**
  * 保存对话ID
  * @param {string} conversationId - 对话ID
+ * @param {string} storageKey - 存储键前缀
  * @param {string|number} userId - 用户ID
  */
-const saveConversationId = (conversationId, userId) => {
+const saveConversationId = (conversationId, storageKey, userId) => {
   try {
     if (conversationId) {
-      const conversationKey = getUserConversationKey(userId);
-      localStorage.setItem(conversationKey, conversationId);
-      // console.log(`💾 保存对话ID - 用户: ${userId || 'guest'}, ID: ${conversationId}`);
+      const key = getUserConversationKey(storageKey, userId);
+      localStorage.setItem(key, conversationId);
+      // console.log(`💾 保存对话ID - 类型: ${storageKey}, 用户: ${userId || 'guest'}, ID: ${conversationId}`);
     }
   } catch (error) {
     console.warn('保存對話ID失敗:', error);
@@ -125,15 +129,16 @@ const saveConversationId = (conversationId, userId) => {
 
 /**
  * 加载对话ID
+ * @param {string} storageKey - 存储键前缀
  * @param {string|number} userId - 用户ID
  * @returns {string} - 对话ID
  */
-const loadConversationId = (userId) => {
+const loadConversationId = (storageKey, userId) => {
   try {
-    const conversationKey = getUserConversationKey(userId);
-    const conversationId = localStorage.getItem(conversationKey) || '';
+    const key = getUserConversationKey(storageKey, userId);
+    const conversationId = localStorage.getItem(key) || '';
     if (conversationId) {
-      // console.log(`📖 载入对话ID - 用户: ${userId || 'guest'}, ID: ${conversationId}`);
+      // console.log(`📖 载入对话ID - 类型: ${storageKey}, 用户: ${userId || 'guest'}, ID: ${conversationId}`);
     }
     return conversationId;
   } catch (error) {
@@ -144,15 +149,16 @@ const loadConversationId = (userId) => {
 
 /**
  * 清除用户的聊天记录
+ * @param {string} storageKey - 存储键前缀
  * @param {string|number} userId - 用户ID
  */
-const clearStoredChat = (userId) => {
+const clearStoredChat = (storageKey, userId) => {
   try {
-    const storageKey = getUserStorageKey(userId);
-    const conversationKey = getUserConversationKey(userId);
-    localStorage.removeItem(storageKey);
+    const messageKey = getUserStorageKey(storageKey, userId);
+    const conversationKey = getUserConversationKey(storageKey, userId);
+    localStorage.removeItem(messageKey);
     localStorage.removeItem(conversationKey);
-    // console.log(`🗑️ 清除用户数据 - 用户: ${userId || 'guest'}`);
+    // console.log(`🗑️ 清除用户数据 - 类型: ${storageKey}, 用户: ${userId || 'guest'}`);
   } catch (error) {
     console.warn('清除對話記錄失敗:', error);
   }
@@ -160,25 +166,30 @@ const clearStoredChat = (userId) => {
 
 /**
  * 获取初始消息
+ * @param {string} storageKey - 存储键前缀
  * @param {string|number} userId - 用户ID
+ * @param {string} welcomeMessage - 自訂歡迎訊息（可選）
  * @returns {Array} - 消息列表
  */
-const getInitialMessages = (userId) => {
-  const storedMessages = loadMessagesFromStorage(userId);
+const getInitialMessages = (storageKey, userId, welcomeMessage) => {
+  const storedMessages = loadMessagesFromStorage(storageKey, userId);
   if (storedMessages && storedMessages.length > 0) {
     return storedMessages;
   }
-  // 使用預設歡迎消息常量
-  return [{ ...DEFAULT_WELCOME_MESSAGE, timestamp: new Date() }];
+  // 使用自訂歡迎訊息或預設歡迎消息
+  const welcomeContent = welcomeMessage || DEFAULT_WELCOME_MESSAGE.content;
+  return [{ id: 1, type: 'assistant', content: welcomeContent, timestamp: new Date() }];
 };
 
 /**
  * useMessageStorage Hook - 管理消息存储和用户切换
  * @param {Object} user - 用户对象
+ * @param {string} storageKey - 存储键前缀（例如：'rvt', 'protocol-assistant'）
+ * @param {string} welcomeMessage - 自訂歡迎訊息（可選）
  * @returns {Object} - 包含消息状态和操作函数的对象
  */
-const useMessageStorage = (user) => {
-  const [messages, setMessages] = useState(() => getInitialMessages(user?.id));
+const useMessageStorage = (user, storageKey = 'default', welcomeMessage = null) => {
+  const [messages, setMessages] = useState(() => getInitialMessages(storageKey, user?.id, welcomeMessage));
   const [conversationId, setConversationId] = useState('');
   const [currentUserId, setCurrentUserId] = useState(null);
 
@@ -191,8 +202,8 @@ const useMessageStorage = (user) => {
       setCurrentUserId(newUserId);
       
       // 载入当前用户的对话ID和消息
-      const userConversationId = loadConversationId(newUserId);
-      const userMessages = loadMessagesFromStorage(newUserId);
+      const userConversationId = loadConversationId(storageKey, newUserId);
+      const userMessages = loadMessagesFromStorage(storageKey, newUserId);
       
       if (userConversationId) {
         setConversationId(userConversationId);
@@ -201,7 +212,8 @@ const useMessageStorage = (user) => {
       if (userMessages && userMessages.length > 0) {
         setMessages(userMessages);
       } else {
-        setMessages([{ ...DEFAULT_WELCOME_MESSAGE, timestamp: new Date() }]);
+        const welcomeContent = welcomeMessage || DEFAULT_WELCOME_MESSAGE.content;
+        setMessages([{ id: 1, type: 'assistant', content: welcomeContent, timestamp: new Date() }]);
       }
       
       return;
@@ -210,8 +222,8 @@ const useMessageStorage = (user) => {
     // 检查用户是否发生变化
     if (currentUserId !== newUserId) {
       // 载入新用户的数据
-      const newUserConversationId = loadConversationId(newUserId);
-      const newUserMessages = loadMessagesFromStorage(newUserId);
+      const newUserConversationId = loadConversationId(storageKey, newUserId);
+      const newUserMessages = loadMessagesFromStorage(storageKey, newUserId);
       
       // 设置新用户的对话ID和消息
       setConversationId(newUserConversationId || '');
@@ -219,41 +231,43 @@ const useMessageStorage = (user) => {
       if (newUserMessages && newUserMessages.length > 0) {
         setMessages(newUserMessages);
       } else {
-        setMessages([{ ...DEFAULT_WELCOME_MESSAGE, timestamp: new Date() }]);
+        const welcomeContent = welcomeMessage || DEFAULT_WELCOME_MESSAGE.content;
+        setMessages([{ id: 1, type: 'assistant', content: welcomeContent, timestamp: new Date() }]);
       }
       
       // 更新当前用户ID
       setCurrentUserId(newUserId);
     }
-  }, [user?.id, currentUserId]);
+  }, [user?.id, currentUserId, storageKey, welcomeMessage]);
 
-  // 自动保存消息到 localStorage (基于当前用户)
+  // 自动保存消息到 localStorage (基于当前用户和storageKey)
   useEffect(() => {
     if (messages.length > 0 && currentUserId !== null) {
-      saveMessagesToStorage(messages, currentUserId);
+      saveMessagesToStorage(messages, storageKey, currentUserId);
     }
-  }, [messages, currentUserId]);
+  }, [messages, currentUserId, storageKey]);
 
-  // 保存对话 ID (基于当前用户)
+  // 保存对话 ID (基于当前用户和storageKey)
   useEffect(() => {
     if (currentUserId !== null) {
       if (conversationId) {
-        saveConversationId(conversationId, currentUserId);
+        saveConversationId(conversationId, storageKey, currentUserId);
       } else {
         // 如果对话ID被清空，也要清除localStorage
-        const conversationKey = getUserConversationKey(currentUserId);
+        const conversationKey = getUserConversationKey(storageKey, currentUserId);
         localStorage.removeItem(conversationKey);
       }
     }
-  }, [conversationId, currentUserId]);
+  }, [conversationId, currentUserId, storageKey]);
 
   // 清除聊天记录
   const clearChat = useCallback(() => {
-    const defaultMessage = { ...DEFAULT_WELCOME_MESSAGE, timestamp: new Date() };
+    const welcomeContent = welcomeMessage || DEFAULT_WELCOME_MESSAGE.content;
+    const defaultMessage = { id: 1, type: 'assistant', content: welcomeContent, timestamp: new Date() };
     setMessages([defaultMessage]);
     setConversationId('');
-    clearStoredChat(currentUserId);
-  }, [currentUserId]);
+    clearStoredChat(storageKey, currentUserId);
+  }, [currentUserId, storageKey, welcomeMessage]);
 
   // 检查用户切换状态
   const checkUserSwitch = useCallback((sendTimeUserId) => {
@@ -264,9 +278,9 @@ const useMessageStorage = (user) => {
   const handleUserSwitch = useCallback((sendTimeUserId) => {
     setCurrentUserId(sendTimeUserId);
     setConversationId('');
-    const conversationKey = getUserConversationKey(sendTimeUserId);
+    const conversationKey = getUserConversationKey(storageKey, sendTimeUserId);
     localStorage.removeItem(conversationKey);
-  }, []);
+  }, [storageKey]);
 
   return {
     // 状态
@@ -284,9 +298,9 @@ const useMessageStorage = (user) => {
     handleUserSwitch,
     
     // 工具函数
-    getInitialMessages: () => getInitialMessages(currentUserId),
-    saveConversationId: (id) => saveConversationId(id, currentUserId),
-    loadConversationId: () => loadConversationId(currentUserId),
+    getInitialMessages: () => getInitialMessages(storageKey, currentUserId, welcomeMessage),
+    saveConversationId: (id) => saveConversationId(id, storageKey, currentUserId),
+    loadConversationId: () => loadConversationId(storageKey, currentUserId),
   };
 };
 
