@@ -1,0 +1,233 @@
+/* Markdown 測試頁面專用樣式 */
+
+.dev-markdown-test-page {
+    padding: 24px;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+}
+
+.page-header {
+    margin-bottom: 16px;
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.page-header .ant-typography {
+    margin-bottom: 4px;
+}
+
+/* 編輯器卡片樣式 */
+.dev-markdown-test-page .ant-card {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.dev-markdown-test-page .ant-card-head {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-bottom: none;
+}
+
+.dev-markdown-test-page .ant-card-head-title {
+    color: white;
+    font-weight: 600;
+}
+
+.dev-markdown-test-page .ant-card-extra .ant-btn {
+    color: #000000 !important;
+    border-color: #000000 !important;
+    background-color: white !important;
+    font-weight: 600 !important;
+}
+
+.dev-markdown-test-page .ant-card-extra .ant-btn span {
+    color: #000000 !important;
+}
+
+.dev-markdown-test-page .ant-card-extra .ant-btn .anticon {
+    color: #000000 !important;
+}
+
+.dev-markdown-test-page .ant-card-extra .ant-btn:hover {
+    background-color: rgba(255, 255, 255, 0.85) !important;
+    border-color: #000000 !important;
+    color: #000000 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.dev-markdown-test-page .ant-card-extra .ant-btn:hover span,
+.dev-markdown-test-page .ant-card-extra .ant-btn:hover .anticon {
+    color: #000000 !important;
+}
+
+.dev-markdown-test-page .ant-card-extra .ant-btn-dangerous {
+    color: #d32f2f !important;
+    background-color: white !important;
+    border-color: white !important;
+    font-weight: 600 !important;
+}
+
+.dev-markdown-test-page .ant-card-extra .ant-btn-dangerous span,
+.dev-markdown-test-page .ant-card-extra .ant-btn-dangerous .anticon {
+    color: #d32f2f !important;
+}
+
+.dev-markdown-test-page .ant-card-extra .ant-btn-dangerous:hover {
+    color: white !important;
+    background-color: #ff4d4f !important;
+    border-color: #ff4d4f !important;
+}
+
+.dev-markdown-test-page .ant-card-extra .ant-btn-dangerous:hover span,
+.dev-markdown-test-page .ant-card-extra .ant-btn-dangerous:hover .anticon {
+    color: white !important;
+}
+
+/* 主要按鈕樣式強化 */
+.dev-markdown-test-page .ant-card-extra .ant-btn-primary {
+    background-color: white !important;
+    border-color: white !important;
+    color: #667eea !important;
+    font-weight: 600 !important;
+}
+
+.dev-markdown-test-page .ant-card-extra .ant-btn-primary span,
+.dev-markdown-test-page .ant-card-extra .ant-btn-primary .anticon {
+    color: #667eea !important;
+}
+
+.dev-markdown-test-page .ant-card-extra .ant-btn-primary:hover {
+    background-color: rgba(255, 255, 255, 0.9) !important;
+    border-color: white !important;
+    color: #5568d3 !important;
+}
+
+.dev-markdown-test-page .ant-card-extra .ant-btn-primary:hover span,
+.dev-markdown-test-page .ant-card-extra .ant-btn-primary:hover .anticon {
+    color: #5568d3 !important;
+}
+
+/* 編輯器 TextArea 樣式 */
+.dev-markdown-test-page .ant-input {
+    border: none;
+    box-shadow: none;
+    padding: 12px;
+    background-color: #fafafa;
+    transition: background-color 0.3s;
+}
+
+.dev-markdown-test-page .ant-input:focus {
+    background-color: #ffffff;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* 預覽區域樣式 */
+.markdown-preview-wrapper {
+    background-color: #ffffff;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.markdown-preview-wrapper::-webkit-scrollbar {
+    width: 10px;
+}
+
+.markdown-preview-wrapper::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.markdown-preview-wrapper::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 4px;
+}
+
+.markdown-preview-wrapper::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #5568d3 0%, #65408b 100%);
+}
+
+/* 確保預覽區域使用與 RVT Assistant 相同的 Markdown 樣式 */
+.markdown-preview-content.markdown-content {
+    font-size: 14px;
+    line-height: 1.8;
+    color: #333;
+}
+
+/* 空狀態樣式 */
+.markdown-preview-wrapper .anticon {
+    color: #d9d9d9;
+}
+
+/* 響應式設計 */
+@media (max-width: 992px) {
+    .dev-markdown-test-page {
+        padding: 16px;
+    }
+
+    .dev-markdown-test-page .ant-col {
+        margin-bottom: 16px;
+    }
+
+    .dev-markdown-test-page .ant-row {
+        height: auto !important;
+    }
+
+    .dev-markdown-test-page .ant-card {
+        height: 500px !important;
+    }
+}
+
+/* 打印樣式 */
+@media print {
+    .dev-markdown-test-page {
+        background: white;
+    }
+
+    .ant-card-head,
+    .ant-card-extra,
+    .page-header .ant-space {
+        display: none;
+    }
+
+    .markdown-preview-wrapper {
+        box-shadow: none;
+        border: none;
+    }
+}
+
+/* 動畫效果 */
+.dev-markdown-test-page .ant-card {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 統計資訊樣式 */
+.dev-markdown-test-page .ant-typography-secondary {
+    font-size: 12px;
+    color: #8c8c8c;
+}
+
+/* 按鈕圖標顏色優化 */
+.dev-markdown-test-page .ant-card-extra .ant-btn .anticon {
+    color: inherit;
+}
+
+/* 確保按鈕文字在各種狀態下都清晰可見 */
+.dev-markdown-test-page .ant-card-extra .ant-btn span {
+    color: inherit;
+    font-weight: inherit;
+}

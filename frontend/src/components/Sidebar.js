@@ -64,7 +64,7 @@ const Sidebar = ({ collapsed, onCollapse }) => {
     }
 
     return baseItems;
-  };  const topMenuItems = getTopMenuItems();
+  }; const topMenuItems = getTopMenuItems();
 
   // 處理選單點擊
   const handleMenuClick = ({ key }) => {
@@ -115,6 +115,9 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       case 'rvt-analytics':
         navigate('/admin/rvt-analytics');
         break;
+      case 'markdown-test':
+        navigate('/dev/markdown-test');
+        break;
       default:
         console.log('Unknown menu key:', key);
         break;
@@ -131,9 +134,9 @@ const Sidebar = ({ collapsed, onCollapse }) => {
 
       // Protocol RAG 知識庫 - 需要 kb_protocol_rag 權限
       if (isAuthenticated && user && hasPermission('kbProtocolRAG')) {
-        items.push({ 
-          key: 'know-issue', 
-          icon: <DatabaseOutlined />, 
+        items.push({
+          key: 'know-issue',
+          icon: <DatabaseOutlined />,
           label: 'Protocol RAG',
           onClick: () => navigate('/knowledge/know-issue')
         });
@@ -142,8 +145,8 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       // AI OCR 知識庫 - 需要 kb_ai_ocr 權限
       if (isAuthenticated && user && hasPermission('kbAIOCR')) {
         items.push({
-          key: 'ocr-storage-benchmark', 
-          icon: <BarChartOutlined />, 
+          key: 'ocr-storage-benchmark',
+          icon: <BarChartOutlined />,
           label: 'AI OCR',
           onClick: () => navigate('/knowledge/ocr-storage-benchmark')
         });
@@ -151,9 +154,9 @@ const Sidebar = ({ collapsed, onCollapse }) => {
 
       // RVT Assistant 知識庫 - 需要 kb_rvt_assistant 權限
       if (isAuthenticated && user && hasPermission('kbRVTAssistant')) {
-        items.push({ 
-          key: 'rvt-log', 
-          icon: <DatabaseOutlined />, 
+        items.push({
+          key: 'rvt-log',
+          icon: <DatabaseOutlined />,
           label: 'RVT Assistant',
           onClick: () => navigate('/knowledge/rvt-log')
         });
@@ -161,9 +164,9 @@ const Sidebar = ({ collapsed, onCollapse }) => {
 
       // Protocol Assistant 知識庫 - 需要 kb_protocol_assistant 權限
       if (isAuthenticated && user && hasPermission('kbProtocolAssistant')) {
-        items.push({ 
-          key: 'protocol-log', 
-          icon: <ToolOutlined />, 
+        items.push({
+          key: 'protocol-log',
+          icon: <ToolOutlined />,
           label: 'Protocol Assistant',
           onClick: () => navigate('/knowledge/protocol-log')
         });
@@ -196,22 +199,22 @@ const Sidebar = ({ collapsed, onCollapse }) => {
     // admin submenu - 只有管理員可見
     const getAdminChildren = () => {
       const children = [];
-      
+
       // TestClass 管理 - Django 管理員權限
       if (user && (user.is_staff || user.is_superuser)) {
         children.push({ key: 'test-class-management', icon: <ExperimentOutlined />, label: 'TestClass 管理' });
       }
-      
+
       // 整合的用戶權限管理 - Django 管理員權限
       if (user && (user.is_staff || user.is_superuser)) {
         children.push({ key: 'user-management', icon: <UserOutlined />, label: '用戶權限管理' });
       }
-      
+
       // RVT Analytics 分析報告 - Django 管理員權限
       if (user && (user.is_staff || user.is_superuser)) {
         children.push({ key: 'rvt-analytics', icon: <BarChartOutlined />, label: 'RVT Assistant 分析' });
       }
-      
+
       return children;
     };
 
@@ -228,42 +231,62 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       label: '系統設定',
     };
 
+    const devToolsItem = {
+      key: 'dev-tools',
+      icon: <ExperimentOutlined />,
+      label: '開發工具',
+      children: [
+        {
+          key: 'markdown-test',
+          icon: <FileTextOutlined />,
+          label: 'Markdown 測試',
+        },
+      ],
+    };
+
     const items = [...basicItems];
-    
+
     // 檢查當前路徑
     const currentPath = window.location.pathname;
     const isKnowledgePage = currentPath.startsWith('/knowledge/');
     const isAdminPage = currentPath.startsWith('/admin/');
-    
+
     // 知識庫選單 - 需要任何知識庫權限
     const knowledgeMenuItems = getKnowledgeMenuItems();
-    if ((initialized && isAuthenticated && user && knowledgeMenuItems.length > 0) || 
-        (!initialized && isKnowledgePage)) {
+    if ((initialized && isAuthenticated && user && knowledgeMenuItems.length > 0) ||
+      (!initialized && isKnowledgePage)) {
       items.push(knowledgeMenuItem);
     }
-    
+
     // 管理功能選單 - 需要管理權限
     const adminChildren = getAdminChildren();
     if ((initialized && isAuthenticated && user && adminChildren.length > 0) ||
-        (!initialized && isAdminPage)) {
+      (!initialized && isAdminPage)) {
       items.push(adminSubmenu);
     }
-    
+
     // 系統設定 - 只有管理員可見
     if ((initialized && isAuthenticated && user && (user.is_staff || user.is_superuser || canManagePermissions())) ||
-        (!initialized && currentPath === '/settings')) {
+      (!initialized && currentPath === '/settings')) {
       items.push(settingsItem);
     }
-    
+
+    // 開發工具 - 所有登入用戶可見
+    const isDevPage = currentPath.startsWith('/dev/');
+    if ((initialized && isAuthenticated && user) ||
+      (!initialized && isDevPage)) {
+      items.push(devToolsItem);
+    }
+
     return items;
   };
 
   const bottomMenuItems = getBottomMenuItems();
 
   return (
-    <Sider 
+    <Sider
       trigger={null}
-      collapsible 
+      collapsible
       collapsed={collapsed}
       width={300}
       style={{
@@ -287,14 +310,14 @@ const Sidebar = ({ collapsed, onCollapse }) => {
         borderBottom: '1px solid rgba(255,255,255,0.1)',
         cursor: 'pointer'
       }}
-      onClick={() => navigate('/dashboard')}
+        onClick={() => navigate('/dashboard')}
       >
         {!collapsed ? (
           <Space align="center">
-            <Avatar 
+            <Avatar
               src={smiLogo}
               size={48}
-              style={{ 
+              style={{
                 backgroundColor: '#3498db',
                 fontSize: '18px',
                 fontWeight: 'bold'
@@ -313,10 +336,10 @@ const Sidebar = ({ collapsed, onCollapse }) => {
             </div>
           </Space>
         ) : (
-          <Avatar 
+          <Avatar
             src={smiLogo}
             size={40}
-            style={{ 
+            style={{
               backgroundColor: '#3498db',
               fontSize: '18px',
               fontWeight: 'bold'
@@ -372,7 +395,7 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       </div>
 
       {/* 收縮按鈕 */}
-      <div 
+      <div
         style={{
           position: 'absolute',
           bottom: 20,
