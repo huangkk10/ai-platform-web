@@ -15,11 +15,15 @@ from .viewset_manager import ProtocolGuideViewSetManager
 from .search_service import ProtocolGuideSearchService
 from .vector_service import ProtocolGuideVectorService
 
+# ✅ Library 可用性標誌（必須設定，否則會使用 Fallback 實現）
+PROTOCOL_GUIDE_LIBRARY_AVAILABLE = True
+
 __all__ = [
     'ProtocolGuideAPIHandler',
     'ProtocolGuideViewSetManager',
     'ProtocolGuideSearchService',
     'ProtocolGuideVectorService',
+    'PROTOCOL_GUIDE_LIBRARY_AVAILABLE',  # 導出標誌
 ]
 
 __version__ = '1.0.0'

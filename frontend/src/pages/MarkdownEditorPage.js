@@ -1,36 +1,60 @@
 /**
- * RVT Guide 編輯頁面（重構版）
+ * 通用 Markdown 編輯頁面（支援多知識庫）
  * 
  * 使用通用 MarkdownEditorLayout 組件
  * 從 500+ 行簡化為 30 行
  * 
- * 使用說明：
- * 1. 測試確認無誤後，將此檔案重新命名為 MarkdownEditorPage.js
- * 2. 刪除舊的 MarkdownEditorPage.js
- * 3. 或保留舊檔案作為備份 (MarkdownEditorPage.old.js)
+ * 支援的知識庫：
+ * - RVT Guide (/knowledge/rvt-guide/markdown-*)
+ * - Protocol Guide (/knowledge/protocol-guide/markdown-*)
  */
 
-import React, { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import React, { useState, useMemo } from 'react';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Button, Space } from 'antd';
 import { ArrowLeftOutlined, SaveOutlined } from '@ant-design/icons';
 import TopHeader from '../components/TopHeader';
 import MarkdownEditorLayout from '../components/editor/MarkdownEditorLayout';
+import { getEditorConfig } from '../config/editorConfig';
 
 const MarkdownEditorPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { id } = useParams();
   const isEditMode = !!id;
   const [saving, setSaving] = useState(false);
 
+  // 根據 URL 路徑自動識別知識庫類型
+  const editorConfig = useMemo(() => {
+    const pathname = location.pathname;
+    
+    if (pathname.includes('/protocol-guide/')) {
+      const config = getEditorConfig('protocol-guide');
+      return {
+        contentType: 'protocol-guide',
+        listPath: config.listRoute,
+        pageTitle: isEditMode ? config.labels.editTitle : config.labels.createTitle,
+        saveEventName: config.saveEventName,
+      };
+    }
+    
+    // 預設為 RVT Guide
+    const config = getEditorConfig('rvt-guide');
+    return {
+      contentType: 'rvt-guide',
+      listPath: config.listRoute,
+      pageTitle: isEditMode ? config.labels.editTitle : config.labels.createTitle,
+      saveEventName: config.saveEventName,
+    };
+  }, [location.pathname, isEditMode]);
+
   // 處理儲存事件
   const handleSave = () => {
-    console.log('💾 TopHeader 儲存按鈕被點擊');
-    // 觸發全局事件，讓 MarkdownEditorLayout 接收
-    // 注意：事件名稱必須與 editorConfig 中的 saveEventName 一致
-    const event = new Event('markdown-editor-save');
+    console.log(`💾 TopHeader 儲存按鈕被點擊 (${editorConfig.contentType})`);
+    // 觸發對應知識庫的事件
+    const event = new Event(editorConfig.saveEventName);
     window.dispatchEvent(event);
-    console.log('📤 已觸發 markdown-editor-save 事件');
+    console.log(`📤 已觸發 ${editorConfig.saveEventName} 事件`);
   };
 
   // 額外操作按鈕
@@ -38,7 +62,7 @@ const MarkdownEditorPage = () => {
     <Space>
       <Button
         icon={<ArrowLeftOutlined />}
-        onClick={() => navigate('/knowledge/rvt-log')}
+        onClick={() => navigate(editorConfig.listPath)}
       >
         返回
       </Button>
@@ -56,12 +80,12 @@ const MarkdownEditorPage = () => {
   return (
     <div>
       <TopHeader
-        pageTitle={isEditMode ? '編輯 RVT Guide' : '新增 RVT Guide'}
+        pageTitle={editorConfig.pageTitle}
         extraActions={extraActions}
       />
       
       <MarkdownEditorLayout 
-        contentType="rvt-guide"
+        contentType={editorConfig.contentType}
         contentId={id}
         navigate={navigate}
         onSavingChange={setSaving}

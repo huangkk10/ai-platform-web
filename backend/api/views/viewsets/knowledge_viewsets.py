@@ -537,37 +537,126 @@ class ProtocolGuideViewSet(
             
             return base_queryset_filtered.order_by('-created_at')
         
-        if self.has_manager():
-            return self._manager.get_queryset(base_queryset, self.request.query_params)
-        
+        # 直接使用本地過濾邏輯（Manager 不處理 queryset 過濾）
         return emergency_filter()
 
     def perform_create(self, serializer):
-        """建立新的 Protocol Guide + 自動向量生成"""
+        """建立新的 Protocol Guide + 自動向量生成（整篇 + 段落）"""
+        import logging
+        logger = logging.getLogger(__name__)
+        
         if self.has_manager():
+            # 如果 Manager 可用，使用 Manager（已包含段落向量生成）
             instance = self._manager.perform_create(serializer)
         else:
+            # Fallback: 手動實現
             instance = serializer.save()
+            
+            # 1. 生成整篇文檔向量（舊系統）
+            try:
+                self.generate_vector_for_instance(instance, action='create')
+                logger.info(f"✅ Protocol Guide {instance.id} 整篇向量生成成功")
+            except Exception as e:
+                logger.error(f"❌ 整篇向量生成失敗: {str(e)}")
+            
+            # 2. 生成段落向量（新系統）
+            try:
+                from library.common.knowledge_base.section_vectorization_service import SectionVectorizationService
+                vectorization_service = SectionVectorizationService()
+                result = vectorization_service.vectorize_document_sections(
+                    source_table='protocol_guide',
+                    source_id=instance.id,
+                    markdown_content=instance.content,
+                    document_title=instance.title
+                )
+                if result.get('success'):
+                    logger.info(f"✅ Protocol Guide {instance.id} 段落向量生成成功 ({result.get('vectorized_count')} 個段落)")
+                else:
+                    logger.error(f"❌ 段落向量生成失敗: {result.get('error')}")
+            except Exception as e:
+                logger.error(f"❌ 段落向量生成失敗: {str(e)}")
         
-        # ✨ 使用 VectorManagementMixin 自動生成向量
-        self.generate_vector_for_instance(instance, action='create')
         return instance
 
     def perform_update(self, serializer):
-        """更新現有的 Protocol Guide + 自動向量更新"""
+        """更新現有的 Protocol Guide + 自動向量更新（整篇 + 段落）"""
+        import logging
+        logger = logging.getLogger(__name__)
+        
         if self.has_manager():
+            # 如果 Manager 可用，使用 Manager（已包含段落向量更新）
             instance = self._manager.perform_update(serializer)
         else:
+            # Fallback: 手動實現
             instance = serializer.save()
+            
+            # 1. 更新整篇文檔向量（舊系統）
+            try:
+                self.update_vector_for_instance(instance, action='update')
+                logger.info(f"✅ Protocol Guide {instance.id} 整篇向量更新成功")
+            except Exception as e:
+                logger.error(f"❌ 整篇向量更新失敗: {str(e)}")
+            
+            # 2. 更新段落向量（新系統）
+            try:
+                from library.common.knowledge_base.section_vectorization_service import SectionVectorizationService
+                vectorization_service = SectionVectorizationService()
+                
+                # 刪除舊段落向量
+                vectorization_service.delete_document_sections(
+                    source_table='protocol_guide',
+                    source_id=instance.id
+                )
+                
+                # 重新生成段落向量
+                result = vectorization_service.vectorize_document_sections(
+                    source_table='protocol_guide',
+                    source_id=instance.id,
+                    markdown_content=instance.content,
+                    document_title=instance.title
+                )
+                if result.get('success'):
+                    logger.info(f"✅ Protocol Guide {instance.id} 段落向量更新成功 ({result.get('vectorized_count')} 個段落)")
+                else:
+                    logger.error(f"❌ 段落向量更新失敗: {result.get('error')}")
+            except Exception as e:
+                logger.error(f"❌ 段落向量更新失敗: {str(e)}")
         
-        # ✨ 使用 VectorManagementMixin 自動更新向量
-        self.update_vector_for_instance(instance, action='update')
         return instance
 
     def perform_destroy(self, instance):
-        """刪除 Protocol Guide 時同時刪除對應的向量資料"""
-        # ✨ 使用 VectorManagementMixin 自動刪除向量
-        self.delete_vector_for_instance(instance)
+        """刪除 Protocol Guide 時同時刪除對應的向量資料（整篇 + 段落）"""
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        guide_id = instance.id
+        
+        if self.has_manager():
+            # 如果 Manager 可用，使用 Manager（已包含段落向量刪除）
+            self._manager.perform_destroy(instance)
+        else:
+            # Fallback: 手動實現
+            # 1. 刪除整篇文檔向量（舊系統）
+            try:
+                self.delete_vector_for_instance(instance)
+                logger.info(f"✅ Protocol Guide {guide_id} 整篇向量刪除成功")
+            except Exception as e:
+                logger.error(f"❌ 整篇向量刪除失敗: {str(e)}")
+            
+            # 2. 刪除段落向量（新系統）
+            try:
+                from library.common.knowledge_base.section_vectorization_service import SectionVectorizationService
+                vectorization_service = SectionVectorizationService()
+                vectorization_service.delete_document_sections(
+                    source_table='protocol_guide',
+                    source_id=guide_id
+                )
+                logger.info(f"✅ Protocol Guide {guide_id} 段落向量刪除成功")
+            except Exception as e:
+                logger.error(f"❌ 段落向量刪除失敗: {str(e)}")
+            
+            # 3. 刪除實例
+            instance.delete()
         
         # 委託給 ViewSet Manager 或直接刪除
         if self.has_manager():
