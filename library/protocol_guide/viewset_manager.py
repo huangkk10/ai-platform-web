@@ -73,9 +73,7 @@ class ProtocolGuideViewSetManager(BaseKnowledgeBaseViewSetManager):
                 source_id=instance.id,
                 markdown_content=instance.content,
                 metadata={
-                    'title': instance.title,
-                    'protocol_name': instance.protocol_name,
-                    'version': instance.version
+                    'title': instance.title
                 }
             )
             logger.info(f"✅ Protocol Guide {instance.id} 段落向量生成成功 ({section_count} 個段落)")
@@ -125,9 +123,7 @@ class ProtocolGuideViewSetManager(BaseKnowledgeBaseViewSetManager):
                 source_id=instance.id,
                 markdown_content=instance.content,
                 metadata={
-                    'title': instance.title,
-                    'protocol_name': instance.protocol_name,
-                    'version': instance.version
+                    'title': instance.title
                 }
             )
             logger.info(f"✅ Protocol Guide {instance.id} 段落向量更新成功 ({section_count} 個段落)")

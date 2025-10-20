@@ -62,7 +62,7 @@ class BaseKnowledgeBaseVectorService(ABC):
                 return False
             
             # 生成向量
-            success = service.generate_and_store_embedding(
+            success = service.store_document_embedding(
                 source_table=self.source_table,
                 source_id=instance.id,
                 content=content,
