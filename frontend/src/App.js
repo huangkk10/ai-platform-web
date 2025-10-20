@@ -22,6 +22,7 @@ import IntegratedUserManagementPage from './pages/admin/IntegratedUserManagement
 import KnowIssueChatPage from './pages/KnowIssueChatPage';
 import LogAnalyzeChatPage from './pages/LogAnalyzeChatPage';
 import RvtAssistantChatPage from './pages/RvtAssistantChatPage';
+import ProtocolAssistantChatPage from './pages/ProtocolAssistantChatPage';
 import LogAnalyzePage from './pages/LogAnalyzePage';
 import MarkdownEditorPage from './pages/MarkdownEditorPage';
 import RVTAnalyticsPage from './pages/RVTAnalyticsPage';
@@ -63,6 +64,8 @@ function AppLayout() {
         return 'AI OCR';
       case '/rvt-assistant-chat':
         return 'RVT Assistant';
+      case '/protocol-assistant-chat':
+        return 'Protocol Assistant';
       case '/dashboard':
         return 'Dashboard';
       case '/query':
@@ -110,7 +113,7 @@ function AppLayout() {
   };
 
   const getExtraActions = (pathname, navigate) => {
-    if ((pathname === '/know-issue-chat' || pathname === '/log-analyze-chat' || pathname === '/rvt-assistant-chat') && clearChatFunction) {
+    if ((pathname === '/know-issue-chat' || pathname === '/log-analyze-chat' || pathname === '/rvt-assistant-chat' || pathname === '/protocol-assistant-chat') && clearChatFunction) {
       return (
         <Button
           icon={<DeleteOutlined />}
@@ -300,6 +303,11 @@ function AppLayout() {
               </ProtectedRoute>
             } />
             <Route path="/rvt-assistant-chat" element={<RvtAssistantChatPage collapsed={collapsed} />} />
+            <Route path="/protocol-assistant-chat" element={
+              <ProtectedRoute permission="webProtocolAssistant" fallbackTitle="Protocol Assistant 存取受限">
+                <ProtocolAssistantChatPage collapsed={collapsed} />
+              </ProtectedRoute>
+            } />
             <Route path="/log-analyze" element={<LogAnalyzePage />} />
             <Route path="/admin/test-class-management" element={<TestClassManagementPage />} />
             <Route path="/admin/user-management" element={<IntegratedUserManagementPage />} />

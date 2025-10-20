@@ -218,6 +218,7 @@ const IntegratedUserManagementPage = () => {
       web_protocol_rag: userData.permissions?.web_protocol_rag || false,
       web_ai_ocr: userData.permissions?.web_ai_ocr || false,
       web_rvt_assistant: userData.permissions?.web_rvt_assistant || false,
+      web_protocol_assistant: userData.permissions?.web_protocol_assistant || false,
       kb_protocol_rag: userData.permissions?.kb_protocol_rag || false,
       kb_ai_ocr: userData.permissions?.kb_ai_ocr || false,
       kb_rvt_assistant: userData.permissions?.kb_rvt_assistant || false,
@@ -255,6 +256,7 @@ const IntegratedUserManagementPage = () => {
     if (permissions.web_protocol_rag) tags.push(<Tag key="web_protocol" color="blue">Web Protocol RAG</Tag>);
     if (permissions.web_ai_ocr) tags.push(<Tag key="web_ocr" color="blue">Web AI OCR</Tag>);
     if (permissions.web_rvt_assistant) tags.push(<Tag key="web_rvt" color="blue">Web RVT Assistant</Tag>);
+    if (permissions.web_protocol_assistant) tags.push(<Tag key="web_protocol_assistant" color="blue">Web Protocol Assistant</Tag>);
     
     // 知識庫權限
     if (permissions.kb_protocol_rag) tags.push(<Tag key="kb_protocol" color="green">KB Protocol RAG</Tag>);
@@ -601,6 +603,13 @@ const IntegratedUserManagementPage = () => {
                   valuePropName="checked"
                 >
                   <Checkbox>Web RVT Assistant</Checkbox>
+                </Form.Item>
+                
+                <Form.Item
+                  name="web_protocol_assistant"
+                  valuePropName="checked"
+                >
+                  <Checkbox>Web Protocol Assistant</Checkbox>
                 </Form.Item>
               </Card>
             </Col>

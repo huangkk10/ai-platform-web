@@ -219,6 +219,7 @@ def get_user_permissions(user):
             'web_protocol_rag': profile.web_protocol_rag,
             'web_ai_ocr': profile.web_ai_ocr,
             'web_rvt_assistant': profile.web_rvt_assistant,
+            'web_protocol_assistant': profile.web_protocol_assistant,
             'kb_protocol_rag': profile.kb_protocol_rag,
             'kb_ai_ocr': profile.kb_ai_ocr,
             'kb_rvt_assistant': profile.kb_rvt_assistant,
@@ -230,6 +231,7 @@ def get_user_permissions(user):
             'web_protocol_rag': False,
             'web_ai_ocr': False,
             'web_rvt_assistant': False,
+            'web_protocol_assistant': False,
             'kb_protocol_rag': False,
             'kb_ai_ocr': False,
             'kb_rvt_assistant': False,
@@ -252,9 +254,15 @@ class WebAIOCRPermission(permissions.BasePermission):
 
 
 class WebRVTAssistantPermission(permissions.BasePermission):
-    """Web RVT Assistant 權限"""
+    """知識庫 RVT Assistant 權限"""
     def has_permission(self, request, view):
         return check_user_permission(request.user, 'web_rvt_assistant')
+
+
+class WebProtocolAssistantPermission(permissions.BasePermission):
+    """Web Protocol Assistant 權限"""
+    def has_permission(self, request, view):
+        return check_user_permission(request.user, 'web_protocol_assistant')
 
 
 class KBProtocolRAGPermission(permissions.BasePermission):

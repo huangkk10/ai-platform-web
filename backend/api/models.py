@@ -20,6 +20,8 @@ class UserProfile(models.Model):
                                     help_text="是否可使用 Web 版本的 AI OCR 功能")
     web_rvt_assistant = models.BooleanField(default=False, verbose_name="Web RVT Assistant 權限", 
                                            help_text="是否可使用 Web 版本的 RVT Assistant 功能")
+    web_protocol_assistant = models.BooleanField(default=False, verbose_name="Web Protocol Assistant 權限", 
+                                                 help_text="是否可使用 Web 版本的 Protocol Assistant 功能")
     
     # 功能權限欄位 - 知識庫功能
     kb_protocol_rag = models.BooleanField(default=False, verbose_name="知識庫 Protocol RAG 權限", 
@@ -51,6 +53,8 @@ class UserProfile(models.Model):
             permissions.append("Web AI OCR")
         if self.web_rvt_assistant:
             permissions.append("Web RVT Assistant")
+        if self.web_protocol_assistant:
+            permissions.append("Web Protocol Assistant")
         if self.kb_protocol_rag:
             permissions.append("KB Protocol RAG")
         if self.kb_ai_ocr:
@@ -67,7 +71,7 @@ class UserProfile(models.Model):
     
     def has_any_web_permission(self):
         """檢查是否擁有任何 Web 功能權限"""
-        return any([self.web_protocol_rag, self.web_ai_ocr, self.web_rvt_assistant])
+        return any([self.web_protocol_rag, self.web_ai_ocr, self.web_rvt_assistant, self.web_protocol_assistant])
     
     def has_any_kb_permission(self):
         """檢查是否擁有任何知識庫功能權限"""

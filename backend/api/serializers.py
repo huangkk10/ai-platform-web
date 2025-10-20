@@ -64,7 +64,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         fields = [
             'user', 'avatar', 'bio', 'location', 'birth_date', 
             # 權限相關欄位
-            'web_protocol_rag', 'web_ai_ocr', 'web_rvt_assistant',
+            'web_protocol_rag', 'web_ai_ocr', 'web_rvt_assistant', 'web_protocol_assistant',
             'kb_protocol_rag', 'kb_ai_ocr', 'kb_rvt_assistant', 'kb_protocol_assistant',
             'is_super_admin',
             # 計算欄位
@@ -87,7 +87,7 @@ class UserPermissionSerializer(serializers.ModelSerializer):
         fields = [
             'user', 
             # 權限欄位
-            'web_protocol_rag', 'web_ai_ocr', 'web_rvt_assistant',
+            'web_protocol_rag', 'web_ai_ocr', 'web_rvt_assistant', 'web_protocol_assistant',
             'kb_protocol_rag', 'kb_ai_ocr', 'kb_rvt_assistant', 'kb_protocol_assistant',
             'is_super_admin',
             # 計算欄位

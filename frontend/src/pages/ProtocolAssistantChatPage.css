@@ -1,0 +1,17 @@
+/* Protocol Assistant 聊天頁面 - 統一使用微軟正黑體 */
+.protocol-assistant-chat-page * {
+  font-family: 'Microsoft JhengHei', sans-serif !important;
+}
+
+.protocol-assistant-chat-page .ant-input,
+.protocol-assistant-chat-page .ant-input-textarea textarea {
+  font-family: 'Microsoft JhengHei', sans-serif !important;
+}
+
+.protocol-assistant-chat-page .stop-button:hover {
+  background-color: #ff7875 !important;
+}
+
+.protocol-assistant-chat-page button:not(.stop-button):hover:not(:disabled) {
+  background-color: #40a9ff !important;
+}

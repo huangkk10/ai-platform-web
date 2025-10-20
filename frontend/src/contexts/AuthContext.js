@@ -74,6 +74,7 @@ export const AuthProvider = ({ children }) => {
           webProtocolRAG: response.data.data.web_protocol_rag,
           webAIOCR: response.data.data.web_ai_ocr,
           webRVTAssistant: response.data.data.web_rvt_assistant,
+          webProtocolAssistant: response.data.data.web_protocol_assistant,
           kbProtocolRAG: response.data.data.kb_protocol_rag,
           kbAIOCR: response.data.data.kb_ai_ocr,
           kbRVTAssistant: response.data.data.kb_rvt_assistant,

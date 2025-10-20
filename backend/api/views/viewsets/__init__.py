@@ -24,6 +24,9 @@ from .knowledge_viewsets import (
     ProtocolGuideViewSet
 )
 
+# Protocol Assistant
+from .protocol_assistant_viewset import ProtocolAssistantViewSet
+
 # OCR 相關
 from .ocr_viewsets import (
     TestClassViewSet,
@@ -52,6 +55,8 @@ __all__ = [
     'KnowIssueViewSet',
     'RVTGuideViewSet',
     'ProtocolGuideViewSet',
+    # Protocol Assistant
+    'ProtocolAssistantViewSet',
     # OCR
     'TestClassViewSet',
     'OCRTestClassViewSet',

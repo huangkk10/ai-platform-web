@@ -44,6 +44,7 @@ const PermissionManagementPage = () => {
     { key: 'web_protocol_rag', label: 'Web Protocol RAG', description: 'Web版本的Protocol RAG功能' },
     { key: 'web_ai_ocr', label: 'Web AI OCR', description: 'Web版本的AI OCR功能' },
     { key: 'web_rvt_assistant', label: 'Web RVT Assistant', description: 'Web版本的RVT Assistant功能' },
+    { key: 'web_protocol_assistant', label: 'Web Protocol Assistant', description: 'Web版本的Protocol Assistant功能' },
     { key: 'kb_protocol_rag', label: '知識庫 Protocol RAG', description: '知識庫版本的Protocol RAG功能' },
     { key: 'kb_ai_ocr', label: '知識庫 AI OCR', description: '知識庫版本的AI OCR功能' },
     { key: 'kb_rvt_assistant', label: '知識庫 RVT Assistant', description: '知識庫版本的RVT Assistant功能' },

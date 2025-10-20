@@ -155,6 +155,9 @@ from .viewsets import (
     RVTGuideViewSet,
     ProtocolGuideViewSet,
     
+    # Protocol Assistant ViewSet
+    ProtocolAssistantViewSet,
+    
     # OCR ViewSets (ocr_viewsets.py)
     TestClassViewSet,
     OCRTestClassViewSet,
@@ -221,6 +224,7 @@ __all__ = [
     'OCRStorageBenchmarkViewSet',
     'RVTGuideViewSet',
     'ProtocolGuideViewSet',
+    'ProtocolAssistantViewSet',
     'ContentImageViewSet',
     
     # Chat APIs

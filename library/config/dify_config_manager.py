@@ -86,6 +86,7 @@ class DifyConfigManager:
     # 支援的應用類型
     SUPPORTED_APPS = {
         'protocol_known_issue': 'Protocol Known Issue System',
+        'protocol_guide': 'Protocol Guide',
         'rvt_guide': 'RVT Guide',
         'report_analyzer_3': 'Report Analyzer 3',
         'ai_ocr': 'AI OCR System',
@@ -129,6 +130,22 @@ class DifyConfigManager:
             'description': 'Dify Chat 應用，用於報告分析和日誌處理',
             'features': ['報告分析', '日誌處理', '數據分析'],
             'timeout': 120,
+            'response_mode': 'blocking'
+        }
+    
+    @classmethod
+    def _get_protocol_guide_config(cls):
+        """動態獲取 Protocol Guide 配置"""
+        ai_pc_ip = cls._get_ai_pc_ip()
+        return {
+            'api_url': f'http://{ai_pc_ip}/v1/chat-messages',
+            'api_key': 'app-MgZZOhADkEmdUrj2DtQLJ23G',
+            'base_url': f'http://{ai_pc_ip}',
+            'app_name': 'Protocol Guide',
+            'workspace': 'Protocol_Guide',
+            'description': 'Dify Chat 應用，用於 Protocol 相關指導和協助',
+            'features': ['Protocol 指導', '技術支援', 'Protocol 流程管理'],
+            'timeout': 75,  # 增加超時時間到75秒
             'response_mode': 'blocking'
         }
     
@@ -223,6 +240,9 @@ class DifyConfigManager:
         if app_type == 'protocol_known_issue':
             base_config = self._get_protocol_known_issue_system_config()
             return self._get_base_config_with_env_override(base_config, 'DIFY_PROTOCOL')
+        elif app_type == 'protocol_guide':
+            base_config = self._get_protocol_guide_config()
+            return self._get_base_config_with_env_override(base_config, 'DIFY_PROTOCOL_GUIDE')
         elif app_type == 'rvt_guide':
             base_config = self._get_rvt_guide_config()
             return self._get_base_config_with_env_override(base_config, 'DIFY_RVT_GUIDE')
@@ -235,6 +255,15 @@ class DifyConfigManager:
             return self._get_base_config_with_env_override(base_config, 'DIFY_REPORT_ANALYZER')
         else:
             raise ValueError(f"無法找到應用 {app_type} 的配置方法")
+    
+    def get_protocol_guide_config(self) -> DifyAppConfig:
+        """
+        獲取 Protocol Guide 配置的便利方法
+        
+        Returns:
+            DifyAppConfig: Protocol Guide 配置
+        """
+        return self.get_app_config('protocol_guide')
     
     def get_rvt_guide_config(self) -> DifyAppConfig:
         """
@@ -347,6 +376,16 @@ default_config_manager = DifyConfigManager()
 
 
 # 便利函數
+def get_protocol_guide_config() -> DifyAppConfig:
+    """
+    獲取 Protocol Guide 配置的便利函數
+    
+    Returns:
+        DifyAppConfig: Protocol Guide 配置對象
+    """
+    return default_config_manager.get_protocol_guide_config()
+
+
 def get_rvt_guide_config() -> DifyAppConfig:
     """
     獲取 RVT Guide 配置的便利函數
@@ -408,6 +447,16 @@ def get_all_dify_configs_safe() -> Dict[str, Dict[str, Any]]:
 
 
 # 向後兼容函數
+def get_protocol_guide_config_dict() -> Dict[str, Any]:
+    """
+    獲取 Protocol Guide 配置字典（向後兼容）
+    
+    Returns:
+        Dict[str, Any]: 配置字典
+    """
+    return get_protocol_guide_config().to_dict()
+
+
 def get_rvt_guide_config_dict() -> Dict[str, Any]:
     """
     獲取 RVT Guide 配置字典（向後兼容）
