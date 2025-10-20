@@ -304,7 +304,7 @@ const MarkdownEditorLayout = ({
                 {config.labels.title}
               </label>
               <Input
-                value={formData.title}
+                value={typeof formData.title === 'string' ? formData.title : ''}
                 onChange={handleTitleChange}
                 placeholder={`請輸入${config.labels.title}...`}
                 size="large"

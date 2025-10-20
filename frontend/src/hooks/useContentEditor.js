@@ -54,10 +54,12 @@ const useContentEditor = (contentType, contentId, navigate, customConfig = {}) =
       console.log('📄 載入的資料:', contentResponse.data);
       console.log('🖼️ 載入的圖片:', imagesResponse.data);
       
+      // 確保 title 和 content 永遠是字串，避免出現 [object Object]
+      const responseData = contentResponse.data;
       setFormData({
-        title: contentResponse.data.title || '',
-        content: contentResponse.data.content || '',
-        ...contentResponse.data  // 保留其他欄位
+        title: String(responseData.title || ''),
+        content: String(responseData.content || ''),
+        ...responseData  // 保留其他欄位
       });
 
       // 設定圖片資料
@@ -199,8 +201,10 @@ const useContentEditor = (contentType, contentId, navigate, customConfig = {}) =
    * 處理標題改變
    */
   const handleTitleChange = useCallback((e) => {
-    const value = e.target?.value || e;
-    updateFormData({ title: value });
+    // 確保永遠是字串，避免出現 [object Object]
+    const value = e.target?.value ?? e;
+    const stringValue = typeof value === 'string' ? value : '';
+    updateFormData({ title: stringValue });
   }, [updateFormData]);
 
   /**
