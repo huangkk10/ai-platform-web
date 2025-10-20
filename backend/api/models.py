@@ -762,6 +762,16 @@ class ContentImage(models.Model):
         verbose_name="關聯的 RVT Guide"
     )
     
+    # Protocol Guide 直接關聯
+    protocol_guide = models.ForeignKey(
+        'ProtocolGuide',
+        on_delete=models.CASCADE,
+        related_name='images',
+        null=True,
+        blank=True,
+        verbose_name="關聯的 Protocol Guide"
+    )
+    
     # 圖片基本資訊
     title = models.CharField(
         max_length=200, 
@@ -822,12 +832,16 @@ class ContentImage(models.Model):
             models.Index(fields=['content_type', 'object_id', 'is_active']),
             models.Index(fields=['rvt_guide', 'display_order']),
             models.Index(fields=['rvt_guide', 'is_active']),
+            models.Index(fields=['protocol_guide', 'display_order']),
+            models.Index(fields=['protocol_guide', 'is_active']),
             models.Index(fields=['is_primary']),
         ]
     
     def __str__(self):
         if self.rvt_guide:
             return f"{self.rvt_guide.title} - {self.filename}"
+        if self.protocol_guide:
+            return f"{self.protocol_guide.title} - {self.filename}"
         return f"圖片 - {self.filename}"
     
     def get_data_url(self):
@@ -896,6 +910,11 @@ class ContentImage(models.Model):
         # 如果是 RVTGuide，同時設定 rvt_guide 外鍵以保持向後兼容
         if isinstance(content_object, RVTGuide):
             image_instance.rvt_guide = content_object
+            image_instance.save()
+        
+        # 如果是 ProtocolGuide，設定 protocol_guide 外鍵
+        if isinstance(content_object, ProtocolGuide):
+            image_instance.protocol_guide = content_object
             image_instance.save()
         
         return image_instance

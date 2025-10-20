@@ -14,7 +14,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Q
 
-from api.models import ContentImage, RVTGuide, KnowIssue
+from api.models import ContentImage, RVTGuide, KnowIssue, ProtocolGuide
 from api.serializers import ContentImageSerializer
 
 import logging
@@ -79,6 +79,8 @@ class ContentImageViewSet(viewsets.ModelViewSet):
         if content_type and content_id:
             if content_type == 'rvt-guide':
                 queryset = queryset.filter(rvt_guide_id=content_id)
+            elif content_type == 'protocol-guide':
+                queryset = queryset.filter(protocol_guide_id=content_id)
             else:
                 # 使用通用的 content_type 和 object_id 過濾
                 from django.contrib.contenttypes.models import ContentType
@@ -119,9 +121,11 @@ class ContentImageViewSet(viewsets.ModelViewSet):
                 description=description
             )
             
-            # 更新關聯的向量資料（如果是 RVT Guide）
+            # 更新關聯的向量資料（如果是 RVT Guide 或 Protocol Guide）
             if content_type == 'rvt-guide':
-                self._update_guide_vectors(content_object)
+                self._update_rvt_guide_vectors(content_object)
+            elif content_type == 'protocol-guide':
+                self._update_protocol_guide_vectors(content_object)
             
             serializer.instance = image
             
@@ -147,6 +151,11 @@ class ContentImageViewSet(viewsets.ModelViewSet):
                 return RVTGuide.objects.get(id=content_id)
             except RVTGuide.DoesNotExist:
                 raise ValidationError("指定的 RVT Guide 不存在")
+        elif content_type == 'protocol-guide':
+            try:
+                return ProtocolGuide.objects.get(id=content_id)
+            except ProtocolGuide.DoesNotExist:
+                raise ValidationError("指定的 Protocol Guide 不存在")
         elif content_type == 'know-issue':
             try:
                 return KnowIssue.objects.get(id=content_id)
@@ -155,14 +164,23 @@ class ContentImageViewSet(viewsets.ModelViewSet):
         else:
             raise ValidationError(f"不支援的內容類型: {content_type}")
     
-    def _update_guide_vectors(self, rvt_guide):
+    def _update_rvt_guide_vectors(self, rvt_guide):
         """更新 RVT Guide 的向量資料"""
         try:
             from library.rvt_guide.vector_service import RVTGuideVectorService
             vector_service = RVTGuideVectorService()
             vector_service.generate_and_store_vector(rvt_guide, action='update')
         except Exception as e:
-            logger.warning(f"向量更新失敗: {str(e)}")
+            logger.warning(f"RVT Guide 向量更新失敗: {str(e)}")
+    
+    def _update_protocol_guide_vectors(self, protocol_guide):
+        """更新 Protocol Guide 的向量資料"""
+        try:
+            from library.protocol_guide.vector_service import ProtocolGuideVectorService
+            vector_service = ProtocolGuideVectorService()
+            vector_service.generate_and_store_vector(protocol_guide, action='update')
+        except Exception as e:
+            logger.warning(f"Protocol Guide 向量更新失敗: {str(e)}")
     
     @action(detail=False, methods=['post'], url_path='batch-upload')
     def batch_upload(self, request):
@@ -197,8 +215,11 @@ class ContentImageViewSet(viewsets.ModelViewSet):
                 errors.append(f"{uploaded_file.name}: {str(e)}")
         
         # 更新向量資料
-        if created_images and content_type == 'rvt-guide':
-            self._update_guide_vectors(content_object)
+        if created_images:
+            if content_type == 'rvt-guide':
+                self._update_rvt_guide_vectors(content_object)
+            elif content_type == 'protocol-guide':
+                self._update_protocol_guide_vectors(content_object)
         
         return Response({
             'success': len(created_images),
