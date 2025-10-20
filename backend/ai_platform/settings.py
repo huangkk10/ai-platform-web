@@ -201,69 +201,158 @@ LOGGING = {
             'format': '[{levelname}] {asctime} {name}: {message}',
             'style': '{',
         },
+        'detailed': {
+            'format': '[{levelname}] {asctime} | PID:{process:d} | Thread:{thread:d} | {name} | {funcName} | Line {lineno} | {message}',
+            'style': '{',
+        },
     },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
             'formatter': 'simple',
         },
-        # 一般 log 檔案（按大小輪替）
-        'file': {
+        # 按日期分割的一般 log（每天午夜輪替，保留 30 天）
+        'daily_file': {
             'level': 'INFO',
-            'class': 'logging.handlers.RotatingFileHandler',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
             'filename': '/app/logs/django.log',
-            'maxBytes': 10 * 1024 * 1024,  # 10 MB
-            'backupCount': 10,  # 保留 10 個備份檔案
+            'when': 'midnight',
+            'interval': 1,
+            'backupCount': 30,  # 保留 30 天
             'formatter': 'verbose',
             'encoding': 'utf-8',
         },
-        # 錯誤 log 檔案（只記錄 ERROR 以上）
-        'error_file': {
+        # 按日期分割的錯誤 log（保留 60 天）
+        'daily_error_file': {
             'level': 'ERROR',
-            'class': 'logging.handlers.RotatingFileHandler',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
             'filename': '/app/logs/django_error.log',
-            'maxBytes': 10 * 1024 * 1024,  # 10 MB
-            'backupCount': 5,  # 保留 5 個備份檔案
+            'when': 'midnight',
+            'interval': 1,
+            'backupCount': 60,  # 錯誤 log 保留更久
             'formatter': 'verbose',
             'encoding': 'utf-8',
         },
-        # Dify 請求專用 log（詳細記錄）
+        # Dify 請求專用 log（按日期輪替，保留 20 天）
         'dify_requests_file': {
             'level': 'DEBUG',
-            'class': 'logging.handlers.RotatingFileHandler',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
             'filename': '/app/logs/dify_requests.log',
-            'maxBytes': 20 * 1024 * 1024,  # 20 MB
+            'when': 'midnight',
+            'interval': 1,
+            'backupCount': 20,
+            'formatter': 'detailed',  # 使用詳細格式
+            'encoding': 'utf-8',
+        },
+        # RVT Analytics 專用 log
+        'rvt_analytics_file': {
+            'level': 'INFO',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': '/app/logs/rvt_analytics.log',
+            'when': 'midnight',
+            'interval': 1,
             'backupCount': 15,
+            'formatter': 'verbose',
+            'encoding': 'utf-8',
+        },
+        # Vector 操作專用 log
+        'vector_operations_file': {
+            'level': 'INFO',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': '/app/logs/vector_operations.log',
+            'when': 'midnight',
+            'interval': 1,
+            'backupCount': 15,
+            'formatter': 'verbose',
+            'encoding': 'utf-8',
+        },
+        # API 訪問記錄（輕量級）
+        'api_access_file': {
+            'level': 'INFO',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': '/app/logs/api_access.log',
+            'when': 'midnight',
+            'interval': 1,
+            'backupCount': 7,  # API 訪問只保留 7 天
+            'formatter': 'simple',
+            'encoding': 'utf-8',
+        },
+        # Celery 任務 log
+        'celery_file': {
+            'level': 'INFO',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': '/app/logs/celery.log',
+            'when': 'midnight',
+            'interval': 1,
+            'backupCount': 10,
             'formatter': 'verbose',
             'encoding': 'utf-8',
         },
     },
     'loggers': {
+        # API Views
         'api.views': {
-            'handlers': ['console', 'file', 'error_file'],
+            'handlers': ['console', 'daily_file', 'daily_error_file', 'api_access_file'],
             'level': 'INFO',
             'propagate': True,
         },
+        # Django 核心
         'django': {
-            'handlers': ['console', 'file', 'error_file'],
+            'handlers': ['console', 'daily_file', 'daily_error_file'],
             'level': 'INFO',
             'propagate': False,
         },
-        # Library 模組 logger
+        # Django Request（API 訪問）
+        'django.request': {
+            'handlers': ['console', 'daily_file', 'api_access_file'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        # Library 模組（一般）
         'library': {
-            'handlers': ['console', 'file', 'error_file'],
+            'handlers': ['console', 'daily_file', 'daily_error_file'],
             'level': 'INFO',
             'propagate': False,
         },
-        # Dify 整合專用 logger
+        # Dify 整合專用
         'library.dify_integration': {
-            'handlers': ['console', 'dify_requests_file', 'error_file'],
+            'handlers': ['console', 'dify_requests_file', 'daily_error_file'],
             'level': 'DEBUG',
+            'propagate': False,
+        },
+        # RVT Analytics
+        'library.rvt_analytics': {
+            'handlers': ['console', 'rvt_analytics_file', 'daily_error_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        # Vector 服務
+        'api.services.embedding_service': {
+            'handlers': ['console', 'vector_operations_file', 'daily_error_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        # Celery
+        'celery': {
+            'handlers': ['console', 'celery_file', 'daily_error_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        # Protocol Guide
+        'library.protocol_guide': {
+            'handlers': ['console', 'daily_file', 'daily_error_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        # RVT Guide
+        'library.rvt_guide': {
+            'handlers': ['console', 'daily_file', 'daily_error_file'],
+            'level': 'INFO',
             'propagate': False,
         },
     },
     'root': {
-        'handlers': ['console', 'file', 'error_file'],
+        'handlers': ['console', 'daily_file', 'daily_error_file'],
         'level': 'INFO',
     },
 }
