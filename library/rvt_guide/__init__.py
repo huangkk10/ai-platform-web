@@ -24,6 +24,9 @@ from .fallback_handlers import (
     fallback_rvt_guide_config
 )
 
+# ✅ 啟用 RVT Guide Library
+RVT_GUIDE_LIBRARY_AVAILABLE = True
+
 __all__ = [
     'RVTGuideAPIHandler',
     'RVTGuideViewSetManager', 
@@ -34,5 +37,6 @@ __all__ = [
     'FallbackSearchService',
     'fallback_dify_rvt_guide_search',
     'fallback_rvt_guide_chat',
-    'fallback_rvt_guide_config'
+    'fallback_rvt_guide_config',
+    'RVT_GUIDE_LIBRARY_AVAILABLE'  # 導出標誌
 ]

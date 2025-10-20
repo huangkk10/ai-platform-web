@@ -357,37 +357,121 @@ class RVTGuideViewSet(
         return emergency_filter()
 
     def perform_create(self, serializer):
-        """建立新的 RVT Guide + 自動向量生成"""
+        """建立新的 RVT Guide + 自動向量生成（整篇 + 段落）"""
+        import logging
+        logger = logging.getLogger(__name__)
+        
         if self.has_manager():
+            # 如果 Manager 可用，使用 Manager（已包含段落向量生成）
             instance = self._manager.perform_create(serializer)
         else:
+            # Fallback: 手動實現
             instance = serializer.save()
+            
+            # 1. 生成整篇文檔向量（舊系統）
+            try:
+                self.generate_vector_for_instance(instance, action='create')
+                logger.info(f"✅ RVT Guide {instance.id} 整篇向量生成成功")
+            except Exception as e:
+                logger.error(f"❌ 整篇向量生成失敗: {str(e)}")
+            
+            # 2. 生成段落向量（新系統）
+            try:
+                from library.common.knowledge_base.section_vectorization_service import SectionVectorizationService
+                vectorization_service = SectionVectorizationService()
+                result = vectorization_service.vectorize_document_sections(
+                    source_table='rvt_guide',
+                    source_id=instance.id,
+                    markdown_content=instance.content,
+                    document_title=instance.title
+                )
+                if result.get('success'):
+                    logger.info(f"✅ RVT Guide {instance.id} 段落向量生成成功 ({result.get('vectorized_count')} 個段落)")
+                else:
+                    logger.error(f"❌ 段落向量生成失敗: {result.get('error')}")
+            except Exception as e:
+                logger.error(f"❌ 段落向量生成失敗: {str(e)}")
         
-        # ✨ 使用 VectorManagementMixin 自動生成向量
-        self.generate_vector_for_instance(instance, action='create')
         return instance
 
     def perform_update(self, serializer):
-        """更新現有的 RVT Guide + 自動向量更新"""
+        """更新現有的 RVT Guide + 自動向量更新（整篇 + 段落）"""
+        import logging
+        logger = logging.getLogger(__name__)
+        
         if self.has_manager():
+            # 如果 Manager 可用，使用 Manager（已包含段落向量更新）
             instance = self._manager.perform_update(serializer)
         else:
+            # Fallback: 手動實現
             instance = serializer.save()
+            
+            # 1. 更新整篇文檔向量（舊系統）
+            try:
+                self.update_vector_for_instance(instance, action='update')
+                logger.info(f"✅ RVT Guide {instance.id} 整篇向量更新成功")
+            except Exception as e:
+                logger.error(f"❌ 整篇向量更新失敗: {str(e)}")
+            
+            # 2. 更新段落向量（新系統）
+            try:
+                from library.common.knowledge_base.section_vectorization_service import SectionVectorizationService
+                vectorization_service = SectionVectorizationService()
+                
+                # 刪除舊段落向量
+                vectorization_service.delete_document_sections(
+                    source_table='rvt_guide',
+                    source_id=instance.id
+                )
+                
+                # 重新生成段落向量
+                result = vectorization_service.vectorize_document_sections(
+                    source_table='rvt_guide',
+                    source_id=instance.id,
+                    markdown_content=instance.content,
+                    document_title=instance.title
+                )
+                if result.get('success'):
+                    logger.info(f"✅ RVT Guide {instance.id} 段落向量更新成功 ({result.get('vectorized_count')} 個段落)")
+                else:
+                    logger.error(f"❌ 段落向量更新失敗: {result.get('error')}")
+            except Exception as e:
+                logger.error(f"❌ 段落向量更新失敗: {str(e)}")
         
-        # ✨ 使用 VectorManagementMixin 自動更新向量
-        self.update_vector_for_instance(instance, action='update')
         return instance
 
     def perform_destroy(self, instance):
-        """刪除 RVT Guide 時同時刪除對應的向量資料"""
-        # ✨ 使用 VectorManagementMixin 自動刪除向量
-        self.delete_vector_for_instance(instance)
+        """刪除 RVT Guide 時同時刪除對應的向量資料（整篇 + 段落）"""
+        import logging
+        logger = logging.getLogger(__name__)
         
-        # 委託給 ViewSet Manager 或直接刪除
+        guide_id = instance.id
+        
         if self.has_manager():
+            # 如果 Manager 可用，使用 Manager（已包含段落向量刪除）
             self._manager.perform_destroy(instance)
         else:
-            logger.warning("ViewSet Manager 不可用，使用簡化刪除邏輯")
+            # Fallback: 手動實現
+            # 1. 刪除整篇文檔向量（舊系統）
+            try:
+                self.delete_vector_for_instance(instance)
+                logger.info(f"✅ RVT Guide {guide_id} 整篇向量刪除成功")
+            except Exception as e:
+                logger.error(f"❌ 整篇向量刪除失敗: {str(e)}")
+            
+            # 2. 刪除段落向量（新系統）
+            try:
+                from library.common.knowledge_base.section_vectorization_service import SectionVectorizationService
+                vectorization_service = SectionVectorizationService()
+                vectorization_service.delete_document_sections(
+                    source_table='rvt_guide',
+                    source_id=guide_id
+                )
+                logger.info(f"✅ RVT Guide {guide_id} 段落向量刪除成功")
+            except Exception as e:
+                logger.error(f"❌ 段落向量刪除失敗: {str(e)}")
+            
+            # 3. 刪除實例
             instance.delete()
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
@@ -463,6 +547,287 @@ class RVTGuideViewSet(
         except Exception as e:
             logger.error(f"更新內容圖片引用失敗: {str(e)}")
             return Response({'error': str(e)}, status=400)
+
+    @action(detail=False, methods=['post'])
+    def search_sections(self, request):
+        """
+        段落級別語義搜尋 API（RVT Guide）
+        
+        使用 Chunking 技術，在段落級別進行精準搜尋。
+        
+        請求參數：
+        - query (str): 搜尋查詢
+        - limit (int): 結果數量，預設 5
+        - threshold (float): 相似度閾值，預設 0.7
+        - min_level (int): 最小標題層級，預設 None
+        - max_level (int): 最大標題層級，預設 None
+        - with_context (bool): 是否包含上下文，預設 False
+        - context_window (int): 上下文視窗大小，預設 1
+        """
+        try:
+            # 獲取請求參數
+            query = request.data.get('query', '')
+            limit = request.data.get('limit', 5)
+            threshold = request.data.get('threshold', 0.7)
+            min_level = request.data.get('min_level', None)
+            max_level = request.data.get('max_level', None)
+            with_context = request.data.get('with_context', False)
+            context_window = request.data.get('context_window', 1)
+            
+            if not query:
+                return Response({
+                    'error': '請提供搜尋查詢'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 導入段落搜尋服務
+            from library.common.knowledge_base.section_search_service import SectionSearchService
+            
+            # 初始化服務
+            search_service = SectionSearchService()
+            
+            # 執行搜尋
+            if with_context:
+                raw_results = search_service.search_with_context(
+                    query=query,
+                    source_table='rvt_guide',
+                    limit=limit,
+                    threshold=threshold,
+                    min_level=min_level,
+                    max_level=max_level,
+                    context_window=context_window
+                )
+            else:
+                raw_results = search_service.search_sections(
+                    query=query,
+                    source_table='rvt_guide',
+                    limit=limit,
+                    threshold=threshold,
+                    min_level=min_level,
+                    max_level=max_level
+                )
+            
+            # 標準化結果格式
+            results = []
+            for result in raw_results:
+                results.append({
+                    'section_id': result.get('section_id'),
+                    'source_id': result.get('source_id'),
+                    'section_title': result.get('heading_text', ''),
+                    'section_path': result.get('section_path', ''),
+                    'content': result.get('content', ''),
+                    'similarity': result.get('similarity', 0.0),
+                    'level': result.get('heading_level', 0),
+                    'word_count': result.get('word_count', 0),
+                    'has_code': result.get('has_code', False),
+                    'has_images': result.get('has_images', False)
+                })
+            
+            return Response({
+                'results': results,
+                'total': len(results),
+                'query': query,
+                'search_type': 'section',
+                'with_context': with_context
+            })
+            
+        except Exception as e:
+            logger.error(f"RVT 段落搜尋失敗: {str(e)}")
+            return Response({
+                'error': f'段落搜尋失敗: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'])
+    def compare_search(self, request):
+        """
+        新舊搜尋系統對比 API（RVT Guide）
+        
+        同時執行整篇文檔搜尋（舊系統）和段落搜尋（新系統），
+        並提供詳細的對比數據。
+        """
+        try:
+            query = request.data.get('query', '')
+            limit = request.data.get('limit', 3)
+            
+            if not query:
+                return Response({
+                    'error': '請提供搜尋查詢'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 導入服務
+            from api.services.embedding_service import get_embedding_service
+            from library.common.knowledge_base.section_search_service import SectionSearchService
+            from django.db import connection
+            
+            embedding_service = get_embedding_service()
+            section_service = SectionSearchService()
+            
+            # 1. 生成查詢向量
+            query_embedding = embedding_service.generate_embedding(query)
+            
+            # 2. 舊系統搜尋（整篇文檔）
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT 
+                        de.source_id,
+                        rg.title,
+                        rg.content,
+                        1 - (de.embedding <=> %s::vector) as similarity
+                    FROM document_embeddings de
+                    JOIN rvt_guide rg ON de.source_id = rg.id
+                    WHERE de.source_table = 'rvt_guide'
+                    ORDER BY de.embedding <=> %s::vector
+                    LIMIT %s
+                """, [query_embedding, query_embedding, limit])
+                
+                old_results = []
+                total_old_length = 0
+                total_old_similarity = 0.0
+                
+                for row in cursor.fetchall():
+                    content_length = len(row[2])
+                    total_old_length += content_length
+                    total_old_similarity += row[3]
+                    old_results.append({
+                        'source_id': row[0],
+                        'title': row[1],
+                        'content_preview': row[2][:200] + '...' if len(row[2]) > 200 else row[2],
+                        'content_length': content_length,
+                        'similarity': round(row[3], 4)
+                    })
+            
+            # 3. 新系統搜尋（段落級別）
+            new_results_raw = section_service.search_sections(
+                query=query,
+                source_table='rvt_guide',
+                limit=limit,
+                threshold=0.5
+            )
+            
+            new_results = []
+            total_new_length = 0
+            total_new_similarity = 0.0
+            
+            for result in new_results_raw:
+                content_length = len(result.get('content', ''))
+                total_new_length += content_length
+                similarity = result.get('similarity', 0.0)
+                total_new_similarity += similarity
+                
+                new_results.append({
+                    'section_id': result.get('section_id'),
+                    'source_id': result.get('source_id'),
+                    'section_title': result.get('heading_text', ''),
+                    'section_path': result.get('section_path', ''),
+                    'content': result.get('content', ''),
+                    'content_length': content_length,
+                    'similarity': round(similarity, 4),
+                    'level': result.get('heading_level', 0)
+                })
+            
+            # 4. 計算對比統計
+            old_count = len(old_results)
+            new_count = len(new_results)
+            
+            avg_old_length = total_old_length / old_count if old_count > 0 else 0
+            avg_new_length = total_new_length / new_count if new_count > 0 else 0
+            avg_old_similarity = total_old_similarity / old_count if old_count > 0 else 0
+            avg_new_similarity = total_new_similarity / new_count if new_count > 0 else 0
+            
+            length_reduction = ((avg_old_length - avg_new_length) / avg_old_length * 100) if avg_old_length > 0 else 0
+            similarity_improvement = ((avg_new_similarity - avg_old_similarity) / avg_old_similarity * 100) if avg_old_similarity > 0 else 0
+            
+            return Response({
+                'query': query,
+                'old_system': {
+                    'results': old_results,
+                    'avg_content_length': round(avg_old_length, 0),
+                    'avg_similarity': round(avg_old_similarity, 4),
+                    'search_type': 'document',
+                    'result_count': old_count
+                },
+                'new_system': {
+                    'results': new_results,
+                    'avg_content_length': round(avg_new_length, 0),
+                    'avg_similarity': round(avg_new_similarity, 4),
+                    'search_type': 'section',
+                    'result_count': new_count
+                },
+                'comparison': {
+                    'content_length_reduction': f"{length_reduction:.1f}%",
+                    'similarity_improvement': f"{similarity_improvement:+.1f}%",
+                    'precision_gain': f"{(avg_new_similarity - avg_old_similarity) * 100:+.1f}%"
+                }
+            })
+            
+        except Exception as e:
+            logger.error(f"RVT 對比搜尋失敗: {str(e)}")
+            return Response({
+                'error': f'對比搜尋失敗: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'])
+    def search_legacy(self, request):
+        """
+        舊系統搜尋（整篇文檔）- 備份用
+        
+        使用整篇文檔向量進行搜尋（不使用 Chunking）
+        """
+        try:
+            query = request.data.get('query', '')
+            limit = request.data.get('limit', 5)
+            threshold = request.data.get('threshold', 0.7)
+            
+            if not query:
+                return Response({
+                    'error': '請提供搜尋查詢'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            from api.services.embedding_service import get_embedding_service
+            from django.db import connection
+            
+            embedding_service = get_embedding_service()
+            query_embedding = embedding_service.generate_embedding(query)
+            
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT 
+                        de.source_id,
+                        rg.title,
+                        rg.content,
+                        rg.category,
+                        rg.issue_type,
+                        1 - (de.embedding <=> %s::vector) as similarity
+                    FROM document_embeddings de
+                    JOIN rvt_guide rg ON de.source_id = rg.id
+                    WHERE de.source_table = 'rvt_guide'
+                        AND (1 - (de.embedding <=> %s::vector)) >= %s
+                    ORDER BY de.embedding <=> %s::vector
+                    LIMIT %s
+                """, [query_embedding, query_embedding, threshold, query_embedding, limit])
+                
+                results = []
+                for row in cursor.fetchall():
+                    results.append({
+                        'guide_id': row[0],
+                        'title': row[1],
+                        'content': row[2],
+                        'category': row[3],
+                        'issue_type': row[4],
+                        'similarity': round(row[5], 4)
+                    })
+            
+            return Response({
+                'results': results,
+                'total': len(results),
+                'query': query,
+                'search_type': 'document_legacy'
+            })
+            
+        except Exception as e:
+            logger.error(f"RVT 舊系統搜尋失敗: {str(e)}")
+            return Response({
+                'error': f'舊系統搜尋失敗: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @method_decorator(csrf_exempt, name='dispatch')
