@@ -20,7 +20,7 @@ const ProtocolAssistantChatPage = ({ collapsed = false }) => {
       assistantType="protocol"
       assistantName="Protocol Assistant"
       useChatHook={useProtocolAssistantChat}
-      configApiPath="/api/protocol-guides/config/"
+      configApiPath="/api/protocol-assistant/config/"
       storageKey="protocol-assistant"
       permissionKey="webProtocolAssistant"
       placeholder="請描述你的 Protocol 問題..."

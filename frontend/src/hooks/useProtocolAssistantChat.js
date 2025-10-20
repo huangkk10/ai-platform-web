@@ -20,21 +20,11 @@ const useProtocolAssistantChat = (conversationId, setConversationId, setMessages
     setLoading(true);
     setLoadingStartTime(Date.now());
 
-    const assistantMessage = {
-      id: Date.now() + 1,
-      type: 'assistant',
-      content: '',
-      timestamp: new Date(),
-      loading: true
-    };
-
-    setMessages(prev => [...prev, assistantMessage]);
-
     try {
       abortControllerRef.current = new AbortController();
       
       const requestBody = {
-        query: userMessage.content,
+        message: userMessage.content,
         conversation_id: conversationId,
         user_id: currentUserId
       };
@@ -61,38 +51,40 @@ const useProtocolAssistantChat = (conversationId, setConversationId, setMessages
           setConversationId(newConversationId);
         }
 
-        setMessages(prev => prev.map(msg =>
-          msg.id === assistantMessage.id
-            ? { 
-                ...msg, 
-                content: data.answer || '抱歉，我無法生成回應。', 
-                loading: false,
-                metadata: data.metadata
-              }
-            : msg
-        ));
+        // 創建 AI 回應訊息（跟 RVT Assistant 一樣的邏輯）
+        const assistantMessage = {
+          id: Date.now() + 1,
+          type: 'assistant',
+          content: data.answer || '抱歉，我無法生成回應。',
+          timestamp: new Date(),
+          metadata: data.metadata,
+          usage: data.usage,
+          response_time: data.response_time,
+          message_id: data.message_id
+        };
+
+        setMessages(prev => [...prev, assistantMessage]);
       } else {
-        throw new Error(data.message || '發送訊息失敗');
+        throw new Error(data.error || '發送訊息失敗');
       }
     } catch (error) {
       if (error.name === 'AbortError') {
-        setMessages(prev => prev.filter(msg => msg.id !== assistantMessage.id));
+        message.info('已停止生成回應');
         return;
       }
 
       console.error('發送訊息時發生錯誤:', error);
       
-      setMessages(prev => prev.map(msg =>
-        msg.id === assistantMessage.id
-          ? { 
-              ...msg, 
-              content: `❌ 發生錯誤：${error.message || '無法連接到伺服器'}`, 
-              loading: false,
-              error: true
-            }
-          : msg
-      ));
+      // 添加錯誤訊息
+      const errorMessage = {
+        id: Date.now() + 1,
+        type: 'assistant',
+        content: `❌ 發生錯誤：${error.message || '無法連接到伺服器'}`,
+        timestamp: new Date(),
+        error: true
+      };
       
+      setMessages(prev => [...prev, errorMessage]);
       message.error(`發送失敗：${error.message || '請檢查網絡連接'}`);
     } finally {
       setLoading(false);

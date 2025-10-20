@@ -251,6 +251,9 @@ class BaseKnowledgeBaseAPIHandler(ABC):
             
             # 記錄請求
             logger.info(f"{cls.__name__} chat request from user: {request.user.username if request.user.is_authenticated else 'guest'}")
+            logger.info(f"  Message: {message[:100]}...")
+            logger.info(f"  API URL: {api_url}")
+            logger.info(f"  Conversation ID: {conversation_id if conversation_id else 'New'}")
             
             # 準備請求
             headers = {
@@ -267,6 +270,8 @@ class BaseKnowledgeBaseAPIHandler(ABC):
             
             if conversation_id:
                 payload['conversation_id'] = conversation_id
+            
+            logger.info(f"  Payload: {payload}")
             
             start_time = time.time()
             
@@ -294,7 +299,11 @@ class BaseKnowledgeBaseAPIHandler(ABC):
                 result = response.json()
                 answer = process_dify_answer(result.get('answer', ''))
                 
+                # 🔍 DEBUG: 記錄 Dify 完整回應
                 logger.info(f"{cls.__name__} chat success: response_time={elapsed:.2f}s")
+                logger.info(f"  Dify answer: {answer[:200]}...")
+                logger.info(f"  Conversation ID: {result.get('conversation_id', 'N/A')}")
+                logger.info(f"  Message ID: {result.get('message_id', 'N/A')}")
                 
                 # 記錄對話（可選）
                 cls.record_conversation(request, result, message, answer, elapsed)

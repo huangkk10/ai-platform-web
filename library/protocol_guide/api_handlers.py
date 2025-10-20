@@ -33,6 +33,22 @@ class ProtocolGuideAPIHandler(BaseKnowledgeBaseAPIHandler):
         from .search_service import ProtocolGuideSearchService
         return ProtocolGuideSearchService()
     
+    @classmethod
+    def get_chat_config(cls):
+        """
+        獲取 Protocol Guide 聊天配置
+        使用 DifyConfigManager 獲取配置
+        """
+        try:
+            from library.config.dify_config_manager import get_protocol_guide_config
+            config_obj = get_protocol_guide_config()
+            return config_obj.to_dict()
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Protocol Guide 配置獲取失敗: {str(e)}")
+            return {}
+    
     # 如果需要自定義邏輯，可以覆寫方法
     # 例如：
     # @classmethod

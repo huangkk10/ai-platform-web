@@ -51,6 +51,12 @@ class ProtocolAssistantViewSet(viewsets.ViewSet):
             - message_id: 訊息 ID
             - error: 錯誤訊息（如果有）
         """
+        # 🔍 DEBUG: 記錄請求詳細信息
+        logger.info(f"📥 Protocol Assistant chat request:")
+        logger.info(f"  - User: {request.user}")
+        logger.info(f"  - Authenticated: {request.user.is_authenticated}")
+        logger.info(f"  - Request data: {request.data}")
+        
         try:
             if PROTOCOL_GUIDE_LIBRARY_AVAILABLE and ProtocolGuideAPIHandler:
                 # 使用 Protocol Guide API Handler 處理聊天請求

@@ -10,6 +10,7 @@ from .dify_config_manager import (
     DifyConfigManager, 
     DifyAppConfig,
     get_rvt_guide_config,
+    get_protocol_guide_config,  # Protocol Guide 配置
     get_protocol_known_issue_config,
     get_report_analyzer_config,
     get_ai_ocr_config,
@@ -17,6 +18,7 @@ from .dify_config_manager import (
     get_all_dify_configs_safe,
     # 向後兼容
     get_rvt_guide_config_dict,
+    get_protocol_guide_config_dict,  # Protocol Guide 字典配置
     get_protocol_known_issue_config_dict
 )
 
@@ -28,6 +30,7 @@ __all__ = [
     'DifyConfigManager',
     'DifyAppConfig',
     'get_rvt_guide_config',
+    'get_protocol_guide_config',  # Protocol Guide 配置
     'get_protocol_known_issue_config',
     'get_report_analyzer_config',
     'get_ai_ocr_config',
@@ -35,5 +38,6 @@ __all__ = [
     'get_all_dify_configs_safe',
     # 向後兼容
     'get_rvt_guide_config_dict',
+    'get_protocol_guide_config_dict',  # Protocol Guide 字典配置
     'get_protocol_known_issue_config_dict'
 ]

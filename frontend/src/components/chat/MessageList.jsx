@@ -23,6 +23,7 @@ const { Text } = Typography;
  * @param {Object} feedbackStates - 反饋狀態對象
  * @param {Function} onFeedback - 反饋處理函數
  * @param {Object} messagesEndRef - 訊息列表底部 ref
+ * @param {string} assistantName - Assistant 名稱（用於載入指示器）
  */
 const MessageList = ({
   messages = [],
@@ -30,7 +31,8 @@ const MessageList = ({
   loadingStartTime = null,
   feedbackStates = {},
   onFeedback,
-  messagesEndRef
+  messagesEndRef,
+  assistantName = 'Assistant'
 }) => {
   return (
     <div className="messages-container" style={{ 
@@ -137,10 +139,10 @@ const MessageList = ({
               className="message-card assistant"
               styles={{ body: { padding: '12px 16px' } }}
             >
-              <LoadingIndicator 
+                            <LoadingIndicator 
                 loading={loading} 
                 loadingStartTime={loadingStartTime}
-                serviceName="RVT Assistant"
+                serviceName={assistantName}
               />
             </Card>
           </div>

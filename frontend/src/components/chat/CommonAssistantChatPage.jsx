@@ -170,6 +170,7 @@ const CommonAssistantChatPage = ({
           feedbackStates={feedbackStates}
           onFeedback={submitFeedback}
           messagesEndRef={messagesEndRef}
+          assistantName={assistantName}
         />
         <div className="input-area" style={{
           position: 'fixed',

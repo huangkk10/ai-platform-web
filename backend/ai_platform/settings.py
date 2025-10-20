@@ -160,6 +160,7 @@ CSRF_EXEMPT_URLS = [
     '/api/auth/logout/',
     '/api/dify/',
     '/api/rvt-guide/',
+    '/api/protocol-assistant/',  # Protocol Assistant Chat API
 ]
 
 # Session settings for authentication
