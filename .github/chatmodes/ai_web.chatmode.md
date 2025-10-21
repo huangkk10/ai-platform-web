@@ -1,4 +1,117 @@
 `````chatmode
+# 🐳 重要：專案執行環境說明
+
+## ⚠️ AI 必讀：所有操作都在 Docker 容器內執行
+
+**本專案使用 Docker 容器化部署，所有 Python/Django 相關操作都必須在容器內執行！**
+
+### 🎯 強制性環境規範
+
+1. **Python 腳本執行方式**
+   ```bash
+   # ✅ 正確：在 Django 容器內執行
+   docker exec ai-django python <script_path>
+   docker exec -it ai-django python manage.py <command>
+   
+   # ❌ 錯誤：直接在宿主機執行
+   python <script_path>
+   python3 <script_path>
+   ```
+
+2. **Django 管理命令**
+   ```bash
+   # ✅ 正確：在容器內執行
+   docker exec ai-django python manage.py migrate
+   docker exec ai-django python manage.py shell
+   docker exec ai-django python manage.py makemigrations
+   
+   # ❌ 錯誤：直接執行
+   python manage.py migrate
+   ./manage.py shell
+   ```
+
+3. **測試腳本執行**
+   ```bash
+   # ✅ 正確：容器內執行測試
+   docker exec ai-django python tests/test_xxx.py
+   docker exec ai-django python tests/test_vector_search/test_xxx.py
+   
+   # ❌ 錯誤：宿主機執行
+   python tests/test_xxx.py
+   pytest tests/
+   ```
+
+4. **資料庫操作**
+   ```bash
+   # ✅ 正確：透過 PostgreSQL 容器
+   docker exec postgres_db psql -U postgres -d ai_platform -c "SQL_QUERY"
+   
+   # ❌ 錯誤：直接連接
+   psql -U postgres -d ai_platform
+   ```
+
+5. **檔案同步提醒**
+   ```bash
+   # ⚠️ 重要：修改測試檔案後需同步到容器
+   docker cp <local_file> ai-django:/app/<container_path>
+   
+   # 範例：
+   docker cp tests/test_xxx.py ai-django:/app/tests/
+   ```
+
+### 📋 容器環境檢查清單
+
+**AI 在執行任何 Python 相關操作前必須確認**：
+- [ ] 使用 `docker exec ai-django` 前綴執行 Python 腳本
+- [ ] 資料庫查詢使用 `docker exec postgres_db psql`
+- [ ] 測試腳本路徑正確（容器內為 `/app/tests/`）
+- [ ] Django 設定檔路徑正確（容器內為 `/app/ai_platform/settings.py`）
+- [ ] 修改的檔案已同步到容器（如需要）
+
+### 🐳 容器服務列表
+
+本專案包含以下 Docker 容器：
+
+| 容器名稱 | 用途 | 常用操作 |
+|---------|------|---------|
+| `ai-django` | Django 後端 | `docker exec ai-django python ...` |
+| `ai-react` | React 前端 | `docker compose restart ai-react` |
+| `postgres_db` | PostgreSQL 資料庫 | `docker exec postgres_db psql ...` |
+| `ai-nginx` | Nginx 反向代理 | `docker logs ai-nginx` |
+| `portainer` | 容器管理 | 訪問 http://localhost:9000 |
+| `adminer_nas` | 資料庫管理 | 訪問 http://localhost:9090 |
+
+### 🚨 常見錯誤與解決方案
+
+#### 錯誤 1：找不到 Django 模組
+```bash
+# ❌ 錯誤訊息
+ModuleNotFoundError: No module named 'django'
+
+# ✅ 解決方案：確保在容器內執行
+docker exec ai-django python <your_script>
+```
+
+#### 錯誤 2：找不到測試檔案
+```bash
+# ❌ 錯誤訊息
+FileNotFoundError: [Errno 2] No such file or directory: '/app/tests/xxx.py'
+
+# ✅ 解決方案：先同步檔案到容器
+docker cp tests/xxx.py ai-django:/app/tests/
+```
+
+#### 錯誤 3：資料庫連接失敗
+```bash
+# ❌ 錯誤：使用 localhost
+psql: could not connect to server: Connection refused
+
+# ✅ 解決方案：使用容器名稱或透過容器執行
+docker exec postgres_db psql -U postgres -d ai_platform
+```
+
+---
+
 # Git Commit Type
 
 請遵守下列 commit type（Conventional Commits 為基礎）：
