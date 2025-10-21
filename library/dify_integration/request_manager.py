@@ -162,11 +162,15 @@ class DifyResponseHandler:
         """
         處理 Dify API 返回的 answer 字段，兼容不同格式
         
+        ⚠️ 設計原則：後端不做任何清理，只做格式轉換
+        - 前端負責所有 Markdown 和圖片引用的處理
+        - 這樣和 DevMarkdownTestPage 保持一致的架構
+        
         Args:
             raw_answer: 原始 answer 數據
             
         Returns:
-            str: 處理後的 answer 字符串
+            str: 處理後的 answer 字符串（不做清理，只做格式轉換）
         """
         if isinstance(raw_answer, list):
             # 如果 answer 是數組，將其轉換為字符串
@@ -183,6 +187,8 @@ class DifyResponseHandler:
             answer = str(raw_answer) if raw_answer else "抱歉，回答格式異常，請稍後再試。"
             logger.warning(f"Dify API returned unexpected answer type: {type(raw_answer)}")
         
+        # 🎯 不做任何清理，直接返回原始內容
+        # 前端會使用 imageReferenceConverter.js 處理 [IMG:ID] 轉換
         return answer
     
     @staticmethod

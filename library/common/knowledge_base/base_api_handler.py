@@ -251,7 +251,7 @@ class BaseKnowledgeBaseAPIHandler(ABC):
             
             # 記錄請求
             logger.info(f"{cls.__name__} chat request from user: {request.user.username if request.user.is_authenticated else 'guest'}")
-            logger.info(f"  Message: {message[:100]}...")
+            logger.info(f"  Message: {message}...")
             logger.info(f"  API URL: {api_url}")
             logger.info(f"  Conversation ID: {conversation_id if conversation_id else 'New'}")
             
@@ -310,7 +310,9 @@ class BaseKnowledgeBaseAPIHandler(ABC):
                 
                 # 🔍 DEBUG: 記錄 Dify 完整回應
                 logger.info(f"{cls.__name__} chat success: response_time={elapsed:.2f}s")
-                logger.info(f"  Dify answer: {answer[:200]}...")
+                # 增加日誌顯示長度到 1000 字符，並顯示總長度
+                answer_preview = answer[:1000] if len(answer) > 1000 else answer
+                logger.info(f"  Dify answer ({len(answer)} chars): \n{answer_preview}{'...' if len(answer) > 1000 else ''}")
                 logger.info(f"  Conversation ID: {result.get('conversation_id', 'N/A')}")
                 logger.info(f"  Message ID: {result.get('message_id', 'N/A')}")
                 
@@ -383,6 +385,21 @@ class BaseKnowledgeBaseAPIHandler(ABC):
                         'knowledge_base': cls.get_source_table(),
                     }
                 )
+            
+            # 🔍 DEBUG: 記錄完整的 Dify 回應到專用日誌文件（可選）
+            # 如果環境變數 LOG_FULL_DIFY_RESPONSE=true，則記錄完整內容
+            import os
+            if os.getenv('LOG_FULL_DIFY_RESPONSE', 'false').lower() == 'true':
+                dify_logger = logging.getLogger('dify_responses')
+                dify_logger.info(f"\n{'='*80}\n"
+                                f"Conversation ID: {result.get('conversation_id', 'N/A')}\n"
+                                f"Message ID: {result.get('message_id', 'N/A')}\n"
+                                f"User: {request.user.username if request.user.is_authenticated else 'guest'}\n"
+                                f"Query: {message}\n"
+                                f"Response Time: {response_time:.2f}s\n"
+                                f"Full Answer:\n{answer}\n"
+                                f"{'='*80}")
+                
         except Exception as e:
             logger.warning(f"{cls.__name__} conversation recording failed: {str(e)}")
     
