@@ -123,18 +123,28 @@ const useMessageFormatter = () => {
    * @returns {Array} - 分離後的內容段落陣列
    */
   const parseImgIdContent = (content) => {
-    // 🔧 修復：匹配 [IMG:ID] 以及後面可選的空格和檔名（如 " 1.1.jpg"）
-    // 檔名格式：空格 + 字母/數字/點/底線/連字號 + 圖片副檔名
-    const parts = content.split(/(\*?\*?\[IMG:\d+\]\*?\*?\s*[\w.-]*\.(?:png|jpg|jpeg|gif|bmp|webp)?\s*)/gi);
+    // 🔧 修復：匹配任意數量的 * + [IMG:ID] + 任意數量的 * + 可選的檔名
+    // 正則說明：
+    // - \*+：匹配一個或多個星號（前面的粗體標記）
+    // - \[IMG:\d+\]：匹配 [IMG:數字]
+    // - \*+：匹配一個或多個星號（後面的粗體標記）
+    // - \s*[\w.-]*\.(?:png|jpg|jpeg|gif|bmp|webp)?：可選的空格和檔名
+    const parts = content.split(/(\*+\[IMG:\d+\]\*+\s*[\w.-]*\.(?:png|jpg|jpeg|gif|bmp|webp)?|\[IMG:\d+\]\s*[\w.-]*\.(?:png|jpg|jpeg|gif|bmp|webp)?)/gi);
     
     return parts.filter(part => part.trim()).map((part, index) => {
-      const isImageRef = /\*?\*?\[IMG:\d+\]\*?\*?/.test(part);
+      const isImageRef = /\[IMG:\d+\]/.test(part);
       
       if (isImageRef) {
         return {
           type: 'image',
-          // 🔧 修復：移除前後的 * 符號，以及後面的檔名文字
-          content: part.replace(/^\*+|\*+$/g, '').replace(/\s+[\w.-]+\.(png|jpg|jpeg|gif|bmp|webp)\s*$/i, ''),
+          // 🔧 完全移除：
+          // 1. 前後所有 * 符號（粗體標記）
+          // 2. 後面的檔名文字（如 " 1.1.jpg"）
+          // 3. 多餘的空格
+          content: part
+            .replace(/^\*+|\*+$/g, '')  // 移除前後的所有星號
+            .replace(/\s+[\w.-]+\.(png|jpg|jpeg|gif|bmp|webp)\s*$/i, '')  // 移除檔名
+            .trim(),
           index
         };
       } else {

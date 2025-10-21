@@ -475,3 +475,33 @@ def get_protocol_known_issue_config_dict() -> Dict[str, Any]:
         Dict[str, Any]: 配置字典
     """
     return get_protocol_known_issue_config().to_dict()
+
+
+def get_report_analyzer_3_config() -> DifyAppConfig:
+    """
+    獲取 Report Analyzer 3 配置（別名函數，向後兼容）
+    
+    Returns:
+        DifyAppConfig: Report Analyzer 3 配置對象
+    """
+    return get_report_analyzer_config()
+
+
+def get_report_analyzer_3_config_dict() -> Dict[str, Any]:
+    """
+    獲取 Report Analyzer 3 配置字典（向後兼容）
+    
+    Returns:
+        Dict[str, Any]: 配置字典
+    """
+    return get_report_analyzer_3_config().to_dict()
+
+
+def get_ai_ocr_config_dict() -> Dict[str, Any]:
+    """
+    獲取 AI OCR 配置字典（向後兼容）
+    
+    Returns:
+        Dict[str, Any]: 配置字典
+    """
+    return get_ai_ocr_config().to_dict()

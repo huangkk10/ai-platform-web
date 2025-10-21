@@ -9,24 +9,31 @@
  * 🎯 關鍵改進：直接使用 API URL，讓 ReactMarkdown 的標準 img 標籤就能顯示圖片
  * 格式：[IMG:8] → ![IMG:8](http://10.10.173.12/api/content-images/8/)
  * 
+ * 🔧 修復：同時處理 **[IMG:ID] filename.jpg** 這種包含粗體和檔名的格式
+ * 
  * @param {string} content - 原始內容
  * @returns {string} - 轉換後的內容
  */
 export const convertImageReferencesToMarkdown = (content) => {
   if (!content) return content;
   
-  // 匹配 [IMG:數字] 格式，但排除已經是 Markdown 圖片格式的 ![IMG:數字](...)
-  // 使用負向後視確保前面不是 !
-  const pattern = /(?<!\!)(\[IMG:(\d+)\])/g;
+  // 🔧 一步到位：匹配並清理所有格式的圖片引用
+  // 關鍵修正：檔名在星號之間，所以模式是 **[IMG:ID] filename**
+  // 格式範例：
+  // - **[IMG:30] 1.1.jpg**  → ![IMG:30](URL)
+  // - **[IMG:30]**          → ![IMG:30](URL)
+  // - [IMG:30] test.png     → ![IMG:30](URL)
+  // - [IMG:30]              → ![IMG:30](URL)
+  const processed = content.replace(
+    /\*+\[IMG:(\d+)\](?:\s+[\w.-]+\.(?:png|jpg|jpeg|gif|bmp|webp))?\*+|\[IMG:(\d+)\](?:\s+[\w.-]+\.(?:png|jpg|jpeg|gif|bmp|webp))?/gi,
+    (match, id1, id2) => {
+      const imageId = id1 || id2;  // 從兩個分支中取得 ID
+      const apiUrl = `http://10.10.173.12/api/content-images/${imageId}/`;
+      return `![IMG:${imageId}](${apiUrl})`;
+    }
+  );
   
-  // 🔥 使用實際的 API URL，這樣即使用標準的 <img> 標籤也能顯示
-  // ReactMarkdown 會渲染為：<img src="http://10.10.173.12/api/content-images/8/" alt="IMG:8" />
-  const converted = content.replace(pattern, (match, fullMatch, imageId) => {
-    const apiUrl = `http://10.10.173.12/api/content-images/${imageId}/`;
-    return `![IMG:${imageId}](${apiUrl})`;
-  });
-  
-  return converted;
+  return processed;
 };
 
 /**
