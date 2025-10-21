@@ -45,19 +45,20 @@ class OpenSourceEmbeddingService:
         }
     }
     
-    def __init__(self, model_type: str = 'standard'):
+    def __init__(self, model_type: str = 'ultra_high'):
         """
         初始化嵌入服務
         
         Args:
-            model_type: 模型類型 ('lightweight', 'standard', 'high_precision')
+            model_type: 模型類型 (預設: 'ultra_high' - 1024維多語言模型)
+                       可選: 'lightweight' (384維), 'standard' (768維), 'high_precision' (768維)
         """
         if model_type not in self.MODEL_CONFIGS:
-            # 如果是舊的模型名稱，回退到輕量級模型
+            # 如果是舊的模型名稱，回退到 ultra_high
             if isinstance(model_type, str) and 'MiniLM' in model_type:
                 model_type = 'lightweight'
             else:
-                model_type = 'standard'  # 默認使用 768 維標準模型
+                model_type = 'ultra_high'  # 預設使用 1024 維模型（與資料庫一致）
             
         config = self.MODEL_CONFIGS[model_type]
         self.model_name = config['name']
@@ -359,112 +360,9 @@ def search_rvt_guide_with_vectors(query: str, limit: int = 5, threshold: float =
         content_formatter=_format_rvt_guide_content  # 使用特殊的內容格式化
     )
 
-def search_rvt_guide_with_vectors_768_legacy(query: str, limit: int = 5, threshold: float = 0.3) -> List[dict]:
-    """
-    使用向量搜索 RVT Guide (768維 - 舊版本)
-    
-    Args:
-        query: 查詢文本
-        limit: 返回結果數量
-        threshold: 相似度閾值
-        
-    Returns:
-        搜索結果列表
-    """
-    service = get_embedding_service('standard')  # 使用768維模型
-    
-    # 搜索相似向量
-    vector_results = service.search_similar_documents(
-        query=query,
-        source_table='rvt_guide',
-        limit=limit,
-        threshold=threshold,
-        use_1024_table=False  # 使用舊的768維表格
-    )
-    
-    if not vector_results:
-        logger.info("768維向量搜索無結果")
-        return []
-    
-    return _get_rvt_guide_results(vector_results, "768維")
-
-def _get_rvt_guide_results(vector_results: List[dict], version_info: str) -> List[dict]:
-    """
-    ⚠️ DEPRECATED - 已棄用，保留以防回滾需要
-    
-    此函數已被 vector_search_helper.format_vector_results() 取代
-    新代碼請使用 search_with_vectors_generic() 或 RVTGuideSearchService
-    
-    獲取 RVT Guide 的完整結果資料
-    
-    Args:
-        vector_results: 向量搜索結果
-        version_info: 版本資訊 (用於日誌)
-        
-    Returns:
-        完整的 RVT Guide 結果列表
-    """
-    # 獲取完整的 RVT Guide 資料
-    source_ids = [result['source_id'] for result in vector_results]
-    
-    try:
-        with connection.cursor() as cursor:
-            placeholders = ','.join(['%s'] * len(source_ids))
-            cursor.execute(f"""
-                SELECT 
-                    id, title,
-                    content,
-                    created_at, updated_at
-                FROM rvt_guide
-                WHERE id IN ({placeholders})
-            """, source_ids)
-            
-            columns = [desc[0] for desc in cursor.description]
-            rvt_guides = {}
-            
-            for row in cursor.fetchall():
-                rvt_data = dict(zip(columns, row))
-                rvt_guides[rvt_data['id']] = rvt_data
-        
-        # 組合結果，保持向量搜索的順序
-        final_results = []
-        for vector_result in vector_results:
-            source_id = vector_result['source_id']
-            if source_id in rvt_guides:
-                rvt_data = rvt_guides[source_id]
-                
-                # 檢查內容是否包含圖片
-                has_images = any(keyword in rvt_data['content'].lower() for keyword in [
-                    '🖼️', '--- 相關圖片 ---', '圖片', '截圖', 'image', 'picture'
-                ])
-                
-                # 格式化內容用於 Dify
-                content = f"文檔標題: {rvt_data['title']}\n"
-                
-                # 如果包含圖片，在內容開始加入明確提示
-                if has_images:
-                    content += "📸 **重要：此內容包含相關圖片說明，請在回答時提及並引導用戶查看圖片資訊**\n\n"
-                
-                content += f"內容: {rvt_data['content']}\n"
-                
-                final_results.append({
-                    'id': str(source_id),
-                    'title': rvt_data['title'],
-                    'content': content,
-                    'score': vector_result['similarity_score'],
-                    'metadata': {
-                        'source': f'rvt_guide_vector_search_{version_info}',
-                        'has_images': has_images,  # 加入圖片標記
-                        'guide_id': source_id  # 加入 guide ID 供前端查詢圖片
-                    }
-                })
-        
-        logger.info(f"向量搜索返回 {len(final_results)} 個 RVT Guide 結果 ({version_info})")
-        return final_results
-        
-    except Exception as e:
-        logger.error(f"獲取 RVT Guide 詳細資料失敗: {str(e)}")
-        return []
+# ✅ 768維相關函數已移除（2025-01-XX）
+# 原因：系統已全面改用 1024 維向量，768 維相關程式碼已廢棄
+# 參考：/docs/vector-search/vector-dimension-default-change-report.md
 
 
 def _format_rvt_guide_content(item):
