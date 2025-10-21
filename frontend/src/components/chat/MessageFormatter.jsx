@@ -153,7 +153,8 @@ const MessageFormatter = ({
     const flushMarkdownBuffer = (key) => {
       if (markdownBuffer.length > 0) {
         // 將累積的 markdown 內容一次性渲染，並修復表格格式
-        let combinedMarkdown = markdownBuffer.join('\n\n');
+        // 🎯 使用 \n 而不是 \n\n，避免產生過大間距
+        let combinedMarkdown = markdownBuffer.join('\n');
         combinedMarkdown = fixAllMarkdownTables(combinedMarkdown);
         
         result.push(

@@ -9,6 +9,7 @@
 import React from 'react';
 import CommonAssistantChatPage from '../components/chat/CommonAssistantChatPage';
 import useProtocolAssistantChat from '../hooks/useProtocolAssistantChat';
+import '../components/markdown/ReactMarkdown.css';
 import './ProtocolAssistantChatPage.css';
 
 // Protocol Assistant 專用歡迎訊息
