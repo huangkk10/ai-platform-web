@@ -44,6 +44,11 @@ AI 系統整合和配置文檔：
 - `vector-search-quick-reference.md` - 向量搜尋快速參考
 - `vector-update-quick-reference.md` - 向量更新快速參考
 - `vector-upgrade-1024-summary.md` - 向量系統升級摘要
+- `vector-dimension-standardization-summary.md` - 🎯 **向量維度標準化專案總結**
+- `vector-dimension-audit-report.md` - 向量維度稽核報告
+- `vector-dimension-default-change-report.md` - 向量維度預設值修改報告
+- `deprecated-code-removal-report.md` - 廢棄程式碼清理報告
+- `vector-search-enhancement-roadmap.md` - 向量搜尋增強路線圖
 
 ### 📁 [features/](./features/) - 功能模組文檔
 系統各功能模組的詳細說明：
