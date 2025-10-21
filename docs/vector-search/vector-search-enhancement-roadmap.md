@@ -90,13 +90,25 @@ class SectionFilteringService:
 #### 2. **動態相似度閾值策略** 🌟🌟🌟🌟🌟
 **必要性**: ⭐⭐⭐⭐⭐ (極高)  
 **投入產出比**: 極高  
-**開發時間**: 1-2 天
+**開發時間**: 4-6 天（含向後相容性設計）  
+⚠️ **重要**: 需要向後相容性設計，不可直接修改現有 API 行為
+
+**風險評估**: 🔴🔴🔴🔴🔴 (極高風險)
+- 🔴 影響用戶自訂的 threshold 參數
+- 🔴 可能破壞 Dify 外部整合（使用固定 threshold=0.5）
+- 🔴 前端應用依賴穩定的閾值行為
+- 📄 **詳見**: `/docs/vector-search/adaptive-threshold-side-effects-analysis.md`
+
+**建議實施方式**: ✅ 選擇性啟用（新增 `adaptive=True` 參數）
 
 **問題**：
 - 當前使用固定閾值（如 0.7），不適用於所有查詢
 - 複雜查詢可能需要降低閾值，簡單查詢應提高閾值
+- ⚠️ 但用戶可能已經手動設定閾值，不能直接覆蓋
 
-**解決方案**：
+**解決方案（向後相容設計）**：
+
+**方案 A: 選擇性啟用（推薦 ⭐⭐⭐⭐⭐）**
 ```python
 # library/common/knowledge_base/adaptive_threshold_service.py
 
@@ -126,9 +138,10 @@ class AdaptiveThresholdService:
         }
     }
     
-    def get_adaptive_threshold(self, query: str, initial_results: List) -> float:
+    @classmethod
+    def calculate_adaptive_threshold(cls, initial_results: List) -> float:
         """
-        根據查詢特徵和初始結果動態調整閾值
+        根據初始結果計算動態閾值
         
         策略：
         1. 如果最高分 > 0.85：使用高閾值（精準匹配）
@@ -136,24 +149,110 @@ class AdaptiveThresholdService:
         3. 如果最高分 < 0.75：使用低閾值或混合搜尋
         """
         if not initial_results:
-            return self.THRESHOLD_CONFIG['fallback']['threshold']
+            return cls.THRESHOLD_CONFIG['fallback']['threshold']
         
         max_score = max(r['score'] for r in initial_results)
         
         if max_score >= 0.85:
-            return self.THRESHOLD_CONFIG['high_confidence']['threshold']
+            return cls.THRESHOLD_CONFIG['high_confidence']['threshold']
         elif max_score >= 0.75:
-            return self.THRESHOLD_CONFIG['medium_confidence']['threshold']
+            return cls.THRESHOLD_CONFIG['medium_confidence']['threshold']
         elif max_score >= 0.65:
-            return self.THRESHOLD_CONFIG['low_confidence']['threshold']
+            return cls.THRESHOLD_CONFIG['low_confidence']['threshold']
         else:
-            return self.THRESHOLD_CONFIG['fallback']['threshold']
+            return cls.THRESHOLD_CONFIG['fallback']['threshold']
+```
+
+**API 整合（向後相容）**：
+```python
+# backend/api/views/viewsets/knowledge_viewsets.py
+
+@action(detail=False, methods=['post'])
+def search_sections(self, request):
+    """
+    段落搜尋 API（支援動態閾值）
+    
+    參數：
+    - threshold (float): 固定閾值，預設 0.7
+    - adaptive (bool): 是否啟用動態閾值，預設 False  # ← 新增
+    """
+    query = request.data.get('query', '')
+    limit = request.data.get('limit', 5)
+    threshold = request.data.get('threshold', 0.7)
+    adaptive = request.data.get('adaptive', False)  # ← 新增參數
+    
+    # ✅ 根據 adaptive 參數選擇策略
+    if adaptive:
+        # 動態閾值模式（新功能）
+        from library.common.knowledge_base.adaptive_threshold_service import AdaptiveThresholdService
+        
+        # 初始查詢（低閾值）
+        initial_results = section_service.search_sections(
+            query=query,
+            source_table='rvt_guide',
+            limit=limit * 3,
+            threshold=0.0
+        )
+        
+        # 計算動態閾值
+        adaptive_threshold = AdaptiveThresholdService.calculate_adaptive_threshold(initial_results)
+        
+        # 過濾結果
+        final_results = [r for r in initial_results if r['score'] >= adaptive_threshold][:limit]
+        
+        return Response({
+            'results': final_results,
+            'threshold_used': adaptive_threshold,
+            'adaptive_mode': True
+        })
+    else:
+        # 固定閾值模式（保持現有行為）✅ 向後相容
+        results = section_service.search_sections(
+            query=query,
+            source_table='rvt_guide',
+            limit=limit,
+            threshold=threshold  # 尊重用戶設定
+        )
+        
+        return Response({
+            'results': results,
+            'threshold_used': threshold,
+            'adaptive_mode': False
+        })
+```
+
+**前端使用範例**：
+```javascript
+// 舊版（固定閾值，保持不變）
+POST /api/rvt-guide/search_sections/
+{
+  "query": "Jenkins 測試",
+  "threshold": 0.7,  // 用戶可自訂
+  "limit": 5
+}
+
+// 新版（動態閾值，選擇性使用）
+POST /api/rvt-guide/search_sections/
+{
+  "query": "Jenkins 測試",
+  "adaptive": true,  // ← 啟用動態閾值
+  "limit": 5
+}
 ```
 
 **預期效果**：
 - ✅ 提升精準度 10-20%（高分查詢）
 - ✅ 提升召回率 15-25%（低分查詢）
 - ✅ 減少無關結果
+- ✅ **完全向後相容**（不影響現有用戶）
+- ✅ **Dify 整合不受影響**（繼續使用 threshold=0.5）
+
+**實施注意事項**：
+1. ⚠️ **禁止**直接修改現有 API 的預設行為
+2. ✅ 必須保留用戶自訂 `threshold` 的能力
+3. ✅ Dify API (`/api/dify/knowledge/retrieval/`) 不應使用動態閾值
+4. ✅ 前端可逐步遷移到動態模式（非強制）
+5. 📊 建議進行 A/B 測試驗證效果
 
 ---
 
