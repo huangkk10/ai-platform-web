@@ -15,3 +15,88 @@
 .protocol-assistant-chat-page button:not(.stop-button):hover:not(:disabled) {
   background-color: #40a9ff !important;
 }
+
+/* 🎯 完全模仿 Markdown 測試頁面的格式 */
+.protocol-assistant-chat-page .markdown-preview-content.markdown-content {
+  font-size: 14px !important;
+  line-height: 1.8 !important;
+  color: #333 !important;
+}
+
+/* 🔥 關鍵：覆蓋 App.css 中的 .message-text 規則 */
+.protocol-assistant-chat-page .message-text {
+  /* 清除 App.css 的所有規則 */
+  all: revert !important;
+}
+
+/* ❌ 移除這個會干擾列表的規則 */
+/* .protocol-assistant-chat-page .message-text * {
+  all: revert !important;
+} */
+
+/* 覆蓋所有可能的間距規則 */
+.protocol-assistant-chat-page .markdown-preview-content.markdown-content p,
+.protocol-assistant-chat-page .markdown-preview-content.markdown-content h1,
+.protocol-assistant-chat-page .markdown-preview-content.markdown-content h2,
+.protocol-assistant-chat-page .markdown-preview-content.markdown-content h3,
+.protocol-assistant-chat-page .markdown-preview-content.markdown-content ul,
+.protocol-assistant-chat-page .markdown-preview-content.markdown-content ol {
+  margin: revert !important;
+}
+
+/* 🖼️ 圖片顯示設定 - 適中尺寸 */
+.protocol-assistant-chat-page .markdown-content img {
+  max-width: 200px !important;
+  height: auto !important;
+  display: inline-block !important;
+  margin: 0 4px !important;
+  vertical-align: middle !important;
+  border: 1px solid #d9d9d9 !important;
+  border-radius: 4px !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+}
+
+/* Ant Design Image 組件的樣式 */
+.protocol-assistant-chat-page .ant-image {
+  display: inline-block !important;
+  margin: 0 4px !important;
+  vertical-align: middle !important;
+}
+
+.protocol-assistant-chat-page .ant-image img {
+  max-width: 100px !important;
+  height: auto !important;
+  border: 1px solid #d9d9d9 !important;
+  border-radius: 4px !important;
+}
+
+/* 📋 列表樣式 - 多層列表符號（與 Markdown 測試頁面一致）*/
+.protocol-assistant-chat-page .markdown-preview-content.markdown-content ul {
+  list-style-type: circle !important;  /* 第一層：空心圓圈 */
+  margin: 0 !important;
+  padding-left: 24px !important;
+  color: #000 !important;
+}
+
+/* 第二層巢狀列表：小黑方塊 */
+.protocol-assistant-chat-page .markdown-preview-content.markdown-content ul ul {
+  list-style-type: square !important;
+}
+
+.protocol-assistant-chat-page .markdown-preview-content.markdown-content ol {
+  margin: 0 !important;
+  padding-left: 24px !important;
+}
+
+.protocol-assistant-chat-page .markdown-preview-content.markdown-content li {
+  margin-bottom: 0 !important;
+  line-height: 1.5 !important;
+  color: #333 !important;
+}
+
+/* 🔥 強制移除 RVT Assistant 的 ::before 偽元素（藍色圓點）*/
+.protocol-assistant-chat-page .message-text .markdown-content ul li::before,
+.protocol-assistant-chat-page .markdown-content ul li::before {
+  content: none !important;
+  display: none !important;
+}

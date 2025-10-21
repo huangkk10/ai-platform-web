@@ -45,7 +45,9 @@ const MessageFormatter = ({
    * 當 skipMetadataImages=true 時，不處理 metadata 中的圖片（讓表格內的圖片自己處理）
    */
   const renderPlainTextMessage = (skipMetadataImages = false) => {
-    let processedContent = prepareMarkdown(content);
+    // ✅ 方案 1：使用 Markdown 測試頁面的簡化流程
+    // 不調用 prepareMarkdown()，直接使用原始 content
+    let processedContent = content;
     // 修復表格分隔線格式
     processedContent = fixAllMarkdownTables(processedContent);
     // 🎯 關鍵：將 [IMG:ID] 轉換為 Markdown 圖片格式 ![IMG:ID](IMG:ID)
@@ -64,7 +66,7 @@ const MessageFormatter = ({
       
       if (imagesNotInContent.length > 0) {
         return (
-          <div className={`markdown-content ${className}`} style={style}>
+          <div className={`markdown-preview-content markdown-content ${className}`} style={style}>
             <ReactMarkdown {...markdownConfig}>
               {processedContent}
             </ReactMarkdown>
@@ -81,7 +83,7 @@ const MessageFormatter = ({
     
     return (
       <div 
-        className={`markdown-content ${className}`}
+        className={`markdown-preview-content markdown-content ${className}`}
         style={style}
       >
         <ReactMarkdown {...markdownConfig}>
@@ -117,7 +119,7 @@ const MessageFormatter = ({
             return (
               <div 
                 key={`text-${index}`}
-                className="markdown-content"
+                className="markdown-preview-content markdown-content"
               >
                 <ReactMarkdown {...markdownConfig}>
                   {part.processedContent}
@@ -160,7 +162,7 @@ const MessageFormatter = ({
         result.push(
           <div 
             key={key}
-            className="markdown-content"
+            className="markdown-preview-content markdown-content"
           >
             <ReactMarkdown {...markdownConfig}>
               {combinedMarkdown}
@@ -297,9 +299,9 @@ const MessageFormatter = ({
     console.log('📊 檢測到 Markdown 表格，使用純文字渲染以保持表格完整性');
     return renderPlainTextMessage(true); // 傳入 true 跳過 metadata 圖片
   } else if (formatAnalysis.hasImgIdReferences) {
-    // 包含 IMG:ID 格式但沒有表格，使用混合內容渲染
-    console.log('🖼️ 檢測到 IMG:ID 引用（無表格），使用混合內容渲染');
-    return renderImgIdContent();
+    // ✅ 方案 1：包含 IMG:ID 格式也使用純文字渲染（與 Markdown 測試頁面一致）
+    console.log('🖼️ 檢測到 IMG:ID 引用，使用純文字渲染（與 Markdown 測試頁面一致）');
+    return renderPlainTextMessage(false);
   } else if (messageType === 'assistant' && formatAnalysis.needsImageProcessing) {
     // AI 回應且需要圖片處理，使用智能圖片內嵌
     return renderAssistantMessageWithImages();

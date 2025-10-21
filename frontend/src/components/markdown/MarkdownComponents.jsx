@@ -234,7 +234,7 @@ export const CustomImage = ({ src, alt, title, ...props }) => {
       );
     }
     
-    // 顯示實際圖片（小尺寸適合表格）
+    // 顯示實際圖片（完整尺寸，與 Markdown 測試頁面一致）
     const imageSrc = imageData.base64_data 
       ? `data:image/png;base64,${imageData.base64_data}` 
       : imageData.data_url || imageData.image_url;
@@ -252,17 +252,20 @@ export const CustomImage = ({ src, alt, title, ...props }) => {
         src={imageSrc}
         alt={imageData.title || alt || '圖片'}
         style={{
-          maxWidth: '80px',
-          maxHeight: '60px',
+          maxWidth: '100px',
+          height: 'auto',
           objectFit: 'contain',
           cursor: 'pointer',
           border: '1px solid #d9d9d9',
           borderRadius: '4px',
-          padding: '2px',
-          backgroundColor: '#fafafa'
+          padding: '4px',
+          backgroundColor: '#fafafa',
+          display: 'inline-block',
+          margin: '0 4px',
+          verticalAlign: 'middle'
         }}
         preview={{
-          mask: <div style={{ fontSize: '10px' }}>點擊放大</div>
+          mask: null
         }}
       />
     );
@@ -423,10 +426,7 @@ export const CustomListItem = ({ children, ordered, index, ...props }) => {
     <li 
       style={{
         marginBottom: '2px',
-        lineHeight: 1.5,
-        paddingLeft: 0,
-        position: 'relative',
-        marginLeft: '18px'
+        lineHeight: 1.5
       }}
       {...props}
     >

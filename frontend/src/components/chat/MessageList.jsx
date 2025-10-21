@@ -62,7 +62,7 @@ const MessageList = ({
               className={`message-card ${msg.type}`}
               styles={{ body: { padding: '12px 16px' } }}
             >
-              <div className="message-text chat-message-content">
+              <div className="message-text markdown-preview-content">
                 <MessageFormatter 
                   content={msg.content}
                   metadata={msg.metadata}

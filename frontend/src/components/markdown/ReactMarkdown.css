@@ -15,7 +15,7 @@
   color: #1890ff !important;
   font-size: 20px !important;
   font-weight: 600 !important;
-  margin: 12px 0 8px 0 !important;
+  margin: 1px 0 !important;
   border-bottom: 2px solid #1890ff !important;
   padding-bottom: 4px !important;
 }
@@ -24,14 +24,14 @@
   color: #1890ff !important;
   font-size: 18px !important;
   font-weight: 600 !important;
-  margin: 8px 0 6px 0 !important;
+  margin: 1px 0 !important;
 }
 
 .markdown-content h3 {
   color: #1890ff !important;
   font-size: 16px !important;
   font-weight: 600 !important;
-  margin: 6px 0 4px 0 !important;
+  margin: 0 !important;
   border-left: 4px solid #1890ff !important;
   padding-left: 12px !important;
 }
@@ -43,25 +43,66 @@
   margin: 4px 0 2px 0 !important;
 }
 
-/* 段落樣式 */
+/* 段落樣式 - 🔥 極端測試：間距設為 0 */
 .markdown-content p {
-  margin: 8px 0 !important;
+  margin: 0 !important;
   line-height: 1.6 !important;
+}
+
+/* 🎯 列表項目內的段落：移除間距 */
+.markdown-content li > p {
+  margin: 0 !important;
+}
+
+/* ✅ Protocol Assistant 專用：覆蓋 App.css 的 chat-message-content 規則 */
+.chat-message-content .markdown-content p {
+  margin: 2px 0 !important;
+}
+
+.chat-message-content .markdown-content h1 {
+  margin: 6px 0 4px 0 !important;
+}
+
+.chat-message-content .markdown-content h2 {
+  margin: 4px 0 3px 0 !important;
+}
+
+.chat-message-content .markdown-content h3 {
+  margin: 3px 0 2px 0 !important;  /* 縮小 h3 間距 */
+}
+
+.chat-message-content .markdown-content h4 {
+  margin: 2px 0 2px 0 !important;
+}
+
+.chat-message-content .markdown-content ol,
+.chat-message-content .markdown-content ul {
+  margin: 2px 0 !important;  /* 縮小列表間距 */
+  padding-left: 24px !important;
+}
+
+.chat-message-content .markdown-content li {
+  margin-bottom: 0 !important;  /* 覆蓋 App.css 的 4px */
+  line-height: 1.5 !important;
+}
+
+.chat-message-content .markdown-content li > p {
+  margin: 0 !important;  /* 移除列表項目內段落的間距 */
 }
 
 /* 列表樣式 - 備用，主要邏輯在組件中 */
 .markdown-content ul {
-  margin: 8px 0 !important;
-  padding-left: 0 !important;
+  margin: 0 !important;
+  padding-left: 24px !important;
 }
 
 .markdown-content ol {
-  margin: 8px 0 !important;
-  padding-left: 0 !important;
+  margin: 0 !important;
+  padding-left: 24px !important;
 }
 
 .markdown-content li {
-  margin-bottom: 2px !important;
+  margin-bottom: 0 !important;
   line-height: 1.5 !important;
 }
 
