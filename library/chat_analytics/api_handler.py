@@ -44,17 +44,18 @@ class ChatAnalyticsAPIHandler:
             Response: DRF 回應
         """
         try:
-            # 解析查詢參數
-            days = int(request.GET.get('days', 30))
+            # 解析查詢參數：days=None 時查詢所有歷史資料
+            days_param = request.GET.get('days')
+            days = int(days_param) if days_param else None
             
-            # 驗證參數範圍
-            if days < 1 or days > 365:
+            # 驗證參數範圍（如果有指定）
+            if days is not None and (days < 1 or days > 3650):
                 return Response({
                     'success': False,
-                    'error': '天數必須在 1-365 之間'
+                    'error': '天數必須在 1-3650 之間'
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            self.logger.info(f"處理統計請求: days={days}")
+            self.logger.info(f"處理統計請求: days={days if days else '全部歷史'}")
             
             # 獲取統計數據
             statistics_data = self.statistics_handler.get_statistics(days)

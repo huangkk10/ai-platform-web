@@ -10,10 +10,10 @@ const DashboardPage = () => {
   const [statistics, setStatistics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [dateRange, setDateRange] = useState(30); // 默認30天
+  const [dateRange, setDateRange] = useState(null); // 預設為 null（全部歷史資料）
 
   // 載入統計數據
-  const loadStatistics = async (days = 30) => {
+  const loadStatistics = async (days = null) => {
     setLoading(true);
     setError(null);
     
@@ -173,7 +173,11 @@ const DashboardPage = () => {
             title="功能使用分佈" 
             extra={
               <span style={{ fontSize: '12px', color: '#666' }}>
-                最近 {dateRange} 天
+                {
+                  dateRange 
+                    ? `最近 ${dateRange} 天` 
+                    : '全部歷史'
+                }
               </span>
             }
           >

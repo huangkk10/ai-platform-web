@@ -60,12 +60,12 @@ class ChatUsageStatisticsHandler:
             self.logger.error(f"日期範圍計算失敗: {e}")
             raise
     
-    def _get_base_queryset(self, days: int) -> Tuple[Any, datetime, datetime]:
+    def _get_base_queryset(self, days: int = None) -> Tuple[Any, Any, Any]:
         """
         獲取基礎查詢集
         
         Args:
-            days: 天數
+            days: 天數（None 代表查詢所有歷史資料）
             
         Returns:
             Tuple: (QuerySet, 開始日期, 結束日期)
@@ -74,12 +74,28 @@ class ChatUsageStatisticsHandler:
             # 動態導入避免循環依賴
             from api.models import ChatUsage
             
-            start_date, end_date = self._get_date_range(days)
-            
-            base_queryset = ChatUsage.objects.filter(
-                created_at__gte=start_date,
-                created_at__lte=end_date
-            )
+            if days is None:
+                # 查詢所有歷史資料
+                base_queryset = ChatUsage.objects.all()
+                # 獲取最早和最晚的記錄時間
+                first_record = base_queryset.order_by('created_at').first()
+                last_record = base_queryset.order_by('-created_at').first()
+                
+                if first_record and last_record:
+                    start_date = first_record.created_at
+                    end_date = last_record.created_at
+                    self.logger.info(f"統計所有歷史資料: {start_date.strftime('%Y-%m-%d')} ~ {end_date.strftime('%Y-%m-%d')}")
+                else:
+                    # 沒有資料時使用當前時間
+                    start_date = end_date = timezone.now()
+                    self.logger.info("無歷史資料")
+            else:
+                # 指定天數的查詢
+                start_date, end_date = self._get_date_range(days)
+                base_queryset = ChatUsage.objects.filter(
+                    created_at__gte=start_date,
+                    created_at__lte=end_date
+                )
             
             self.logger.info(f"基礎查詢集記錄數: {base_queryset.count()}")
             return base_queryset, start_date, end_date
@@ -124,19 +140,28 @@ class ChatUsageStatisticsHandler:
             self.logger.error(f"圓餅圖數據生成失敗: {e}")
             return []
     
-    def get_daily_chart_data(self, base_queryset, start_date: datetime, days: int) -> List[Dict[str, Any]]:
+    def get_daily_chart_data(self, base_queryset, start_date: datetime, days: int = None) -> List[Dict[str, Any]]:
         """
         生成每日統計數據
         
         Args:
             base_queryset: 基礎查詢集
             start_date: 開始日期
-            days: 天數
+            days: 天數（None 時自動計算）
             
         Returns:
             List[Dict[str, Any]]: 每日統計數據
         """
         try:
+            # 如果 days 為 None，計算實際天數
+            if days is None:
+                last_record = base_queryset.order_by('-created_at').first()
+                if last_record:
+                    end_date = last_record.created_at
+                    days = (end_date.date() - start_date.date()).days + 1
+                else:
+                    days = 1
+            
             daily_stats = []
             
             for i in range(days):
@@ -169,7 +194,7 @@ class ChatUsageStatisticsHandler:
             self.logger.error(f"每日統計數據生成失敗: {e}")
             return []
     
-    def get_summary_statistics(self, base_queryset, start_date: datetime, end_date: datetime, days: int) -> Dict[str, Any]:
+    def get_summary_statistics(self, base_queryset, start_date: datetime, end_date: datetime, days: int = None) -> Dict[str, Any]:
         """
         生成總體統計
         
@@ -177,7 +202,7 @@ class ChatUsageStatisticsHandler:
             base_queryset: 基礎查詢集
             start_date: 開始日期
             end_date: 結束日期
-            days: 天數
+            days: 天數（None 時自動計算）
             
         Returns:
             Dict[str, Any]: 總體統計數據
@@ -188,6 +213,10 @@ class ChatUsageStatisticsHandler:
             total_files = base_queryset.filter(has_file_upload=True).count()
             avg_response_time = base_queryset.aggregate(avg=Avg('response_time'))['avg']
             
+            # 如果 days 為 None，計算實際天數
+            if days is None:
+                days = (end_date.date() - start_date.date()).days + 1
+            
             summary_stats = {
                 'total_chats': total_usage,
                 'total_users': total_users,
@@ -196,7 +225,8 @@ class ChatUsageStatisticsHandler:
                 'date_range': {
                     'start': start_date.strftime('%Y-%m-%d'),
                     'end': end_date.strftime('%Y-%m-%d'),
-                    'days': days
+                    'days': days,
+                    'is_all_time': days is None or days > 365  # 標記是否為全部歷史
                 }
             }
             
@@ -207,12 +237,12 @@ class ChatUsageStatisticsHandler:
             self.logger.error(f"總體統計生成失敗: {e}")
             return {}
     
-    def get_statistics(self, days: int = 30) -> Dict[str, Any]:
+    def get_statistics(self, days: int = None) -> Dict[str, Any]:
         """
         獲取完整統計數據
         
         Args:
-            days: 統計天數
+            days: 統計天數（None 代表查詢所有歷史資料）
             
         Returns:
             Dict[str, Any]: 完整統計數據

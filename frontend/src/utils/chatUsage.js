@@ -29,9 +29,11 @@ export const recordChatUsage = async (chatType, options = {}) => {
 };
 
 // 獲取聊天使用統計
-export const getChatStatistics = async (days = 30) => {
+export const getChatStatistics = async (days = null) => {
   try {
-    const response = await fetch(`/api/chat/statistics/?days=${days}`, {
+    // days=null 或未指定時，查詢所有歷史資料
+    const url = days ? `/api/chat/statistics/?days=${days}` : '/api/chat/statistics/';
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
