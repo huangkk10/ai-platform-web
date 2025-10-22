@@ -1,5 +1,15 @@
-/* RVT Assistant Chat Page 樣式 - 仿效 AI OCR 風格 */
-/* RVT Assistant 聊天頁面 - 統一使用微軟正黑體 */
+/* ============================================
+ * RVT Assistant Chat Page 樣式
+ * ============================================
+ * 📦 模組化架構：
+ * - 共用 Markdown 樣式：參考 ../../styles/assistants/AssistantMarkdownBase.css
+ * - 此檔案包含：RVT 特定的樣式（藍色主題、UI 元件等）
+ * 
+ * 🎨 設計原則：
+ * 1. 使用頁面前綴 .rvt-assistant-chat-page 避免 CSS 污染
+ * 2. Markdown 渲染樣式與 Protocol Assistant 保持一致
+ * 3. all: revert + margin: revert 策略
+ * ============================================ */
 
 .rvt-assistant-chat-page {
   height: 100vh;
@@ -228,7 +238,14 @@
   color: rgba(255, 255, 255, 0.9);
 }
 
-/* markdown-it 生成的 HTML 樣式 - 統一樣式 */
+/* ============================================
+ * 📝 Markdown 渲染樣式
+ * ============================================
+ * 此區塊樣式與 AssistantMarkdownBase.css 保持一致
+ * 使用 .rvt-assistant-chat-page 前綴確保作用域隔離
+ * ============================================ */
+
+/* markdown-it 生成的 HTML 樣式 */
 .rvt-assistant-chat-page .message-text .markdown-content {
   font-family: 'Microsoft JhengHei', '微軟正黑體', 'Microsoft YaHei', '微软雅黑',
     -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
@@ -236,7 +253,7 @@
   line-height: 1.6;
 }
 
-/* 覆蓋所有可能的間距規則 */
+/* 恢復瀏覽器預設間距 */
 .rvt-assistant-chat-page .markdown-preview-content.markdown-content p,
 .rvt-assistant-chat-page .markdown-preview-content.markdown-content h1,
 .rvt-assistant-chat-page .markdown-preview-content.markdown-content h2,
@@ -246,7 +263,7 @@
   margin: revert !important;
 }
 
-/* 列表樣式 - 使用原生 list-style-type（與 Protocol Assistant 一致）*/
+/* 多層列表樣式：○ circle → ■ square → ● disc */
 .rvt-assistant-chat-page .markdown-preview-content.markdown-content ul {
   list-style-type: circle !important;  /* 第一層：空心圓圈 */
   margin: 0 !important;

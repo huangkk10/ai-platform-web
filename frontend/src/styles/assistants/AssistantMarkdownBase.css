@@ -1,0 +1,113 @@
+/* ============================================
+ * 🎨 AI Assistant Markdown 渲染基礎樣式
+ * ============================================
+ * 用途：所有 AI Assistant（RVT、Protocol、QA 等）的共用 Markdown 渲染樣式
+ * 
+ * 設計原則：
+ * 1. 清除 App.css 干擾（all: revert）
+ * 2. 恢復瀏覽器預設值（margin: revert）
+ * 3. 只覆蓋必要的樣式（列表符號、間距）
+ * 4. 依賴 ReactMarkdown.css 處理其他元素
+ * 
+ * 使用方式：
+ * 在頁面 CSS 中：
+ * 1. 引入此檔案：@import '../../styles/assistants/AssistantMarkdownBase.css';
+ * 2. 使用頁面前綴覆蓋選擇器（.rvt-assistant-chat-page、.protocol-assistant-chat-page）
+ * 
+ * 更新日期：2025-10-23
+ * 版本：v1.0
+ * ============================================ */
+
+/* ============================================
+ * 1️⃣ 清除 App.css 干擾（關鍵）
+ * ============================================
+ * 為什麼需要：App.css 中的 .message-text 規則會干擾 Markdown 渲染
+ * 效果：清除所有繼承的樣式，恢復初始狀態
+ */
+.assistant-markdown-base .message-text {
+  all: revert !important;
+}
+
+/* ============================================
+ * 2️⃣ 恢復瀏覽器預設間距
+ * ============================================
+ * 為什麼需要：使用瀏覽器預設的 margin，而不是自定義值
+ * 效果：標題、段落、列表的間距使用標準值
+ */
+.assistant-markdown-base .markdown-preview-content.markdown-content p,
+.assistant-markdown-base .markdown-preview-content.markdown-content h1,
+.assistant-markdown-base .markdown-preview-content.markdown-content h2,
+.assistant-markdown-base .markdown-preview-content.markdown-content h3,
+.assistant-markdown-base .markdown-preview-content.markdown-content ul,
+.assistant-markdown-base .markdown-preview-content.markdown-content ol {
+  margin: revert !important;
+}
+
+/* ============================================
+ * 3️⃣ 多層列表樣式（統一符號）
+ * ============================================
+ * 層級 1：○ circle（空心圓）
+ * 層級 2：■ square（方塊）
+ * 層級 3：● disc（實心圓）
+ */
+
+/* 第一層：空心圓 */
+.assistant-markdown-base .markdown-preview-content.markdown-content ul {
+  list-style-type: circle !important;
+  margin: 0 !important;
+  padding-left: 24px !important;
+  color: #000 !important;
+}
+
+/* 第二層：方塊 */
+.assistant-markdown-base .markdown-preview-content.markdown-content ul ul {
+  list-style-type: square !important;
+}
+
+/* 第三層：實心圓 */
+.assistant-markdown-base .markdown-preview-content.markdown-content ul ul ul {
+  list-style-type: disc !important;
+}
+
+/* 有序列表 */
+.assistant-markdown-base .markdown-preview-content.markdown-content ol {
+  margin: 0 !important;
+  padding-left: 24px !important;
+}
+
+/* 列表項目 */
+.assistant-markdown-base .markdown-preview-content.markdown-content li {
+  margin-bottom: 0 !important;
+  line-height: 1.5 !important;
+  color: #333 !important;
+}
+
+/* ============================================
+ * 📝 使用範例
+ * ============================================
+ * 
+ * // RvtAssistantChatPage.css
+ * .rvt-assistant-chat-page .message-text {
+ *   all: revert !important;
+ * }
+ * 
+ * .rvt-assistant-chat-page .markdown-preview-content.markdown-content ul {
+ *   list-style-type: circle !important;
+ *   margin: 0 !important;
+ *   padding-left: 24px !important;
+ *   color: #000 !important;
+ * }
+ * 
+ * // ProtocolAssistantChatPage.css
+ * .protocol-assistant-chat-page .message-text {
+ *   all: revert !important;
+ * }
+ * 
+ * .protocol-assistant-chat-page .markdown-preview-content.markdown-content ul {
+ *   list-style-type: circle !important;
+ *   margin: 0 !important;
+ *   padding-left: 24px !important;
+ *   color: #000 !important;
+ * }
+ * 
+ * ============================================ */

@@ -1,4 +1,17 @@
-/* Protocol Assistant 聊天頁面 - 統一使用微軟正黑體 */
+/* ============================================
+ * Protocol Assistant 聊天頁面
+ * ============================================
+ * 📦 模組化架構：
+ * - 共用 Markdown 樣式：參考 ../../styles/assistants/AssistantMarkdownBase.css
+ * - 此檔案包含：Protocol 特定的樣式（圖片顯示等）
+ * 
+ * 🎨 設計原則：
+ * 1. 使用頁面前綴 .protocol-assistant-chat-page 避免 CSS 污染
+ * 2. Markdown 渲染樣式與 RVT Assistant 保持一致
+ * 3. all: revert + margin: revert 策略
+ * ============================================ */
+
+/* 統一使用微軟正黑體 */
 .protocol-assistant-chat-page * {
   font-family: 'Microsoft JhengHei', sans-serif !important;
 }
@@ -15,6 +28,13 @@
 .protocol-assistant-chat-page button:not(.stop-button):hover:not(:disabled) {
   background-color: #40a9ff !important;
 }
+
+/* ============================================
+ * 📝 Markdown 渲染樣式
+ * ============================================
+ * 此區塊樣式與 AssistantMarkdownBase.css 保持一致
+ * 使用 .protocol-assistant-chat-page 前綴確保作用域隔離
+ * ============================================ */
 
 /* 🎯 完全模仿 Markdown 測試頁面的格式 */
 .protocol-assistant-chat-page .markdown-preview-content.markdown-content {
