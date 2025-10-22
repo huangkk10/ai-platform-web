@@ -114,24 +114,14 @@
   border: 1px solid #e8e8e8;
 }
 
-.message-text {
-  word-wrap: break-word;
-  word-break: break-word; /* 強制長單詞換行 */
-  white-space: pre-wrap;
-  line-height: 1.5;
-  max-width: 100%; /* 確保不超出容器 */
-  overflow-wrap: break-word; /* 現代瀏覽器支援 */
-  font-family: 'Microsoft JhengHei', '微軟正黑體', 'Microsoft YaHei', '微软雅黑',
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
-    'Helvetica Neue', Helvetica, Arial, sans-serif !important;
-  font-size: 14px !important;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+.rvt-assistant-chat-page .message-text {
+  /* 清除 App.css 的所有規則 */
+  all: revert !important;
 }
 
-.message-text *,
-.message-text .ant-typography,
-.message-text .ant-typography * {
+.rvt-assistant-chat-page .message-text *,
+.rvt-assistant-chat-page .message-text .ant-typography,
+.rvt-assistant-chat-page .message-text .ant-typography * {
   font-family: 'Microsoft JhengHei', '微軟正黑體', 'Microsoft YaHei', '微软雅黑',
     -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
     'Helvetica Neue', Helvetica, Arial, sans-serif !important;
@@ -187,25 +177,25 @@
 }
 
 /* 表格樣式優化 */
-.message-text .ant-table {
+.rvt-assistant-chat-page .message-text .ant-table {
   font-size: 12px;
   margin: 8px 0;
 }
 
-.message-text .ant-table-thead > tr > th {
+.rvt-assistant-chat-page .message-text .ant-table-thead > tr > th {
   background: #fafafa;
   font-weight: 600;
   font-size: 12px;
   padding: 8px 12px;
 }
 
-.message-text .ant-table-tbody > tr > td {
+.rvt-assistant-chat-page .message-text .ant-table-tbody > tr > td {
   padding: 6px 12px;
   font-size: 12px;
 }
 
 /* 代碼塊樣式 */
-.message-text code {
+.rvt-assistant-chat-page .message-text code {
   background: #f6f8fa;
   border: 1px solid #e1e4e8;
   border-radius: 4px;
@@ -214,14 +204,14 @@
   font-family: 'Monaco', 'Consolas', 'Courier New', monospace;
 }
 
-.message-card.user .message-text code {
+.rvt-assistant-chat-page .message-card.user .message-text code {
   background: rgba(255, 255, 255, 0.2);
   border-color: rgba(255, 255, 255, 0.3);
   color: white;
 }
 
 /* 引用樣式 */
-.message-text blockquote {
+.rvt-assistant-chat-page .message-text blockquote {
   border-left: 4px solid #1890ff;
   padding-left: 12px;
   margin: 8px 0;
@@ -232,252 +222,58 @@
   border-radius: 0 4px 4px 0;
 }
 
-.message-card.user .message-text blockquote {
+.rvt-assistant-chat-page .message-card.user .message-text blockquote {
   border-left-color: rgba(255, 255, 255, 0.8);
   background: rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.9);
 }
 
 /* markdown-it 生成的 HTML 樣式 - 統一樣式 */
-.message-text .markdown-content {
+.rvt-assistant-chat-page .message-text .markdown-content {
   font-family: 'Microsoft JhengHei', '微軟正黑體', 'Microsoft YaHei', '微软雅黑',
     -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
     'Helvetica Neue', Helvetica, Arial, sans-serif !important;
   line-height: 1.6;
 }
 
-/* 標題樣式 */
-.message-text .markdown-content h1 {
-  color: #1890ff !important;
-  font-size: 20px !important;
-  font-weight: 600 !important;
-  margin: 12px 0 8px 0 !important;
-  border-bottom: 2px solid #1890ff !important;
-  padding-bottom: 4px !important;
+/* 覆蓋所有可能的間距規則 */
+.rvt-assistant-chat-page .markdown-preview-content.markdown-content p,
+.rvt-assistant-chat-page .markdown-preview-content.markdown-content h1,
+.rvt-assistant-chat-page .markdown-preview-content.markdown-content h2,
+.rvt-assistant-chat-page .markdown-preview-content.markdown-content h3,
+.rvt-assistant-chat-page .markdown-preview-content.markdown-content ul,
+.rvt-assistant-chat-page .markdown-preview-content.markdown-content ol {
+  margin: revert !important;
 }
 
-.message-text .markdown-content h2 {
-  color: #1890ff !important;
-  font-size: 18px !important;
-  font-weight: 600 !important;
-  margin: 8px 0 6px 0 !important;
-}
-
-.message-text .markdown-content h3 {
-  color: #1890ff !important;
-  font-size: 16px !important;
-  font-weight: 600 !important;
-  margin: 6px 0 4px 0 !important;
-  border-left: 4px solid #1890ff !important;
-  padding-left: 12px !important;
-}
-
-.message-text .markdown-content h4 {
-  color: #333 !important;
-  font-size: 15px !important;
-  font-weight: 600 !important;
-  margin: 8px 0 4px 0 !important;
-}
-
-.message-text .markdown-content h5 {
-  color: #333 !important;
-  font-size: 14px !important;
-  font-weight: 600 !important;
-  margin: 6px 0 3px 0 !important;
-}
-
-.message-text .markdown-content h6 {
-  color: #666 !important;
-  font-size: 13px !important;
-  font-weight: 600 !important;
-  margin: 4px 0 2px 0 !important;
-}
-
-/* 列表樣式 - 完全對齊解決方案 */
-.message-text .markdown-content ul,
-.message-text .markdown-content ol {
-  margin: 4px 0 !important;
-  padding-left: 0 !important;
-  list-style: none !important;
-}
-
-/* 自定義項目符號 - 確保完美對齊 */
-.message-text .markdown-content ul li {
-  margin-bottom: 2px !important;
-  line-height: 1.5 !important;
-  padding-left: 0 !important;
-  position: relative !important;
-  margin-left: 18px !important;
-}
-
-.message-text .markdown-content ul li:before {
-  content: '•' !important;
-  color: #1890ff !important;
-  position: absolute !important;
-  left: -18px !important;
-  top: 0 !important;
-  width: 18px !important;
-  text-align: center !important;
-  font-size: 16px !important;
-  line-height: 1.5 !important;
-}
-
-.message-text .markdown-content ol {
-  counter-reset: list-counter !important;
-}
-
-.message-text .markdown-content ol li {
-  margin-bottom: 2px !important;
-  line-height: 1.5 !important;
-  padding-left: 0 !important;
-  position: relative !important;
-  margin-left: 24px !important;
-  counter-increment: list-counter !important;
-}
-
-.message-text .markdown-content ol li:before {
-  content: counter(list-counter) '.' !important;
-  color: #1890ff !important;
-  position: absolute !important;
-  left: -24px !important;
-  top: 0 !important;
-  width: 20px !important;
-  text-align: right !important;
-  font-weight: 500 !important;
-  line-height: 1.5 !important;
-}
-
-/* 修正可能的格式問題 */
-.message-text .markdown-content li p {
+/* 列表樣式 - 使用原生 list-style-type（與 Protocol Assistant 一致）*/
+.rvt-assistant-chat-page .markdown-preview-content.markdown-content ul {
+  list-style-type: circle !important;  /* 第一層：空心圓圈 */
   margin: 0 !important;
-  display: inline !important;
+  padding-left: 24px !important;
+  color: #000 !important;
 }
 
-.message-text .markdown-content li > p:only-child {
-  display: inline !important;
+/* 第二層巢狀列表：小黑方塊 */
+.rvt-assistant-chat-page .markdown-preview-content.markdown-content ul ul {
+  list-style-type: square !important;
+}
+
+/* 第三層巢狀列表：實心圓 */
+.rvt-assistant-chat-page .markdown-preview-content.markdown-content ul ul ul {
+  list-style-type: disc !important;
+}
+
+.rvt-assistant-chat-page .markdown-preview-content.markdown-content ol {
+  list-style-type: decimal !important;
   margin: 0 !important;
+  padding-left: 24px !important;
 }
 
-/* 嵌套列表 - 修正對齊問題 */
-.message-text .markdown-content li ul,
-.message-text .markdown-content li ol {
-  margin: 4px 0 !important;
-  padding-left: 0 !important;
-}
-
-/* 嵌套列表項目 - 調整縮進 */
-.message-text .markdown-content li li {
-  margin-left: 18px !important;
-}
-
-.message-text .markdown-content li ol li {
-  margin-left: 24px !important;
-}
-
-/* 嵌套列表項目符號位置調整 */
-.message-text .markdown-content li ul li:before {
-  left: -18px !important;
-  content: '◦' !important;
-  font-size: 14px !important;
-}
-
-.message-text .markdown-content li ol li:before {
-  left: -24px !important;
-  width: 20px !important;
-}
-
-/* 表格樣式 */
-.message-text .markdown-content table {
-  width: 100% !important;
-  margin: 12px 0 !important;
-  border-collapse: collapse !important;
-  border: 1px solid #e8e8e8 !important;
-  border-radius: 6px !important;
-  overflow: hidden !important;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
-}
-
-.message-text .markdown-content thead {
-  background-color: #1890ff !important;
-  color: white !important;
-}
-
-.message-text .markdown-content th {
-  padding: 10px 8px !important;
-  text-align: center !important;
-  font-weight: bold !important;
-  font-size: 13px !important;
-  color: white !important;
-}
-
-.message-text .markdown-content td {
-  padding: 8px !important;
-  border-bottom: 1px solid #f0f0f0 !important;
-  font-size: 12px !important;
-  vertical-align: top !important;
-}
-
-/* 代碼樣式 */
-.message-text .markdown-content pre {
-  background-color: #f6f8fa !important;
-  border: 1px solid #e1e4e8 !important;
-  border-radius: 6px !important;
-  padding: 12px !important;
-  margin: 8px 0 !important;
-  overflow: auto !important;
-  font-family: 'Monaco', 'Consolas', 'Courier New', monospace !important;
-  font-size: 13px !important;
-}
-
-.message-text .markdown-content code {
-  background-color: #f6f8fa !important;
-  border: 1px solid #e1e4e8 !important;
-  border-radius: 3px !important;
-  padding: 2px 4px !important;
-  font-size: 12px !important;
-  font-family: 'Monaco', 'Consolas', 'Courier New', monospace !important;
-}
-
-.message-text .markdown-content pre code {
-  background: transparent !important;
-  border: none !important;
-  padding: 0 !important;
-}
-
-/* 引用樣式 */
-.message-text .markdown-content blockquote {
-  border-left: 4px solid #d9d9d9 !important;
-  margin: 8px 0 !important;
-  padding: 8px 12px !important;
-  background-color: #f8f9ff !important;
-  border-radius: 0 4px 4px 0 !important;
-  font-style: italic !important;
-  color: #666 !important;
-}
-
-/* 段落樣式 */
-.message-text .markdown-content p {
-  margin-bottom: 6px !important;
-  line-height: 1.6 !important;
-}
-
-/* 修正特殊段落間距問題 - 當段落後緊跟列表時減少間距 */
-.message-text .markdown-content p + ul,
-.message-text .markdown-content p + ol {
-  margin-top: -4px !important;
-}
-
-/* 修正包含粗體文字的標題式段落間距 */
-.message-text .markdown-content p strong:only-child {
-  display: block;
-  margin-bottom: -4px !important;
-}
-
-/* 分隔線 */
-.message-text .markdown-content hr {
-  margin: 16px 0 !important;
-  border: none !important;
-  border-top: 1px solid #e8e8e8 !important;
+.rvt-assistant-chat-page .markdown-preview-content.markdown-content li {
+  margin-bottom: 0 !important;
+  line-height: 1.5 !important;
+  color: #333 !important;
 }
 
 /* 響應式設計 */
@@ -496,15 +292,15 @@
 }
 
 @media (max-width: 480px) {
-  .message-text {
+  .rvt-assistant-chat-page .message-text {
     font-size: 13px;
   }
   
-  .input-container .ant-input {
+  .rvt-assistant-chat-page .input-container .ant-input {
     font-size: 13px;
   }
   
-  .input-container button {
+  .rvt-assistant-chat-page .input-container button {
     width: 36px !important;
     height: 36px !important;
   }
