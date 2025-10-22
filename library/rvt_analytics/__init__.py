@@ -56,8 +56,7 @@ if RVT_ANALYTICS_AVAILABLE:
         )
         from .statistics_manager import (
             StatisticsManager,
-            get_rvt_analytics_stats,
-            generate_analytics_report
+            get_rvt_analytics_stats
         )
         from .api_handlers import (
             RVTAnalyticsAPIHandler,
