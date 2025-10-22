@@ -854,25 +854,213 @@ const permissions = {
 };
 ```
 
-#### 6️⃣ **使用者編輯表單（UserEditModal.js）**
-```javascript
-// frontend/src/components/UserEditModal.js
+#### 6️⃣ **使用者編輯表單（IntegratedUserManagementPage.js）**
 
-// ✅ 在知識庫權限區塊添加新的 Checkbox
-<Card title="知識庫功能" size="small" style={{ marginBottom: '16px' }}>
-  {/* 現有的權限 Checkbox */}
-  <Form.Item name="kb_rvt_assistant" valuePropName="checked">
-    <Checkbox>RVT Assistant 知識庫</Checkbox>
-  </Form.Item>
-  <Form.Item name="kb_protocol_assistant" valuePropName="checked">
-    <Checkbox>Protocol Assistant 知識庫</Checkbox>
+**⚠️ 重要提醒**：
+- 實際檔案位置：`frontend/src/pages/admin/IntegratedUserManagementPage.js`
+- 舊的 `UserEditModal.js` 已不再使用
+- 需要同時更新 **兩個地方**：UI Checkbox 和資料處理邏輯
+
+##### 6.1 **添加 Web 應用功能權限 Checkbox**
+
+```javascript
+// frontend/src/pages/admin/IntegratedUserManagementPage.js
+// 位置：約第 569-615 行（Web 應用功能卡片）
+
+<Card 
+  title="Web 應用功能" 
+  size="small"
+  style={{ marginBottom: '16px' }}
+>
+  <Form.Item name="web_protocol_rag" valuePropName="checked">
+    <Checkbox>Web Protocol RAG</Checkbox>
   </Form.Item>
   
-  {/* ✅ 新增的權限 Checkbox */}
-  <Form.Item name="kb_xxx_assistant" valuePropName="checked">
-    <Checkbox>Xxx Assistant 知識庫</Checkbox>
+  <Form.Item name="web_ai_ocr" valuePropName="checked">
+    <Checkbox>Web AI OCR</Checkbox>
+  </Form.Item>
+  
+  <Form.Item name="web_rvt_assistant" valuePropName="checked">
+    <Checkbox>Web RVT Assistant</Checkbox>
+  </Form.Item>
+  
+  {/* ✅ 新增 Web Xxx Assistant Checkbox */}
+  <Form.Item name="web_xxx_assistant" valuePropName="checked">
+    <Checkbox>Web Xxx Assistant</Checkbox>
   </Form.Item>
 </Card>
+```
+
+##### 6.2 **添加知識庫功能權限 Checkbox**
+
+```javascript
+// frontend/src/pages/admin/IntegratedUserManagementPage.js
+// 位置：約第 617-648 行（知識庫功能卡片）
+
+<Card 
+  title="知識庫功能" 
+  size="small"
+  style={{ marginBottom: '16px' }}
+>
+  <Form.Item name="kb_protocol_rag" valuePropName="checked">
+    <Checkbox>知識庫 Protocol RAG</Checkbox>
+  </Form.Item>
+  
+  <Form.Item name="kb_ai_ocr" valuePropName="checked">
+    <Checkbox>知識庫 AI OCR</Checkbox>
+  </Form.Item>
+  
+  <Form.Item name="kb_rvt_assistant" valuePropName="checked">
+    <Checkbox>知識庫 RVT Assistant</Checkbox>
+  </Form.Item>
+  
+  <Form.Item name="kb_protocol_assistant" valuePropName="checked">
+    <Checkbox>知識庫 Protocol Assistant</Checkbox>
+  </Form.Item>
+  
+  {/* ✅ 新增知識庫 Xxx Assistant Checkbox */}
+  <Form.Item name="kb_xxx_assistant" valuePropName="checked">
+    <Checkbox>知識庫 Xxx Assistant</Checkbox>
+  </Form.Item>
+</Card>
+```
+
+##### 6.3 **⚠️ 關鍵步驟：更新 handleSaveUser 函數的解構賦值**
+
+**這是最容易遺漏且會導致 Bug 的地方！**
+
+```javascript
+// frontend/src/pages/admin/IntegratedUserManagementPage.js
+// 位置：約第 116-145 行
+
+const handleSaveUser = async (values) => {
+  try {
+    // ✅ 步驟 1：在解構賦值中添加新權限欄位
+    const {
+      web_protocol_rag,
+      web_ai_ocr,
+      web_rvt_assistant,
+      web_protocol_assistant,
+      web_xxx_assistant,        // ✅ 必須添加！
+      kb_protocol_rag,
+      kb_ai_ocr,
+      kb_rvt_assistant,
+      kb_protocol_assistant,
+      kb_xxx_assistant,         // ✅ 必須添加！
+      is_super_admin,
+      ...basicUserData
+    } = values;
+
+    // ✅ 步驟 2：在 permissionData 物件中添加新權限欄位
+    const permissionData = {
+      web_protocol_rag,
+      web_ai_ocr,
+      web_rvt_assistant,
+      web_protocol_assistant,
+      web_xxx_assistant,        // ✅ 必須添加！
+      kb_protocol_rag,
+      kb_ai_ocr,
+      kb_rvt_assistant,
+      kb_protocol_assistant,
+      kb_xxx_assistant,         // ✅ 必須添加！
+      is_super_admin
+    };
+
+    // ... 其餘程式碼
+  }
+};
+```
+
+**🚨 常見錯誤範例（導致權限無法儲存）**：
+```javascript
+// ❌ 錯誤：忘記在解構賦值中添加 web_xxx_assistant
+const {
+  web_protocol_rag,
+  web_ai_ocr,
+  web_rvt_assistant,
+  // web_xxx_assistant,  ← 遺漏！
+  kb_protocol_rag,
+  // ...
+} = values;
+
+// 結果：web_xxx_assistant 會被放入 basicUserData 中
+// 導致無法正確發送到後端的 /permissions/ API
+```
+
+##### 6.4 **更新權限標籤顯示邏輯**
+
+```javascript
+// frontend/src/pages/admin/IntegratedUserManagementPage.js
+// 位置：約第 247-268 行（getPermissionTags 函數）
+
+const getPermissionTags = (permissions) => {
+  const tags = [];
+  
+  if (permissions.is_super_admin) {
+    tags.push(<Tag key="super" color="red">超級管理員</Tag>);
+  }
+  
+  // Web 權限
+  if (permissions.web_protocol_rag) tags.push(<Tag key="web_protocol" color="blue">Web Protocol RAG</Tag>);
+  if (permissions.web_ai_ocr) tags.push(<Tag key="web_ocr" color="blue">Web AI OCR</Tag>);
+  if (permissions.web_rvt_assistant) tags.push(<Tag key="web_rvt" color="blue">Web RVT Assistant</Tag>);
+  if (permissions.web_protocol_assistant) tags.push(<Tag key="web_protocol_assistant" color="blue">Web Protocol Assistant</Tag>);
+  
+  // ✅ 新增 Web Xxx Assistant 標籤
+  if (permissions.web_xxx_assistant) tags.push(<Tag key="web_xxx_assistant" color="blue">Web Xxx Assistant</Tag>);
+  
+  // 知識庫權限
+  if (permissions.kb_protocol_rag) tags.push(<Tag key="kb_protocol" color="green">KB Protocol RAG</Tag>);
+  if (permissions.kb_ai_ocr) tags.push(<Tag key="kb_ocr" color="green">KB AI OCR</Tag>);
+  if (permissions.kb_rvt_assistant) tags.push(<Tag key="kb_rvt" color="green">KB RVT Assistant</Tag>);
+  if (permissions.kb_protocol_assistant) tags.push(<Tag key="kb_protocol_assistant" color="green">KB Protocol Assistant</Tag>);
+  
+  // ✅ 新增 KB Xxx Assistant 標籤
+  if (permissions.kb_xxx_assistant) tags.push(<Tag key="kb_xxx_assistant" color="green">KB Xxx Assistant</Tag>);
+  
+  return tags.length > 0 ? tags : <Tag color="default">無特殊權限</Tag>;
+};
+```
+
+##### 6.5 **更新表單初始化邏輯（handleEditUser）**
+
+```javascript
+// frontend/src/pages/admin/IntegratedUserManagementPage.js
+// 位置：約第 200-230 行
+
+const handleEditUser = (userData) => {
+  setEditingUser(userData);
+  form.setFieldsValue({
+    username: userData.username,
+    email: userData.email,
+    first_name: userData.first_name,
+    last_name: userData.last_name,
+    is_staff: userData.is_staff,
+    is_superuser: userData.is_superuser,
+    is_active: userData.is_active,
+    
+    // 功能權限
+    web_protocol_rag: userData.permissions?.web_protocol_rag || false,
+    web_ai_ocr: userData.permissions?.web_ai_ocr || false,
+    web_rvt_assistant: userData.permissions?.web_rvt_assistant || false,
+    web_protocol_assistant: userData.permissions?.web_protocol_assistant || false,
+    
+    // ✅ 新增 Web Xxx Assistant 初始值
+    web_xxx_assistant: userData.permissions?.web_xxx_assistant || false,
+    
+    kb_protocol_rag: userData.permissions?.kb_protocol_rag || false,
+    kb_ai_ocr: userData.permissions?.kb_ai_ocr || false,
+    kb_rvt_assistant: userData.permissions?.kb_rvt_assistant || false,
+    kb_protocol_assistant: userData.permissions?.kb_protocol_assistant || false,
+    
+    // ✅ 新增 KB Xxx Assistant 初始值
+    kb_xxx_assistant: userData.permissions?.kb_xxx_assistant || false,
+    
+    is_super_admin: userData.permissions?.is_super_admin || false
+  });
+  setModalVisible(true);
+};
+```
 ```
 
 #### 7️⃣ **側邊欄選單（Sidebar.js）**
@@ -925,10 +1113,16 @@ router.register(r'xxx-guides', views.XxxGuideViewSet)
 - [ ] GuidePreviewPage 支援新 Assistant（自動識別路徑）
 
 **權限管理層面**：
-- [ ] UserProfile 添加新的 kb_xxx_assistant 欄位
-- [ ] UserContext.js 添加權限映射
-- [ ] UserEditModal.js 添加權限 Checkbox（在知識庫功能卡片中）
-- [ ] ProtectedRoute 使用正確的權限名稱（kbXxxAssistant）
+- [ ] UserProfile Model 添加 `web_xxx_assistant` 和 `kb_xxx_assistant` 欄位
+- [ ] Migration 已創建並執行
+- [ ] UserContext.js 添加權限映射（`webXxxAssistant` 和 `kbXxxAssistant`）
+- [ ] IntegratedUserManagementPage.js 添加 Web 功能 Checkbox
+- [ ] IntegratedUserManagementPage.js 添加知識庫功能 Checkbox
+- [ ] **🚨 IntegratedUserManagementPage.js 的 `handleSaveUser` 解構賦值中添加新權限**
+- [ ] **🚨 IntegratedUserManagementPage.js 的 `permissionData` 物件中添加新權限**
+- [ ] IntegratedUserManagementPage.js 的 `getPermissionTags` 添加標籤顯示
+- [ ] IntegratedUserManagementPage.js 的 `handleEditUser` 添加初始值
+- [ ] ProtectedRoute 使用正確的權限名稱（`webXxxAssistant` / `kbXxxAssistant`）
 
 **導航層面**：
 - [ ] Sidebar.js 添加選單項目
@@ -959,10 +1153,19 @@ AI 在創建新 Assistant 時必須避免以下錯誤：
 
 1. **❌ 忘記添加 preview 路由** - 會導致資料預覽功能無法使用
 2. **❌ 資料庫欄位不一致** - 必須與 RVTGuide 完全相同
-3. **❌ 權限欄位命名錯誤** - 必須使用 `kb_{name}_assistant` 格式
+3. **❌ 權限欄位命名錯誤** - 必須使用 `web_{name}_assistant` 和 `kb_{name}_assistant` 格式
 4. **❌ 忘記更新 GuidePreviewPage** - 需要支援多 Assistant 路徑識別
-5. **❌ 忘記在 UserEditModal 添加 Checkbox** - 導致管理員無法設置權限
-6. **❌ 忘記執行 Migration** - 導致資料庫表未創建
+5. **❌ 🚨🚨🚨 忘記在 IntegratedUserManagementPage.js 的 `handleSaveUser` 解構賦值中添加新權限** - **最常見且難以發現的 Bug！會導致權限無法儲存！**
+6. **❌ 忘記在 IntegratedUserManagementPage.js 添加 Checkbox** - 導致管理員無法設置權限
+7. **❌ 忘記執行 Migration** - 導致資料庫表未創建
+
+**🔥 特別提醒：權限無法儲存問題排查**
+如果用戶報告「勾選權限後儲存，再次進入發現沒有設定到」：
+1. **首先檢查**：`IntegratedUserManagementPage.js` 的第 116-145 行
+2. **確認**：`handleSaveUser` 函數中的解構賦值是否包含新權限
+3. **確認**：`permissionData` 物件是否包含新權限
+4. **測試**：使用開發者工具 Network 面板查看 PATCH 請求的 payload
+5. **驗證**：確認後端 API `/api/profiles/{id}/permissions/` 收到正確的欄位
 
 ---
 
