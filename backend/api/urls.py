@@ -95,6 +95,12 @@ urlpatterns = [
     path('rvt-analytics/questions/', views.rvt_analytics_questions, name='rvt_analytics_questions'),
     path('rvt-analytics/satisfaction/', views.rvt_analytics_satisfaction, name='rvt_analytics_satisfaction'),
     
+    # Protocol Analytics API - Protocol Assistant 分析功能
+    path('protocol-analytics/overview/', views.protocol_analytics_overview, name='protocol_analytics_overview'),
+    path('protocol-analytics/questions/', views.protocol_analytics_questions, name='protocol_analytics_questions'),
+    path('protocol-analytics/satisfaction/', views.protocol_analytics_satisfaction, name='protocol_analytics_satisfaction'),
+    path('protocol-analytics/trends/', views.protocol_analytics_trends, name='protocol_analytics_trends'),
+    
     # 聊天向量化和聚類分析 API
     path('chat-vectors/search/', views.chat_vector_search, name='chat_vector_search'),
     path('chat-clustering/analysis/', views.chat_clustering_analysis, name='chat_clustering_analysis'),

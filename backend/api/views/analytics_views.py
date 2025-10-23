@@ -55,6 +55,19 @@ except ImportError as e:
     logger.warning(f"⚠️  RVT Analytics Library 無法載入: {str(e)}")
 
 
+# Protocol Analytics Library
+PROTOCOL_ANALYTICS_AVAILABLE = False
+ProtocolAnalyticsAPIHandler = None
+
+try:
+    from library.protocol_analytics import (
+        PROTOCOL_ANALYTICS_AVAILABLE,
+        ProtocolAnalyticsAPIHandler
+    )
+except ImportError as e:
+    logger.warning(f"⚠️  Protocol Analytics Library 無法載入: {str(e)}")
+
+
 # Chat Vector Services
 CHAT_VECTOR_SERVICES_AVAILABLE = False
 search_similar_chat_messages = None
@@ -504,6 +517,120 @@ def rvt_analytics_satisfaction(request):
         return JsonResponse({
             'success': False,
             'error': f'滿意度分析失敗: {str(e)}'
+        }, status=500)
+
+
+# ============= Protocol Analytics API =============
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def protocol_analytics_overview(request):
+    """
+    Protocol Analytics 概覽 API - 使用 Protocol Analytics Library
+    GET /api/protocol-analytics/overview/
+    
+    Query parameters:
+    - days: 統計天數 (default: 30)
+    """
+    try:
+        if PROTOCOL_ANALYTICS_AVAILABLE and ProtocolAnalyticsAPIHandler:
+            handler = ProtocolAnalyticsAPIHandler()
+            return handler.handle_overview_request(request)
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': 'Protocol Analytics Library not available'
+            }, status=503)
+            
+    except Exception as e:
+        logger.error(f"Protocol Analytics overview API error: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': f'概覽獲取失敗: {str(e)}'
+        }, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def protocol_analytics_questions(request):
+    """
+    Protocol Analytics 問題分析 API - 使用 Protocol Analytics Library
+    GET /api/protocol-analytics/questions/
+    
+    Query parameters:
+    - days: 統計天數 (default: 30)
+    """
+    try:
+        if PROTOCOL_ANALYTICS_AVAILABLE and ProtocolAnalyticsAPIHandler:
+            handler = ProtocolAnalyticsAPIHandler()
+            return handler.handle_questions_request(request)
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': 'Protocol Analytics Library not available'
+            }, status=503)
+            
+    except Exception as e:
+        logger.error(f"Protocol Analytics questions API error: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': f'問題分析失敗: {str(e)}'
+        }, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def protocol_analytics_satisfaction(request):
+    """
+    Protocol Analytics 滿意度分析 API - 使用 Protocol Analytics Library
+    GET /api/protocol-analytics/satisfaction/
+    
+    Query parameters:
+    - days: 統計天數 (default: 30)
+    """
+    try:
+        if PROTOCOL_ANALYTICS_AVAILABLE and ProtocolAnalyticsAPIHandler:
+            handler = ProtocolAnalyticsAPIHandler()
+            return handler.handle_satisfaction_request(request)
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': 'Protocol Analytics Library not available'
+            }, status=503)
+            
+    except Exception as e:
+        logger.error(f"Protocol Analytics satisfaction API error: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': f'滿意度分析失敗: {str(e)}'
+        }, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def protocol_analytics_trends(request):
+    """
+    Protocol Analytics 趨勢分析 API - 使用 Protocol Analytics Library
+    GET /api/protocol-analytics/trends/
+    
+    Query parameters:
+    - days: 統計天數 (default: 30)
+    """
+    try:
+        if PROTOCOL_ANALYTICS_AVAILABLE and ProtocolAnalyticsAPIHandler:
+            handler = ProtocolAnalyticsAPIHandler()
+            return handler.handle_trends_request(request)
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': 'Protocol Analytics Library not available'
+            }, status=503)
+            
+    except Exception as e:
+        logger.error(f"Protocol Analytics trends API error: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': f'趨勢分析失敗: {str(e)}'
         }, status=500)
 
 

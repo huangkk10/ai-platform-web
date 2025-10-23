@@ -128,6 +128,12 @@ from .analytics_views import (
     rvt_analytics_questions,
     rvt_analytics_satisfaction,
     
+    # Protocol Analytics API
+    protocol_analytics_overview,
+    protocol_analytics_questions,
+    protocol_analytics_satisfaction,
+    protocol_analytics_trends,
+    
     # 聊天向量化和聚類 API
     chat_vector_search,
     chat_clustering_analysis,
@@ -258,6 +264,12 @@ __all__ = [
     'rvt_analytics_overview',
     'rvt_analytics_questions',
     'rvt_analytics_satisfaction',
+    
+    # Protocol Analytics
+    'protocol_analytics_overview',
+    'protocol_analytics_questions',
+    'protocol_analytics_satisfaction',
+    'protocol_analytics_trends',
     
     # Chat Vector & Clustering
     'chat_vector_search',

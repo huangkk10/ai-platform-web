@@ -25,7 +25,7 @@ import RvtAssistantChatPage from './pages/RvtAssistantChatPage';
 import ProtocolAssistantChatPage from './pages/ProtocolAssistantChatPage';
 import LogAnalyzePage from './pages/LogAnalyzePage';
 import MarkdownEditorPage from './pages/MarkdownEditorPage';
-import RVTAnalyticsPage from './pages/RVTAnalyticsPage';
+import UnifiedAnalyticsPage from './pages/UnifiedAnalyticsPage';
 import DevMarkdownTestPage from './pages/DevMarkdownTestPage';
 
 const { Content } = Layout;
@@ -82,7 +82,8 @@ function AppLayout() {
       case '/admin/user-management':
         return '用戶權限管理';
       case '/admin/rvt-analytics':
-        return 'RVT Assistant 分析報告';
+      case '/admin/analytics':
+        return 'Analytics Dashboard';
       case '/dev/markdown-test':
         return '🧪 Markdown 測試頁面';
       default:
@@ -314,7 +315,8 @@ function AppLayout() {
             <Route path="/log-analyze" element={<LogAnalyzePage />} />
             <Route path="/admin/test-class-management" element={<TestClassManagementPage />} />
             <Route path="/admin/user-management" element={<IntegratedUserManagementPage />} />
-            <Route path="/admin/rvt-analytics" element={<RVTAnalyticsPage />} />
+            <Route path="/admin/rvt-analytics" element={<UnifiedAnalyticsPage />} />
+            <Route path="/admin/analytics" element={<UnifiedAnalyticsPage />} />
 
             {/* 🧪 開發工具 - Markdown 測試頁面（所有用戶可訪問） */}
             <Route path="/dev/markdown-test" element={<DevMarkdownTestPage />} />
