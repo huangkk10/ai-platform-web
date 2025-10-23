@@ -99,6 +99,7 @@ class StatisticsManager(BaseStatisticsManager):
             from .question_classifier import QuestionClassifier, classify_question
             from django.utils import timezone
             from api.models import ChatMessage, ConversationSession
+            from collections import Counter
             
             # 獲取用戶消息
             start_date = timezone.now() - timedelta(days=days)
@@ -119,7 +120,8 @@ class StatisticsManager(BaseStatisticsManager):
                 return {
                     'total_questions': 0,
                     'category_distribution': {},
-                    'top_questions': []
+                    'top_questions': [],
+                    'popular_questions': []
                 }
             
             # 問題分類統計
@@ -140,11 +142,23 @@ class StatisticsManager(BaseStatisticsManager):
             # 獲取分類統計
             category_stats = classifier.get_category_stats(classified_questions)
             
+            # 計算熱門問題（問題頻率統計）
+            question_counter = Counter(user_messages)
+            popular_questions = [
+                {
+                    'question': question,
+                    'count': count,
+                    'percentage': round((count / len(user_messages)) * 100, 2)
+                }
+                for question, count in question_counter.most_common(20)
+            ]
+            
             return {
                 'total_questions': len(user_messages),
                 'category_distribution': category_counts,
                 'category_percentages': category_stats.get('category_percentages', {}),
-                'top_categories': category_stats.get('top_categories', [])
+                'top_categories': category_stats.get('top_categories', []),
+                'popular_questions': popular_questions  # 添加熱門問題
             }
             
         except Exception as e:
