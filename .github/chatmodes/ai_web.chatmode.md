@@ -68,7 +68,121 @@
 - [ ] Django 設定檔路徑正確（容器內為 `/app/ai_platform/settings.py`）
 - [ ] 修改的檔案已同步到容器（如需要）
 
-### 🐳 容器服務列表
+### � 系統日誌查詢指南
+
+**日誌存放位置**：`/home/kevin/PythonCode/ai-platform-web/logs/`
+
+#### 📁 日誌檔案分類
+
+| 日誌檔案 | 用途 | 查詢場景 | 保留天數 |
+|---------|------|---------|---------|
+| `django.log` | 一般應用程式日誌（INFO+） | 系統運行狀態、一般操作記錄 | 30 天 |
+| `django_error.log` | 錯誤日誌（ERROR+） | **排查系統錯誤和異常** | 60 天 |
+| `dify_requests.log` | Dify AI 請求記錄（DEBUG） | AI 助手請求追蹤、RAG 檢索分析 | 20 天 |
+| `rvt_analytics.log` | RVT Analytics 日誌 | RVT 分析系統操作、統計計算 | 15 天 |
+| `vector_operations.log` | 向量操作日誌 | 向量生成、語義搜尋、嵌入操作 | 15 天 |
+| `api_access.log` | API 訪問記錄 | API 使用統計、流量分析 | 7 天 |
+| `celery.log` | Celery 任務日誌 | 背景任務執行、定時任務監控 | 10 天 |
+
+#### 🔍 常用日誌查詢命令
+
+```bash
+# 查看最新日誌（即時監控）
+tail -f logs/django.log              # 一般日誌
+tail -f logs/django_error.log        # 錯誤日誌
+tail -f logs/dify_requests.log       # Dify 請求日誌
+
+# 查詢特定錯誤
+grep -i "error" logs/django_error.log
+grep -i "exception" logs/django.log
+
+# 查詢特定日期的日誌
+cat logs/django.log.2025-10-21       # 歷史日誌
+cat logs/dify_requests.log.2025-10-22
+
+# 查詢特定 API 的請求
+grep "POST /api/rvt-guide/chat" logs/api_access.log
+grep "conversation_id" logs/dify_requests.log
+
+# 查詢向量操作記錄
+grep "向量生成" logs/vector_operations.log
+grep "semantic_search" logs/vector_operations.log
+
+# 統計錯誤次數
+grep -c "ERROR" logs/django_error.log
+grep "ERROR" logs/django.log | wc -l
+
+# 查詢最近 N 行
+tail -n 100 logs/django.log          # 最後 100 行
+head -n 50 logs/django_error.log     # 前 50 行
+
+# 結合多個條件查詢
+grep "RVT" logs/django.log | grep "ERROR"
+grep -A 10 "Exception" logs/django_error.log  # 顯示錯誤後 10 行
+grep -B 5 "CRITICAL" logs/django.log          # 顯示錯誤前 5 行
+```
+
+#### 🎯 故障排查日誌優先順序
+
+**當用戶報告問題時，按以下順序檢查日誌**：
+
+1. **django_error.log** - 首先檢查錯誤日誌
+   ```bash
+   tail -n 200 logs/django_error.log | grep -i "$(date +%Y-%m-%d)"
+   ```
+
+2. **django.log** - 查看一般日誌的上下文
+   ```bash
+   tail -n 500 logs/django.log
+   ```
+
+3. **專用日誌** - 根據問題類型查看對應日誌
+   ```bash
+   # AI 助手問題
+   tail -n 100 logs/dify_requests.log
+   
+   # 向量搜尋問題
+   tail -n 100 logs/vector_operations.log
+   
+   # RVT 分析問題
+   tail -n 100 logs/rvt_analytics.log
+   
+   # Celery 任務問題
+   tail -n 100 logs/celery.log
+   ```
+
+4. **容器日誌** - 檢查容器級別的日誌
+   ```bash
+   docker logs ai-django --tail 200
+   docker logs postgres_db --tail 100
+   ```
+
+#### 📊 日誌分析技巧
+
+```bash
+# 分析 API 請求頻率
+awk '{print $1}' logs/api_access.log | sort | uniq -c | sort -nr
+
+# 查找最常見的錯誤
+grep "ERROR" logs/django_error.log | awk -F'ERROR' '{print $2}' | sort | uniq -c | sort -nr
+
+# 查詢特定時間範圍的日誌
+grep "2025-10-27 14:" logs/django.log
+
+# 從容器內查看日誌（如果需要）
+docker exec ai-django tail -f /app/logs/django.log
+docker exec ai-django grep "ERROR" /app/logs/django_error.log
+```
+
+#### ⚠️ 注意事項
+
+- **日誌輪替**：每天午夜自動輪替，舊檔案命名為 `xxx.log.YYYY-MM-DD`
+- **保留期限**：根據日誌類型自動清理過期日誌（見上表）
+- **權限問題**：如果無法讀取日誌，檢查檔案權限 `ls -la logs/`
+- **容器內路徑**：容器內日誌路徑為 `/app/logs/`
+- **即時監控**：使用 `tail -f` 可即時查看新增日誌
+
+### �🐳 容器服務列表
 
 本專案包含以下 Docker 容器：
 
