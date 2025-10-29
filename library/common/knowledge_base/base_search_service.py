@@ -110,7 +110,7 @@ class BaseKnowledgeBaseSearchService(ABC):
                     query=query,
                     source_table=self.source_table,
                     limit=limit,
-                    threshold=0.3  # 段落搜尋閾值
+                    threshold=0.7  # 段落搜尋閾值（提高精準度，避免混到其他資料）
                 )
                 
                 if section_results:
@@ -128,7 +128,7 @@ class BaseKnowledgeBaseSearchService(ABC):
                 model_class=self.model_class,
                 source_table=self.source_table,
                 limit=limit,
-                threshold=0.0,
+                threshold=0.6,  # 備用方案也要有品質保證，避免不相關內容
                 use_1024=True,
                 content_formatter=self._get_item_content
             )
@@ -208,6 +208,12 @@ class BaseKnowledgeBaseSearchService(ABC):
                             section_contents.append(content)
                     
                     combined_content = "\n\n".join(section_contents)
+                    
+                    # ✅ 修復：添加圖片資訊（如果文檔有圖片方法）
+                    if hasattr(item, 'get_images_summary'):
+                        images_summary = item.get_images_summary()
+                        if images_summary:
+                            combined_content += f"\n\n{images_summary}"
                     
                     result = {
                         'content': combined_content,

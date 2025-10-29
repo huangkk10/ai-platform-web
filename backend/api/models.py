@@ -723,18 +723,21 @@ class ProtocolGuide(models.Model):
         return self.get_image_count() > 0
     
     def get_images_summary(self):
-        """獲取圖片摘要資訊（用於向量化）"""
+        """獲取圖片摘要資訊（用於向量化和前端顯示）"""
         images = self.get_active_images()
         if not images.exists():
             return ""
         
         summaries = []
         for img in images:
-            parts = [f"圖片{img.display_order}"]
-            if img.title:
-                parts.append(f"標題:{img.title}")
+            # ✅ 修復：使用前端可識別的格式 🖼️ filename
+            # 同時保留說明資訊供 AI 參考
+            # 優先放入能被前端解析的格式：包含 IMG:id 與實際檔名
+            # 範例：🖼️ [IMG:33] kisspng-xxxx.png (說明)
+            display_name = img.filename or img.title or f"image_{img.id}"
+            parts = [f"🖼️ [IMG:{img.id}] {display_name}"]
             if img.description:
-                parts.append(f"說明:{img.description}")
+                parts.append(f"({img.description})")  # 附加：說明資訊
             summaries.append(" ".join(parts))
         
         return f"包含{len(summaries)}張圖片: " + "; ".join(summaries)
