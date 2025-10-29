@@ -387,7 +387,8 @@ const MarkdownEditorLayout = ({
           padding: '16px',
           display: 'flex',
           flexDirection: 'column',
-          gap: '16px'
+          gap: '16px',
+          overflow: 'hidden'  // 防止外層產生滾動，確保 toolbar sticky 生效
         }}>
           {/* 標題輸入 */}
           <Card size="small" style={{ flexShrink: 0 }}>
@@ -424,13 +425,16 @@ const MarkdownEditorLayout = ({
             style={{
               flex: 1,
               display: 'flex',
-              flexDirection: 'column'
+              flexDirection: 'column',
+              minHeight: 0  // 重要：允許 flex 子元素正確收縮
             }}
             bodyStyle={{
               flex: 1,
               padding: '16px',
               display: 'flex',
-              flexDirection: 'column'
+              flexDirection: 'column',
+              overflow: 'hidden',  // 防止 Card 內部產生外層滾動
+              minHeight: 0         // 確保高度受控
             }}
           >
             <div style={{ flex: 1, minHeight: '500px' }}>

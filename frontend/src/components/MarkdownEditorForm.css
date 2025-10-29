@@ -1,27 +1,34 @@
 /* Markdown 編輯器自定義樣式 */
-/* 固定工具欄，防止滾動時消失 */
+/* 固定工具欄，防止滾動時消失 - 方案1：強化 Sticky 定位 + 方案A：防止外層滾動 */
 
 .markdown-editor-container {
   position: relative !important;
   height: 100% !important;
   border: 1px solid #d9d9d9 !important;
   border-radius: 6px !important;
-  overflow: hidden !important;
+  overflow: visible !important; /* 改為 visible，允許 sticky 生效 */
+  display: flex !important;     /* 確保正確的 flex 佈局 */
+  flex-direction: column !important;
 }
 
 .markdown-editor-container .rc-md-editor {
   height: 100% !important;
   border: none !important;
+  position: relative !important; /* 確保 sticky 有參考點 */
+  overflow: visible !important; /* 關鍵：不能是 hidden 或 auto */
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 !important;           /* 填滿容器 */
 }
 
-/* 工具欄固定樣式 - 使用多重選擇器確保生效 */
+/* 工具欄固定樣式 - 強化版 Sticky 定位 */
 .markdown-editor-container .rc-md-editor .header,
 .rc-md-editor .header,
 div.rc-md-editor .header {
   position: sticky !important;
-  position: -webkit-sticky !important;
-  top: 0px !important;
-  z-index: 9999 !important;
+  position: -webkit-sticky !important; /* Safari 相容性 */
+  top: 0 !important;
+  z-index: 10000 !important; /* 提高層級，確保在其他元素之上 */
   background: #ffffff !important;
   background-color: #ffffff !important;
   border-bottom: 1px solid #d9d9d9 !important;
@@ -30,22 +37,27 @@ div.rc-md-editor .header {
   margin-bottom: 0 !important;
   padding: 8px !important;
   width: 100% !important;
+  flex-shrink: 0 !important; /* 防止工具列被壓縮 */
 }
 
-/* 編輯器容器樣式 */
+/* 編輯器容器樣式 - 確保可以滾動 */
 .markdown-editor-container .rc-md-editor .editor-container,
 .rc-md-editor .editor-container {
   height: calc(100% - 50px) !important;
   position: relative !important;
   display: flex !important;
   flex-direction: column !important;
+  overflow-y: auto !important; /* 允許內容區域滾動 - 這是唯一應該滾動的地方 */
+  flex: 1 !important;
+  min-height: 0 !important;    /* 重要：允許 flex 子元素正確收縮 */
 }
 
 .markdown-editor-container .rc-md-editor .editor-container .section-container,
 .rc-md-editor .editor-container .section-container {
-  height: 100% !important;
+  height: auto !important;     /* 改為 auto，讓內容自然撐開 */
+  min-height: 100% !important; /* 確保至少填滿容器 */
   flex: 1 !important;
-  overflow: hidden !important;
+  overflow: visible !important; /* 改為 visible */
   display: flex !important;
 }
 
@@ -117,6 +129,8 @@ div.rc-md-editor .header {
   padding: 4px 6px !important;
   border-radius: 4px !important;
   transition: background-color 0.2s ease !important;
+  cursor: pointer !important; /* 確保滑鼠指標顯示為可點擊 */
+  pointer-events: auto !important; /* 確保按鈕可點擊 */
 }
 
 .markdown-editor-container .rc-md-editor .header .button-wrap .button:hover {
@@ -126,6 +140,11 @@ div.rc-md-editor .header {
 .markdown-editor-container .rc-md-editor .header .button-wrap .button.active {
   background-color: #e6f7ff !important;
   color: #1890ff !important;
+}
+
+/* 確保工具列在所有狀態下都可交互 */
+.markdown-editor-container .rc-md-editor .header * {
+  pointer-events: auto !important;
 }
 
 /* 響應式設計 */
@@ -224,4 +243,37 @@ div.rc-md-editor .header {
   .image-manager-drawer .ant-drawer-header {
     padding: 12px 16px !important;
   }
+}
+
+/* ============================================ */
+/* 方案 1 增強：全螢幕模式下的工具列優化 */
+/* ============================================ */
+
+/* 全螢幕模式下確保工具列固定 */
+.rc-md-editor.full .header {
+  position: sticky !important;
+  position: -webkit-sticky !important;
+  top: 0 !important;
+  z-index: 10000 !important;
+  background: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+}
+
+/* Modal 內的編輯器工具列優化 */
+.ant-modal .markdown-editor-container .rc-md-editor .header {
+  position: sticky !important;
+  position: -webkit-sticky !important;
+  top: 0 !important;
+  z-index: 10001 !important; /* 比普通模式更高 */
+}
+
+/* 確保在 Modal 滾動時工具列依然可見 */
+.ant-modal-body .markdown-editor-container {
+  overflow: visible !important;
+}
+
+/* 調試：幫助識別 sticky 是否生效 */
+.rc-md-editor .header.sticky-active {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
+  background: #fafafa !important;
 }

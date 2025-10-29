@@ -283,7 +283,8 @@ const MarkdownEditorForm = ({
           height: 'calc(90vh - 108px)', 
           padding: '16px',
           display: 'flex',
-          flexDirection: 'column'
+          flexDirection: 'column',
+          overflow: 'hidden'  // 防止 Modal body 產生滾動
         }}
       footer={[
         <Tooltip key="images" title="圖片管理">
@@ -311,9 +312,14 @@ const MarkdownEditorForm = ({
           <Spin size="large" />
         </div>
       ) : (
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ 
+          height: '100%', 
+          display: 'flex', 
+          flexDirection: 'column',
+          overflow: 'hidden'  // 防止外層產生滾動
+        }}>
           {/* 標題輸入 */}
-          <div style={{ marginBottom: '16px' }}>
+          <div style={{ marginBottom: '16px', flexShrink: 0 }}>
             <label style={{ 
               display: 'block', 
               marginBottom: '4px', 
@@ -330,11 +336,18 @@ const MarkdownEditorForm = ({
           </div>
 
           {/* Markdown 編輯器 */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ 
+            flex: 1, 
+            display: 'flex', 
+            flexDirection: 'column',
+            minHeight: 0,        // 允許 flex 子元素正確收縮
+            overflow: 'hidden'   // 防止這層產生滾動
+          }}>
             <label style={{ 
               display: 'block', 
               marginBottom: '8px', 
-              fontWeight: 'bold' 
+              fontWeight: 'bold',
+              flexShrink: 0       // 標籤不收縮
             }}>
               內容編輯 *
             </label>
