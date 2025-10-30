@@ -55,7 +55,7 @@ export const CustomTableHead = ({ children, ...props }) => (
   <thead 
     {...props}
     style={{
-      backgroundColor: '#1890ff',
+      backgroundColor: '#0050b3',  // 深藍色背景 - 提高可讀性
       color: 'white',
       display: 'table-header-group'
     }}
@@ -359,25 +359,25 @@ export const CustomHeading = ({ level, children, ...props }) => {
   
   const headingStyles = {
     1: {
-      color: '#1890ff',
+      color: '#0050b3',  // 深藍色 - 提高可讀性
       fontSize: '20px',
       fontWeight: 600,
       margin: '12px 0 8px 0',
-      borderBottom: '2px solid #1890ff',
+      borderBottom: '2px solid #0050b3',  // 深藍色邊框
       paddingBottom: '4px'
     },
     2: {
-      color: '#1890ff',
+      color: '#0050b3',  // 深藍色 - 提高可讀性
       fontSize: '18px',
       fontWeight: 600,
       margin: '8px 0 6px 0'
     },
     3: {
-      color: '#1890ff',
+      color: '#0050b3',  // 深藍色 - 提高可讀性
       fontSize: '16px',
       fontWeight: 600,
       margin: '6px 0 4px 0',
-      borderLeft: '4px solid #1890ff',
+      borderLeft: '4px solid #0050b3',  // 深藍色邊框
       paddingLeft: '12px'
     },
     4: {
@@ -494,7 +494,7 @@ export const markdownComponents = {
   blockquote: CustomBlockquote,
   p: ({ children, ...props }) => <p {...props}>{children}</p>,
   a: ({ children, href, ...props }) => (
-    <a href={href} {...props} style={{ color: '#1890ff', textDecoration: 'none' }}>
+    <a href={href} {...props} style={{ color: '#0050b3', textDecoration: 'none' }}>
       {children}
     </a>
   ),

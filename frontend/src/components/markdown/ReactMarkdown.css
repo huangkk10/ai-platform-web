@@ -12,27 +12,27 @@
 
 /* 標題樣式 - 這些已在 MarkdownComponents.jsx 中定義，這裡作為備用 */
 .markdown-content h1 {
-  color: #1890ff !important;
+  color: #0050b3 !important;  /* 深藍色 - 提高可讀性 */
   font-size: 20px !important;
   font-weight: 600 !important;
   margin: 1px 0 !important;
-  border-bottom: 2px solid #1890ff !important;
+  border-bottom: 2px solid #0050b3 !important;  /* 深藍色邊框 */
   padding-bottom: 4px !important;
 }
 
 .markdown-content h2 {
-  color: #1890ff !important;
+  color: #0050b3 !important;  /* 深藍色 - 提高可讀性 */
   font-size: 18px !important;
   font-weight: 600 !important;
   margin: 1px 0 !important;
 }
 
 .markdown-content h3 {
-  color: #1890ff !important;
+  color: #0050b3 !important;  /* 深藍色 - 提高可讀性 */
   font-size: 16px !important;
   font-weight: 600 !important;
   margin: 0 !important;
-  border-left: 4px solid #1890ff !important;
+  border-left: 4px solid #0050b3 !important;  /* 深藍色邊框 */
   padding-left: 12px !important;
 }
 
@@ -124,7 +124,7 @@ table.markdown-table,
 .markdown-content table thead,
 table.markdown-table thead,
 .markdown-table-wrapper table thead {
-  background-color: #1890ff !important;
+  background-color: #0050b3 !important;  /* 深藍色背景 - 提高可讀性 */
   color: white !important;
   display: table-header-group !important;
 }
@@ -185,7 +185,7 @@ table.markdown-table td,
 }
 
 .markdown-table thead {
-  background-color: #1890ff !important;
+  background-color: #0050b3 !important;  /* 深藍色背景 - 提高可讀性 */
   color: white !important;
 }
 
@@ -243,12 +243,12 @@ table.markdown-table td,
 
 /* 連結樣式 */
 .markdown-content a {
-  color: #1890ff !important;
+  color: #0050b3 !important;  /* 深藍色連結 - 提高可讀性 */
   text-decoration: none !important;
 }
 
 .markdown-content a:hover {
-  color: #40a9ff !important;
+  color: #1890ff !important;  /* 滑鼠懸停時使用中藍色 */
   text-decoration: underline !important;
 }
 
@@ -276,11 +276,11 @@ table.markdown-table td,
   align-items: center !important;
   gap: 4px !important;
   padding: 2px 6px !important;
-  background-color: #f0f8ff !important;
-  border: 1px solid #d6e4ff !important;
+  background-color: #e6f4ff !important;  /* 稍深的背景 */
+  border: 1px solid #91caff !important;  /* 稍深的邊框 */
   border-radius: 4px !important;
   font-size: 11px !important;
-  color: #1890ff !important;
+  color: #0050b3 !important;  /* 深藍色文字 - 提高可讀性 */
   margin: 0 4px !important;
 }
 
