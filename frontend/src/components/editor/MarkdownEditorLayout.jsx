@@ -16,9 +16,13 @@ import { PictureOutlined, CloseOutlined } from '@ant-design/icons';
 import MdEditor from 'react-markdown-editor-lite';
 import MarkdownIt from 'markdown-it';
 import 'react-markdown-editor-lite/lib/index.css';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { renderToStaticMarkup } from 'react-dom/server';
 
 // 組件導入
 import ContentImageManager from '../ContentImageManager';
+import { markdownComponents } from '../markdown/MarkdownComponents';
 
 // Hook 導入
 import useContentEditor from '../../hooks/useContentEditor';
@@ -28,6 +32,8 @@ import useImageManager from '../../hooks/useImageManager';
 
 // 工具導入
 import { uploadStagedImages } from '../../utils/uploadStagedImages';
+import { convertImageReferencesToMarkdown } from '../../utils/imageReferenceConverter';
+import { fixAllMarkdownTables } from '../../utils/markdownTableFixer';
 
 // 存儲圖片管理器回調的全局變數（使用閉包）
 let globalImageManagerHandler = null;
@@ -170,10 +176,85 @@ const customToolbarStyles = `
       display: flex !important;
     }
   }
+  
+  /* 🖼️ Markdown 預覽中的圖片樣式（與 DevMarkdownTestPage 一致）*/
+  .rc-md-editor .custom-html-style img,
+  .rc-md-editor .html-wrap img,
+  .rc-md-editor .sec-html img {
+    max-width: 100px !important;
+    height: auto !important;
+    display: inline-block !important;
+    margin: 0 4px !important;
+    vertical-align: middle !important;
+    border: 1px solid #d9d9d9 !important;
+    border-radius: 4px !important;
+    padding: 4px !important;
+    background-color: #fafafa !important;
+    cursor: pointer !important;
+    object-fit: contain !important;
+  }
+  
+  /* Ant Design Image 組件樣式支援 */
+  .rc-md-editor .ant-image {
+    display: inline-block !important;
+    margin: 0 4px !important;
+    vertical-align: middle !important;
+  }
+  
+  .rc-md-editor .ant-image img {
+    max-width: 100px !important;
+    height: auto !important;
+  }
 `;
 
-// 初始化 Markdown 解析器
+// 初始化 Markdown 解析器（保留作為備用）
 const mdParser = new MarkdownIt();
+
+/**
+ * 自定義 renderHTML 函數（支援圖片預覽）
+ * 
+ * ⚠️ 注意：由於 react-markdown-editor-lite 的 renderHTML 是同步函數，
+ * 我們無法使用 React 組件的 useEffect 來異步加載圖片。
+ * 
+ * 解決方案：使用 markdown-it 渲染基礎 HTML，並自定義圖片規則
+ * 
+ * @param {string} text - Markdown 文本
+ * @returns {string} - 渲染後的 HTML
+ */
+const renderMarkdownWithImages = (text) => {
+  try {
+    // 步驟 1：修復表格格式
+    let processed = fixAllMarkdownTables(text);
+    
+    // 步驟 2：將 [IMG:ID] 轉換為 ![IMG:ID](http://..../api/content-images/ID/)
+    processed = convertImageReferencesToMarkdown(processed);
+    
+    // 步驟 3：使用 markdown-it 渲染（支援表格等）
+    let htmlString = mdParser.render(processed);
+    
+    // 步驟 4：後處理圖片 HTML
+    // 將 <img src="http://...api/content-images/32/" alt="IMG:32"> 
+    // 轉換為帶有特殊 data 屬性的 img 標籤，以便客戶端 JavaScript 處理
+    htmlString = htmlString.replace(
+      /<img src="http:\/\/[^"]+\/api\/content-images\/(\d+)\/" alt="([^"]*)"[^>]*>/g,
+      (match, imageId, altText) => {
+        return `<img 
+          class="content-image-preview" 
+          data-image-id="${imageId}" 
+          alt="${altText}"
+          src="http://10.10.172.127/api/content-images/${imageId}/"
+          style="max-width: 100%; height: auto; border: 1px solid #d9d9d9; border-radius: 4px; margin: 8px 0;"
+        />`;
+      }
+    );
+    
+    return htmlString;
+  } catch (error) {
+    console.error('❌ Markdown 渲染錯誤:', error);
+    // 發生錯誤時使用備用渲染器
+    return mdParser.render(text);
+  }
+};
 
 /**
  * Markdown 編輯器佈局組件
@@ -358,6 +439,105 @@ const MarkdownEditorLayout = ({
     };
   }, [config.saveEventName]);
 
+  // 處理預覽面板中的圖片加載（客戶端）
+  useEffect(() => {
+    console.log('🖼️ [圖片加載 useEffect] 觸發，內容長度:', formData.content?.length);
+    
+    // 延遲執行，確保 HTML 已渲染（增加到 300ms）
+    const timer = setTimeout(() => {
+      console.log('⏰ [圖片加載] 開始處理...');
+      
+      // 嘗試多種選擇器
+      const previewPane = document.querySelector('.rc-md-editor .rc-md-preview') 
+                       || document.querySelector('.custom-html-style')
+                       || document.querySelector('.html-wrap');
+      
+      if (!previewPane) {
+        console.warn('❌ [圖片加載] 找不到預覽面板');
+        return;
+      }
+      
+      console.log('✅ [圖片加載] 找到預覽面板:', previewPane.className);
+
+      // 嘗試多種選擇器找圖片
+      let images = previewPane.querySelectorAll('img.content-image-preview[data-image-id]');
+      
+      if (images.length === 0) {
+        // 備用：找所有包含 content-images URL 的圖片
+        images = previewPane.querySelectorAll('img[src*="content-images"]');
+        console.log('🔄 [圖片加載] 使用備用選擇器，找到圖片數:', images.length);
+      } else {
+        console.log('🎯 [圖片加載] 找到標準圖片數:', images.length);
+      }
+      
+      images.forEach(async (img, index) => {
+        let imageId = img.getAttribute('data-image-id');
+        
+        // 如果沒有 data-image-id，從 src 中提取
+        if (!imageId) {
+          const srcMatch = img.src.match(/content-images\/(\d+)/);
+          imageId = srcMatch ? srcMatch[1] : null;
+        }
+        
+        if (!imageId) {
+          console.warn(`⚠️ [圖片 ${index}] 無法取得圖片 ID`);
+          return;
+        }
+
+        console.log(`🔄 [圖片 ${imageId}] 開始載入...`);
+
+        try {
+          // 獲取圖片數據
+          const response = await fetch(`http://10.10.172.127/api/content-images/${imageId}/`, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json'
+            }
+          });
+          
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          const imageData = await response.json();
+          console.log(`✅ [圖片 ${imageId}] API 回應成功，包含 data_url:`, !!imageData.data_url);
+          
+          // 設置圖片 src（使用 data_url）
+          if (imageData.data_url) {
+            img.src = imageData.data_url;
+            img.title = imageData.title || imageData.filename || `Image ${imageId}`;
+            img.alt = imageData.title || imageData.filename || `Image ${imageId}`;
+            
+            // 添加成功加載的樣式
+            img.style.maxWidth = '100px';
+            img.style.height = 'auto';
+            img.style.border = '1px solid #52c41a';
+            img.style.borderRadius = '4px';
+            img.style.padding = '4px';
+            img.style.margin = '0 4px';
+            img.style.backgroundColor = '#fafafa';
+            img.style.display = 'inline-block';
+            img.style.verticalAlign = 'middle';
+            img.style.opacity = '1';
+            
+            console.log(`✅ [圖片 ${imageId}] 載入成功！`);
+          } else {
+            throw new Error('No data_url in response');
+          }
+        } catch (error) {
+          console.error(`❌ [圖片 ${imageId}] 載入失敗:`, error);
+          
+          // 設置錯誤狀態
+          img.alt = `⊗ [圖片載入失敗: ${imageId}]`;
+          img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEyMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEyMCIgZmlsbD0iI2Y1ZjVmNSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiNmZjQ0NDQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj7ik4ogW+WclueLh+i8ieWFpeWksei0pV08L3RleHQ+PC9zdmc+';
+          img.style.border = '1px solid #ff4d4f';
+        }
+      });
+    }, 300); // 增加延遲到 300ms
+
+    return () => clearTimeout(timer);
+  }, [formData.content]); // 當內容變化時重新處理圖片
+
   return (
     <div style={{
       height: 'calc(100vh - 64px)',
@@ -442,7 +622,7 @@ const MarkdownEditorLayout = ({
                 ref={mdEditorRef}
                 value={formData.content}
                 style={{ height: '100%' }}
-                renderHTML={(text) => mdParser.render(text)}
+                renderHTML={renderMarkdownWithImages}
                 onChange={handleContentChange}
                 onFocus={handleEditorFocus}
                 onBlur={handleEditorBlur}
