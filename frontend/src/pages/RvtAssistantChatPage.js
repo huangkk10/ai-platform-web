@@ -22,7 +22,7 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
       useChatHook={useRvtChat}
       configApiPath="/api/rvt-guide/config/"
       storageKey="rvt"
-      permissionKey="webRVTAssistant"
+      permissionKey={null}  // 移除權限檢查，讓訪客也能使用
       placeholder="請描述你的 RVT 問題..."
       welcomeMessage={RVT_WELCOME_MESSAGE}
       collapsed={collapsed}

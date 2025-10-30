@@ -148,8 +148,8 @@ const CommonAssistantChatPage = ({
     return () => clearClearFunction();
   }, [registerClearFunction, clearClearFunction, clearChat]);
 
-  // 權限檢查
-  if (!hasPermission(permissionKey)) {
+  // 權限檢查（如果 permissionKey 為 null，則跳過權限檢查，允許訪客使用）
+  if (permissionKey && !hasPermission(permissionKey)) {
     return (
       <Layout style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center', padding: '40px' }}>
