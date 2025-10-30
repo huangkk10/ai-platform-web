@@ -7,7 +7,7 @@
  * 將內容中的 [IMG:ID] 轉換為 Markdown 圖片格式（使用實際 API URL）
  * 
  * 🎯 關鍵改進：直接使用 API URL，讓 ReactMarkdown 的標準 img 標籤就能顯示圖片
- * 格式：[IMG:8] → ![IMG:8](http://10.10.173.12/api/content-images/8/)
+ * 格式：[IMG:8] → ![IMG:8](http://10.10.172.127/api/content-images/8/)
  * 
  * ⚠️ 後端清理策略：
  * - 後端 (process_dify_answer) 已經清理了描述文字和檔名
@@ -25,7 +25,7 @@ export const convertImageReferencesToMarkdown = (content) => {
   const processed = content.replace(
     /(?<!\!)\[IMG:(\d+)\]/gi,
     (match, imageId) => {
-      const apiUrl = `http://10.10.173.12/api/content-images/${imageId}/`;
+      const apiUrl = `http://10.10.172.127/api/content-images/${imageId}/`;
       return `![IMG:${imageId}](${apiUrl})`;
     }
   );

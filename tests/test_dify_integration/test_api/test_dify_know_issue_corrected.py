@@ -242,7 +242,7 @@ def main():
     print("\n✅ Know Issue Chat 應用測試完成！")
     print("💡 說明: dataset-j89ytSyDedYS4sDly2Jnqz0a 是外部知識庫 ID")
     print("💡 該 ID 供 Dify 調用我們架設的 Django 外部知識庫 API")
-    print("💡 Django API 端點: http://10.10.173.12/api/dify/knowledge")
+    print("💡 Django API 端點: http://10.10.172.127/api/dify/knowledge")
 
 if __name__ == "__main__":
     main()

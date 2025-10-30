@@ -1479,7 +1479,7 @@ POST /api/dify/knowledge/retrieval/ - Dify 外部知識庫 (多知識源)
 ## 遠端主機資訊
 - **使用者**：user
 - **密碼**：1234
-- **IP 位址**：10.10.173.12
+- **IP 位址**：10.10.172.127
 - **連線方式**：SSH
 
 ## AI Platform 系統資訊
@@ -1502,15 +1502,15 @@ POST /api/dify/knowledge/retrieval/ - Dify 外部知識庫 (多知識源)
 - **內部連接**：postgres_db:5432 (容器間通信)
 
 ### Web 管理介面
-- **主要應用**：http://10.10.173.12 (Nginx 代理)
-- **Adminer 資料庫管理**：http://10.10.173.12:9090
+- **主要應用**：http://10.10.172.127 (Nginx 代理)
+- **Adminer 資料庫管理**：http://10.10.172.127:9090
   - 系統：PostgreSQL
   - 服務器：postgres_db
   - 用戶名：postgres
   - 密碼：postgres123
-- **Portainer 容器管理**：http://10.10.173.12:9000
-- **Django Admin**：http://10.10.173.12/admin/
-- **API 端點**：http://10.10.173.12/api/
+- **Portainer 容器管理**：http://10.10.172.127:9000
+- **Django Admin**：http://10.10.172.127/admin/
+- **API 端點**：http://10.10.172.127/api/
 
 ### Docker 容器狀態
 - **ai-nginx**：Nginx 反向代理
@@ -1633,7 +1633,7 @@ deactivate
 #### 1. **員工知識庫** (`knowledge_id: employee_database`)
 ```bash
 # 測試員工知識庫
-curl -X POST "http://10.10.173.12/api/dify/knowledge/retrieval/" \
+curl -X POST "http://10.10.172.127/api/dify/knowledge/retrieval/" \
   -H "Content-Type: application/json" \
   -d '{
     "knowledge_id": "employee_database",
@@ -1645,7 +1645,7 @@ curl -X POST "http://10.10.173.12/api/dify/knowledge/retrieval/" \
 #### 2. **Know Issue 知識庫** (`knowledge_id: know_issue_db`)
 ```bash
 # 測試 Know Issue 知識庫
-curl -X POST "http://10.10.173.12/api/dify/knowledge/retrieval/" \
+curl -X POST "http://10.10.172.127/api/dify/knowledge/retrieval/" \
   -H "Content-Type: application/json" \
   -d '{
     "knowledge_id": "know_issue_db", 
@@ -1660,7 +1660,7 @@ curl -X POST "http://10.10.173.12/api/dify/knowledge/retrieval/" \
 docker compose ps | grep django
 
 # 檢查 API 端點
-curl -X GET http://10.10.173.12/api/
+curl -X GET http://10.10.172.127/api/
 
 # 檢查 Dify API 日誌
 docker logs ai-django | grep "dify_knowledge"
@@ -1670,7 +1670,7 @@ docker exec ai-django python manage.py create_test_employees
 ```
 
 ### 🎯 Dify 配置要點
-1. **外部知識 API 端點**：`http://10.10.173.12/api/dify/knowledge`
+1. **外部知識 API 端點**：`http://10.10.172.127/api/dify/knowledge`
 2. **Score 閾值設定**：建議 0.5-0.6 (不要設太低)
 3. **Top K 設定**：建議 3-5
 4. **知識庫 ID**：`employee_database` 或 `know_issue_db`

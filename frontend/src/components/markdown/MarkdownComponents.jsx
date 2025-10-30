@@ -121,7 +121,7 @@ export const CustomTd = ({ children, ...props }) => {
  * 解析圖片引用並獲取實際圖片 URL
  * 支援多種格式：
  * 1. [IMG:ID] - 原始格式
- * 2. http://10.10.173.12/api/content-images/ID/ - 完整 API URL
+ * 2. http://10.10.172.127/api/content-images/ID/ - 完整 API URL
  * 3. /api/content-images/ID/ - 相對路徑 API URL
  */
 const parseImageReference = (text) => {

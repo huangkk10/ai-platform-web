@@ -316,7 +316,7 @@ server {
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "http://10.10.173.12",  # 外部訪問 IP
+    "http://10.10.172.127",  # 外部訪問 IP
 ]
 
 CORS_ALLOW_CREDENTIALS = True

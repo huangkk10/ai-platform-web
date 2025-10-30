@@ -256,7 +256,7 @@ curl -X POST "http://localhost:8000/api/dify/knowledge/retrieval/" \
 2. **如果已有 API，修改名稱為通用名稱**：
    ```
    Name: ai_platform_knowledge_api (或 universal_knowledge_api)
-   API Endpoint: http://10.10.173.12/api/dify/knowledge
+   API Endpoint: http://10.10.172.127/api/dify/knowledge
    API Key: (可選，如 "ai-platform-key-2024")
    ```
 
@@ -324,7 +324,7 @@ Know Issue: external_knowledge_id = "know_issue_db"
 ### 問題 1：Dify 前端 API 驗證失敗
 **症狀**：`invalid endpoint` 或 `failed to connect` 錯誤
 **解決**：
-1. 使用基礎路徑：`http://10.10.173.12/api/dify/knowledge`
+1. 使用基礎路徑：`http://10.10.172.127/api/dify/knowledge`
 2. 不要包含 `/retrieval`，讓 Dify 自動附加
 3. 確保以 `/` 結尾（但不是 `/retrieval/`）
 

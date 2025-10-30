@@ -65,7 +65,7 @@ docker exec ai-django python manage.py generate_rvt_embeddings
 ### 3. 功能測試
 ```bash
 # API 測試
-curl -X POST "http://10.10.173.12/api/dify/knowledge/retrieval/" \
+curl -X POST "http://10.10.172.127/api/dify/knowledge/retrieval/" \
   -H "Content-Type: application/json" \
   -d '{"knowledge_id": "rvt_guide_db", "query": "Jenkins 測試階段"}'
 ```

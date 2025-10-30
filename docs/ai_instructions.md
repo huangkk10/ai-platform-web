@@ -25,7 +25,7 @@
 注意：使用者在訊息中提供了以下遠端主機資訊（僅示範 — 切勿把這些明文憑證放入 repo 或公開環境）：
 - 使用者：user
 - 密碼：1234
-- IP：10.10.173.12
+- IP：10.10.172.127
 
 ## 🐍 Python 開發環境規範
 
@@ -195,7 +195,7 @@ fi
 
 範例命令（參考）
 - 基本連線（用戶以 password，僅示範）：
-  ssh user@10.10.173.12
+  ssh user@10.10.172.127
 
 - 進一步檢查（需 sudo 權限的範例）：
   - 檢查系統資訊：`sudo hostnamectl` 
@@ -239,7 +239,7 @@ fi
 ### 🚀 快速測試指令
 ```bash
 # 測試員工知識庫
-curl -X POST "http://10.10.173.12/api/dify/knowledge/retrieval/" \
+curl -X POST "http://10.10.172.127/api/dify/knowledge/retrieval/" \
   -H "Content-Type: application/json" \
   -d '{
     "knowledge_id": "employee_database",
@@ -248,7 +248,7 @@ curl -X POST "http://10.10.173.12/api/dify/knowledge/retrieval/" \
   }'
 
 # 測試 Know Issue 知識庫
-curl -X POST "http://10.10.173.12/api/dify/knowledge/retrieval/" \
+curl -X POST "http://10.10.172.127/api/dify/knowledge/retrieval/" \
   -H "Content-Type: application/json" \
   -d '{
     "knowledge_id": "know_issue_db",
@@ -259,7 +259,7 @@ curl -X POST "http://10.10.173.12/api/dify/knowledge/retrieval/" \
 
 ### 🔑 Dify 配置要點
 1. **外部知識 API 設置**：
-   - API Endpoint: `http://10.10.173.12/api/dify/knowledge`
+   - API Endpoint: `http://10.10.172.127/api/dify/knowledge`
    - 不要包含 `/retrieval`，讓 Dify 自動附加
 
 2. **知識庫創建**：

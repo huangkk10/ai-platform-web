@@ -78,14 +78,14 @@ POST /api/dify/know-issue/retrieval/
 3. 配置如下：
    ```
    名稱: know_issue_api
-   API Endpoint: http://10.10.173.12/api/dify/know-issue/
+   API Endpoint: http://10.10.172.127/api/dify/know-issue/
    API Key: know-issue-api-key-2024 (可選)
    ```
 
 ⚠️ **重要提醒**：
-- API Endpoint 必須以 `/` 結尾：`http://10.10.173.12/api/dify/know-issue/`
+- API Endpoint 必須以 `/` 結尾：`http://10.10.172.127/api/dify/know-issue/`
 - **不要**包含 `/retrieval`，因為 Dify 會自動附加這個路徑
-- 錯誤示例：`http://10.10.173.12/api/dify/know-issue/retrieval/` ❌
+- 錯誤示例：`http://10.10.172.127/api/dify/know-issue/retrieval/` ❌
 
 ### 步驟 2：創建外部知識庫
 1. 進入 Dify → 知識庫 → 創建知識庫
@@ -198,7 +198,7 @@ JIRA編號: SVDFWV-14740
 **症狀**：出現 `failed to connect to the endpoint: .../retrieval/retrieval` 錯誤
 **原因**：Dify 會自動在配置的 endpoint 後面加上 `/retrieval`，如果配置時已包含此路徑會造成重複
 **解決**：
-1. ✅ **修正 API Endpoint**：使用 `http://10.10.173.12/api/dify/know-issue/`
+1. ✅ **修正 API Endpoint**：使用 `http://10.10.172.127/api/dify/know-issue/`
 2. ✅ **不要包含 /retrieval**：讓 Dify 自動附加路徑
 3. ✅ **確保以 / 結尾**：避免路徑連接問題
 

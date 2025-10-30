@@ -27,7 +27,7 @@ except ImportError as e:
     
     def get_ai_pc_ip_with_env():
         """備用函數：如果配置載入器不可用，返回預設 IP"""
-        return os.getenv('AI_PC_IP', '10.10.172.37')
+        return os.getenv('AI_PC_IP', '10.10.172.127')
 
 
 @dataclass

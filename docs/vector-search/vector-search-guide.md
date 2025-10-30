@@ -258,8 +258,8 @@ results = search_rvt_guide_with_vectors(
 
 ### 1. API 端點配置
 ```
-主要端點: http://10.10.173.12/api/dify/knowledge/retrieval/
-RVT專用: http://10.10.173.12/api/dify/rvt-guide/retrieval/
+主要端點: http://10.10.172.127/api/dify/knowledge/retrieval/
+RVT專用: http://10.10.172.127/api/dify/rvt-guide/retrieval/
 ```
 
 ### 2. Knowledge ID 支援

@@ -15,7 +15,7 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-me-in-producti
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,10.10.173.12,192.168.1.11,django').split(',')
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,10.10.172.127,192.168.1.11,django').split(',')
 
 # Application definition
 INSTALLED_APPS = [
@@ -128,7 +128,7 @@ REST_FRAMEWORK = {
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "http://10.10.173.12",
+    "http://10.10.172.127",
     "http://localhost",
 ]
 
@@ -150,7 +150,7 @@ CORS_ALLOWED_HEADERS = [
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "http://10.10.173.12",
+    "http://10.10.172.127",
     "http://localhost",
 ]
 

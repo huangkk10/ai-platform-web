@@ -94,7 +94,7 @@ ListSerializer = get_serializer_class('list')
 
 ### 測試 5：API 端點測試 ✅
 ```bash
-curl http://10.10.173.12/api/rvt-guides/
+curl http://10.10.172.127/api/rvt-guides/
 # 結果：{"detail": "Authentication credentials were not provided."}
 ```
 **結果：** ✅ API 正常運作（需要認證）

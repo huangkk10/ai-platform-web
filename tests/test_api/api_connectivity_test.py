@@ -179,8 +179,8 @@ def test_local_api_endpoints():
         'http://localhost:8000/api/',
         'http://localhost:8000/api/dify/knowledge/retrieval/',
         'http://localhost:8000/api/auth/user/',
-        'http://10.10.173.12/api/',  # 從 AI 指令中看到的本地 IP
-        'http://10.10.173.12/api/dify/knowledge/retrieval/',
+        'http://10.10.172.127/api/',  # 從 AI 指令中看到的本地 IP
+        'http://10.10.172.127/api/dify/knowledge/retrieval/',
     ]
     
     for url in local_endpoints:

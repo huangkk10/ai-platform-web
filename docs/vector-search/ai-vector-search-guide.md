@@ -64,7 +64,7 @@ docker exec ai-django python manage.py create_rvt_guide_data
 docker exec ai-django python manage.py generate_rvt_embeddings
 
 # 步驟5: 測試搜尋功能
-curl -X POST "http://10.10.173.12/api/dify/knowledge/retrieval/" \
+curl -X POST "http://10.10.172.127/api/dify/knowledge/retrieval/" \
   -H "Content-Type: application/json" \
   -d '{"knowledge_id": "rvt_guide_db", "query": "Jenkins 測試階段", "retrieval_setting": {"top_k": 3, "score_threshold": 0.3}}'
 ```
@@ -98,7 +98,7 @@ docker exec ai-django python manage.py generate_rvt_embeddings
 ### API 測試範例
 ```bash
 # 測試1: 基本搜尋
-curl -X POST "http://10.10.173.12/api/dify/knowledge/retrieval/" \
+curl -X POST "http://10.10.172.127/api/dify/knowledge/retrieval/" \
   -H "Content-Type: application/json" \
   -d '{
     "knowledge_id": "rvt_guide_db",
@@ -107,7 +107,7 @@ curl -X POST "http://10.10.173.12/api/dify/knowledge/retrieval/" \
   }'
 
 # 測試2: Jenkins 相關查詢
-curl -X POST "http://10.10.173.12/api/dify/knowledge/retrieval/" \
+curl -X POST "http://10.10.172.127/api/dify/knowledge/retrieval/" \
   -H "Content-Type: application/json" \
   -d '{
     "knowledge_id": "rvt_guide_db",
@@ -116,7 +116,7 @@ curl -X POST "http://10.10.173.12/api/dify/knowledge/retrieval/" \
   }'
 
 # 測試3: Ansible 配置查詢
-curl -X POST "http://10.10.173.12/api/dify/knowledge/retrieval/" \
+curl -X POST "http://10.10.172.127/api/dify/knowledge/retrieval/" \
   -H "Content-Type: application/json" \
   -d '{
     "knowledge_id": "rvt_guide_db", 
@@ -197,7 +197,7 @@ docker exec postgres_db psql -U postgres -d ai_platform -c "SELECT COUNT(*) as t
 docker exec postgres_db psql -U postgres -d ai_platform -c "SELECT pg_size_pretty(pg_database_size('ai_platform'));"
 
 # 搜尋效能測試
-time curl -X POST "http://10.10.173.12/api/dify/knowledge/retrieval/" \
+time curl -X POST "http://10.10.172.127/api/dify/knowledge/retrieval/" \
   -H "Content-Type: application/json" \
   -d '{"knowledge_id": "rvt_guide_db", "query": "測試查詢"}'
 ```

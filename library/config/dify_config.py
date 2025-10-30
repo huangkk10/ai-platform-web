@@ -21,8 +21,8 @@ class DifyConfig:
     
     # Chat API 默認配置
     DEFAULT_CHAT_CONFIG = {
-        'base_url': 'http://10.10.172.37',
-        'api_url': 'http://10.10.172.37/v1/chat-messages',
+        'base_url': 'http://10.10.172.127',
+        'api_url': 'http://10.10.172.127/v1/chat-messages',
         'api_key': '',
         'timeout': 60,
         'response_mode': 'blocking',
@@ -31,8 +31,8 @@ class DifyConfig:
     
     # Dataset API 默認配置
     DEFAULT_DATASET_CONFIG = {
-        'base_url': 'http://10.10.172.37',
-        'dataset_api_url': 'http://10.10.172.37/v1/datasets',
+        'base_url': 'http://10.10.172.127',
+        'dataset_api_url': 'http://10.10.172.127/v1/datasets',
         'dataset_key': '',
         'timeout': 30,
         'top_k': 5,
