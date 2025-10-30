@@ -608,6 +608,10 @@ const ContentImageManager = ({
                             }
                             description={
                               <div>
+                                {/* 🆕 顯示資料庫 ID */}
+                                <div style={{ color: '#666', fontSize: '12px' }}>
+                                  ID: {image.id || 'temp'}
+                                </div>
                                 <div>{image.dimensions_display || '未知'}</div>
                                 <div>{image.size_display || '未知大小'}</div>
                               </div>
