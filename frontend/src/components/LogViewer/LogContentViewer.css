@@ -1,0 +1,194 @@
+/* 日誌內容查看器樣式 */
+
+.log-content-viewer {
+  height: calc(100vh - 320px);
+  overflow: auto;
+  background: #1e1e1e;
+  border-radius: 4px;
+  padding: 16px;
+  font-family: 'Monaco', 'Consolas', 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.log-content-container {
+  min-height: 100%;
+}
+
+.log-content-loading,
+.log-content-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 400px;
+  background: #fff;
+  border-radius: 4px;
+}
+
+/* 日誌行樣式 */
+.log-line {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-bottom: 1px solid #2d2d2d;
+  transition: background-color 0.2s;
+}
+
+.log-line:hover {
+  background-color: #2d2d2d;
+}
+
+.log-line:last-child {
+  border-bottom: none;
+}
+
+/* 行號 */
+.line-number {
+  display: inline-block;
+  width: 60px;
+  text-align: right;
+  margin-right: 16px;
+  color: #858585;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+/* 時間戳 */
+.timestamp {
+  display: inline-block;
+  margin-right: 12px;
+  color: #569cd6;
+  flex-shrink: 0;
+}
+
+/* 日誌等級標籤 */
+.level-tag {
+  margin-right: 12px;
+  font-weight: 600;
+  min-width: 70px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* 模組名稱 */
+.module-name {
+  display: inline-block;
+  margin-right: 12px;
+  color: #4ec9b0;
+  font-style: italic;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* 訊息內容 */
+.message {
+  color: #d4d4d4;
+  flex: 1;
+  word-break: break-word;
+}
+
+/* 搜尋關鍵字高亮 */
+.highlight {
+  background-color: #ffd700;
+  color: #000;
+  padding: 2px 4px;
+  border-radius: 2px;
+  font-weight: 600;
+}
+
+/* 不同等級的顏色 */
+.log-level-INFO .message {
+  color: #52c41a;
+}
+
+.log-level-WARNING {
+  background-color: rgba(250, 173, 20, 0.1);
+}
+
+.log-level-WARNING .message {
+  color: #faad14;
+}
+
+.log-level-ERROR {
+  background-color: rgba(255, 77, 79, 0.1);
+}
+
+.log-level-ERROR .message {
+  color: #ff4d4f;
+  font-weight: 500;
+}
+
+.log-level-CRITICAL {
+  background-color: rgba(207, 19, 34, 0.2);
+}
+
+.log-level-CRITICAL .message {
+  color: #cf1322;
+  font-weight: 700;
+}
+
+.log-level-DEBUG .message {
+  color: #858585;
+}
+
+/* 多行日誌延續行 */
+.log-level-CONTINUATION {
+  background-color: rgba(64, 169, 255, 0.05);
+  padding-left: 80px;  /* 縮排，表示是延續內容 */
+}
+
+.log-level-CONTINUATION .message {
+  color: #40a9ff;
+  font-style: italic;
+}
+
+.log-level-UNKNOWN .message {
+  color: #a0a0a0;
+}
+
+/* 滾動條樣式 */
+.log-content-viewer::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.log-content-viewer::-webkit-scrollbar-track {
+  background: #1e1e1e;
+}
+
+.log-content-viewer::-webkit-scrollbar-thumb {
+  background: #424242;
+  border-radius: 5px;
+}
+
+.log-content-viewer::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* 響應式調整 */
+@media (max-width: 1200px) {
+  .module-name {
+    max-width: 200px;
+  }
+}
+
+@media (max-width: 768px) {
+  .log-content-viewer {
+    font-size: 11px;
+  }
+
+  .line-number {
+    width: 40px;
+  }
+
+  .module-name {
+    display: none;
+  }
+
+  .level-tag {
+    min-width: 50px;
+  }
+}

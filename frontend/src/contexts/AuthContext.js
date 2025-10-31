@@ -80,7 +80,10 @@ export const AuthProvider = ({ children }) => {
           kbRVTAssistant: response.data.data.kb_rvt_assistant,
           kbProtocolAssistant: response.data.data.kb_protocol_assistant,
           isSuperAdmin: response.data.data.is_super_admin,
-          canManagePermissions: response.data.data.can_manage_permissions
+          canManagePermissions: response.data.data.can_manage_permissions,
+          // 系統管理權限
+          isStaff: response.data.data.is_staff || false,
+          isSuperuser: response.data.data.is_superuser || false
         };
         
         setPermissions(permissionsData);

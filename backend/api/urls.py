@@ -82,6 +82,13 @@ urlpatterns = [
     path('system/basic-status/', views.basic_system_status, name='basic_system_status'),
     path('system/logs/', views.system_logs, name='system_logs'),
     
+    # 日誌查看器 API
+    path('system/logs/list/', views.list_log_files, name='list_log_files'),
+    path('system/logs/view/', views.view_log_file, name='view_log_file'),
+    path('system/logs/download/', views.download_log_file, name='download_log_file'),
+    path('system/logs/search/', views.search_log_file, name='search_log_file'),
+    path('system/logs/stats/', views.log_file_stats, name='log_file_stats'),
+    
     # 對話管理 API - Conversation Management
     path('conversations/', views.conversation_list, name='conversation_list'),
     path('conversations/<int:conversation_id>/', views.conversation_detail, name='conversation_detail'),

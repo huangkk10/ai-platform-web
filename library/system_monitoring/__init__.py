@@ -17,6 +17,16 @@ from .fallback_monitor import (
     get_basic_fallback_status_dict
 )
 
+# 日誌管理功能
+LOG_MANAGEMENT_AVAILABLE = True
+try:
+    from .log_reader import LogFileReader
+    from .log_parser import LogLineParser
+except ImportError as e:
+    LOG_MANAGEMENT_AVAILABLE = False
+    LogFileReader = None
+    LogLineParser = None
+
 __all__ = [
     'ServiceMonitor',
     'ServiceStatus', 
@@ -32,5 +42,9 @@ __all__ = [
     'create_admin_monitor',
     'create_fallback_monitor',
     'get_minimal_fallback_status_dict',
-    'get_basic_fallback_status_dict'
+    'get_basic_fallback_status_dict',
+    # 日誌管理
+    'LOG_MANAGEMENT_AVAILABLE',
+    'LogFileReader',
+    'LogLineParser',
 ]

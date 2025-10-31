@@ -82,6 +82,10 @@ class UserPermissionSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     permissions_summary = serializers.CharField(source='get_permissions_summary', read_only=True)
     
+    # 從 User model 獲取 is_staff 和 is_superuser
+    is_staff = serializers.BooleanField(source='user.is_staff', read_only=True)
+    is_superuser = serializers.BooleanField(source='user.is_superuser', read_only=True)
+    
     class Meta:
         model = UserProfile
         fields = [
@@ -90,10 +94,12 @@ class UserPermissionSerializer(serializers.ModelSerializer):
             'web_protocol_rag', 'web_ai_ocr', 'web_rvt_assistant', 'web_protocol_assistant',
             'kb_protocol_rag', 'kb_ai_ocr', 'kb_rvt_assistant', 'kb_protocol_assistant',
             'is_super_admin',
+            # 系統管理權限（從 User model）
+            'is_staff', 'is_superuser',
             # 計算欄位
             'permissions_summary'
         ]
-        read_only_fields = ['permissions_summary']
+        read_only_fields = ['permissions_summary', 'is_staff', 'is_superuser']
 
 
 class ProjectSerializer(serializers.ModelSerializer):

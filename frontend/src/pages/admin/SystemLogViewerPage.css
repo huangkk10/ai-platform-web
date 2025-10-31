@@ -1,0 +1,50 @@
+/* 系統日誌查看器頁面樣式 */
+
+.system-log-viewer-page {
+  height: calc(100vh - 64px);
+  background: #f0f2f5;
+}
+
+.log-sider {
+  background: #fff;
+  height: 100%;
+  overflow-y: auto;
+  border-right: 1px solid #f0f0f0;
+}
+
+.log-files-card {
+  margin: 16px;
+}
+
+.log-files-card .ant-card-body {
+  padding: 0;
+}
+
+.selected-file {
+  background-color: #e6f7ff;
+  border-left: 3px solid #1890ff;
+}
+
+.selected-file:hover {
+  background-color: #d9f0ff !important;
+}
+
+/* 響應式調整 */
+@media (max-width: 1200px) {
+  .log-sider {
+    width: 250px !important;
+    min-width: 250px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .system-log-viewer-page {
+    flex-direction: column;
+  }
+
+  .log-sider {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 300px;
+  }
+}

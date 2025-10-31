@@ -179,6 +179,17 @@ from .viewsets import (
 )
 
 
+# ============= 日誌查看 API 導出 =============
+
+from .log_viewer_views import (
+    list_log_files,
+    view_log_file,
+    download_log_file,
+    search_log_file,
+    log_file_stats,
+)
+
+
 # ============= System Monitoring API 導出 =============
 # 🔄 已整合到 viewsets/ 包中 (monitoring_views.py)
 # system_logs, simple_system_status, basic_system_status 已從上方 viewsets 導入
@@ -251,6 +262,13 @@ __all__ = [
     'simple_system_status',
     'basic_system_status',
     'system_logs',
+    
+    # Log Viewer APIs
+    'list_log_files',
+    'view_log_file',
+    'download_log_file',
+    'search_log_file',
+    'log_file_stats',
     
     # Conversation Management
     'conversation_list',

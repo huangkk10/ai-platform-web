@@ -27,6 +27,7 @@ import LogAnalyzePage from './pages/LogAnalyzePage';
 import MarkdownEditorPage from './pages/MarkdownEditorPage';
 import UnifiedAnalyticsPage from './pages/UnifiedAnalyticsPage';
 import DevMarkdownTestPage from './pages/DevMarkdownTestPage';
+import SystemLogViewerPage from './pages/admin/SystemLogViewerPage';
 
 const { Content } = Layout;
 
@@ -81,6 +82,8 @@ function AppLayout() {
         return 'Protocol Assistant 知識庫';
       case '/admin/user-management':
         return '用戶權限管理';
+      case '/admin/system-logs':
+        return '系統日誌查看器';
       case '/admin/rvt-analytics':
       case '/admin/analytics':
         return 'Analytics Dashboard';
@@ -315,6 +318,11 @@ function AppLayout() {
             <Route path="/log-analyze" element={<LogAnalyzePage />} />
             <Route path="/admin/test-class-management" element={<TestClassManagementPage />} />
             <Route path="/admin/user-management" element={<IntegratedUserManagementPage />} />
+            <Route path="/admin/system-logs" element={
+              <ProtectedRoute permission="isStaff" fallbackTitle="系統日誌存取受限">
+                <SystemLogViewerPage />
+              </ProtectedRoute>
+            } />
             <Route path="/admin/rvt-analytics" element={<UnifiedAnalyticsPage />} />
             <Route path="/admin/analytics" element={<UnifiedAnalyticsPage />} />
 
