@@ -1,0 +1,128 @@
+/* SourceDetailModal 樣式 */
+
+.source-detail-modal .source-metadata {
+  margin-bottom: 16px;
+}
+
+.source-detail-modal .source-metadata .ant-descriptions-item-label {
+  font-weight: 500;
+  background-color: #fafafa;
+}
+
+.source-detail-modal .source-content {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 12px;
+  background-color: #fafafa;
+  border-radius: 4px;
+  border: 1px solid #e8e8e8;
+}
+
+.source-detail-modal .markdown-content-container {
+  background-color: white;
+  padding: 16px;
+  border-radius: 4px;
+  line-height: 1.6;
+}
+
+/* Markdown 內容樣式 */
+.source-detail-modal .markdown-preview-content {
+  font-size: 14px;
+  color: #333;
+}
+
+.source-detail-modal .markdown-preview-content h1,
+.source-detail-modal .markdown-preview-content h2,
+.source-detail-modal .markdown-preview-content h3,
+.source-detail-modal .markdown-preview-content h4,
+.source-detail-modal .markdown-preview-content h5,
+.source-detail-modal .markdown-preview-content h6 {
+  margin-top: 16px;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.source-detail-modal .markdown-preview-content p {
+  margin-bottom: 12px;
+}
+
+.source-detail-modal .markdown-preview-content code {
+  background-color: #f5f5f5;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+}
+
+.source-detail-modal .markdown-preview-content pre {
+  background-color: #f5f5f5;
+  padding: 12px;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin-bottom: 12px;
+}
+
+.source-detail-modal .markdown-preview-content ul,
+.source-detail-modal .markdown-preview-content ol {
+  margin-left: 20px;
+  margin-bottom: 12px;
+}
+
+.source-detail-modal .markdown-preview-content li {
+  margin-bottom: 4px;
+}
+
+.source-detail-modal .markdown-preview-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.source-detail-modal .markdown-preview-content table th,
+.source-detail-modal .markdown-preview-content table td {
+  border: 1px solid #e8e8e8;
+  padding: 8px;
+}
+
+.source-detail-modal .markdown-preview-content table th {
+  background-color: #fafafa;
+  font-weight: 600;
+}
+
+/* 滾動條樣式 */
+.source-detail-modal .source-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.source-detail-modal .source-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.source-detail-modal .source-content::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.source-detail-modal .source-content::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+  .source-detail-modal .ant-modal {
+    max-width: 100% !important;
+    margin: 0 !important;
+    top: 0 !important;
+  }
+  
+  .source-detail-modal .source-content {
+    max-height: 50vh;
+  }
+  
+  .source-detail-modal .ant-descriptions-item-label,
+  .source-detail-modal .ant-descriptions-item-content {
+    display: block;
+    width: 100%;
+  }
+}

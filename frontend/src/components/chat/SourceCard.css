@@ -1,0 +1,103 @@
+/* SourceCard 樣式 - 緊湊 Grid 卡片 */
+
+.source-card {
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid #e8e8e8;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 8px;
+  height: 90px; /* 固定高度 */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.source-card:hover {
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.12);
+  transform: translateY(-1px);
+  border-color: #1890ff;
+}
+
+.source-card:active {
+  transform: scale(0.98);
+}
+
+.source-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: auto;
+}
+
+.source-card-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: #262626;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+}
+
+.source-card-score {
+  font-weight: 600;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.source-card-footer {
+  text-align: center;
+  padding-top: 6px;
+  border-top: 1px solid #f0f0f0;
+  margin-top: auto;
+}
+
+.source-card-footer .footer-hint {
+  font-size: 11px;
+  color: #8c8c8c;
+  transition: color 0.3s ease;
+}
+
+.source-card:hover .source-card-footer .footer-hint {
+  color: #1890ff;
+}
+
+/* 響應式設計 - 手機版調整 */
+@media (max-width: 768px) {
+  .source-card {
+    height: 100px; /* 手機版保持緊湊 */
+    padding: 8px;
+  }
+  
+  .source-card-title {
+    font-size: 12px;
+  }
+  
+  .source-card-score {
+    font-size: 10px;
+  }
+  
+  .source-card-footer .footer-hint {
+    font-size: 10px;
+  }
+}
+
+/* 為不同相似度分數添加 Hover 視覺提示 */
+.source-card:hover .source-card-score[class*="ant-tag-green"] {
+  background-color: #52c41a;
+  color: white;
+}
+
+.source-card:hover .source-card-score[class*="ant-tag-gold"] {
+  background-color: #faad14;
+  color: white;
+}
+
+.source-card:hover .source-card-score[class*="ant-tag-default"] {
+  background-color: #8c8c8c;
+  color: white;
+}

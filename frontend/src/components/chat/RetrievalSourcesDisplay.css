@@ -1,0 +1,106 @@
+/* RetrievalSourcesDisplay 樣式 */
+
+.retrieval-sources-container {
+  margin-top: 10px;
+  width: 100%;
+}
+
+.retrieval-sources-card {
+  background: linear-gradient(135deg, #f6f9ff 0%, #f0f5ff 100%);
+  border: 1px solid #d6e4ff;
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(24, 144, 255, 0.06);
+}
+
+.retrieval-sources-card .ant-card-head {
+  background-color: rgba(255, 255, 255, 0.8);
+  border-bottom: 1px solid #d6e4ff;
+  padding: 6px 10px;
+  min-height: auto;
+}
+
+.retrieval-sources-card .ant-card-head-title {
+  padding: 2px 0;
+  font-size: 13px;
+}
+
+.retrieval-sources-card .ant-card-body {
+  padding: 8px;
+}
+
+/* Grid 布局 - 引用來源列表 */
+.sources-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+
+/* 無來源提示 */
+.no-sources-container {
+  margin-top: 12px;
+  padding: 12px;
+  background-color: #fafafa;
+  border: 1px dashed #d9d9d9;
+  border-radius: 6px;
+  text-align: center;
+}
+
+/* 響應式設計 - Grid 布局調整 */
+
+/* 大桌面：4 列 (寬度 > 1400px) */
+@media (min-width: 1401px) {
+  .sources-list {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* 桌面：3 列 (1001px - 1400px) */
+@media (min-width: 1001px) and (max-width: 1400px) {
+  .sources-list {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* 平板：2 列 (769px - 1000px) */
+@media (min-width: 769px) and (max-width: 1000px) {
+  .sources-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* 手機：1 列 (寬度 <= 768px) */
+@media (max-width: 768px) {
+  .retrieval-sources-container {
+    margin-top: 8px;
+  }
+  
+  .retrieval-sources-card .ant-card-head {
+    padding: 6px 10px;
+  }
+  
+  .retrieval-sources-card .ant-card-body {
+    padding: 8px;
+  }
+  
+  .sources-list {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+
+/* 動畫效果 */
+.retrieval-sources-container {
+  animation: fadeInUp 0.3s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

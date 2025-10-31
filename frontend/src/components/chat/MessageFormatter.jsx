@@ -2,6 +2,7 @@ import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import ContentRenderer from '../ContentRenderer';
 import MessageImages from './MessageImages';
+import RetrievalSourcesDisplay from './RetrievalSourcesDisplay';
 import useMessageFormatter from '../../hooks/useMessageFormatter';
 import { loadImagesData } from '../../utils/imageProcessor';
 import { fixAllMarkdownTables } from '../../utils/markdownTableFixer';
@@ -76,6 +77,13 @@ const MessageFormatter = ({
                 onImageLoad={loadImagesData}
               />
             </div>
+            {/* 🆕 添加引用來源顯示（只在 AI 回覆時） */}
+            {messageType === 'assistant' && metadata?.retriever_resources && (
+              <RetrievalSourcesDisplay 
+                retrieverResources={metadata.retriever_resources}
+                maxDisplay={5}
+              />
+            )}
           </div>
         );
       }
@@ -89,6 +97,13 @@ const MessageFormatter = ({
         <ReactMarkdown {...markdownConfig}>
           {processedContent}
         </ReactMarkdown>
+        {/* 🆕 添加引用來源顯示（只在 AI 回覆時） */}
+        {messageType === 'assistant' && metadata?.retriever_resources && (
+          <RetrievalSourcesDisplay 
+            retrieverResources={metadata.retriever_resources}
+            maxDisplay={5}
+          />
+        )}
       </div>
     );
   };
@@ -128,6 +143,13 @@ const MessageFormatter = ({
             );
           }
         })}
+        {/* 🆕 添加引用來源顯示（只在 AI 回覆時） */}
+        {messageType === 'assistant' && metadata?.retriever_resources && (
+          <RetrievalSourcesDisplay 
+            retrieverResources={metadata.retriever_resources}
+            maxDisplay={5}
+          />
+        )}
       </div>
     );
   };
@@ -281,6 +303,17 @@ const MessageFormatter = ({
       } else {
         console.log('⚠️ MessageFormatter: 沒有有效的剩餘圖片可顯示');
       }
+    }
+    
+    // 🆕 添加引用來源顯示到結果陣列
+    if (metadata?.retriever_resources) {
+      result.push(
+        <RetrievalSourcesDisplay 
+          key="retrieval-sources"
+          retrieverResources={metadata.retriever_resources}
+          maxDisplay={5}
+        />
+      );
     }
     
     return (
