@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
 import { markdownComponents } from '../components/markdown/MarkdownComponents';
 import { 
   processContentFormat,
@@ -26,6 +27,7 @@ const useMessageFormatter = () => {
   // React Markdown 配置 (使用 useMemo 優化性能)
   const markdownConfig = useMemo(() => ({
     remarkPlugins: [remarkGfm], // 支援表格、任務列表等 GFM 功能
+    rehypePlugins: [rehypeRaw], // 支援 HTML 標籤（如 <br>）
     components: markdownComponents, // 自定義組件
     // 安全設定
     disallowedElements: ['script', 'iframe', 'object', 'embed'],
