@@ -16,13 +16,9 @@ import { PictureOutlined, CloseOutlined } from '@ant-design/icons';
 import MdEditor from 'react-markdown-editor-lite';
 import MarkdownIt from 'markdown-it';
 import 'react-markdown-editor-lite/lib/index.css';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { renderToStaticMarkup } from 'react-dom/server';
 
 // 組件導入
 import ContentImageManager from '../ContentImageManager';
-import { markdownComponents } from '../markdown/MarkdownComponents';
 
 // Hook 導入
 import useContentEditor from '../../hooks/useContentEditor';
@@ -207,16 +203,25 @@ const customToolbarStyles = `
   }
 `;
 
-// 初始化 Markdown 解析器（保留作為備用）
-const mdParser = new MarkdownIt();
+// 初始化 Markdown 解析器（啟用 HTML 支援）
+const mdParser = new MarkdownIt({
+  html: true,        // ✅ 啟用 HTML 標籤支援（包含 <br>）
+  breaks: true,      // ✅ 將換行符轉換為 <br>
+  linkify: true,     // 自動將 URL 轉為連結
+  typographer: true  // 啟用智能標點符號
+});
 
 /**
- * 自定義 renderHTML 函數（支援圖片預覽）
+ * 自定義 renderHTML 函數（支援圖片預覽與 HTML 標籤）
  * 
  * ⚠️ 注意：由於 react-markdown-editor-lite 的 renderHTML 是同步函數，
  * 我們無法使用 React 組件的 useEffect 來異步加載圖片。
  * 
  * 解決方案：使用 markdown-it 渲染基礎 HTML，並自定義圖片規則
+ * 
+ * 新增功能：
+ * - 支援 HTML 標籤（如 <br>）在預覽中正確顯示
+ * - 將換行符自動轉換為 <br> 標籤
  * 
  * @param {string} text - Markdown 文本
  * @returns {string} - 渲染後的 HTML
@@ -229,8 +234,23 @@ const renderMarkdownWithImages = (text) => {
     // 步驟 2：將 [IMG:ID] 轉換為 ![IMG:ID](http://..../api/content-images/ID/)
     processed = convertImageReferencesToMarkdown(processed);
     
-    // 步驟 3：使用 markdown-it 渲染（支援表格等）
+    // 🔍 調試：輸出處理前的內容
+    if (text.includes('<br>')) {
+      console.log('📝 [Render] 輸入包含 <br> 標籤');
+      console.log('原始內容片段:', text.substring(0, 200));
+    }
+    
+    // 步驟 3：使用 markdown-it 渲染（支援 HTML 標籤與表格）
     let htmlString = mdParser.render(processed);
+    
+    // 🔍 調試：輸出渲染後的 HTML
+    if (htmlString.includes('<br>')) {
+      console.log('✅ [Render] 渲染後包含 <br> 標籤');
+    } else if (htmlString.includes('&lt;br&gt;')) {
+      console.log('❌ [Render] <br> 被轉義為 &lt;br&gt;');
+    } else if (text.includes('<br>')) {
+      console.log('⚠️ [Render] <br> 標籤消失了');
+    }
     
     // 步驟 4：後處理圖片 HTML
     // 將 <img src="http://...api/content-images/32/" alt="IMG:32"> 
@@ -645,6 +665,8 @@ const MarkdownEditorLayout = ({
                     fullScreen: true,
                     hideMenu: false
                   },
+                  htmlClass: 'custom-html-preview',  // ✅ 添加自定義 HTML class
+                  markdownClass: 'custom-md-editor', // 添加自定義 Markdown class
                   imageManager: {
                     onImageManagerClick: toggleDrawer,
                     isActive: drawerVisible,

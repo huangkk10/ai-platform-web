@@ -22,6 +22,7 @@ import {
 } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';  // ✅ 添加 rehype-raw 以支援 HTML 標籤
 import { markdownComponents } from '../components/markdown/MarkdownComponents';
 import { fixAllMarkdownTables } from '../utils/markdownTableFixer';
 import { convertImageReferencesToMarkdown } from '../utils/imageReferenceConverter';
@@ -176,6 +177,7 @@ const DevMarkdownTestPage = () => {
     // React Markdown 配置
     const markdownConfig = {
         remarkPlugins: [remarkGfm],
+        rehypePlugins: [rehypeRaw],  // ✅ 啟用 HTML 標籤支援（包含 <br>）
         components: markdownComponents,
         disallowedElements: ['script', 'iframe', 'object', 'embed'],
         unwrapDisallowed: true
