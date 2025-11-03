@@ -233,11 +233,13 @@ class BaseKnowledgeBaseSearchService(ABC):
                     
                     combined_content = "\n\n".join(section_contents)
                     
-                    # ✅ 修復：添加圖片資訊（如果文檔有圖片方法）
-                    if hasattr(item, 'get_images_summary'):
-                        images_summary = item.get_images_summary()
-                        if images_summary:
-                            combined_content += f"\n\n{images_summary}"
+                    # ✅ 修復：只添加段落範圍內的圖片資訊
+                    if hasattr(item, 'images'):
+                        section_image_ids = self._extract_image_ids_from_sections(data['sections'][:3])
+                        if section_image_ids:
+                            images_info = self._get_section_images_summary(item, section_image_ids)
+                            if images_info:
+                                combined_content += f"\n\n{images_info}"
                     
                     result = {
                         'content': combined_content,
@@ -259,6 +261,70 @@ class BaseKnowledgeBaseSearchService(ABC):
         except Exception as e:
             self.logger.error(f"段落結果轉換錯誤: {str(e)}")
             return []
+    
+    def _extract_image_ids_from_sections(self, sections):
+        """
+        從段落內容中提取圖片 ID
+        
+        搜尋段落內容中的圖片引用，格式如：
+        - [IMG:35]
+        - **[IMG:46] 2.jpg**
+        - 如圖所示，**[IMG:47] 3.jpg**
+        
+        Returns:
+            set: 圖片 ID 集合
+        """
+        import re
+        image_ids = set()
+        
+        for section in sections:
+            content = section.get('content', '')
+            # 使用正則表達式提取所有 [IMG:數字] 格式
+            matches = re.findall(r'\[IMG:(\d+)\]', content)
+            image_ids.update(int(img_id) for img_id in matches)
+        
+        return image_ids
+    
+    def _get_section_images_summary(self, item, image_ids):
+        """
+        獲取指定圖片的摘要資訊（只包含段落中引用的圖片）
+        
+        Args:
+            item: 文檔對象
+            image_ids: 圖片 ID 集合
+            
+        Returns:
+            str: 圖片摘要資訊
+        """
+        try:
+            # 獲取指定 ID 的圖片
+            images = item.images.filter(id__in=image_ids, is_active=True).order_by('display_order')
+            
+            if not images.exists():
+                return ""
+            
+            summaries = []
+            for img in images:
+                parts = []
+                if img.title:
+                    parts.append(f"{img.title}")
+                if img.description:
+                    parts.append(f"{img.description}")
+                if img.filename:
+                    parts.append(f"({img.filename})")
+                
+                if parts:
+                    summaries.append(f"**[IMG:{img.id}]** {' '.join(parts)}")
+                else:
+                    summaries.append(f"**[IMG:{img.id}]**")
+            
+            if summaries:
+                return f"> 相關圖片說明：\n> " + "\n> ".join(summaries)
+            return ""
+            
+        except Exception as e:
+            self.logger.warning(f"獲取段落圖片摘要失敗: {str(e)}")
+            return ""
     
     def _format_search_results(self, raw_results):
         """
