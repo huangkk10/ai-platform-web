@@ -9,6 +9,8 @@ import {
   PercentageOutlined
 } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
+import { convertImageReferencesToMarkdown } from '../../utils/imageReferenceConverter';
+import useMessageFormatter from '../../hooks/useMessageFormatter';
 import '../markdown/ReactMarkdown.css';
 import './SourceDetailModal.css';
 
@@ -24,6 +26,9 @@ const { Text, Title } = Typography;
  */
 const SourceDetailModal = ({ visible, source, onClose }) => {
   const [copying, setCopying] = useState(false);
+  
+  // 🎯 獲取 Markdown 配置（包含 CustomImage 組件）
+  const { markdownConfig } = useMessageFormatter();
 
   // 如果沒有 source，不渲染
   if (!source) {
@@ -167,8 +172,8 @@ const SourceDetailModal = ({ visible, source, onClose }) => {
         <div className="markdown-content-container">
           {source.content ? (
             <div className="markdown-preview-content">
-              <ReactMarkdown>
-                {source.content}
+              <ReactMarkdown {...markdownConfig}>
+                {convertImageReferencesToMarkdown(source.content)}
               </ReactMarkdown>
             </div>
           ) : (
