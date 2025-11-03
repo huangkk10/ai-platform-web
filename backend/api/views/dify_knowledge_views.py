@@ -311,12 +311,23 @@ def dify_knowledge_search(request):
             query = data.get('query', '')
             retrieval_setting = data.get('retrieval_setting', {})
             
+            # ⚠️ Dify 外部知識庫 API 不會傳遞 score_threshold，需要我們自己設定
+            # 從請求中獲取，如果沒有則使用預設值 0.7
+            score_threshold = retrieval_setting.get('score_threshold', 0.0)
+            
+            # 🔧 強制應用最低 threshold（防止低分結果）
+            if score_threshold < 0.65:
+                score_threshold = 0.7  # 強制使用 0.7 作為最低閾值
+                logger.info(f"⚠️ Dify 未傳遞 score_threshold，強制使用 0.7")
+            
+            logger.info(f"📊 使用 score_threshold={score_threshold} 進行搜索")
+            
             # 執行搜索
             result = handler.search(
                 knowledge_id=knowledge_id,
                 query=query,
                 top_k=retrieval_setting.get('top_k', 5),
-                score_threshold=retrieval_setting.get('score_threshold', 0.0)
+                score_threshold=score_threshold
             )
             
             logger.info(f"✅ 知識庫搜索成功: {knowledge_id}, query='{query}', results={len(result.get('records', []))}")

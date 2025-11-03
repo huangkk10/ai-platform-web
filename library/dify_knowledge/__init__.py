@@ -384,14 +384,20 @@ class DifyKnowledgeSearchHandler:
             dict: Dify 格式的回應
         """
         try:
+            # ✅ 添加日誌：顯示接收到的參數
+            self.logger.info(f"🔍 DifyKnowledgeSearchHandler.search() 接收參數:")
+            self.logger.info(f"   knowledge_id={knowledge_id}, query='{query}', top_k={top_k}, score_threshold={score_threshold}")
+            
             # 標準化知識庫 ID
             knowledge_type = self.normalize_knowledge_id(knowledge_id)
             
             # 執行搜索
             search_results = self.search_knowledge_by_type(knowledge_type, query, top_k)
+            self.logger.info(f"📊 搜索返回 {len(search_results)} 條原始結果")
             
             # 根據分數過濾
             filtered_results = self.filter_results_by_score(search_results, score_threshold)
+            self.logger.info(f"🎯 過濾後剩餘 {len(filtered_results)} 條結果（threshold={score_threshold}）")
             
             # 格式化回應
             response_data = self.format_dify_response(filtered_results)

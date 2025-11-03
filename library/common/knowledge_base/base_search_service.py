@@ -142,7 +142,13 @@ class BaseKnowledgeBaseSearchService(ABC):
     
     def search_with_keywords(self, query, limit=5):
         """
-        使用關鍵字進行搜索
+        使用關鍵字進行搜索（✨ 已改進：智能分數計算）
+        
+        改進內容：
+        - ✅ 根據匹配位置、頻率、欄位權重計算真實相似度
+        - ✅ 標題匹配：0.7 ~ 1.0
+        - ✅ 內容匹配：0.3 ~ 0.6
+        - ✅ 支援任意 threshold 過濾
         
         基於資料庫的關鍵字搜索
         """
@@ -155,17 +161,35 @@ class BaseKnowledgeBaseSearchService(ABC):
                 if hasattr(self.model_class, field):
                     q_objects |= Q(**{f"{field}__icontains": query})
             
-            # 執行搜索
-            items = self.model_class.objects.filter(q_objects)[:limit]
+            # 執行搜索（查詢更多結果以便排序後選擇 top-k）
+            items = self.model_class.objects.filter(q_objects)[:limit * 2]
             
+            self.logger.debug(f"🔍 關鍵字搜索: 查詢 '{query}' 返回 {len(items)} 個匹配項")
+            
+            # 計算每個結果的相似度分數
             results = []
             for item in items:
-                results.append(self._format_item_to_result(item))
+                # ✅ 使用智能分數計算
+                score = self._calculate_keyword_score(item, query)
+                result = self._format_item_to_result(item, score=score)
+                results.append(result)
             
-            return results
+            # 按分數降序排序
+            results.sort(key=lambda x: x.get('score', 0), reverse=True)
+            
+            # 返回 top-k 結果
+            top_results = results[:limit]
+            
+            if top_results:
+                self.logger.info(
+                    f"📊 關鍵字搜索結果: {len(top_results)} 條 | "
+                    f"分數範圍: {top_results[0].get('score', 0):.2f} ~ {top_results[-1].get('score', 0):.2f}"
+                )
+            
+            return top_results
             
         except Exception as e:
-            self.logger.error(f"關鍵字搜索錯誤: {str(e)}")
+            self.logger.error(f"❌ 關鍵字搜索錯誤: {str(e)}")
             return []
     
     def _format_section_results_to_standard(self, section_results, limit=5):
@@ -252,13 +276,114 @@ class BaseKnowledgeBaseSearchService(ABC):
         
         return formatted_results
     
-    def _format_item_to_result(self, item):
+    def _calculate_keyword_score(self, item, query):
+        """
+        計算關鍵字匹配的相似度分數
+        
+        評分邏輯：
+        1. 標題完全匹配：1.0
+        2. 標題部分匹配：0.7 ~ 0.95（根據位置）
+        3. 內容開頭匹配：0.5 ~ 0.6
+        4. 內容中間匹配：0.3 ~ 0.5
+        5. 內容末尾匹配：0.3 ~ 0.4
+        
+        考慮因素：
+        - 匹配位置（越早出現越相關）
+        - 匹配次數（出現越多越相關，但有上限）
+        - 匹配欄位（標題 > 內容）
+        
+        Args:
+            item: 資料庫記錄對象
+            query: 查詢字串
+            
+        Returns:
+            float: 相似度分數 (0.3 ~ 1.0)
+        """
+        try:
+            query_lower = query.lower().strip()
+            if not query_lower:
+                return 0.3
+            
+            max_score = 0.0
+            
+            # === 1. 檢查標題匹配 ===
+            title = getattr(item, 'title', '').lower()
+            if title and query_lower in title:
+                # 完全匹配
+                if query_lower == title.strip():
+                    max_score = max(max_score, 1.0)
+                    self.logger.debug(f"✅ 標題完全匹配: '{item.title}' | 分數: 1.0")
+                else:
+                    # 部分匹配 - 根據位置計算
+                    position = title.find(query_lower)
+                    title_length = len(title)
+                    count = title.count(query_lower)
+                    
+                    # 位置因素 (0.0 ~ 1.0)：越早出現越相關
+                    position_factor = 1.0 - (position / title_length) if title_length > 0 else 0.5
+                    
+                    # 密度因素 (最多 +0.2)
+                    density_bonus = min(count * 0.05, 0.2)
+                    
+                    # 標題匹配基礎分 0.7，加上位置和密度加成
+                    title_score = 0.7 + (position_factor * 0.25) + density_bonus
+                    max_score = max(max_score, min(title_score, 0.95))
+                    
+                    self.logger.debug(
+                        f"✅ 標題部分匹配: '{item.title[:50]}...' | "
+                        f"位置: {position}/{title_length} | 次數: {count} | 分數: {title_score:.2f}"
+                    )
+            
+            # === 2. 檢查內容匹配 ===
+            content = getattr(item, 'content', '').lower()
+            if content and query_lower in content:
+                position = content.find(query_lower)
+                content_length = len(content)
+                count = content.count(query_lower)
+                
+                # 位置因素 (0.0 ~ 1.0)
+                position_factor = 1.0 - (position / content_length) if content_length > 0 else 0.5
+                
+                # 密度因素 (最多 +0.3)
+                density_bonus = min(count * 0.05, 0.3)
+                
+                # 內容匹配基礎分 0.3，加上位置和密度加成
+                content_score = 0.3 + (position_factor * 0.2) + density_bonus
+                
+                # 內容匹配最高 0.6（避免超過標題匹配）
+                content_score = min(content_score, 0.6)
+                
+                # 如果沒有標題匹配，才使用內容分數
+                if max_score == 0.0:
+                    max_score = content_score
+                
+                self.logger.debug(
+                    f"📄 內容匹配: '{item.title[:50]}...' | "
+                    f"位置: {position}/{content_length} | 次數: {count} | 分數: {content_score:.2f}"
+                )
+            
+            # === 3. 返回最終分數 ===
+            final_score = max(max_score, 0.3)  # 至少 0.3（有匹配才會進這個函數）
+            
+            self.logger.debug(f"🎯 最終分數: {final_score:.2f} | 文檔: '{getattr(item, 'title', 'Unknown')[:50]}...'")
+            
+            return final_score
+            
+        except Exception as e:
+            self.logger.error(f"❌ 分數計算失敗: {str(e)}")
+            return 0.3  # 錯誤時返回最低分
+    
+    def _format_item_to_result(self, item, score=None):
         """
         將資料庫記錄格式化為搜索結果
+        
+        Args:
+            item: 資料庫記錄對象
+            score: 相似度分數（可選）。如果未提供，將使用預設值 0.5
         """
         return {
             'content': self._get_item_content(item),
-            'score': 0.5,  # 關鍵字搜索給予固定分數
+            'score': score if score is not None else 0.5,
             'title': getattr(item, 'title', str(item)),
             'metadata': {
                 'id': item.id,
