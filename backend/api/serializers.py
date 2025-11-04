@@ -345,3 +345,55 @@ class ProtocolGuideWithImagesSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 
                            'images', 'image_count', 'has_images', 'primary_image']
+
+
+class SearchThresholdSettingSerializer(serializers.ModelSerializer):
+    """搜尋 Threshold 設定序列化器"""
+    
+    # 唯讀欄位：顯示計算後的所有 threshold 值
+    calculated_thresholds = serializers.SerializerMethodField()
+    assistant_type_display = serializers.CharField(source='get_assistant_type_display', read_only=True)
+    updated_by_username = serializers.CharField(source='updated_by.username', read_only=True, allow_null=True)
+    
+    class Meta:
+        from .models import SearchThresholdSetting
+        model = SearchThresholdSetting
+        fields = [
+            'id',
+            'assistant_type',
+            'assistant_type_display',
+            'master_threshold',
+            'calculated_thresholds',  # 計算後的所有 threshold
+            'description',
+            'is_active',
+            'created_at',
+            'updated_at',
+            'updated_by',
+            'updated_by_username',
+        ]
+        read_only_fields = [
+            'id',
+            'created_at',
+            'updated_at',
+            'updated_by',
+            'calculated_thresholds',
+            'assistant_type_display',
+            'updated_by_username',
+        ]
+    
+    def get_calculated_thresholds(self, obj):
+        """獲取計算後的所有 threshold 值"""
+        return obj.get_calculated_thresholds()
+    
+    def validate_master_threshold(self, value):
+        """驗證 master_threshold 範圍"""
+        if value < 0 or value > 1:
+            raise serializers.ValidationError("Threshold 必須在 0.00 到 1.00 之間")
+        return value
+    
+    def update(self, instance, validated_data):
+        """更新時自動設定 updated_by"""
+        request = self.context.get('request')
+        if request and request.user and request.user.is_authenticated:
+            validated_data['updated_by'] = request.user
+        return super().update(instance, validated_data)

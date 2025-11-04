@@ -13,6 +13,7 @@ import {
   BarChartOutlined,
   ToolOutlined,
   RightOutlined,
+  SlidersOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 import smiLogo from '../assets/images/smi.png';
@@ -111,6 +112,9 @@ const Sidebar = ({ collapsed, onCollapse }) => {
         break;
       case 'user-management':
         navigate('/admin/user-management');
+        break;
+      case 'threshold-settings':
+        navigate('/admin/threshold-settings');
         break;
       case 'system-logs':
         navigate('/admin/system-logs');
@@ -211,6 +215,11 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       // 整合的用戶權限管理 - Django 管理員權限
       if (user && (user.is_staff || user.is_superuser)) {
         children.push({ key: 'user-management', icon: <UserOutlined />, label: '用戶權限管理' });
+      }
+
+      // Threshold 設定 - Django 管理員權限
+      if (user && (user.is_staff || user.is_superuser)) {
+        children.push({ key: 'threshold-settings', icon: <SlidersOutlined />, label: 'Threshold 設定' });
       }
 
       // 系統日誌查看器 - Django 管理員權限

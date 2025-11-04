@@ -15,6 +15,7 @@ router.register(r'rvt-guides', views.RVTGuideViewSet)
 router.register(r'protocol-guides', views.ProtocolGuideViewSet)
 router.register(r'protocol-assistant', views.ProtocolAssistantViewSet, basename='protocol-assistant')
 router.register(r'content-images', views.ContentImageViewSet)
+router.register(r'threshold-settings', views.SearchThresholdViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),

@@ -177,7 +177,7 @@ def search_know_issue_knowledge(query_text, limit=5):
         return []
 
 
-def search_rvt_guide_knowledge(query_text, limit=5):
+def search_rvt_guide_knowledge(query_text, limit=5, threshold=0.7):
     """
     搜索 RVT Guide 知識庫
     
@@ -187,6 +187,7 @@ def search_rvt_guide_knowledge(query_text, limit=5):
     Args:
         query_text: 搜索關鍵字
         limit: 返回結果數量限制
+        threshold: 相似度閾值 (0.0 ~ 1.0)，來自 Dify Studio 或 Database
         
     Returns:
         list: 搜索結果列表
@@ -194,7 +195,8 @@ def search_rvt_guide_knowledge(query_text, limit=5):
     try:
         if LIBRARIES_AVAILABLE:
             service = RVTGuideSearchService()
-            return service.search_knowledge(query_text, limit=limit)
+            # ✅ 傳遞 threshold 參數到底層搜索服務
+            return service.search_knowledge(query_text, limit=limit, threshold=threshold)
         else:
             logger.warning("RVTGuideSearchService 不可用，使用備用實現")
             return []
@@ -203,7 +205,7 @@ def search_rvt_guide_knowledge(query_text, limit=5):
         return []
 
 
-def search_protocol_guide_knowledge(query_text, limit=5):
+def search_protocol_guide_knowledge(query_text, limit=5, threshold=0.7):
     """
     搜索 Protocol Guide 知識庫
     
@@ -213,6 +215,7 @@ def search_protocol_guide_knowledge(query_text, limit=5):
     Args:
         query_text: 搜索關鍵字
         limit: 返回結果數量限制
+        threshold: 相似度閾值 (0.0 ~ 1.0)，來自 Dify Studio 或 Database
         
     Returns:
         list: 搜索結果列表
@@ -220,7 +223,8 @@ def search_protocol_guide_knowledge(query_text, limit=5):
     try:
         if LIBRARIES_AVAILABLE:
             service = ProtocolGuideSearchService()
-            return service.search_knowledge(query_text, limit=limit)
+            # ✅ 傳遞 threshold 參數到底層搜索服務
+            return service.search_knowledge(query_text, limit=limit, threshold=threshold)
         else:
             logger.warning("ProtocolGuideSearchService 不可用，使用備用實現")
             return []
@@ -311,14 +315,50 @@ def dify_knowledge_search(request):
             query = data.get('query', '')
             retrieval_setting = data.get('retrieval_setting', {})
             
-            # ✅ 方案 C：直接使用 Dify Studio 傳來的 threshold
-            # 如果 Dify 沒有傳遞，使用預設值 0.7
-            score_threshold = retrieval_setting.get('score_threshold', 0.7)
+            # 🎯 三層優先順序 Threshold 管理
+            # 優先級 1：Dify Studio 設定（用戶當下設定）
+            dify_threshold = retrieval_setting.get('score_threshold')
             
-            logger.info(
-                f"📊 從 Dify 接收到 threshold={score_threshold} | "
-                f"knowledge_id='{knowledge_id}' | query='{query}'"
-            )
+            # ✅ 修正：將 0.0 視為「未設定」（因為 0.0 threshold 會返回所有結果，通常不是用戶本意）
+            if dify_threshold is not None and dify_threshold > 0:
+                # Dify 有設定有效的 threshold（> 0），使用 Dify 的值
+                score_threshold = dify_threshold
+                logger.info(
+                    f"🎯 [優先級 1] 使用 Dify Studio threshold={score_threshold} | "
+                    f"knowledge_id='{knowledge_id}' | query='{query}'"
+                )
+            else:
+                # Dify 沒有設定 threshold，使用 ThresholdManager（優先級 2: Database，優先級 3: Default）
+                try:
+                    from library.common.threshold_manager import get_threshold_manager
+                    
+                    # 將 knowledge_id 映射到 assistant_type
+                    assistant_type_mapping = {
+                        'protocol_assistant': 'protocol_assistant',
+                        'protocol_guide': 'protocol_assistant',
+                        'protocol_guide_db': 'protocol_assistant',
+                        'rvt_guide': 'rvt_assistant',
+                        'rvt_guide_db': 'rvt_assistant',
+                        'rvt_assistant': 'rvt_assistant',
+                    }
+                    assistant_type = assistant_type_mapping.get(knowledge_id, 'protocol_assistant')
+                    
+                    manager = get_threshold_manager()
+                    score_threshold = manager.get_threshold(
+                        assistant_type=assistant_type,
+                        dify_threshold=None  # 傳入 None，讓 Manager 使用 Database 或 Default
+                    )
+                    
+                    logger.info(
+                        f"📊 [優先級 2/3] Dify 未設定，使用 ThresholdManager threshold={score_threshold} | "
+                        f"assistant_type='{assistant_type}' | knowledge_id='{knowledge_id}' | query='{query}'"
+                    )
+                except Exception as e:
+                    # 如果 ThresholdManager 失敗，使用硬編碼預設值
+                    score_threshold = 0.7
+                    logger.warning(
+                        f"⚠️ ThresholdManager 失敗，使用硬編碼預設值 0.7: {e}"
+                    )
             
             # 執行搜索（threshold 會一路傳遞到 SQL 查詢）
             result = handler.search(

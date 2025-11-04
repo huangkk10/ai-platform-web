@@ -172,6 +172,9 @@ from .viewsets import (
     # Content ViewSets (content_viewsets.py)
     ContentImageViewSet,
     
+    # Threshold ViewSets (threshold_viewsets.py)
+    SearchThresholdViewSet,
+    
     # Monitoring Views (monitoring_views.py)
     system_logs,
     simple_system_status,

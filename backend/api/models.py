@@ -1113,3 +1113,99 @@ class ChatMessage(models.Model):
         # 更新對話統計
         if self.conversation_id:
             self.conversation.update_stats()
+
+
+class SearchThresholdSetting(models.Model):
+    """
+    搜尋 Threshold 設定管理
+    
+    管理不同 Assistant 的 threshold 設定。
+    只儲存一個 master_threshold，其他 threshold 會根據固定公式計算：
+    - 段落向量搜尋: master_threshold
+    - 文檔向量搜尋: master_threshold * 0.85
+    - 關鍵字補充搜尋: master_threshold * 0.5
+    
+    優先順序：
+    1. Dify Studio 設定（最高優先，用戶當下設定）
+    2. 資料庫設定（此 Model，管理員預設值）
+    3. 程式碼預設值 0.7（最低優先，系統預設）
+    """
+    
+    ASSISTANT_CHOICES = [
+        ('protocol_assistant', 'Protocol Assistant'),
+        ('rvt_assistant', 'RVT Assistant'),
+    ]
+    
+    assistant_type = models.CharField(
+        max_length=50,
+        unique=True,
+        choices=ASSISTANT_CHOICES,
+        verbose_name="Assistant 類型",
+        help_text="要設定 threshold 的 Assistant"
+    )
+    
+    master_threshold = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        default=0.70,
+        verbose_name="主 Threshold",
+        help_text="段落向量搜尋使用的 threshold (0.00 ~ 1.00)。其他搜尋會自動計算：文檔=0.85倍、關鍵字=0.5倍"
+    )
+    
+    description = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="說明",
+        help_text="此設定的用途說明"
+    )
+    
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="啟用",
+        help_text="是否啟用此設定"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="建立時間")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新時間")
+    updated_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="更新者",
+        help_text="最後更新此設定的使用者"
+    )
+    
+    class Meta:
+        db_table = 'search_threshold_settings'
+        verbose_name = "搜尋 Threshold 設定"
+        verbose_name_plural = "搜尋 Threshold 設定"
+        ordering = ['assistant_type']
+    
+    def __str__(self):
+        return f"{self.get_assistant_type_display()} - Threshold: {self.master_threshold}"
+    
+    def get_calculated_thresholds(self):
+        """
+        計算所有 threshold 值
+        
+        Returns:
+            dict: 包含所有計算後的 threshold
+        """
+        master = float(self.master_threshold)
+        return {
+            'master_threshold': master,
+            'vector_section_threshold': master,  # 段落向量
+            'vector_document_threshold': round(master * 0.85, 2),  # 文檔向量
+            'keyword_threshold': round(master * 0.5, 2),  # 關鍵字
+        }
+    
+    def save(self, *args, **kwargs):
+        """儲存前驗證 threshold 範圍"""
+        # 確保 threshold 在有效範圍內
+        if self.master_threshold < 0:
+            self.master_threshold = 0
+        elif self.master_threshold > 1:
+            self.master_threshold = 1
+        
+        super().save(*args, **kwargs)

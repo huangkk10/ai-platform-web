@@ -37,6 +37,9 @@ from .ocr_viewsets import (
 # 內容管理
 from .content_viewsets import ContentImageViewSet
 
+# Threshold 設定管理
+from .threshold_viewsets import SearchThresholdViewSet
+
 # 系統監控
 from .monitoring_views import (
     system_logs,
@@ -63,6 +66,8 @@ __all__ = [
     'OCRStorageBenchmarkViewSet',
     # Content
     'ContentImageViewSet',
+    # Threshold
+    'SearchThresholdViewSet',
     # Monitoring
     'system_logs',
     'simple_system_status',

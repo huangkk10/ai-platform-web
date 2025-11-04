@@ -19,6 +19,7 @@ import GuidePreviewPage from './pages/GuidePreviewPage';
 import OcrStorageBenchmarkPage from './pages/OcrStorageBenchmarkPage';
 import TestClassManagementPage from './pages/TestClassManagementPage';
 import IntegratedUserManagementPage from './pages/admin/IntegratedUserManagementPage';
+import ThresholdSettingsPage from './pages/admin/ThresholdSettingsPage';
 import KnowIssueChatPage from './pages/KnowIssueChatPage';
 import LogAnalyzeChatPage from './pages/LogAnalyzeChatPage';
 import RvtAssistantChatPage from './pages/RvtAssistantChatPage';
@@ -82,6 +83,8 @@ function AppLayout() {
         return 'Protocol Assistant 知識庫';
       case '/admin/user-management':
         return '用戶權限管理';
+      case '/admin/threshold-settings':
+        return '搜尋 Threshold 設定';
       case '/admin/system-logs':
         return '系統日誌查看器';
       case '/admin/rvt-analytics':
@@ -318,6 +321,11 @@ function AppLayout() {
             <Route path="/log-analyze" element={<LogAnalyzePage />} />
             <Route path="/admin/test-class-management" element={<TestClassManagementPage />} />
             <Route path="/admin/user-management" element={<IntegratedUserManagementPage />} />
+            <Route path="/admin/threshold-settings" element={
+              <ProtectedRoute permission="isStaff" fallbackTitle="Threshold 設定存取受限">
+                <ThresholdSettingsPage />
+              </ProtectedRoute>
+            } />
             <Route path="/admin/system-logs" element={
               <ProtectedRoute permission="isStaff" fallbackTitle="系統日誌存取受限">
                 <SystemLogViewerPage />
