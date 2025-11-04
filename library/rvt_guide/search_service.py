@@ -57,16 +57,21 @@ class RVTGuideSearchService(BaseKnowledgeBaseSearchService):
         return self._database_search_service
 
 
-def search_rvt_guide_knowledge(query_text, limit=5):
+def search_rvt_guide_knowledge(query_text, limit=5, threshold=0.7):
     """
     向後兼容的搜索函數
     
     保持與原有 views.py 中函數的兼容性
     現在內部使用統一的搜索服務
+    
+    Args:
+        query_text: 查詢文本
+        limit: 返回結果數量
+        threshold: 相似度閾值 (0.0 ~ 1.0)
     """
     try:
         search_service = RVTGuideSearchService()
-        return search_service.search_knowledge(query_text, limit)
+        return search_service.search_knowledge(query_text, limit, threshold=threshold)
     except Exception as e:
         logger.error(f"RVT Guide 兼容搜索失敗: {str(e)}")
         return []

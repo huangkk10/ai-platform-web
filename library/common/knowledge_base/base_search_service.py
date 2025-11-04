@@ -45,7 +45,7 @@ class BaseKnowledgeBaseSearchService(ABC):
         if self.source_table is None:
             raise NotImplementedError(f"{self.__class__.__name__} must define 'source_table' attribute")
     
-    def search_knowledge(self, query, limit=5, use_vector=True):
+    def search_knowledge(self, query, limit=5, use_vector=True, threshold=0.7):
         """
         搜索知識庫
         
@@ -53,6 +53,12 @@ class BaseKnowledgeBaseSearchService(ABC):
         1. 優先嘗試向量搜索
         2. 如果向量搜索失敗或結果不足，使用關鍵字搜索
         3. 合併並去重結果
+        
+        Args:
+            query: 查詢字串
+            limit: 返回結果數量上限
+            use_vector: 是否使用向量搜索
+            threshold: 相似度閾值 (0.0 ~ 1.0)，來自 Dify Studio 設定
         """
         try:
             results = []
@@ -60,17 +66,19 @@ class BaseKnowledgeBaseSearchService(ABC):
             # 嘗試向量搜索
             if use_vector:
                 try:
-                    vector_results = self.search_with_vectors(query, limit)
+                    vector_results = self.search_with_vectors(query, limit, threshold)
                     if vector_results:
                         results.extend(vector_results)
-                        self.logger.info(f"向量搜索返回 {len(vector_results)} 條結果")
+                        self.logger.info(f"向量搜索返回 {len(vector_results)} 條結果 (threshold={threshold})")
                 except Exception as e:
                     self.logger.warning(f"向量搜索失敗: {str(e)}")
             
             # 如果結果不足，使用關鍵字搜索補充
             if len(results) < limit:
                 remaining = limit - len(results)
-                keyword_results = self.search_with_keywords(query, remaining)
+                # 關鍵字搜索使用較低的 threshold (threshold * 0.5)
+                keyword_threshold = max(threshold * 0.5, 0.3)
+                keyword_results = self.search_with_keywords(query, remaining, keyword_threshold)
                 
                 # 去重（避免重複的結果）
                 existing_ids = {r.get('metadata', {}).get('id') for r in results}
@@ -80,7 +88,7 @@ class BaseKnowledgeBaseSearchService(ABC):
                         results.append(kr)
                         existing_ids.add(kr_id)
                 
-                self.logger.info(f"關鍵字搜索補充 {len(keyword_results)} 條結果")
+                self.logger.info(f"關鍵字搜索補充 {len(keyword_results)} 條結果 (threshold={keyword_threshold:.2f})")
             
             return results[:limit]
             
@@ -88,7 +96,7 @@ class BaseKnowledgeBaseSearchService(ABC):
             self.logger.error(f"搜索失敗: {str(e)}")
             return []
     
-    def search_with_vectors(self, query, limit=5):
+    def search_with_vectors(self, query, limit=5, threshold=0.7):
         """
         使用向量進行搜索 (通用實現 - 已重構)
         
@@ -97,8 +105,14 @@ class BaseKnowledgeBaseSearchService(ABC):
         - 備用整篇文檔向量搜尋
         - 所有知識庫共用此實現
         - 子類無需覆寫，除非有特殊邏輯
+        - ✅ threshold 可完全參數化，來自 Dify Studio
         
         子類可以通過覆寫 _get_item_content() 來自定義內容格式化
+        
+        Args:
+            query: 查詢字串
+            limit: 返回結果數量上限
+            threshold: 相似度閾值 (0.0 ~ 1.0)，來自 Dify Studio 設定
         """
         try:
             # 🎯 優先使用段落向量搜尋
@@ -110,37 +124,40 @@ class BaseKnowledgeBaseSearchService(ABC):
                     query=query,
                     source_table=self.source_table,
                     limit=limit,
-                    threshold=0.7  # 段落搜尋閾值（提高精準度，避免混到其他資料）
+                    threshold=threshold  # ✅ 使用傳入的 threshold
                 )
                 
                 if section_results:
-                    self.logger.info(f"✅ 段落向量搜尋成功: {len(section_results)} 個結果")
+                    self.logger.info(f"✅ 段落向量搜尋成功: {len(section_results)} 個結果 (threshold={threshold})")
                     # 將段落結果轉換為標準格式
                     return self._format_section_results_to_standard(section_results, limit)
             except Exception as section_error:
                 self.logger.warning(f"⚠️ 段落向量搜尋失敗，使用整篇文檔搜尋: {str(section_error)}")
             
-            # 備用：整篇文檔向量搜尋
+            # 備用：整篇文檔向量搜尋（使用稍低的 threshold）
             from .vector_search_helper import search_with_vectors_generic
+            
+            # 文檔搜索使用稍低的 threshold (threshold * 0.85)
+            doc_threshold = max(threshold * 0.85, 0.5)
             
             results = search_with_vectors_generic(
                 query=query,
                 model_class=self.model_class,
                 source_table=self.source_table,
                 limit=limit,
-                threshold=0.6,  # 備用方案也要有品質保證，避免不相關內容
+                threshold=doc_threshold,  # ✅ 使用動態計算的 threshold
                 use_1024=True,
                 content_formatter=self._get_item_content
             )
             
-            self.logger.info(f"📄 整篇文檔向量搜尋返回 {len(results)} 個結果")
+            self.logger.info(f"📄 整篇文檔向量搜尋返回 {len(results)} 個結果 (threshold={doc_threshold:.2f})")
             return results
             
         except Exception as e:
             self.logger.error(f"向量搜索錯誤: {str(e)}")
             return []
     
-    def search_with_keywords(self, query, limit=5):
+    def search_with_keywords(self, query, limit=5, threshold=0.3):
         """
         使用關鍵字進行搜索（✨ 已改進：智能分數計算）
         
@@ -151,6 +168,11 @@ class BaseKnowledgeBaseSearchService(ABC):
         - ✅ 支援任意 threshold 過濾
         
         基於資料庫的關鍵字搜索
+        
+        Args:
+            query: 查詢字串
+            limit: 返回結果數量上限
+            threshold: 相似度閾值 (0.0 ~ 1.0)，通常比向量搜索低
         """
         try:
             from django.db.models import Q
@@ -162,17 +184,20 @@ class BaseKnowledgeBaseSearchService(ABC):
                     q_objects |= Q(**{f"{field}__icontains": query})
             
             # 執行搜索（查詢更多結果以便排序後選擇 top-k）
-            items = self.model_class.objects.filter(q_objects)[:limit * 2]
+            items = self.model_class.objects.filter(q_objects)[:limit * 3]
             
             self.logger.debug(f"🔍 關鍵字搜索: 查詢 '{query}' 返回 {len(items)} 個匹配項")
             
-            # 計算每個結果的相似度分數
+            # 計算每個結果的相似度分數並過濾
             results = []
             for item in items:
                 # ✅ 使用智能分數計算
                 score = self._calculate_keyword_score(item, query)
-                result = self._format_item_to_result(item, score=score)
-                results.append(result)
+                
+                # ✅ 使用傳入的 threshold 過濾
+                if score >= threshold:
+                    result = self._format_item_to_result(item, score=score)
+                    results.append(result)
             
             # 按分數降序排序
             results.sort(key=lambda x: x.get('score', 0), reverse=True)
@@ -182,9 +207,11 @@ class BaseKnowledgeBaseSearchService(ABC):
             
             if top_results:
                 self.logger.info(
-                    f"📊 關鍵字搜索結果: {len(top_results)} 條 | "
+                    f"📊 關鍵字搜索結果: {len(top_results)} 條 (threshold={threshold:.2f}) | "
                     f"分數範圍: {top_results[0].get('score', 0):.2f} ~ {top_results[-1].get('score', 0):.2f}"
                 )
+            else:
+                self.logger.info(f"📊 關鍵字搜索: 無結果通過 threshold={threshold:.2f}")
             
             return top_results
             

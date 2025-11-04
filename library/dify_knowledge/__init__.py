@@ -274,7 +274,7 @@ class DifyKnowledgeSearchHandler:
         self.logger.info(f"Knowledge ID 標準化: '{knowledge_id}' -> '{normalized}'")
         return normalized
     
-    def search_knowledge_by_type(self, knowledge_type, query, limit=5):
+    def search_knowledge_by_type(self, knowledge_type, query, limit=5, threshold=0.7):
         """
         根據知識類型執行搜索
         
@@ -282,15 +282,16 @@ class DifyKnowledgeSearchHandler:
             knowledge_type: 標準化的知識類型
             query: 搜索查詢
             limit: 結果數量限制
+            threshold: 相似度閾值 (0.0 ~ 1.0)，來自 Dify Studio
             
         Returns:
             list: 搜索結果列表
         """
-        self.logger.info(f"執行搜索: type={knowledge_type}, query='{query}', limit={limit}")
+        self.logger.info(f"執行搜索: type={knowledge_type}, query='{query}', limit={limit}, threshold={threshold}")
         
         try:
             if knowledge_type == 'know_issue':
-                results = self.search_know_issue_knowledge(query, limit=limit)
+                results = self.search_know_issue_knowledge(query, limit=limit, threshold=threshold)
                 self.logger.info(f"Know Issue 搜索結果: {len(results)} 條")
                 return results
                 
@@ -298,38 +299,41 @@ class DifyKnowledgeSearchHandler:
                 # 優先使用向量搜索
                 if self.vector_search_available and self.search_rvt_guide_with_vectors:
                     try:
-                        results = self.search_rvt_guide_with_vectors(query, limit=limit, threshold=0.1)
+                        # ✅ 傳遞 threshold 參數
+                        results = self.search_rvt_guide_with_vectors(query, limit=limit, threshold=threshold)
                         self.logger.info(f"RVT Guide 向量搜索結果: {len(results)} 條")
                         
-                        # 如果向量搜索無結果，回退到關鍵字搜索
+                        # 如果向量搜索無結果，回退到關鍵字搜索（使用較低 threshold）
                         if not results:
                             self.logger.info("向量搜索無結果，回退到關鍵字搜索")
-                            results = self.search_rvt_guide_knowledge(query, limit=limit)
+                            keyword_threshold = max(threshold * 0.5, 0.3)
+                            results = self.search_rvt_guide_knowledge(query, limit=limit, threshold=keyword_threshold)
                             self.logger.info(f"RVT Guide 關鍵字搜索結果: {len(results)} 條")
                         return results
                     except Exception as e:
                         self.logger.error(f"向量搜索失敗，回退到關鍵字搜索: {e}")
-                        results = self.search_rvt_guide_knowledge(query, limit=limit)
+                        keyword_threshold = max(threshold * 0.5, 0.3)
+                        results = self.search_rvt_guide_knowledge(query, limit=limit, threshold=keyword_threshold)
                         self.logger.info(f"RVT Guide 備用搜索結果: {len(results)} 條")
                         return results
                 else:
-                    results = self.search_rvt_guide_knowledge(query, limit=limit)
+                    results = self.search_rvt_guide_knowledge(query, limit=limit, threshold=threshold)
                     self.logger.info(f"RVT Guide 關鍵字搜索結果: {len(results)} 條")
                     return results
                     
             elif knowledge_type == 'protocol_guide':
-                # Protocol Guide 搜索（暫時使用關鍵字搜索，之後可添加向量搜索）
-                results = self.search_protocol_guide_knowledge(query, limit=limit)
+                # ✅ Protocol Guide 傳遞 threshold
+                results = self.search_protocol_guide_knowledge(query, limit=limit, threshold=threshold)
                 self.logger.info(f"Protocol Guide 搜索結果: {len(results)} 條")
                 return results
                     
             elif knowledge_type == 'ocr_benchmark':
-                results = self.search_ocr_storage_benchmark(query, limit=limit)
+                results = self.search_ocr_storage_benchmark(query, limit=limit, threshold=threshold)
                 self.logger.info(f"OCR Storage Benchmark 搜索結果: {len(results)} 條")
                 return results
                 
             elif knowledge_type == 'employee':
-                results = self.search_postgres_knowledge(query, limit=limit)
+                results = self.search_postgres_knowledge(query, limit=limit, threshold=threshold)
                 self.logger.info(f"Employee 搜索結果: {len(results)} 條")
                 return results
                 
@@ -369,7 +373,7 @@ class DifyKnowledgeSearchHandler:
         
         return {'records': records}
     
-    def search(self, knowledge_id, query, top_k=5, score_threshold=0.0, metadata_condition=None):
+    def search(self, knowledge_id, query, top_k=5, score_threshold=0.7, metadata_condition=None):
         """
         統一搜索接口
         
@@ -377,32 +381,37 @@ class DifyKnowledgeSearchHandler:
             knowledge_id: 知識庫 ID
             query: 搜索查詢
             top_k: 返回結果數量
-            score_threshold: 分數閾值
+            score_threshold: 分數閾值（來自 Dify Studio）
             metadata_condition: 元數據條件（可選）
             
         Returns:
             dict: Dify 格式的回應
         """
         try:
-            # ✅ 添加日誌：顯示接收到的參數
-            self.logger.info(f"🔍 DifyKnowledgeSearchHandler.search() 接收參數:")
-            self.logger.info(f"   knowledge_id={knowledge_id}, query='{query}', top_k={top_k}, score_threshold={score_threshold}")
+            # ✅ 方案 C：顯示完整參數流
+            self.logger.info(f"🔍 [Stage 6] DifyKnowledgeSearchHandler.search() 接收參數:")
+            self.logger.info(f"   knowledge_id={knowledge_id}, query='{query}', top_k={top_k}, threshold={score_threshold}")
             
             # 標準化知識庫 ID
             knowledge_type = self.normalize_knowledge_id(knowledge_id)
             
-            # 執行搜索
-            search_results = self.search_knowledge_by_type(knowledge_type, query, top_k)
-            self.logger.info(f"📊 搜索返回 {len(search_results)} 條原始結果")
+            # ✅ 執行搜索（傳遞 threshold 到底層搜索服務）
+            search_results = self.search_knowledge_by_type(
+                knowledge_type, 
+                query, 
+                limit=top_k,
+                threshold=score_threshold  # ✅ 傳遞 threshold
+            )
+            self.logger.info(f"📊 [Stage 10] 搜索返回 {len(search_results)} 條原始結果")
             
-            # 根據分數過濾
+            # ✅ 二次過濾（防護機制，確保沒有低分結果漏網）
             filtered_results = self.filter_results_by_score(search_results, score_threshold)
-            self.logger.info(f"🎯 過濾後剩餘 {len(filtered_results)} 條結果（threshold={score_threshold}）")
+            self.logger.info(f"🎯 [Stage 11] Python 二次過濾後: {len(filtered_results)} 條結果 (threshold={score_threshold})")
             
             # 格式化回應
             response_data = self.format_dify_response(filtered_results)
             
-            self.logger.info(f"搜索完成: 找到 {len(filtered_results)} 條結果")
+            self.logger.info(f"✅ 搜索完成: 最終返回 {len(filtered_results)} 條結果給 Dify")
             return response_data
             
         except Exception as e:
