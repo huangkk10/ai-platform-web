@@ -17,6 +17,11 @@ const useProtocolAssistantChat = (conversationId, setConversationId, setMessages
   }, []);
 
   const sendMessage = useCallback(async (userMessage) => {
+    console.log('🚀 [Protocol Assistant] sendMessage 開始執行');
+    console.log('  - userMessage:', userMessage);
+    console.log('  - conversationId:', conversationId);
+    console.log('  - currentUserId:', currentUserId);
+    
     setLoading(true);
     setLoadingStartTime(Date.now());
 
@@ -28,9 +33,12 @@ const useProtocolAssistantChat = (conversationId, setConversationId, setMessages
         conversation_id: conversationId,  // ✅ 恢復：使用 conversation_id 保持對話上下文
         user_id: currentUserId
       };
+      
+      console.log('📤 [Protocol Assistant] 發送請求:', requestBody);
 
       // ✅ 修正：使用正確的 API 端點 /api/protocol-guide/chat/
       // 原本錯誤的端點：/api/protocol-assistant/chat/ (404)
+      console.log('🌐 [Protocol Assistant] 發送 fetch 請求到 /api/protocol-guide/chat/');
       const response = await fetch('/api/protocol-guide/chat/', {
         method: 'POST',
         headers: {
@@ -39,6 +47,12 @@ const useProtocolAssistantChat = (conversationId, setConversationId, setMessages
         credentials: 'include',
         body: JSON.stringify(requestBody),
         signal: abortControllerRef.current.signal
+      });
+      
+      console.log('📥 [Protocol Assistant] 收到回應:', {
+        ok: response.ok,
+        status: response.status,
+        statusText: response.statusText
       });
 
       // ✅ 修正：處理 404 錯誤（conversation_id 失效）
@@ -81,10 +95,21 @@ const useProtocolAssistantChat = (conversationId, setConversationId, setMessages
         data = await response.json();
       }
 
+      // ✅ DEBUG: 記錄收到的資料
+      console.log('🔍 [Protocol Assistant] 收到後端回應:', {
+        success: data.success,
+        answer_length: data.answer?.length || 0,
+        conversation_id: data.conversation_id,
+        message_id: data.message_id,
+        has_answer: !!data.answer
+      });
+
       // 處理回應
+      console.log('🔄 [Protocol Assistant] 開始處理回應, data.success =', data.success);
       if (data.success) {
         const newConversationId = data.conversation_id || conversationId;
         if (newConversationId !== conversationId) {
+          console.log('🆔 [Protocol Assistant] 更新 conversation_id:', conversationId, '=>', newConversationId);
           setConversationId(newConversationId);
         }
 
@@ -100,7 +125,18 @@ const useProtocolAssistantChat = (conversationId, setConversationId, setMessages
           message_id: data.message_id
         };
 
-        setMessages(prev => [...prev, assistantMessage]);
+        console.log('💬 [Protocol Assistant] 創建 assistant 訊息:', {
+          id: assistantMessage.id,
+          content_length: assistantMessage.content.length,
+          message_id: assistantMessage.message_id
+        });
+
+        console.log('📝 [Protocol Assistant] 調用 setMessages 添加訊息');
+        setMessages(prev => {
+          const newMessages = [...prev, assistantMessage];
+          console.log('  - 訊息列表長度:', prev.length, '=>', newMessages.length);
+          return newMessages;
+        });
         
         if (isRetry) {
           message.success('已發起新對話');
