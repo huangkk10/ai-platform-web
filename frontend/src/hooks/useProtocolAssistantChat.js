@@ -29,7 +29,9 @@ const useProtocolAssistantChat = (conversationId, setConversationId, setMessages
         user_id: currentUserId
       };
 
-      const response = await fetch('/api/protocol-assistant/chat/', {
+      // ✅ 修正：使用正確的 API 端點 /api/protocol-guide/chat/
+      // 原本錯誤的端點：/api/protocol-assistant/chat/ (404)
+      const response = await fetch('/api/protocol-guide/chat/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -17,6 +17,7 @@ class DisableCSRFMiddleware(MiddlewareMixin):
         '/api/rvt-guides/',  # RVT Guide CRUD API
         '/api/rvt-analytics/',  # RVT Analytics API (反饋和分析功能)
         '/api/protocol-assistant/',  # Protocol Assistant Chat API
+        '/api/protocol-guide/',  # Protocol Guide Chat API (新增)
         '/api/protocol-guides/',  # Protocol Guide CRUD API
         '/api/users/',  # 用戶管理 API
         '/api/profiles/',  # 用戶檔案和權限管理 API

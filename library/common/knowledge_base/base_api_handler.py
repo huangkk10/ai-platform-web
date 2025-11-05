@@ -261,19 +261,38 @@ class BaseKnowledgeBaseAPIHandler(ABC):
                 'Content-Type': 'application/json'
             }
             
+            # 🔧 修正：為每個新對話使用唯一的 user ID，避免舊的對話歷史影響 LLM 回答
+            # 問題：Dify 為不同 user 維護獨立的對話上下文
+            # 如果同一個 user ID 有很多失敗的對話歷史，LLM 會「學習」到要說「找不到資料」
+            # 解決：conversation_id 為空時使用帶時間戳的 user ID，確保新對話不受舊歷史影響
+            import uuid
+            if not conversation_id:
+                # 新對話：使用唯一 user ID
+                user_identifier = f"{cls.get_source_table()}_user_{request.user.id if request.user.is_authenticated else 'guest'}_{int(time.time())}"
+            else:
+                # 延續對話：使用固定 user ID
+                user_identifier = f"{cls.get_source_table()}_user_{request.user.id if request.user.is_authenticated else 'guest'}"
+            
+            # 🔧 根據 APP 需求提供必要的 inputs（如果 Dify APP 要求必填變數）
+            # 如果 Dify Studio 中沒有設定必填變數，可以保持 {} 空字典
             payload = {
-                'inputs': {},
+                'inputs': {
+                    # 如果 APP 需要特定變數，在此處添加
+                    # 例如: 'knowledge_base_id': cls.get_knowledge_id(),
+                },
                 'query': message,
                 'response_mode': 'blocking',
-                'user': f"{cls.get_source_table()}_user_{request.user.id if request.user.is_authenticated else 'guest'}",
-                # 🔧 添加檢索設定：強制使用 Score 閾值過濾
+                'user': user_identifier,
+                # 🔧 修正：關閉 Dify 端的 score 閾值過濾，避免雙重過濾
+                # Django 外部知識庫 API 已經使用 ThresholdManager (0.5) 過濾
+                # 如果在此再次過濾 (0.75)，會導致 AI 回答「不確定」
                 'retrieval_model': {
                     'search_method': 'semantic_search',
                     'reranking_enable': False,
                     'reranking_mode': None,
                     'top_k': 3,
-                    'score_threshold_enabled': True,
-                    'score_threshold': 0.75  # 設定 Score 閾值為 0.75
+                    'score_threshold_enabled': False,  # ✅ 關閉二次過濾
+                    # 移除 score_threshold - 由 Django ThresholdManager 統一管理
                 }
             }
             

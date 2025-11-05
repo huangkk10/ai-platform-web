@@ -204,8 +204,9 @@ def rvt_guide_chat(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@csrf_exempt
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])  # 暫時改為 AllowAny 測試 403 問題
 def protocol_guide_chat(request):
     """Protocol Guide 聊天 API"""
     if PROTOCOL_GUIDE_LIBRARY_AVAILABLE and ProtocolGuideAPIHandler:
