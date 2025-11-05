@@ -25,7 +25,7 @@ const useProtocolAssistantChat = (conversationId, setConversationId, setMessages
       
       const requestBody = {
         message: userMessage.content,
-        conversation_id: conversationId,
+        conversation_id: conversationId,  // ✅ 恢復：使用 conversation_id 保持對話上下文
         user_id: currentUserId
       };
 
