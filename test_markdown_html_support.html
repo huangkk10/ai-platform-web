@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown-it HTML 支援測試</title>
+    <script src="https://cdn.jsdelivr.net/npm/markdown-it@13.0.1/dist/markdown-it.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .panel {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h2 {
+            margin-top: 0;
+            color: #1890ff;
+        }
+        textarea {
+            width: 100%;
+            height: 300px;
+            padding: 12px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            resize: vertical;
+        }
+        .preview {
+            min-height: 300px;
+            padding: 12px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            background: #fafafa;
+        }
+        .config {
+            background: #e6f7ff;
+            border: 1px solid #91d5ff;
+            border-radius: 4px;
+            padding: 12px;
+            margin-bottom: 20px;
+        }
+        .config code {
+            background: #fff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #d46b08;
+        }
+        button {
+            background: #1890ff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 8px;
+        }
+        button:hover {
+            background: #40a9ff;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Markdown-it HTML 支援測試</h1>
+    
+    <div class="config">
+        <strong>當前配置：</strong><br>
+        <code>html: true</code> - 啟用 HTML 標籤支援<br>
+        <code>breaks: true</code> - 將換行符轉換為 &lt;br&gt;<br>
+        <code>linkify: true</code> - 自動連結 URL<br>
+        <code>typographer: true</code> - 智能標點符號
+    </div>
+
+    <div>
+        <button onclick="loadExample1()">範例 1: &lt;br&gt; 標籤</button>
+        <button onclick="loadExample2()">範例 2: 混合內容</button>
+        <button onclick="loadExample3()">範例 3: 自動換行</button>
+        <button onclick="clearAll()">清除</button>
+    </div>
+
+    <div class="container">
+        <div class="panel">
+            <h2>📝 輸入（Markdown + HTML）</h2>
+            <textarea id="input" placeholder="輸入 Markdown 或 HTML 內容...">這是第一行<br>這是第二行<br>這是第三行</textarea>
+        </div>
+        <div class="panel">
+            <h2>👁️ 預覽（渲染結果）</h2>
+            <div id="preview" class="preview"></div>
+        </div>
+    </div>
+
+    <div class="panel" style="margin-top: 20px;">
+        <h2>🔍 渲染後的 HTML 原始碼</h2>
+        <pre id="html-source" style="background: #f5f5f5; padding: 12px; border-radius: 4px; overflow-x: auto;"></pre>
+    </div>
+
+    <script>
+        // 初始化 markdown-it（與專案配置相同）
+        const md = window.markdownit({
+            html: true,        // ✅ 啟用 HTML 標籤支援
+            breaks: true,      // ✅ 將換行符轉換為 <br>
+            linkify: true,     // 自動將 URL 轉為連結
+            typographer: true  // 啟用智能標點符號
+        });
+
+        const input = document.getElementById('input');
+        const preview = document.getElementById('preview');
+        const htmlSource = document.getElementById('html-source');
+
+        // 即時渲染
+        function render() {
+            const text = input.value;
+            const html = md.render(text);
+            
+            preview.innerHTML = html;
+            htmlSource.textContent = html;
+        }
+
+        // 監聽輸入變化
+        input.addEventListener('input', render);
+
+        // 範例 1: <br> 標籤
+        function loadExample1() {
+            input.value = `這是第一行<br>這是第二行<br>這是第三行
+
+## 測試標題
+
+普通段落文字。
+
+<div style="color: red;">這是紅色的 HTML div</div>`;
+            render();
+        }
+
+        // 範例 2: 混合內容
+        function loadExample2() {
+            input.value = `**Burn-In Test 進行流程**<br>
+| 步驟 | 內容說明 | 重要提示 |
+|------|----------|----------|
+| 1 | 準備測試環境<br>安裝測試工具 | 確保環境完整 |
+| 2 | 安裝測試軟體<br>配置參數 | 檢查相容性 |
+
+<strong>重要提醒：</strong><br>請務必遵循 SOP 流程。`;
+            render();
+        }
+
+        // 範例 3: 自動換行
+        function loadExample3() {
+            input.value = `第一行
+第二行
+第三行
+
+這是一個段落。
+這是同一段落的第二行（會自動轉換為 <br>）。
+
+這是新的段落。`;
+            render();
+        }
+
+        // 清除
+        function clearAll() {
+            input.value = '';
+            render();
+        }
+
+        // 初始渲染
+        render();
+    </script>
+</body>
+</html>

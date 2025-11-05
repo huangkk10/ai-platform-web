@@ -189,9 +189,26 @@ const getInitialMessages = (storageKey, userId, welcomeMessage) => {
  * @returns {Object} - 包含消息状态和操作函数的对象
  */
 const useMessageStorage = (user, storageKey = 'default', welcomeMessage = null) => {
-  const [messages, setMessages] = useState(() => getInitialMessages(storageKey, user?.id, welcomeMessage));
+  const [messages, setMessagesInternal] = useState(() => getInitialMessages(storageKey, user?.id, welcomeMessage));
   const [conversationId, setConversationId] = useState('');
   const [currentUserId, setCurrentUserId] = useState(null);
+  
+  // ✅ DEBUG: 包裝 setMessages 以記錄所有調用
+  const setMessages = useCallback((updater) => {
+    console.log('📦 [useMessageStorage] setMessages 被調用');
+    console.log('  - storageKey:', storageKey);
+    console.log('  - updater type:', typeof updater);
+    
+    setMessagesInternal(prev => {
+      const newMessages = typeof updater === 'function' ? updater(prev) : updater;
+      console.log('  - 舊訊息數量:', prev.length);
+      console.log('  - 新訊息數量:', newMessages.length);
+      if (newMessages.length > prev.length) {
+        console.log('  - 新增的訊息:', newMessages[newMessages.length - 1]);
+      }
+      return newMessages;
+    });
+  }, [storageKey]);
 
   // 监听用户状态变化，在用户切换时重置对话
   useEffect(() => {
@@ -201,13 +218,13 @@ const useMessageStorage = (user, storageKey = 'default', welcomeMessage = null) 
     if (currentUserId === null) {
       setCurrentUserId(newUserId);
       
-      // 载入当前用户的对话ID和消息
-      const userConversationId = loadConversationId(storageKey, newUserId);
+      // ✅ 修正：不再載入 conversation_id，每次都使用新對話
+      // 載入消息記錄但不載入 conversation_id
       const userMessages = loadMessagesFromStorage(storageKey, newUserId);
       
-      if (userConversationId) {
-        setConversationId(userConversationId);
-      }
+      // 清除所有舊的 conversation_id
+      const conversationKey = getUserConversationKey(storageKey, newUserId);
+      localStorage.removeItem(conversationKey);
       
       if (userMessages && userMessages.length > 0) {
         setMessages(userMessages);
@@ -222,11 +239,10 @@ const useMessageStorage = (user, storageKey = 'default', welcomeMessage = null) 
     // 检查用户是否发生变化
     if (currentUserId !== newUserId) {
       // 载入新用户的数据
-      const newUserConversationId = loadConversationId(storageKey, newUserId);
       const newUserMessages = loadMessagesFromStorage(storageKey, newUserId);
       
-      // 设置新用户的对话ID和消息
-      setConversationId(newUserConversationId || '');
+      // ✅ 修正：清除 conversation_id，使用新對話
+      setConversationId('');
       
       if (newUserMessages && newUserMessages.length > 0) {
         setMessages(newUserMessages);
@@ -248,17 +264,18 @@ const useMessageStorage = (user, storageKey = 'default', welcomeMessage = null) 
   }, [messages, currentUserId, storageKey]);
 
   // 保存对话 ID (基于当前用户和storageKey)
+  // ✅ 修正：不再保存 conversation_id 到 localStorage
+  // 原因：Dify 的 conversation_id 生命週期很短，保存後很快失效
+  // 失效的 conversation_id 會導致 AI 無法正確使用知識庫
+  // 解決方案：每次對話都使用新的 conversation_id，確保 AI 能正確檢索知識庫
   useEffect(() => {
     if (currentUserId !== null) {
-      if (conversationId) {
-        saveConversationId(conversationId, storageKey, currentUserId);
-      } else {
-        // 如果对话ID被清空，也要清除localStorage
-        const conversationKey = getUserConversationKey(storageKey, currentUserId);
-        localStorage.removeItem(conversationKey);
-      }
+      // 不再保存 conversation_id
+      // 清除所有舊的 conversation_id
+      const conversationKey = getUserConversationKey(storageKey, currentUserId);
+      localStorage.removeItem(conversationKey);
     }
-  }, [conversationId, currentUserId, storageKey]);
+  }, [currentUserId, storageKey]);
 
   // 清除聊天记录
   const clearChat = useCallback(() => {

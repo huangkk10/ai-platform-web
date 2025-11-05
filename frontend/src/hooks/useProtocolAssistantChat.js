@@ -30,7 +30,10 @@ const useProtocolAssistantChat = (conversationId, setConversationId, setMessages
       
       const requestBody = {
         message: userMessage.content,
-        conversation_id: conversationId,  // ✅ 恢復：使用 conversation_id 保持對話上下文
+        // ⚠️ 修正：完全不使用 conversation_id，每次都是新對話
+        // 原因：Dify conversation_id 快速失效，導致 AI 無法正確使用知識庫
+        // 解決方案：每次都是獨立請求，確保 AI 每次都能正確檢索知識庫
+        // conversation_id: conversationId,  // ❌ 移除
         user_id: currentUserId
       };
       

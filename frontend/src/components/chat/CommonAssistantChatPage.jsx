@@ -115,7 +115,14 @@ const CommonAssistantChatPage = ({
   };
 
   const handleSendMessage = async () => {
-    if (!inputMessage.trim()) return;
+    console.log('🎬 [CommonAssistantChatPage] handleSendMessage 開始執行');
+    console.log('  - inputMessage:', inputMessage);
+    console.log('  - assistantType:', assistantType);
+    
+    if (!inputMessage.trim()) {
+      console.log('⚠️ [CommonAssistantChatPage] 訊息為空，返回');
+      return;
+    }
 
     const sendTimeUserId = user?.id || null;
     if (checkUserSwitch(sendTimeUserId)) {
@@ -131,9 +138,18 @@ const CommonAssistantChatPage = ({
       timestamp: new Date()
     };
 
+    console.log('📨 [CommonAssistantChatPage] 創建 userMessage:', userMessage);
     setMessages(prev => [...prev, userMessage]);
     setInputMessage('');
-    await sendMessage(userMessage);
+    
+    console.log('🔗 [CommonAssistantChatPage] 調用 sendMessage');
+    console.log('  - sendMessage 函數:', typeof sendMessage);
+    try {
+      await sendMessage(userMessage);
+      console.log('✅ [CommonAssistantChatPage] sendMessage 執行完成');
+    } catch (error) {
+      console.error('❌ [CommonAssistantChatPage] sendMessage 執行錯誤:', error);
+    }
   };
 
   const handleKeyPress = (e) => {
@@ -210,7 +226,18 @@ const CommonAssistantChatPage = ({
               }}
             />
             <button
-              onClick={loading ? stopRequest : handleSendMessage}
+              onClick={() => {
+                console.log('🖱️ [CommonAssistantChatPage] 發送按鈕被點擊');
+                console.log('  - loading:', loading);
+                console.log('  - inputMessage:', inputMessage);
+                if (loading) {
+                  console.log('  - 執行 stopRequest');
+                  stopRequest();
+                } else {
+                  console.log('  - 執行 handleSendMessage');
+                  handleSendMessage();
+                }
+              }}
               disabled={!loading && !inputMessage.trim()}
               title={loading ? "點擊停止當前任務" : "發送消息"}
               style={{ 
