@@ -57,3 +57,10 @@ dist/
 build/
 backend/tests/test_vector_search/reports
 tests/test_results
+# Cookie 檔案（curl 測試產生的臨時檔案）
+*cookies*.txt
+cookies.txt
+
+# 臨時測試目錄
+tmp/
+temp/
