@@ -56,3 +56,4 @@ temp/
 dist/
 build/
 backend/tests/test_vector_search/reports
+tests/test_results
