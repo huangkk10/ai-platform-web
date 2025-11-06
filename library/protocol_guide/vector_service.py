@@ -25,36 +25,26 @@ class ProtocolGuideVectorService(BaseKnowledgeBaseVectorService):
     source_table = 'protocol_guide'
     model_class = ProtocolGuide
     
-    def _format_content_for_embedding(self, instance):
+    def _get_title_for_vectorization(self, instance):
+        """獲取標題（Protocol Guide 有 title 欄位）"""
+        return instance.title if hasattr(instance, 'title') else ""
+    
+    def _get_content_for_vectorization(self, instance):
         """
-        格式化內容用於向量化（簡化版，與 RVTGuide 一致）
+        獲取內容（不包含標題，因為標題已分開處理）
         
-        組合標題和內容，加上圖片摘要
+        包含內容和圖片摘要
         """
-        content_parts = [
-            f"Title: {instance.title}",
-            f"Content: {instance.content}",
-        ]
+        content_parts = []
+        
+        # 添加內容
+        if hasattr(instance, 'content') and instance.content:
+            content_parts.append(instance.content)
         
         # 添加圖片摘要
-        images_summary = instance.get_images_summary()
-        if images_summary:
-            content_parts.append(images_summary)
+        if hasattr(instance, 'get_images_summary'):
+            images_summary = instance.get_images_summary()
+            if images_summary:
+                content_parts.append(images_summary)
         
-        return ' | '.join(content_parts)
-    
-    # 如果需要自定義向量化內容，可以覆寫：
-    # def _get_content_for_vectorization(self, instance):
-    #     """自定義向量化內容"""
-    #     # 組合多個欄位作為向量化內容
-    #     content_parts = [
-    #         f"Protocol: {instance.protocol_name}",
-    #         instance.title,
-    #         instance.content,
-    #     ]
-    #     
-    #     # 如果有測試步驟等特殊欄位
-    #     if hasattr(instance, 'test_steps') and instance.test_steps:
-    #         content_parts.append(f"Steps: {instance.test_steps}")
-    #     
-    #     return ' '.join(content_parts)
+        return ' | '.join(content_parts) if content_parts else ""
