@@ -261,17 +261,10 @@ class BaseKnowledgeBaseAPIHandler(ABC):
                 'Content-Type': 'application/json'
             }
             
-            # 🔧 修正：為每個新對話使用唯一的 user ID，避免舊的對話歷史影響 LLM 回答
-            # 問題：Dify 為不同 user 維護獨立的對話上下文
-            # 如果同一個 user ID 有很多失敗的對話歷史，LLM 會「學習」到要說「找不到資料」
-            # 解決：conversation_id 為空時使用帶時間戳的 user ID，確保新對話不受舊歷史影響
-            import uuid
-            if not conversation_id:
-                # 新對話：使用唯一 user ID
-                user_identifier = f"{cls.get_source_table()}_user_{request.user.id if request.user.is_authenticated else 'guest'}_{int(time.time())}"
-            else:
-                # 延續對話：使用固定 user ID
-                user_identifier = f"{cls.get_source_table()}_user_{request.user.id if request.user.is_authenticated else 'guest'}"
+            # ✅ 修正：使用固定的 user ID，確保 conversation_id 能夠延續
+            # 重要：Dify 的 conversation_id 綁定特定 user，如果 user 改變會導致 404
+            # 解決：始終使用相同的 user_identifier 格式
+            user_identifier = f"{cls.get_source_table()}_user_{request.user.id if request.user.is_authenticated else 'guest'}"
             
             # 🔧 根據 APP 需求提供必要的 inputs（如果 Dify APP 要求必填變數）
             # 如果 Dify Studio 中沒有設定必填變數，可以保持 {} 空字典
@@ -334,6 +327,15 @@ class BaseKnowledgeBaseAPIHandler(ABC):
                 logger.info(f"  Dify answer ({len(answer)} chars): \n{answer_preview}{'...' if len(answer) > 1000 else ''}")
                 logger.info(f"  Conversation ID: {result.get('conversation_id', 'N/A')}")
                 logger.info(f"  Message ID: {result.get('message_id', 'N/A')}")
+                
+                # ⭐ 記錄 Dify 是否使用外部知識庫
+                retriever_resources = result.get('metadata', {}).get('retriever_resources', [])
+                if retriever_resources:
+                    logger.info(f"  ✅ Dify 使用了外部知識庫: {len(retriever_resources)} 條結果")
+                    for i, res in enumerate(retriever_resources, 1):
+                        logger.info(f"     {i}. {res.get('document_name')} (分數: {res.get('score')})")
+                else:
+                    logger.warning(f"  ❌ Dify 沒有使用外部知識庫（即使我們返回了資料）")
                 
                 # 記錄對話（可選）
                 cls.record_conversation(request, result, message, answer, elapsed)

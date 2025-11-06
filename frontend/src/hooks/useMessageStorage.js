@@ -218,13 +218,13 @@ const useMessageStorage = (user, storageKey = 'default', welcomeMessage = null) 
     if (currentUserId === null) {
       setCurrentUserId(newUserId);
       
-      // ✅ 修正：不再載入 conversation_id，每次都使用新對話
-      // 載入消息記錄但不載入 conversation_id
+      // ✅ 載入消息記錄和 conversation_id
       const userMessages = loadMessagesFromStorage(storageKey, newUserId);
+      const savedConversationId = loadConversationId(storageKey, newUserId);
       
-      // 清除所有舊的 conversation_id
-      const conversationKey = getUserConversationKey(storageKey, newUserId);
-      localStorage.removeItem(conversationKey);
+      if (savedConversationId) {
+        setConversationId(savedConversationId);
+      }
       
       if (userMessages && userMessages.length > 0) {
         setMessages(userMessages);
@@ -240,9 +240,10 @@ const useMessageStorage = (user, storageKey = 'default', welcomeMessage = null) 
     if (currentUserId !== newUserId) {
       // 载入新用户的数据
       const newUserMessages = loadMessagesFromStorage(storageKey, newUserId);
+      const newUserConversationId = loadConversationId(storageKey, newUserId);
       
-      // ✅ 修正：清除 conversation_id，使用新對話
-      setConversationId('');
+      // ✅ 載入新用戶的 conversation_id
+      setConversationId(newUserConversationId || '');
       
       if (newUserMessages && newUserMessages.length > 0) {
         setMessages(newUserMessages);
@@ -264,18 +265,11 @@ const useMessageStorage = (user, storageKey = 'default', welcomeMessage = null) 
   }, [messages, currentUserId, storageKey]);
 
   // 保存对话 ID (基于当前用户和storageKey)
-  // ✅ 修正：不再保存 conversation_id 到 localStorage
-  // 原因：Dify 的 conversation_id 生命週期很短，保存後很快失效
-  // 失效的 conversation_id 會導致 AI 無法正確使用知識庫
-  // 解決方案：每次對話都使用新的 conversation_id，確保 AI 能正確檢索知識庫
   useEffect(() => {
-    if (currentUserId !== null) {
-      // 不再保存 conversation_id
-      // 清除所有舊的 conversation_id
-      const conversationKey = getUserConversationKey(storageKey, currentUserId);
-      localStorage.removeItem(conversationKey);
+    if (conversationId && currentUserId !== null) {
+      saveConversationId(conversationId, storageKey, currentUserId);
     }
-  }, [currentUserId, storageKey]);
+  }, [conversationId, currentUserId, storageKey]);
 
   // 清除聊天记录
   const clearChat = useCallback(() => {
