@@ -363,6 +363,8 @@ class SearchThresholdSettingSerializer(serializers.ModelSerializer):
             'assistant_type',
             'assistant_type_display',
             'master_threshold',
+            'title_weight',  # 新增：標題權重
+            'content_weight',  # 新增：內容權重
             'calculated_thresholds',  # 計算後的所有 threshold
             'description',
             'is_active',
@@ -390,6 +392,30 @@ class SearchThresholdSettingSerializer(serializers.ModelSerializer):
         if value < 0 or value > 1:
             raise serializers.ValidationError("Threshold 必須在 0.00 到 1.00 之間")
         return value
+    
+    def validate_title_weight(self, value):
+        """驗證標題權重範圍"""
+        if value < 0 or value > 100:
+            raise serializers.ValidationError("標題權重必須在 0 到 100 之間")
+        return value
+    
+    def validate_content_weight(self, value):
+        """驗證內容權重範圍"""
+        if value < 0 or value > 100:
+            raise serializers.ValidationError("內容權重必須在 0 到 100 之間")
+        return value
+    
+    def validate(self, attrs):
+        """驗證權重總和"""
+        title_weight = attrs.get('title_weight', getattr(self.instance, 'title_weight', 60) if self.instance else 60)
+        content_weight = attrs.get('content_weight', getattr(self.instance, 'content_weight', 40) if self.instance else 40)
+        
+        if title_weight + content_weight != 100:
+            raise serializers.ValidationError({
+                'non_field_errors': ['標題權重與內容權重的總和必須為 100%']
+            })
+        
+        return attrs
     
     def update(self, instance, validated_data):
         """更新時自動設定 updated_by"""
