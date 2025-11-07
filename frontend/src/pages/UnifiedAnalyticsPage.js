@@ -975,14 +975,37 @@ const UnifiedAnalyticsPage = () => {
         title: '問題',
         dataIndex: 'question',
         key: 'question',
-        ellipsis: {
-          showTitle: false,
+        width: 250,
+        ellipsis: true,
+        render: (text) => {
+          if (!text) {
+            return <Text type="secondary" style={{ fontSize: '12px' }}>無問題資料</Text>;
+          }
+          
+          // 截取前 40 個字元作為預覽
+          const preview = text.length > 40 ? text.substring(0, 40) + '...' : text;
+          
+          return (
+            <AntTooltip 
+              title={
+                <div style={{ maxHeight: '300px', overflow: 'auto' }}>
+                  {text}
+                </div>
+              }
+              overlayStyle={{ maxWidth: '500px' }}
+            >
+              <Text 
+                style={{ 
+                  color: '#262626', 
+                  cursor: 'pointer',
+                  display: 'block'
+                }}
+              >
+                {preview}
+              </Text>
+            </AntTooltip>
+          );
         },
-        render: (text) => (
-          <Paragraph ellipsis={{ rows: 2, expandable: true, symbol: '更多' }} style={{ marginBottom: 0 }}>
-            {text}
-          </Paragraph>
-        ),
       },
       {
         title: 'AI 回覆',
