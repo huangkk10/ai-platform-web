@@ -154,4 +154,16 @@ const MessageList = ({
   );
 };
 
-export default MessageList;
+// 🎯 使用 React.memo 優化，避免輸入框變化時重新渲染整個訊息列表
+export default React.memo(MessageList, (prevProps, nextProps) => {
+  // 只有當訊息列表、loading 狀態或反饋狀態改變時才重新渲染
+  return (
+    prevProps.messages.length === nextProps.messages.length &&
+    prevProps.loading === nextProps.loading &&
+    prevProps.feedbackStates === nextProps.feedbackStates &&
+    // 簡單檢查最後一條訊息是否相同
+    (prevProps.messages.length === 0 || 
+     prevProps.messages[prevProps.messages.length - 1]?.id === 
+     nextProps.messages[nextProps.messages.length - 1]?.id)
+  );
+});
