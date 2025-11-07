@@ -29,9 +29,10 @@
 }
 
 /* Grid 布局 - 引用來源列表 */
+/* 🎯 方案 2：固定 5 列，確保所有卡片在同一行且高度一致 */
 .sources-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(5, 1fr);  /* 固定 5 列 */
   gap: 8px;
   width: 100%;
 }
@@ -48,17 +49,17 @@
 
 /* 響應式設計 - Grid 布局調整 */
 
-/* 大桌面：4 列 (寬度 > 1400px) */
+/* 大桌面：5 列 (寬度 > 1400px) */
 @media (min-width: 1401px) {
   .sources-list {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);  /* 保持 5 列 */
   }
 }
 
-/* 桌面：3 列 (1001px - 1400px) */
+/* 桌面：5 列 (1001px - 1400px) */
 @media (min-width: 1001px) and (max-width: 1400px) {
   .sources-list {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(5, 1fr);  /* 保持 5 列 */
   }
 }
 
