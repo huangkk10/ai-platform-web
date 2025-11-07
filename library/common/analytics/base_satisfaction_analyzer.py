@@ -113,7 +113,10 @@ class BaseSatisfactionAnalyzer(ABC):
             ConversationModel = self.get_conversation_model()
             
             start_date = timezone.now() - timedelta(days=days)
-            system_type = self.get_system_type_filter()
+            assistant_type = self.get_system_type_filter()
+            
+            # 資料庫中的 chat_type 格式是 '{assistant_type}_chat'
+            chat_type = f'{assistant_type}_chat'
             
             # 建立查詢
             if conversation_id:
@@ -123,16 +126,16 @@ class BaseSatisfactionAnalyzer(ABC):
                     role='assistant'
                 )
             else:
-                # 查詢時間範圍內的對話
+                # 查詢時間範圍內的對話（使用 chat_type 而不是 system_type）
                 sessions_query = ConversationModel.objects.filter(
                     created_at__gte=start_date,
-                    system_type=system_type
+                    chat_type=chat_type
                 )
                 
                 if user:
                     sessions_query = sessions_query.filter(user=user)
                 
-                conversation_ids = sessions_query.values_list('conversation_id', flat=True)
+                conversation_ids = sessions_query.values_list('id', flat=True)  # 使用 id 而不是 conversation_id
                 messages_query = MessageModel.objects.filter(
                     conversation_id__in=conversation_ids,
                     role='assistant',

@@ -786,6 +786,160 @@ def protocol_analytics_trends(request):
         }, status=500)
 
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def protocol_question_history(request):
+    """
+    Protocol Assistant 問題歷史 API
+    GET /api/protocol-analytics/question-history/
+    
+    Query parameters:
+    - page: 頁碼 (default: 1)
+    - page_size: 每頁數量 (default: 20)
+    - user_id: 篩選特定用戶 (optional)
+    - rating: 篩選評價 (like/dislike/null) (optional)
+    - start_date: 開始日期 (YYYY-MM-DD) (optional)
+    - end_date: 結束日期 (YYYY-MM-DD) (optional)
+    - search: 搜尋問題內容 (optional)
+    """
+    try:
+        from api.models import ChatMessage, ConversationSession
+        from django.db.models import Q, Prefetch
+        from django.core.paginator import Paginator
+        from datetime import datetime
+        
+        # 獲取查詢參數
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 20))
+        user_id = request.GET.get('user_id')
+        rating = request.GET.get('rating')
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        search_query = request.GET.get('search', '').strip()
+        
+        # 基礎查詢：只查詢 user 訊息（問題），且屬於 Protocol Assistant
+        queryset = ChatMessage.objects.filter(
+            role='user',
+            conversation__chat_type='protocol_assistant_chat'
+        ).select_related(
+            'conversation',
+            'conversation__user'
+        ).order_by('-created_at')
+        
+        # 管理員可以查看所有用戶資料
+        if not (request.user.is_staff or request.user.is_superuser):
+            # 一般用戶只能看自己的資料
+            queryset = queryset.filter(conversation__user=request.user)
+        
+        # 篩選條件
+        if user_id:
+            queryset = queryset.filter(conversation__user_id=user_id)
+        
+        # 篩選評價
+        if rating:
+            # 獲取所有符合評價條件的 assistant 訊息的對話和序號
+            if rating == 'like':
+                assistant_filter = Q(is_helpful=True)
+            elif rating == 'dislike':
+                assistant_filter = Q(is_helpful=False)
+            elif rating == 'null':
+                assistant_filter = Q(is_helpful__isnull=True)
+            else:
+                assistant_filter = Q()
+            
+            # 找出符合條件的 assistant 訊息
+            matching_assistants = ChatMessage.objects.filter(
+                role='assistant',
+                conversation__chat_type='protocol_assistant_chat'
+            ).filter(assistant_filter).values_list('conversation_id', 'sequence_number')
+            
+            # 建立對應的 user 訊息條件
+            conversation_seq_pairs = [
+                Q(conversation_id=conv_id, sequence_number=seq_num - 1)
+                for conv_id, seq_num in matching_assistants
+            ]
+            
+            if conversation_seq_pairs:
+                from functools import reduce
+                import operator
+                combined_filter = reduce(operator.or_, conversation_seq_pairs)
+                queryset = queryset.filter(combined_filter)
+            else:
+                queryset = queryset.none()
+        
+        if start_date:
+            start_datetime = datetime.strptime(start_date, '%Y-%m-%d')
+            queryset = queryset.filter(created_at__gte=start_datetime)
+        
+        if end_date:
+            end_datetime = datetime.strptime(end_date, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
+            queryset = queryset.filter(created_at__lte=end_datetime)
+        
+        if search_query:
+            queryset = queryset.filter(content__icontains=search_query)
+        
+        # 分頁
+        paginator = Paginator(queryset, page_size)
+        page_obj = paginator.get_page(page)
+        
+        # 構建結果
+        results = []
+        for message in page_obj:
+            # 獲取用戶資訊
+            user_info = {
+                'id': message.conversation.user.id if message.conversation.user else None,
+                'username': message.conversation.user.username if message.conversation.user else (message.conversation.guest_identifier or '訪客')
+            }
+            
+            # 獲取對應的 assistant 回覆
+            assistant_message = ChatMessage.objects.filter(
+                conversation=message.conversation,
+                role='assistant',
+                sequence_number=message.sequence_number + 1
+            ).first()
+            
+            answer_preview = None
+            rating = None
+            if assistant_message:
+                answer_preview = assistant_message.content[:100] + '...' if len(assistant_message.content) > 100 else assistant_message.content
+                rating = 'like' if assistant_message.is_helpful is True else ('dislike' if assistant_message.is_helpful is False else None)
+            
+            results.append({
+                'id': message.id,
+                'user': user_info,
+                'question': message.content,
+                'answer_preview': answer_preview,
+                'rating': rating,
+                'created_at': message.created_at.isoformat(),
+                'conversation_id': message.conversation.session_id,
+                'message_id': message.message_id,
+                'question_category': message.question_category
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'data': {
+                'count': paginator.count,
+                'total_pages': paginator.num_pages,
+                'current_page': page,
+                'page_size': page_size,
+                'results': results
+            }
+        }, status=200)
+        
+    except ValueError as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'無效的參數: {str(e)}'
+        }, status=400)
+    except Exception as e:
+        logger.error(f"Protocol question history API error: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': f'獲取問題歷史失敗: {str(e)}'
+        }, status=500)
+
+
 # ============= 聊天向量化和聚類 API =============
 
 @csrf_exempt

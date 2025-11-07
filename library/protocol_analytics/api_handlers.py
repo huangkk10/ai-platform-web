@@ -39,7 +39,18 @@ class ProtocolAnalyticsAPIHandler:
         try:
             # 獲取參數
             days = int(request.GET.get('days', 7))
-            user = request.user if request.user.is_authenticated else None
+            
+            # 管理員可以查看所有用戶資料，一般用戶只能看自己的
+            # 如果 URL 參數指定 user_id=all，且當前用戶是管理員，則查看所有資料
+            user_id_param = request.GET.get('user_id', None)
+            if user_id_param == 'all' and (request.user.is_staff or request.user.is_superuser):
+                user = None  # 不過濾用戶，查看所有資料
+            elif request.user.is_staff or request.user.is_superuser:
+                # 管理員預設查看所有資料（除非明確指定 user_id）
+                user = None
+            else:
+                # 一般用戶只能看自己的資料
+                user = request.user if request.user.is_authenticated else None
             
             # 獲取統計數據
             from .statistics_manager import ProtocolStatisticsManager
@@ -73,17 +84,25 @@ class ProtocolAnalyticsAPIHandler:
         try:
             # 獲取參數
             days = int(request.GET.get('days', 30))
-            user = request.user if request.user.is_authenticated else None
+            
+            # 管理員預設查看所有用戶資料
+            user_id_param = request.GET.get('user_id', None)
+            if user_id_param == 'all' and (request.user.is_staff or request.user.is_superuser):
+                user = None
+            elif request.user.is_staff or request.user.is_superuser:
+                user = None  # 管理員預設查看所有資料
+            else:
+                user = request.user if request.user.is_authenticated else None
             
             # 獲取問題統計
             from .statistics_manager import ProtocolStatisticsManager
             manager = ProtocolStatisticsManager()
             question_stats = manager._get_question_stats(days=days, user=user)
             
-            # 返回成功回應
+            # 返回成功回應（包裝在 data 中，與 RVT 格式一致）
             return Response({
                 'success': True,
-                **question_stats,  # 直接展開問題統計數據
+                'data': question_stats,  # 包裝在 data 中
                 'generated_at': datetime.now().isoformat()
             }, status=status.HTTP_200_OK)
             
@@ -107,7 +126,15 @@ class ProtocolAnalyticsAPIHandler:
         try:
             # 獲取參數
             days = int(request.GET.get('days', 30))
-            user = request.user if request.user.is_authenticated else None
+            
+            # 管理員預設查看所有用戶資料
+            user_id_param = request.GET.get('user_id', None)
+            if user_id_param == 'all' and (request.user.is_staff or request.user.is_superuser):
+                user = None
+            elif request.user.is_staff or request.user.is_superuser:
+                user = None  # 管理員預設查看所有資料
+            else:
+                user = request.user if request.user.is_authenticated else None
             
             # 獲取滿意度統計
             from .statistics_manager import ProtocolStatisticsManager
@@ -141,7 +168,15 @@ class ProtocolAnalyticsAPIHandler:
         try:
             # 獲取參數
             days = int(request.GET.get('days', 30))
-            user = request.user if request.user.is_authenticated else None
+            
+            # 管理員預設查看所有用戶資料
+            user_id_param = request.GET.get('user_id', None)
+            if user_id_param == 'all' and (request.user.is_staff or request.user.is_superuser):
+                user = None
+            elif request.user.is_staff or request.user.is_superuser:
+                user = None  # 管理員預設查看所有資料
+            else:
+                user = request.user if request.user.is_authenticated else None
             
             # TODO: 實現趨勢分析邏輯
             # 目前返回基本趨勢數據

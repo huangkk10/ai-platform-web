@@ -134,6 +134,7 @@ from .analytics_views import (
     protocol_analytics_questions,
     protocol_analytics_satisfaction,
     protocol_analytics_trends,
+    protocol_question_history,
     
     # 聊天向量化和聚類 API
     chat_vector_search,
@@ -293,6 +294,7 @@ __all__ = [
     'protocol_analytics_questions',
     'protocol_analytics_satisfaction',
     'protocol_analytics_trends',
+    'protocol_question_history',
     
     # Chat Vector & Clustering
     'chat_vector_search',

@@ -109,6 +109,7 @@ urlpatterns = [
     path('protocol-analytics/questions/', views.protocol_analytics_questions, name='protocol_analytics_questions'),
     path('protocol-analytics/satisfaction/', views.protocol_analytics_satisfaction, name='protocol_analytics_satisfaction'),
     path('protocol-analytics/trends/', views.protocol_analytics_trends, name='protocol_analytics_trends'),
+    path('protocol-analytics/question-history/', views.protocol_question_history, name='protocol_question_history'),
     
     # 聊天向量化和聚類分析 API
     path('chat-vectors/search/', views.chat_vector_search, name='chat_vector_search'),
