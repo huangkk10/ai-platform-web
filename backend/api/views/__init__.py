@@ -127,6 +127,7 @@ from .analytics_views import (
     rvt_analytics_overview,
     rvt_analytics_questions,
     rvt_analytics_satisfaction,
+    rvt_question_history,
     
     # Protocol Analytics API
     protocol_analytics_overview,
@@ -285,6 +286,7 @@ __all__ = [
     'rvt_analytics_overview',
     'rvt_analytics_questions',
     'rvt_analytics_satisfaction',
+    'rvt_question_history',
     
     # Protocol Analytics
     'protocol_analytics_overview',

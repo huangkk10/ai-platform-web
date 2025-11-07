@@ -64,7 +64,6 @@ import {
 const { Title, Text, Paragraph } = Typography;
 const { RangePicker } = DatePicker;
 const { Option } = Select;
-const { TabPane } = Tabs;
 
 const UnifiedAnalyticsPage = () => {
   const { user, isAuthenticated } = useAuth();
@@ -78,6 +77,9 @@ const UnifiedAnalyticsPage = () => {
   const [overviewData, setOverviewData] = useState(null);
   const [questionData, setQuestionData] = useState(null);
   const [satisfactionData, setSatisfactionData] = useState(null);
+  const [questionHistory, setQuestionHistory] = useState(null);
+  const [questionHistoryLoading, setQuestionHistoryLoading] = useState(false);
+  const [questionHistoryFilters, setQuestionHistoryFilters] = useState({}); // 新增：儲存篩選條件
   const [selectedDays, setSelectedDays] = useState(30);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [dateRange, setDateRange] = useState([]);
@@ -219,6 +221,45 @@ const UnifiedAnalyticsPage = () => {
       
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchQuestionHistory = async (page = 1, filters = {}) => {
+    setQuestionHistoryLoading(true);
+    try {
+      // 使用動態 API 端點
+      const historyEndpoint = getApiEndpoint(selectedAssistant, 'question-history');
+      
+      const params = new URLSearchParams({
+        page: page.toString(),
+        page_size: '20',
+        ...filters
+      });
+      
+      const response = await fetch(`${historyEndpoint}?${params}`, {
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`問題歷史 API 錯誤: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setQuestionHistory(data.data);
+      } else {
+        message.error(data.error || '獲取問題歷史失敗');
+      }
+    } catch (error) {
+      console.error('獲取問題歷史錯誤:', error);
+      message.error(`問題歷史載入失敗: ${error.message}`);
+    } finally {
+      setQuestionHistoryLoading(false);
     }
   };
 
@@ -874,6 +915,146 @@ const UnifiedAnalyticsPage = () => {
     );
   };
 
+  const renderQuestionHistory = () => {
+    // 處理表格篩選變更
+    const handleTableChange = (pagination, filters, sorter) => {
+      const newFilters = {};
+      
+      // 處理評價篩選
+      if (filters.rating && filters.rating.length > 0) {
+        newFilters.rating = filters.rating[0]; // 取第一個選中的值
+      }
+      
+      // 處理用戶篩選
+      if (filters.username && filters.username.length > 0) {
+        newFilters.user_id = filters.username[0]; // 這裡需要用戶ID，但我們先用username
+      }
+      
+      console.log('🔍 表格篩選變更:', { pagination, filters, newFilters });
+      setQuestionHistoryFilters(newFilters);
+      fetchQuestionHistory(pagination.current, newFilters);
+    };
+
+    // 定義表格欄位
+    const columns = [
+      {
+        title: '用戶',
+        dataIndex: ['user', 'username'],
+        key: 'username',
+        width: 120,
+        filters: questionHistory?.results 
+          ? Array.from(new Set(questionHistory.results.map(r => r.user.username)))
+              .map(username => ({ text: username, value: username }))
+          : [],
+        filterMultiple: false, // 只允許單選
+      },
+      {
+        title: '問題',
+        dataIndex: 'question',
+        key: 'question',
+        ellipsis: {
+          showTitle: false,
+        },
+        render: (text) => (
+          <Paragraph ellipsis={{ rows: 2, expandable: true, symbol: '更多' }} style={{ marginBottom: 0 }}>
+            {text}
+          </Paragraph>
+        ),
+      },
+      {
+        title: '評價',
+        dataIndex: 'rating',
+        key: 'rating',
+        width: 100,
+        align: 'center',
+        filters: [
+          { text: '👍 按讚', value: 'like' },
+          { text: '👎 倒讚', value: 'dislike' },
+          { text: '- 無評價', value: 'null' },
+        ],
+        filterMultiple: false, // 只允許單選
+        render: (rating) => {
+          if (rating === 'like') {
+            return <Tag color="success" icon={<LikeOutlined />}>按讚</Tag>;
+          } else if (rating === 'dislike') {
+            return <Tag color="error" icon={<DislikeOutlined />}>倒讚</Tag>;
+          } else {
+            return <Tag color="default">無評價</Tag>;
+          }
+        },
+      },
+      {
+        title: '時間',
+        dataIndex: 'created_at',
+        key: 'created_at',
+        width: 180,
+        sorter: true,
+        defaultSortOrder: 'descend',
+        render: (date) => dayjs(date).format('YYYY-MM-DD HH:mm:ss'),
+      },
+    ];
+
+    return (
+      <Card 
+        title="問題詳情" 
+        extra={
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={() => fetchQuestionHistory(1)}
+            loading={questionHistoryLoading}
+          >
+            重新整理
+          </Button>
+        }
+      >
+        <Table
+          columns={columns}
+          dataSource={questionHistory?.results || []}
+          loading={questionHistoryLoading}
+          rowKey="id"
+          onChange={handleTableChange}
+          pagination={{
+            current: questionHistory?.current_page || 1,
+            pageSize: questionHistory?.page_size || 20,
+            total: questionHistory?.count || 0,
+            showSizeChanger: true,
+            showQuickJumper: true,
+            showTotal: (total) => `共 ${total} 個問題`,
+          }}
+          scroll={{ x: 1000 }}
+          expandable={{
+            expandedRowRender: (record) => (
+              <div style={{ padding: '12px', backgroundColor: '#fafafa' }}>
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <div>
+                    <Text strong>完整問題：</Text>
+                    <Paragraph style={{ marginTop: 8, marginBottom: 8 }}>{record.question}</Paragraph>
+                  </div>
+                  {record.answer_preview && (
+                    <div>
+                      <Text strong>AI 回應預覽：</Text>
+                      <Paragraph style={{ marginTop: 8, marginBottom: 8 }}>{record.answer_preview}</Paragraph>
+                    </div>
+                  )}
+                  {record.question_category && (
+                    <div>
+                      <Text strong>分類：</Text>
+                      <Tag color="blue" style={{ marginLeft: 8 }}>{record.question_category}</Tag>
+                    </div>
+                  )}
+                  <div>
+                    <Text type="secondary">對話 ID: {record.conversation_id}</Text>
+                  </div>
+                </Space>
+              </div>
+            ),
+            rowExpandable: () => true,
+          }}
+        />
+      </Card>
+    );
+  };
+
   // 檢查用戶認證和權限
   if (!isAuthenticated) {
     return (
@@ -1009,43 +1190,57 @@ const UnifiedAnalyticsPage = () => {
         {renderOverviewCards()}
 
         {/* 詳細分析標籤頁 */}
-        <Tabs defaultActiveKey="satisfaction" style={{ marginTop: 24 }}>
-          <TabPane 
-            tab={
-              <span>
-                <TrophyOutlined />
-                滿意度分析
-              </span>
-            } 
-            key="satisfaction"
-          >
-            {renderSatisfactionAnalysis()}
-          </TabPane>
-
-          <TabPane 
-            tab={
-              <span>
-                <PieChartOutlined />
-                問題分析
-              </span>
-            } 
-            key="questions"
-          >
-            {renderQuestionAnalysis()}
-          </TabPane>
-
-          <TabPane 
-            tab={
-              <span>
-                <LineChartOutlined />
-                趨勢分析
-              </span>
-            } 
-            key="trends"
-          >
-            {renderTrendAnalysis()}
-          </TabPane>
-        </Tabs>
+        <Tabs 
+          defaultActiveKey="satisfaction" 
+          style={{ marginTop: 24 }}
+          onChange={(key) => {
+            if (key === 'history' && !questionHistory) {
+              fetchQuestionHistory(1);
+            }
+          }}
+          items={[
+            {
+              key: 'satisfaction',
+              label: (
+                <span>
+                  <TrophyOutlined />
+                  滿意度分析
+                </span>
+              ),
+              children: renderSatisfactionAnalysis(),
+            },
+            {
+              key: 'questions',
+              label: (
+                <span>
+                  <PieChartOutlined />
+                  問題分析
+                </span>
+              ),
+              children: renderQuestionAnalysis(),
+            },
+            {
+              key: 'trends',
+              label: (
+                <span>
+                  <LineChartOutlined />
+                  趨勢分析
+                </span>
+              ),
+              children: renderTrendAnalysis(),
+            },
+            {
+              key: 'history',
+              label: (
+                <span>
+                  <QuestionCircleOutlined />
+                  問題詳情
+                </span>
+              ),
+              children: renderQuestionHistory(),
+            },
+          ]}
+        />
       </Spin>
     </div>
   );
