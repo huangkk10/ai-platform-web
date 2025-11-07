@@ -18,7 +18,8 @@ import {
   Tabs,
   Empty,
   List,
-  Divider
+  Divider,
+  Tooltip as AntTooltip
 } from 'antd';
 import {
   BarChartOutlined,
@@ -949,19 +950,6 @@ const UnifiedAnalyticsPage = () => {
         filterMultiple: false, // 只允許單選
       },
       {
-        title: '問題',
-        dataIndex: 'question',
-        key: 'question',
-        ellipsis: {
-          showTitle: false,
-        },
-        render: (text) => (
-          <Paragraph ellipsis={{ rows: 2, expandable: true, symbol: '更多' }} style={{ marginBottom: 0 }}>
-            {text}
-          </Paragraph>
-        ),
-      },
-      {
         title: '評價',
         dataIndex: 'rating',
         key: 'rating',
@@ -981,6 +969,55 @@ const UnifiedAnalyticsPage = () => {
           } else {
             return <Tag color="default">無評價</Tag>;
           }
+        },
+      },
+      {
+        title: '問題',
+        dataIndex: 'question',
+        key: 'question',
+        ellipsis: {
+          showTitle: false,
+        },
+        render: (text) => (
+          <Paragraph ellipsis={{ rows: 2, expandable: true, symbol: '更多' }} style={{ marginBottom: 0 }}>
+            {text}
+          </Paragraph>
+        ),
+      },
+      {
+        title: 'AI 回覆',
+        dataIndex: 'answer_preview',
+        key: 'answer_preview',
+        width: 200,
+        ellipsis: true,
+        render: (text) => {
+          if (!text) {
+            return <Text type="secondary" style={{ fontSize: '12px' }}>無回覆資料</Text>;
+          }
+          
+          // 截取前 50 個字元作為預覽
+          const preview = text.length > 50 ? text.substring(0, 50) + '...' : text;
+          
+          return (
+            <AntTooltip 
+              title={
+                <div style={{ maxHeight: '300px', overflow: 'auto' }}>
+                  {text}
+                </div>
+              }
+              overlayStyle={{ maxWidth: '500px' }}
+            >
+              <Text 
+                style={{ 
+                  color: '#595959', 
+                  cursor: 'pointer',
+                  display: 'block'
+                }}
+              >
+                {preview}
+              </Text>
+            </AntTooltip>
+          );
         },
       },
       {
@@ -1021,19 +1058,44 @@ const UnifiedAnalyticsPage = () => {
             showQuickJumper: true,
             showTotal: (total) => `共 ${total} 個問題`,
           }}
-          scroll={{ x: 1000 }}
+          scroll={{ x: 1200 }}
           expandable={{
             expandedRowRender: (record) => (
-              <div style={{ padding: '12px', backgroundColor: '#fafafa' }}>
-                <Space direction="vertical" style={{ width: '100%' }}>
+              <div style={{ padding: '16px', backgroundColor: '#fafafa', borderRadius: '4px' }}>
+                <Space direction="vertical" style={{ width: '100%' }} size="middle">
                   <div>
-                    <Text strong>完整問題：</Text>
-                    <Paragraph style={{ marginTop: 8, marginBottom: 8 }}>{record.question}</Paragraph>
+                    <Text strong style={{ fontSize: '14px', color: '#1890ff' }}>📋 完整問題：</Text>
+                    <Paragraph 
+                      style={{ 
+                        marginTop: 8, 
+                        marginBottom: 8, 
+                        padding: '12px', 
+                        backgroundColor: '#fff',
+                        borderLeft: '3px solid #1890ff',
+                        borderRadius: '4px'
+                      }}
+                    >
+                      {record.question}
+                    </Paragraph>
                   </div>
                   {record.answer_preview && (
                     <div>
-                      <Text strong>AI 回應預覽：</Text>
-                      <Paragraph style={{ marginTop: 8, marginBottom: 8 }}>{record.answer_preview}</Paragraph>
+                      <Text strong style={{ fontSize: '14px', color: '#52c41a' }}>🤖 AI 完整回覆：</Text>
+                      <Paragraph 
+                        style={{ 
+                          marginTop: 8, 
+                          marginBottom: 8, 
+                          padding: '12px', 
+                          backgroundColor: '#fff',
+                          borderLeft: '3px solid #52c41a',
+                          borderRadius: '4px',
+                          whiteSpace: 'pre-wrap',
+                          maxHeight: '400px',
+                          overflow: 'auto'
+                        }}
+                      >
+                        {record.answer_preview}
+                      </Paragraph>
                     </div>
                   )}
                   {record.question_category && (
@@ -1042,8 +1104,10 @@ const UnifiedAnalyticsPage = () => {
                       <Tag color="blue" style={{ marginLeft: 8 }}>{record.question_category}</Tag>
                     </div>
                   )}
-                  <div>
-                    <Text type="secondary">對話 ID: {record.conversation_id}</Text>
+                  <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px dashed #d9d9d9' }}>
+                    <Text type="secondary" style={{ fontSize: '12px' }}>
+                      對話 ID: {record.conversation_id}
+                    </Text>
                   </div>
                 </Space>
               </div>
