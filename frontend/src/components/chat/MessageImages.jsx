@@ -201,14 +201,14 @@ const MessageImages = ({ filenames, onImageLoad }) => {
   console.log('📊 MessageImages: 渲染圖片區域', { imagesLength: images.length, images });
   
   return (
-    <div style={{ margin: '8px 0', maxWidth: '200px' }}>
+    <div style={{ margin: '8px 0', maxWidth: '100%' }}>
       <div style={{ fontSize: '12px', color: '#666', marginBottom: '6px' }}>
         📸 相關圖片 ({images.length} 張)：
       </div>
       <div style={{ 
         display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fill, 40px)', 
-        gap: '2px',
+        gridTemplateColumns: 'repeat(auto-fill, 200px)', 
+        gap: '8px',
         justifyContent: 'start'
       }}>
         {images.map((image, index) => (

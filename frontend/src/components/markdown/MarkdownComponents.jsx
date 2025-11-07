@@ -252,7 +252,7 @@ export const CustomImage = ({ src, alt, title, ...props }) => {
         src={imageSrc}
         alt={imageData.title || alt || '圖片'}
         style={{
-          maxWidth: '100px',
+          maxWidth: '300px',
           height: 'auto',
           objectFit: 'contain',
           cursor: 'pointer',
