@@ -44,7 +44,7 @@ class BaseKnowledgeBaseVectorService(ABC):
     
     def generate_and_store_vector(self, instance, action='create'):
         """
-        為實例生成並存儲向量
+        為實例生成並存儲向量（多向量版本）
         
         Returns:
             bool: 是否成功
@@ -55,29 +55,32 @@ class BaseKnowledgeBaseVectorService(ABC):
             if not service:
                 return False
             
-            # 獲取要向量化的內容
+            # 獲取標題和內容
+            title = self._get_title_for_vectorization(instance)
             content = self._get_content_for_vectorization(instance)
-            if not content:
+            
+            if not title and not content:
                 self.logger.warning(f"實例 {instance.id} 沒有可向量化的內容")
                 return False
             
-            # 生成向量
-            success = service.store_document_embedding(
+            # 使用多向量方法生成向量
+            success = service.store_document_embeddings_multi(
                 source_table=self.source_table,
                 source_id=instance.id,
-                content=content,
-                use_1024_table=True  # 預設使用 1024 維向量
+                title=title or "",  # 如果沒有標題，使用空字串
+                content=content or "",  # 如果沒有內容，使用空字串
+                use_1024_table=True
             )
             
             if success:
-                self.logger.info(f"✅ 向量生成成功: {self.source_table} ID {instance.id}")
+                self.logger.info(f"✅ 多向量生成成功: {self.source_table} ID {instance.id}")
             else:
-                self.logger.error(f"❌ 向量生成失敗: {self.source_table} ID {instance.id}")
+                self.logger.error(f"❌ 多向量生成失敗: {self.source_table} ID {instance.id}")
             
             return success
             
         except Exception as e:
-            self.logger.error(f"向量生成異常: {str(e)}")
+            self.logger.error(f"多向量生成異常: {str(e)}")
             return False
     
     def delete_vector(self, instance):
@@ -155,9 +158,19 @@ class BaseKnowledgeBaseVectorService(ABC):
             self.logger.error(f"無法獲取 embedding 服務: {str(e)}")
             return None
     
+    def _get_title_for_vectorization(self, instance):
+        """
+        獲取標題用於向量化
+        
+        子類可以覆寫此方法來自定義標題獲取邏輯
+        """
+        if hasattr(instance, 'title') and instance.title:
+            return instance.title
+        return ""
+    
     def _get_content_for_vectorization(self, instance):
         """
-        獲取實例的內容用於向量化
+        獲取內容用於向量化（不包含標題，因為標題已分開處理）
         
         子類可以覆寫此方法來自定義內容獲取邏輯
         """
@@ -165,13 +178,8 @@ class BaseKnowledgeBaseVectorService(ABC):
         if hasattr(instance, 'get_search_content'):
             return instance.get_search_content()
         
-        # 否則組合標題和內容
-        content_parts = []
-        
-        if hasattr(instance, 'title') and instance.title:
-            content_parts.append(instance.title)
-        
+        # 否則使用 content 屬性
         if hasattr(instance, 'content') and instance.content:
-            content_parts.append(instance.content)
+            return instance.content
         
-        return ' '.join(content_parts) if content_parts else str(instance)
+        return ""

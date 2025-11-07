@@ -189,9 +189,26 @@ const getInitialMessages = (storageKey, userId, welcomeMessage) => {
  * @returns {Object} - 包含消息状态和操作函数的对象
  */
 const useMessageStorage = (user, storageKey = 'default', welcomeMessage = null) => {
-  const [messages, setMessages] = useState(() => getInitialMessages(storageKey, user?.id, welcomeMessage));
+  const [messages, setMessagesInternal] = useState(() => getInitialMessages(storageKey, user?.id, welcomeMessage));
   const [conversationId, setConversationId] = useState('');
   const [currentUserId, setCurrentUserId] = useState(null);
+  
+  // ✅ DEBUG: 包裝 setMessages 以記錄所有調用
+  const setMessages = useCallback((updater) => {
+    console.log('📦 [useMessageStorage] setMessages 被調用');
+    console.log('  - storageKey:', storageKey);
+    console.log('  - updater type:', typeof updater);
+    
+    setMessagesInternal(prev => {
+      const newMessages = typeof updater === 'function' ? updater(prev) : updater;
+      console.log('  - 舊訊息數量:', prev.length);
+      console.log('  - 新訊息數量:', newMessages.length);
+      if (newMessages.length > prev.length) {
+        console.log('  - 新增的訊息:', newMessages[newMessages.length - 1]);
+      }
+      return newMessages;
+    });
+  }, [storageKey]);
 
   // 监听用户状态变化，在用户切换时重置对话
   useEffect(() => {
@@ -201,12 +218,12 @@ const useMessageStorage = (user, storageKey = 'default', welcomeMessage = null) 
     if (currentUserId === null) {
       setCurrentUserId(newUserId);
       
-      // 载入当前用户的对话ID和消息
-      const userConversationId = loadConversationId(storageKey, newUserId);
+      // ✅ 載入消息記錄和 conversation_id
       const userMessages = loadMessagesFromStorage(storageKey, newUserId);
+      const savedConversationId = loadConversationId(storageKey, newUserId);
       
-      if (userConversationId) {
-        setConversationId(userConversationId);
+      if (savedConversationId) {
+        setConversationId(savedConversationId);
       }
       
       if (userMessages && userMessages.length > 0) {
@@ -222,10 +239,10 @@ const useMessageStorage = (user, storageKey = 'default', welcomeMessage = null) 
     // 检查用户是否发生变化
     if (currentUserId !== newUserId) {
       // 载入新用户的数据
-      const newUserConversationId = loadConversationId(storageKey, newUserId);
       const newUserMessages = loadMessagesFromStorage(storageKey, newUserId);
+      const newUserConversationId = loadConversationId(storageKey, newUserId);
       
-      // 设置新用户的对话ID和消息
+      // ✅ 載入新用戶的 conversation_id
       setConversationId(newUserConversationId || '');
       
       if (newUserMessages && newUserMessages.length > 0) {
@@ -249,14 +266,8 @@ const useMessageStorage = (user, storageKey = 'default', welcomeMessage = null) 
 
   // 保存对话 ID (基于当前用户和storageKey)
   useEffect(() => {
-    if (currentUserId !== null) {
-      if (conversationId) {
-        saveConversationId(conversationId, storageKey, currentUserId);
-      } else {
-        // 如果对话ID被清空，也要清除localStorage
-        const conversationKey = getUserConversationKey(storageKey, currentUserId);
-        localStorage.removeItem(conversationKey);
-      }
+    if (conversationId && currentUserId !== null) {
+      saveConversationId(conversationId, storageKey, currentUserId);
     }
   }, [conversationId, currentUserId, storageKey]);
 

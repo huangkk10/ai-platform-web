@@ -39,12 +39,38 @@ class ProtocolAnalyticsAPIHandler:
         try:
             # 獲取參數
             days = int(request.GET.get('days', 7))
-            user = request.user if request.user.is_authenticated else None
+            
+            # 🔥 修正權限邏輯：參考 RVT Analytics 的實現
+            # 管理員可以查看所有用戶資料，一般用戶只能看自己的
+            user_id_param = request.GET.get('user_id', None)
+            target_user = None  # 預設查看所有資料（管理員）
+            
+            if user_id_param and user_id_param != 'all':
+                # 明確指定 user_id，且不是 'all'
+                if not (request.user.is_staff or request.user.is_superuser):
+                    return Response({
+                        'success': False,
+                        'error': '無權限查看其他用戶數據'
+                    }, status=status.HTTP_403_FORBIDDEN)
+                
+                # 管理員可以查看特定用戶
+                try:
+                    from django.contrib.auth.models import User
+                    target_user = User.objects.get(id=user_id_param)
+                except User.DoesNotExist:
+                    return Response({
+                        'success': False,
+                        'error': '用戶不存在'
+                    }, status=status.HTTP_404_NOT_FOUND)
+            elif not (request.user.is_staff or request.user.is_superuser):
+                # 非管理員只能查看自己的數據
+                target_user = request.user if request.user.is_authenticated else None
+            # else: 管理員且未指定 user_id，target_user = None（查看所有資料）
             
             # 獲取統計數據
             from .statistics_manager import ProtocolStatisticsManager
             manager = ProtocolStatisticsManager()
-            stats = manager.get_comprehensive_stats(days=days, user=user)
+            stats = manager.get_comprehensive_stats(days=days, user=target_user)
             
             # 返回成功回應
             return Response({
@@ -73,17 +99,40 @@ class ProtocolAnalyticsAPIHandler:
         try:
             # 獲取參數
             days = int(request.GET.get('days', 30))
-            user = request.user if request.user.is_authenticated else None
+            
+            # 🔥 修正權限邏輯：與 overview 保持一致
+            user_id_param = request.GET.get('user_id', None)
+            target_user = None  # 預設查看所有資料（管理員）
+            
+            if user_id_param and user_id_param != 'all':
+                # 明確指定 user_id
+                if not (request.user.is_staff or request.user.is_superuser):
+                    return Response({
+                        'success': False,
+                        'error': '無權限查看其他用戶數據'
+                    }, status=status.HTTP_403_FORBIDDEN)
+                
+                try:
+                    from django.contrib.auth.models import User
+                    target_user = User.objects.get(id=user_id_param)
+                except User.DoesNotExist:
+                    return Response({
+                        'success': False,
+                        'error': '用戶不存在'
+                    }, status=status.HTTP_404_NOT_FOUND)
+            elif not (request.user.is_staff or request.user.is_superuser):
+                # 非管理員只能查看自己的數據
+                target_user = request.user if request.user.is_authenticated else None
             
             # 獲取問題統計
             from .statistics_manager import ProtocolStatisticsManager
             manager = ProtocolStatisticsManager()
-            question_stats = manager._get_question_stats(days=days, user=user)
+            question_stats = manager._get_question_stats(days=days, user=target_user)
             
-            # 返回成功回應
+            # 返回成功回應（包裝在 data 中，與 RVT 格式一致）
             return Response({
                 'success': True,
-                **question_stats,  # 直接展開問題統計數據
+                'data': question_stats,  # 包裝在 data 中
                 'generated_at': datetime.now().isoformat()
             }, status=status.HTTP_200_OK)
             
@@ -107,12 +156,35 @@ class ProtocolAnalyticsAPIHandler:
         try:
             # 獲取參數
             days = int(request.GET.get('days', 30))
-            user = request.user if request.user.is_authenticated else None
+            
+            # 🔥 修正權限邏輯：與 overview 保持一致
+            user_id_param = request.GET.get('user_id', None)
+            target_user = None  # 預設查看所有資料（管理員）
+            
+            if user_id_param and user_id_param != 'all':
+                # 明確指定 user_id
+                if not (request.user.is_staff or request.user.is_superuser):
+                    return Response({
+                        'success': False,
+                        'error': '無權限查看其他用戶數據'
+                    }, status=status.HTTP_403_FORBIDDEN)
+                
+                try:
+                    from django.contrib.auth.models import User
+                    target_user = User.objects.get(id=user_id_param)
+                except User.DoesNotExist:
+                    return Response({
+                        'success': False,
+                        'error': '用戶不存在'
+                    }, status=status.HTTP_404_NOT_FOUND)
+            elif not (request.user.is_staff or request.user.is_superuser):
+                # 非管理員只能查看自己的數據
+                target_user = request.user if request.user.is_authenticated else None
             
             # 獲取滿意度統計
             from .statistics_manager import ProtocolStatisticsManager
             manager = ProtocolStatisticsManager()
-            satisfaction_stats = manager._get_satisfaction_stats(days=days, user=user)
+            satisfaction_stats = manager._get_satisfaction_stats(days=days, user=target_user)
             
             # 返回成功回應
             return Response({
@@ -141,7 +213,30 @@ class ProtocolAnalyticsAPIHandler:
         try:
             # 獲取參數
             days = int(request.GET.get('days', 30))
-            user = request.user if request.user.is_authenticated else None
+            
+            # 🔥 修正權限邏輯：與 overview 保持一致
+            user_id_param = request.GET.get('user_id', None)
+            target_user = None  # 預設查看所有資料（管理員）
+            
+            if user_id_param and user_id_param != 'all':
+                # 明確指定 user_id
+                if not (request.user.is_staff or request.user.is_superuser):
+                    return Response({
+                        'success': False,
+                        'error': '無權限查看其他用戶數據'
+                    }, status=status.HTTP_403_FORBIDDEN)
+                
+                try:
+                    from django.contrib.auth.models import User
+                    target_user = User.objects.get(id=user_id_param)
+                except User.DoesNotExist:
+                    return Response({
+                        'success': False,
+                        'error': '用戶不存在'
+                    }, status=status.HTTP_404_NOT_FOUND)
+            elif not (request.user.is_staff or request.user.is_superuser):
+                # 非管理員只能查看自己的數據
+                target_user = request.user if request.user.is_authenticated else None
             
             # TODO: 實現趨勢分析邏輯
             # 目前返回基本趨勢數據

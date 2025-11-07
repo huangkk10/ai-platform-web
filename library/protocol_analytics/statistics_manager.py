@@ -166,18 +166,36 @@ class ProtocolStatisticsManager(BaseStatisticsManager):
             return {'error': str(e)}
     
     def _get_satisfaction_stats(self, days: int, user=None) -> Dict:
-        """獲取滿意度統計（複用 RVT 分析器）"""
+        """獲取滿意度統計（使用 Protocol 專屬的 SatisfactionAnalyzer）"""
         try:
-            # 複用 RVT Analytics 的 satisfaction_analyzer
-            from library.rvt_analytics.satisfaction_analyzer import analyze_user_satisfaction
+            # 使用 Protocol 專屬的 SatisfactionAnalyzer
+            from library.protocol_analytics.satisfaction_analyzer import ProtocolSatisfactionAnalyzer
             
-            satisfaction_result = analyze_user_satisfaction(
+            analyzer = ProtocolSatisfactionAnalyzer()
+            satisfaction_result = analyzer.analyze_user_satisfaction(
                 user=user,
-                days=days,
-                assistant_type='protocol_assistant'
+                days=days
             )
             
             return satisfaction_result
+            
+        except ImportError:
+            # 如果 Protocol 專屬分析器不存在，嘗試使用 RVT 的（需要手動設置 assistant_type）
+            try:
+                from library.rvt_analytics.satisfaction_analyzer import analyze_user_satisfaction
+                
+                # analyze_user_satisfaction 不接受 assistant_type 參數
+                # 它會從實例的 get_assistant_type() 方法獲取
+                satisfaction_result = analyze_user_satisfaction(
+                    user=user,
+                    days=days
+                )
+                
+                return satisfaction_result
+                
+            except Exception as e:
+                self.logger.error(f"獲取滿意度統計失敗: {str(e)}")
+                return {'error': str(e)}
             
         except Exception as e:
             self.logger.error(f"獲取滿意度統計失敗: {str(e)}")

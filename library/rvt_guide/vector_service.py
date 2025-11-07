@@ -36,26 +36,32 @@ class RVTGuideVectorService(BaseKnowledgeBaseVectorService):
     source_table = 'rvt_guide'
     model_class = RVTGuide
     
-    def _format_content_for_embedding(self, instance):
+    def _get_title_for_vectorization(self, instance):
+        """獲取標題（RVT Guide 有 title 欄位）"""
+        return instance.title if hasattr(instance, 'title') else ""
+    
+    def _get_content_for_vectorization(self, instance):
         """
-        格式化內容用於向量化（統一版本）
+        獲取內容（不包含標題，因為標題已分開處理）
         
-        與 Protocol Guide 保持一致，只使用資料庫實際存在的欄位
+        包含內容和圖片摘要
         
         Args:
             instance: RVTGuide 實例
             
         Returns:
-            str: 格式化後的內容
+            str: 格式化後的內容（不含標題）
         """
-        content_parts = [
-            f"標題: {instance.title}",
-            f"內容: {instance.content}",
-        ]
+        content_parts = []
+        
+        # 添加內容
+        if hasattr(instance, 'content') and instance.content:
+            content_parts.append(instance.content)
         
         # 添加圖片摘要
-        images_summary = instance.get_images_summary()
-        if images_summary:
-            content_parts.append(images_summary)
+        if hasattr(instance, 'get_images_summary'):
+            images_summary = instance.get_images_summary()
+            if images_summary:
+                content_parts.append(images_summary)
         
-        return ' | '.join(content_parts)
+        return ' | '.join(content_parts) if content_parts else ""

@@ -54,23 +54,27 @@ const ThresholdSettingsPage = () => {
   // 載入快取資訊
   const fetchCacheInfo = async () => {
     try {
-      const response = await axios.get('/api/threshold-settings/get-cache-info/', { withCredentials: true });
+      // 使用正確的 URL（DRF 會將底線轉換為破折號）
+      const response = await axios.get('/api/threshold-settings/get_cache_info/', { withCredentials: true });
       setCacheInfo(response.data);
     } catch (error) {
-      console.error('載入快取資訊失敗:', error);
+      // 快取資訊不是必要的，失敗也不影響主要功能
+      console.warn('快取資訊載入失敗（不影響主要功能）:', error.message);
     }
   };
 
   useEffect(() => {
     fetchSettings();
-    fetchCacheInfo();
+    // fetchCacheInfo(); // 暫時註釋掉，這不是核心功能
   }, []);
 
   // 開啟編輯 Modal
   const handleEdit = (record) => {
     setEditingRecord(record);
     form.setFieldsValue({
-      master_threshold: parseFloat(record.master_threshold) * 100 // 轉換為百分比
+      master_threshold: parseFloat(record.master_threshold) * 100, // 轉換為百分比
+      title_weight: record.title_weight !== null && record.title_weight !== undefined ? record.title_weight : 60,
+      content_weight: record.content_weight !== null && record.content_weight !== undefined ? record.content_weight : 40
     });
     setEditModalVisible(true);
   };
@@ -83,7 +87,9 @@ const ThresholdSettingsPage = () => {
 
       setLoading(true);
       await axios.patch(`/api/threshold-settings/${editingRecord.id}/`, {
-        master_threshold: thresholdValue.toFixed(2)
+        master_threshold: thresholdValue.toFixed(2),
+        title_weight: values.title_weight,
+        content_weight: values.content_weight
       }, { withCredentials: true });
 
       // 自動刷新快取
@@ -125,7 +131,7 @@ const ThresholdSettingsPage = () => {
       title: 'Assistant 類型',
       dataIndex: 'assistant_type_display',
       key: 'assistant_type_display',
-      width: 200,
+      width: 180,
       render: (text) => <Tag color="blue" style={{ fontSize: '14px' }}>{text}</Tag>
     },
     {
@@ -139,10 +145,46 @@ const ThresholdSettingsPage = () => {
       ),
       dataIndex: 'master_threshold',
       key: 'master_threshold',
-      width: 200,
+      width: 150,
       render: (value) => (
         <Text strong style={{ fontSize: '16px', color: '#1890ff' }}>
           {(parseFloat(value) * 100).toFixed(0)}%
+        </Text>
+      )
+    },
+    {
+      title: (
+        <Space>
+          標題權重
+          <Tooltip title="標題向量在多向量搜尋中的權重">
+            <InfoCircleOutlined />
+          </Tooltip>
+        </Space>
+      ),
+      dataIndex: 'title_weight',
+      key: 'title_weight',
+      width: 120,
+      render: (value) => (
+        <Text style={{ fontSize: '14px', color: '#52c41a' }}>
+          {value}%
+        </Text>
+      )
+    },
+    {
+      title: (
+        <Space>
+          內容權重
+          <Tooltip title="內容向量在多向量搜尋中的權重">
+            <InfoCircleOutlined />
+          </Tooltip>
+        </Space>
+      ),
+      dataIndex: 'content_weight',
+      key: 'content_weight',
+      width: 120,
+      render: (value) => (
+        <Text style={{ fontSize: '14px', color: '#fa8c16' }}>
+          {value}%
         </Text>
       )
     },
@@ -252,24 +294,25 @@ const ThresholdSettingsPage = () => {
 
       {/* 編輯 Modal */}
       <Modal
-        title={`編輯 ${editingRecord?.assistant_type_display} 搜尋閾值`}
+        title={`編輯 ${editingRecord?.assistant_type_display} 搜尋參數`}
         open={editModalVisible}
         onOk={handleSave}
         onCancel={() => setEditModalVisible(false)}
         okText="儲存"
         cancelText="取消"
-        width={600}
+        width={700}
         confirmLoading={loading}
       >
         <Form form={form} layout="vertical">
           <Alert
             message="說明"
-            description="設定語義搜尋的相似度閾值。值越高，搜尋結果越精準但數量越少；值越低，結果越多但相關性可能較低。"
+            description="設定語義搜尋的相似度閾值和多向量權重。Threshold 值越高搜尋越精準；權重決定標題與內容的重要性比例。"
             type="info"
             showIcon
             style={{ marginBottom: '24px' }}
           />
 
+          {/* Threshold 設定 */}
           <Form.Item
             label={
               <Space>
@@ -303,17 +346,151 @@ const ThresholdSettingsPage = () => {
             />
           </Form.Item>
 
-          {/* 即時預覽 */}
-          <Card title="即時預覽" size="small" style={{ marginTop: '16px', backgroundColor: '#f0f5ff' }}>
-            <Statistic
-              title="設定值"
-              value={currentThreshold}
-              suffix="%"
-              valueStyle={{ color: '#1890ff', fontSize: '24px' }}
+          {/* 多向量權重設定 */}
+          <Card 
+            title="多向量權重設定" 
+            size="small" 
+            style={{ marginTop: '24px', marginBottom: '16px' }}
+          >
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item
+                  label={
+                    <Space>
+                      <span>標題權重</span>
+                      <Tooltip title="標題向量在搜尋中的權重">
+                        <InfoCircleOutlined />
+                      </Tooltip>
+                    </Space>
+                  }
+                  name="title_weight"
+                  rules={[
+                    { required: true, message: '請設定標題權重' },
+                    { type: 'number', min: 0, max: 100, message: '權重必須在 0 到 100 之間' }
+                  ]}
+                >
+                  <Slider
+                    min={0}
+                    max={100}
+                    step={5}
+                    marks={{
+                      0: '0%',
+                      50: '50%',
+                      100: '100%'
+                    }}
+                    onChange={(value) => {
+                      // 自動調整內容權重
+                      form.setFieldsValue({ content_weight: 100 - value });
+                    }}
+                    tooltip={{
+                      formatter: (value) => `${value}%`
+                    }}
+                  />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item
+                  label={
+                    <Space>
+                      <span>內容權重</span>
+                      <Tooltip title="內容向量在搜尋中的權重">
+                        <InfoCircleOutlined />
+                      </Tooltip>
+                    </Space>
+                  }
+                  name="content_weight"
+                  rules={[
+                    { required: true, message: '請設定內容權重' },
+                    { type: 'number', min: 0, max: 100, message: '權重必須在 0 到 100 之間' }
+                  ]}
+                >
+                  <Slider
+                    min={0}
+                    max={100}
+                    step={5}
+                    marks={{
+                      0: '0%',
+                      50: '50%',
+                      100: '100%'
+                    }}
+                    onChange={(value) => {
+                      // 自動調整標題權重
+                      form.setFieldsValue({ title_weight: 100 - value });
+                    }}
+                    tooltip={{
+                      formatter: (value) => `${value}%`
+                    }}
+                  />
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <Alert
+              message="💡 提示：標題權重 + 內容權重 = 100%"
+              type="warning"
+              showIcon
+              style={{ marginTop: '8px' }}
             />
-            <Paragraph type="secondary" style={{ marginTop: '8px', marginBottom: 0 }}>
-              只有相似度 ≥ {currentThreshold}% 的結果會被返回
-            </Paragraph>
+
+            {/* 預設場景快速設定 */}
+            <div style={{ marginTop: '16px' }}>
+              <Text strong>預設場景：</Text>
+              <Space style={{ marginTop: '8px' }} wrap>
+                <Button
+                  size="small"
+                  onClick={() => {
+                    form.setFieldsValue({ title_weight: 80, content_weight: 20 });
+                  }}
+                >
+                  品牌/型號查詢 (80%/20%)
+                </Button>
+                <Button
+                  size="small"
+                  onClick={() => {
+                    form.setFieldsValue({ title_weight: 60, content_weight: 40 });
+                  }}
+                >
+                  平衡查詢 (60%/40%)
+                </Button>
+                <Button
+                  size="small"
+                  onClick={() => {
+                    form.setFieldsValue({ title_weight: 40, content_weight: 60 });
+                  }}
+                >
+                  強調內容 (40%/60%)
+                </Button>
+                <Button
+                  size="small"
+                  onClick={() => {
+                    form.setFieldsValue({ title_weight: 20, content_weight: 80 });
+                  }}
+                >
+                  深度內容搜索 (20%/80%)
+                </Button>
+              </Space>
+            </div>
+          </Card>
+
+          {/* 即時預覽 */}
+          <Card title="即時預覽" size="small" style={{ backgroundColor: '#f0f5ff' }}>
+            <Row gutter={16}>
+              <Col span={12}>
+                <Statistic
+                  title="Threshold"
+                  value={currentThreshold}
+                  suffix="%"
+                  valueStyle={{ color: '#1890ff', fontSize: '20px' }}
+                />
+              </Col>
+              <Col span={12}>
+                <Statistic
+                  title="權重比例"
+                  value={`${form.getFieldValue('title_weight') || 60} : ${form.getFieldValue('content_weight') || 40}`}
+                  valueStyle={{ color: '#52c41a', fontSize: '20px' }}
+                />
+              </Col>
+            </Row>
           </Card>
         </Form>
       </Modal>

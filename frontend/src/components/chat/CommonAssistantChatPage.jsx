@@ -64,6 +64,7 @@ const CommonAssistantChatPage = ({
   
   const [inputMessage, setInputMessage] = useState('');
   const [assistantConfig, setAssistantConfig] = useState(null);
+  const [textareaRows, setTextareaRows] = useState(1); // 🎯 方案 B：控制 TextArea 行數
   const messagesEndRef = useRef(null);
   
   // 使用傳入的 Chat Hook
@@ -115,7 +116,14 @@ const CommonAssistantChatPage = ({
   };
 
   const handleSendMessage = async () => {
-    if (!inputMessage.trim()) return;
+    console.log('🎬 [CommonAssistantChatPage] handleSendMessage 開始執行');
+    console.log('  - inputMessage:', inputMessage);
+    console.log('  - assistantType:', assistantType);
+    
+    if (!inputMessage.trim()) {
+      console.log('⚠️ [CommonAssistantChatPage] 訊息為空，返回');
+      return;
+    }
 
     const sendTimeUserId = user?.id || null;
     if (checkUserSwitch(sendTimeUserId)) {
@@ -131,9 +139,36 @@ const CommonAssistantChatPage = ({
       timestamp: new Date()
     };
 
+    console.log('📨 [CommonAssistantChatPage] 創建 userMessage:', userMessage);
     setMessages(prev => [...prev, userMessage]);
     setInputMessage('');
-    await sendMessage(userMessage);
+    setTextareaRows(1); // 🎯 發送後重置為 1 行
+    
+    console.log('🔗 [CommonAssistantChatPage] 調用 sendMessage');
+    console.log('  - sendMessage 函數:', typeof sendMessage);
+    try {
+      await sendMessage(userMessage);
+      console.log('✅ [CommonAssistantChatPage] sendMessage 執行完成');
+    } catch (error) {
+      console.error('❌ [CommonAssistantChatPage] sendMessage 執行錯誤:', error);
+    }
+  };
+
+  // 🎯 方案 B：處理輸入變化，只在實際換行時才調整高度
+  const handleInputChange = (e) => {
+    const text = e.target.value;
+    
+    // 計算實際的換行符數量（只計算 \n，不考慮自動 word-wrap）
+    const actualLineBreaks = (text.match(/\n/g) || []).length;
+    const calculatedRows = Math.min(actualLineBreaks + 1, 12); // 最多 12 行
+    
+    // 只在實際行數改變時才更新（避免不必要的 re-render）
+    if (calculatedRows !== textareaRows) {
+      setTextareaRows(calculatedRows);
+      console.log('📏 [CommonAssistantChatPage] TextArea 行數調整:', textareaRows, '→', calculatedRows);
+    }
+    
+    setInputMessage(text);
   };
 
   const handleKeyPress = (e) => {
@@ -193,10 +228,10 @@ const CommonAssistantChatPage = ({
           }}>
             <TextArea
               value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
+              onChange={handleInputChange}
               onKeyPress={handleKeyPress}
               placeholder={`${placeholder} (按 Enter 發送，Shift + Enter 換行${assistantConfig ? ` • ${assistantConfig.app_name}` : ''})`}
-              autoSize={{ minRows: 1, maxRows: 12 }}
+              rows={textareaRows}
               disabled={loading}
               className="chat-input-area"
               style={{ 
@@ -206,11 +241,23 @@ const CommonAssistantChatPage = ({
                 padding: '12px 16px',
                 fontSize: '14px',
                 border: '1px solid #d9d9d9',
-                transition: 'all 0.3s'
+                transition: 'all 0.3s',
+                lineHeight: '1.5'
               }}
             />
             <button
-              onClick={loading ? stopRequest : handleSendMessage}
+              onClick={() => {
+                console.log('🖱️ [CommonAssistantChatPage] 發送按鈕被點擊');
+                console.log('  - loading:', loading);
+                console.log('  - inputMessage:', inputMessage);
+                if (loading) {
+                  console.log('  - 執行 stopRequest');
+                  stopRequest();
+                } else {
+                  console.log('  - 執行 handleSendMessage');
+                  handleSendMessage();
+                }
+              }}
               disabled={!loading && !inputMessage.trim()}
               title={loading ? "點擊停止當前任務" : "發送消息"}
               style={{ 

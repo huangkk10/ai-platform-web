@@ -36,6 +36,54 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def _get_weights_for_assistant(source_table: str) -> tuple:
+    """
+    根據 source_table 獲取權重配置
+    
+    Args:
+        source_table: 向量表中的 source_table 值 (如 'protocol_guide')
+    
+    Returns:
+        (title_weight, content_weight) 元組，值為 0.0-1.0 的浮點數
+    
+    Example:
+        >>> _get_weights_for_assistant('protocol_guide')
+        (0.0, 1.0)  # 如果設定為 0% 標題 / 100% 內容
+    """
+    from api.models import SearchThresholdSetting
+    
+    # 映射 source_table 到 assistant_type
+    table_to_type = {
+        'protocol_guide': 'protocol_assistant',
+        'rvt_guide': 'rvt_assistant',
+        'know_issue': 'know_issue_assistant',  # 預留
+    }
+    
+    assistant_type = table_to_type.get(source_table)
+    if not assistant_type:
+        logger.warning(f"未知的 source_table: {source_table}，使用預設權重 60/40")
+        return 0.6, 0.4
+    
+    try:
+        setting = SearchThresholdSetting.objects.get(assistant_type=assistant_type)
+        title_weight = setting.title_weight / 100.0  # 轉換為小數 (60 -> 0.6)
+        content_weight = setting.content_weight / 100.0  # (40 -> 0.4)
+        
+        logger.info(
+            f"載入權重配置: {assistant_type} -> "
+            f"標題 {setting.title_weight}% / 內容 {setting.content_weight}%"
+        )
+        
+        return title_weight, content_weight
+        
+    except SearchThresholdSetting.DoesNotExist:
+        logger.warning(f"找不到 {assistant_type} 的權重配置，使用預設值 60/40")
+        return 0.6, 0.4
+    except Exception as e:
+        logger.error(f"讀取權重配置失敗: {str(e)}，使用預設值 60/40")
+        return 0.6, 0.4
+
+
 def search_with_vectors_generic(
     query: str,
     model_class: Type[models.Model],
@@ -84,33 +132,41 @@ def search_with_vectors_generic(
         3
     """
     try:
-        # 步驟 1: 向量搜尋
+        # 步驟 1: 讀取權重配置
+        title_weight, content_weight = _get_weights_for_assistant(source_table)
+        
+        # 步驟 2: 向量搜尋（使用多向量方法）
         from api.services.embedding_service import get_embedding_service
         
         model_type = 'ultra_high' if use_1024 else 'standard'
         embedding_service = get_embedding_service(model_type)
         
-        vector_results = embedding_service.search_similar_documents(
+        # ✅ 使用支援權重的多向量搜尋方法
+        vector_results = embedding_service.search_similar_documents_multi(
             query=query,
             source_table=source_table,
             limit=limit,
             threshold=threshold,
-            use_1024_table=use_1024
+            title_weight=title_weight,
+            content_weight=content_weight
         )
         
         if not vector_results:
             logger.info(f"向量搜尋無結果: {source_table}, query='{query}'")
             return []
         
-        logger.info(f"向量搜尋找到 {len(vector_results)} 條結果: {source_table}")
+        logger.info(
+            f"✅ 多向量搜尋找到 {len(vector_results)} 條結果: {source_table} "
+            f"(權重: {title_weight*100:.0f}%/{content_weight*100:.0f}%)"
+        )
         
-        # 步驟 2: 批量查詢 DB（避免 N+1 問題）
+        # 步驟 3: 批量查詢 DB（避免 N+1 問題）
         items_dict = fetch_records_by_ids(
             model_class=model_class,
             source_ids=[r['source_id'] for r in vector_results]
         )
         
-        # 步驟 3: 格式化結果
+        # 步驟 4: 格式化結果
         formatted_results = format_vector_results(
             vector_results=vector_results,
             items_dict=items_dict,

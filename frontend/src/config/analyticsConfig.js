@@ -22,7 +22,8 @@ export const ANALYTICS_ASSISTANTS = {
       questions: '/api/rvt-analytics/questions/',
       satisfaction: '/api/rvt-analytics/satisfaction/',
       trends: '/api/rvt-analytics/trends/',
-      feedback: '/api/rvt-analytics/feedback/'
+      feedback: '/api/rvt-analytics/feedback/',
+      'question-history': '/api/rvt-analytics/question-history/'
     },
     
     // 問題分類配置（用於圖表顏色對應）
@@ -58,7 +59,8 @@ export const ANALYTICS_ASSISTANTS = {
       questions: '/api/protocol-analytics/questions/',
       satisfaction: '/api/protocol-analytics/satisfaction/',
       trends: '/api/protocol-analytics/trends/',
-      feedback: '/api/protocol-analytics/feedback/' // 暫未實作
+      feedback: '/api/protocol-analytics/feedback/', // 暫未實作
+      'question-history': '/api/protocol-analytics/question-history/' // 暫未實作
     },
     
     // 問題分類配置

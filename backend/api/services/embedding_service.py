@@ -310,6 +310,185 @@ class OpenSourceEmbeddingService:
         except Exception as e:
             logger.error(f"向量搜索失敗: {str(e)}")
             return []
+    
+    def store_document_embeddings_multi(
+        self, 
+        source_table: str, 
+        source_id: int, 
+        title: str,
+        content: str,
+        use_1024_table: bool = True
+    ) -> bool:
+        """
+        為文檔生成並存儲標題和內容向量（方案 A：多向量方法）
+        
+        Args:
+            source_table: 來源表名
+            source_id: 來源記錄 ID
+            title: 標題文本
+            content: 內容文本
+            use_1024_table: 是否使用 1024 維表（固定為 True）
+        
+        Returns:
+            bool: 是否成功
+        """
+        try:
+            # 生成標題向量
+            logger.info(f"生成標題向量: {source_table} ID {source_id}")
+            title_embedding = self.generate_embedding(title) if title else [0.0] * self.embedding_dimension
+            
+            # 生成內容向量
+            logger.info(f"生成內容向量: {source_table} ID {source_id}")
+            content_embedding = self.generate_embedding(content) if content else [0.0] * self.embedding_dimension
+            
+            # 計算內容雜湊（用於檢測變更）
+            combined_content = f"{title}|{content}"
+            content_hash = hashlib.sha256(combined_content.encode()).hexdigest()
+            
+            # 存儲到資料庫（document_embeddings 表）
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO document_embeddings 
+                        (source_table, source_id, text_content, content_hash, 
+                         title_embedding, content_embedding, embedding)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (source_table, source_id) 
+                    DO UPDATE SET
+                        text_content = EXCLUDED.text_content,
+                        content_hash = EXCLUDED.content_hash,
+                        title_embedding = EXCLUDED.title_embedding,
+                        content_embedding = EXCLUDED.content_embedding,
+                        embedding = EXCLUDED.embedding,
+                        updated_at = CURRENT_TIMESTAMP;
+                    """,
+                    [
+                        source_table,
+                        source_id,
+                        combined_content[:1000],  # 儲存前 1000 字元
+                        content_hash,
+                        json.dumps(title_embedding),
+                        json.dumps(content_embedding),
+                        json.dumps(title_embedding),  # 保留舊的 embedding 欄位（向後兼容）
+                    ]
+                )
+            
+            logger.info(f"✅ 多向量存儲成功: {source_table} ID {source_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ 多向量存儲失敗: {source_table} ID {source_id}, 錯誤: {str(e)}")
+            return False
+    
+    def search_similar_documents_multi(
+        self, 
+        query: str, 
+        source_table: str = None, 
+        limit: int = 5, 
+        threshold: float = 0.0,
+        title_weight: float = 0.6,
+        content_weight: float = 0.4
+    ) -> List[dict]:
+        """
+        使用多向量方法搜索相似文檔（方案 A：標題/內容分開計算）
+        
+        Args:
+            query: 查詢文本
+            source_table: 限制搜索的來源表
+            limit: 返回結果數量
+            threshold: 相似度閾值
+            title_weight: 標題權重 (0.0 ~ 1.0)
+            content_weight: 內容權重 (0.0 ~ 1.0)
+        
+        Returns:
+            相似文檔列表（包含 title_score, content_score, final_score）
+        """
+        try:
+            # 生成查詢向量
+            query_embedding = self.generate_embedding(query)
+            embedding_json = json.dumps(query_embedding)
+            
+            # 構建 SQL 查詢
+            sql_parts = []
+            params = []
+            
+            if source_table:
+                sql_parts.append("WHERE de.source_table = %s")
+                params.append(source_table)
+            
+            sql = f"""
+                SELECT 
+                    de.source_table,
+                    de.source_id,
+                    -- 標題相似度
+                    1 - (de.title_embedding <=> %s::vector) as title_score,
+                    -- 內容相似度
+                    1 - (de.content_embedding <=> %s::vector) as content_score,
+                    -- 加權最終分數
+                    (%s * (1 - (de.title_embedding <=> %s::vector))) + 
+                    (%s * (1 - (de.content_embedding <=> %s::vector))) as final_score,
+                    de.created_at,
+                    de.updated_at
+                FROM document_embeddings de
+                {' '.join(sql_parts)}
+                ORDER BY final_score DESC
+                LIMIT %s
+            """
+            
+            # 準備參數
+            query_params = [
+                embedding_json,  # title_score
+                embedding_json,  # content_score
+                title_weight,    # title weight
+                embedding_json,  # title weight calculation
+                content_weight,  # content weight
+                embedding_json,  # content weight calculation
+            ]
+            params = query_params + params + [limit]
+            
+            results = []
+            with connection.cursor() as cursor:
+                cursor.execute(sql, params)
+                
+                for row in cursor.fetchall():
+                    (source_table_name, source_id, title_score, content_score, 
+                     final_score, created_at, updated_at) = row
+                    
+                    # 過濾低於閾值的結果
+                    if final_score >= threshold:
+                        # 判斷匹配類型
+                        if title_score > content_score * 1.5:
+                            match_type = 'title_primary'
+                        elif content_score > title_score * 1.5:
+                            match_type = 'content_primary'
+                        else:
+                            match_type = 'balanced'
+                        
+                        results.append({
+                            'source_table': source_table_name,
+                            'source_id': source_id,
+                            'title_score': float(title_score),
+                            'content_score': float(content_score),
+                            'similarity_score': float(final_score),  # 向後兼容
+                            'final_score': float(final_score),
+                            'match_type': match_type,
+                            'weights': {
+                                'title': title_weight,
+                                'content': content_weight
+                            },
+                            'created_at': created_at,
+                            'updated_at': updated_at
+                        })
+            
+            logger.info(
+                f"多向量搜索完成，返回 {len(results)} 個結果 "
+                f"(weights: title={title_weight}, content={content_weight})"
+            )
+            return results
+            
+        except Exception as e:
+            logger.error(f"多向量搜索失敗: {str(e)}")
+            return []
 
 # 全局服務實例
 _embedding_service = None

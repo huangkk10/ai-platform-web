@@ -30,7 +30,7 @@ const useProtocolAssistantChat = (conversationId, setConversationId, setMessages
       
       const requestBody = {
         message: userMessage.content,
-        conversation_id: conversationId,  // ✅ 恢復：使用 conversation_id 保持對話上下文
+        conversation_id: conversationId,  // ✅ 恢復使用 conversation_id
         user_id: currentUserId
       };
       
@@ -55,45 +55,12 @@ const useProtocolAssistantChat = (conversationId, setConversationId, setMessages
         statusText: response.statusText
       });
 
-      // ✅ 修正：處理 404 錯誤（conversation_id 失效）
-      let data;
-      let isRetry = false;
-      
+      // ✅ 處理回應
       if (!response.ok) {
-        if (response.status === 404 && conversationId) {
-          // Conversation ID 失效，清除並重試
-          console.warn('⚠️ Conversation ID 失效，清除並發起新對話');
-          setConversationId(null);
-          
-          // 重試請求（不帶 conversation_id）
-          const retryBody = {
-            message: userMessage.content,
-            user_id: currentUserId
-            // 不包含 conversation_id，發起新對話
-          };
-          
-          const retryResponse = await fetch('/api/protocol-guide/chat/', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            credentials: 'include',
-            body: JSON.stringify(retryBody),
-            signal: abortControllerRef.current.signal
-          });
-          
-          if (!retryResponse.ok) {
-            throw new Error(`HTTP error! status: ${retryResponse.status}`);
-          }
-          
-          data = await retryResponse.json();
-          isRetry = true;
-        } else {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-      } else {
-        data = await response.json();
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+      
+      const data = await response.json();
 
       // ✅ DEBUG: 記錄收到的資料
       console.log('🔍 [Protocol Assistant] 收到後端回應:', {
@@ -137,10 +104,6 @@ const useProtocolAssistantChat = (conversationId, setConversationId, setMessages
           console.log('  - 訊息列表長度:', prev.length, '=>', newMessages.length);
           return newMessages;
         });
-        
-        if (isRetry) {
-          message.success('已發起新對話');
-        }
       } else {
         throw new Error(data.error || '發送訊息失敗');
       }

@@ -344,4 +344,12 @@ const MessageFormatter = ({
   }
 };
 
-export default MessageFormatter;
+// 🎯 使用 React.memo 優化，避免不必要的重新渲染
+// 只有當 content 或 metadata 真正改變時才重新渲染
+export default React.memo(MessageFormatter, (prevProps, nextProps) => {
+  return (
+    prevProps.content === nextProps.content &&
+    prevProps.metadata === nextProps.metadata &&
+    prevProps.messageType === nextProps.messageType
+  );
+});
