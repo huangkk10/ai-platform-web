@@ -229,7 +229,7 @@ const Sidebar = ({ collapsed, onCollapse }) => {
 
       // RVT Analytics 分析報告 - Django 管理員權限
       if (user && (user.is_staff || user.is_superuser)) {
-        children.push({ key: 'rvt-analytics', icon: <BarChartOutlined />, label: 'RVT Assistant 分析' });
+        children.push({ key: 'rvt-analytics', icon: <BarChartOutlined />, label: 'Assistant 分析' });
       }
 
       return children;
