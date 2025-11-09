@@ -253,10 +253,57 @@ class BaseKnowledgeBaseSearchService(ABC):
                     for section in data['sections'][:3]:  # 最多顯示 3 個相關段落
                         heading = section.get('heading_text', '')
                         content = section.get('content', '')
-                        if heading:
-                            section_contents.append(f"## {heading}\n{content}")
+                        section_id = section.get('section_id', '')
+                        
+                        # ✅ 修復：如果段落內容為空（章節標題），查詢並展開子段落
+                        if not content and section_id:
+                            try:
+                                from django.db import connection
+                                with connection.cursor() as cursor:
+                                    # 查詢子段落（parent_section_id = 當前 section_id）
+                                    cursor.execute("""
+                                        SELECT section_id, heading_text, content
+                                        FROM document_section_embeddings
+                                        WHERE source_table = %s 
+                                          AND source_id = %s
+                                          AND parent_section_id = %s
+                                        ORDER BY section_id
+                                        LIMIT 10
+                                    """, [self.source_table, doc_id, section_id])
+                                    
+                                    children_rows = cursor.fetchall()
+                                    
+                                if children_rows:
+                                    self.logger.info(f"  📑 段落 '{heading}' 無內容，展開 {len(children_rows)} 個子段落")
+                                    # 添加章節標題
+                                    if heading:
+                                        section_contents.append(f"## {heading}")
+                                    # 添加所有子段落內容
+                                    for child_section_id, child_heading, child_content in children_rows:
+                                        if child_content:  # 只添加有內容的子段落
+                                            if child_heading:
+                                                section_contents.append(f"### {child_heading}\n{child_content}")
+                                            else:
+                                                section_contents.append(child_content)
+                                else:
+                                    # 沒有子段落，保留原邏輯
+                                    if heading:
+                                        section_contents.append(f"## {heading}\n{content}")
+                                    else:
+                                        section_contents.append(content)
+                            except Exception as child_error:
+                                self.logger.warning(f"查詢子段落失敗: {str(child_error)}")
+                                # 回退到原邏輯
+                                if heading:
+                                    section_contents.append(f"## {heading}\n{content}")
+                                else:
+                                    section_contents.append(content)
                         else:
-                            section_contents.append(content)
+                            # 正常段落：有內容
+                            if heading:
+                                section_contents.append(f"## {heading}\n{content}")
+                            else:
+                                section_contents.append(content)
                     
                     combined_content = "\n\n".join(section_contents)
                     

@@ -1,33 +1,11 @@
 #!/usr/bin/env python
 """
 重新生成段落的多向量（title_embedding + content_embedding）
-"""            # 更新資料庫（至少需要標題向量）
-            if title_embedding is not None:
-                title_embedding_str = '[' + ','.join(map(str, title_embedding)) + ']'
-                
-                # ✅ 處理 content_embedding 可能為 None 的情況
-                if content_embedding is not None:
-                    content_embedding_str = '[' + ','.join(map(str, content_embedding)) + ']'
-                    
-                    with connection.cursor() as cursor:
-                        cursor.execute("""
-                            UPDATE document_section_embeddings
-                            SET title_embedding = %s::vector,
-                                content_embedding = %s::vector,
-                                updated_at = CURRENT_TIMESTAMP
-                            WHERE id = %s;
-                        """, [title_embedding_str, content_embedding_str, section_id])
-                else:
-                    # 只更新標題向量
-                    with connection.cursor() as cursor:
-                        cursor.execute("""
-                            UPDATE document_section_embeddings
-                            SET title_embedding = %s::vector,
-                                updated_at = CURRENT_TIMESTAMP
-                            WHERE id = %s;
-                        """, [title_embedding_str, section_id])
-                
-                success_count += 1ort sys
+✅ 修正版：章節標題（空內容）也會生成向量
+"""
+
+import os
+import sys
 import django
 
 # 設定 Django 環境
@@ -44,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 def regenerate_section_multi_vectors():
-    """重新生成所有段落的多向量"""
+    """重新生成所有段落的多向量（包括空內容的章節標題）"""
     
     # 初始化 embedding service
     embedding_service = get_embedding_service('ultra_high')  # 1024 維
@@ -72,8 +50,9 @@ def regenerate_section_multi_vectors():
     
     success_count = 0
     fail_count = 0
+    empty_content_count = 0
     
-    for idx, (section_id, source_table, source_id, section_id_str, heading_text, content, doc_title) in enumerate(sections, 1):
+    for idx, (db_id, source_table, source_id, section_id_str, heading_text, content, doc_title) in enumerate(sections, 1):
         try:
             # 生成標題向量（包含文件標題）
             if doc_title and heading_text:
@@ -87,19 +66,21 @@ def regenerate_section_multi_vectors():
             
             title_embedding = embedding_service.generate_embedding(title_text) if title_text else None
             
-            # 生成內容向量（即使為空也生成，用於章節標題）
+            # ✅ 修改：為空內容生成向量
             content_text = content or ""
-            # ✅ 修改：為空內容生成向量（使用標題或空字串）
+            
             if not content_text and title_text:
                 # 章節標題無內容時，使用標題本身作為內容向量
+                logger.info(f"   📑 段落 {section_id_str} ('{heading_text}') 無內容，使用標題生成內容向量")
                 content_embedding = embedding_service.generate_embedding(title_text)
+                empty_content_count += 1
             elif content_text:
                 content_embedding = embedding_service.generate_embedding(content_text)
             else:
                 content_embedding = None
             
-            # 更新資料庫（至少需要標題向量）
-            if title_embedding is not None:
+            # 更新資料庫
+            if title_embedding is not None and content_embedding is not None:
                 title_embedding_str = '[' + ','.join(map(str, title_embedding)) + ']'
                 content_embedding_str = '[' + ','.join(map(str, content_embedding)) + ']'
                 
@@ -110,26 +91,27 @@ def regenerate_section_multi_vectors():
                             content_embedding = %s::vector,
                             updated_at = CURRENT_TIMESTAMP
                         WHERE id = %s;
-                    """, [title_embedding_str, content_embedding_str, section_id])
+                    """, [title_embedding_str, content_embedding_str, db_id])
                 
                 success_count += 1
                 
                 if idx % 10 == 0:
-                    logger.info(f"✅ 進度: {idx}/{total} ({success_count} 成功, {fail_count} 失敗)")
+                    logger.info(f"✅ 進度: {idx}/{total} ({success_count} 成功, {fail_count} 失敗, {empty_content_count} 空內容)")
             else:
                 fail_count += 1
-                logger.warning(f"⚠️ 段落 {section_id} 缺少標題或內容")
+                logger.warning(f"⚠️ 段落 {section_id_str} 無法生成向量（標題: {bool(title_embedding)}, 內容: {bool(content_embedding)}）")
         
         except Exception as e:
             fail_count += 1
-            logger.error(f"❌ 段落 {section_id} 處理失敗: {str(e)}")
+            logger.error(f"❌ 段落 {section_id_str} 處理失敗: {str(e)}")
     
-    logger.info("=" * 60)
+    logger.info("=" * 80)
     logger.info(f"🎉 多向量生成完成！")
     logger.info(f"   總計: {total} 個段落")
     logger.info(f"   成功: {success_count} 個")
     logger.info(f"   失敗: {fail_count} 個")
-    logger.info("=" * 60)
+    logger.info(f"   空內容章節: {empty_content_count} 個（使用標題作為內容向量）")
+    logger.info("=" * 80)
 
 
 if __name__ == '__main__':
