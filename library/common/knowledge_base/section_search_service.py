@@ -203,7 +203,12 @@ class SectionSearchService:
         query: str,
         source_table: str,
         limit: int = 3,
-        include_siblings: bool = False
+        threshold: float = 0.7,
+        min_level: Optional[int] = None,
+        max_level: Optional[int] = None,
+        include_siblings: bool = False,
+        context_window: int = 1,
+        context_mode: str = 'hierarchical'
     ) -> List[Dict[str, Any]]:
         """
         搜尋段落（包含上下文）
@@ -212,41 +217,68 @@ class SectionSearchService:
             query: 查詢文本
             source_table: 來源表名
             limit: 返回結果數量
+            threshold: 相似度閾值
+            min_level: 最小標題層級
+            max_level: 最大標題層級
             include_siblings: 是否包含兄弟段落
+            context_window: 視窗大小（前後各擴展幾個段落，預設 1）
+            context_mode: 上下文模式
+                - 'hierarchical': 層級結構（父子兄弟）- 預設
+                - 'adjacent': 線性視窗（前後段落）
+                - 'both': 同時包含兩種上下文
         
         Returns:
-            段落列表（包含 parent, children, siblings）
+            段落列表（包含上下文資訊）
+            - hierarchical 模式: parent, children, siblings
+            - adjacent 模式: previous, next
+            - both 模式: 包含所有上下文
         """
         # 基礎搜尋
-        sections = self.search_sections(query, source_table, limit=limit)
+        sections = self.search_sections(
+            query, source_table, limit=limit, 
+            threshold=threshold, min_level=min_level, max_level=max_level
+        )
         
         # 為每個段落添加上下文
         for section in sections:
             try:
-                # 獲取父段落
-                parent = self._get_parent_section(
-                    source_table,
-                    section['source_id'],
-                    section['section_id']
-                )
-                section['parent'] = parent
-                
-                # 獲取子段落
-                children = self._get_child_sections(
-                    source_table,
-                    section['source_id'],
-                    section['section_id']
-                )
-                section['children'] = children
-                
-                # 獲取兄弟段落（可選）
-                if include_siblings:
-                    siblings = self._get_sibling_sections(
+                # ✅ 層級上下文（hierarchical 或 both 模式）
+                if context_mode in ['hierarchical', 'both']:
+                    # 獲取父段落
+                    parent = self._get_parent_section(
                         source_table,
                         section['source_id'],
                         section['section_id']
                     )
-                    section['siblings'] = siblings
+                    section['parent'] = parent
+                    
+                    # 獲取子段落
+                    children = self._get_child_sections(
+                        source_table,
+                        section['source_id'],
+                        section['section_id']
+                    )
+                    section['children'] = children
+                    
+                    # 獲取兄弟段落（可選）
+                    if include_siblings:
+                        siblings = self._get_sibling_sections(
+                            source_table,
+                            section['source_id'],
+                            section['section_id']
+                        )
+                        section['siblings'] = siblings
+                
+                # ✅ 線性視窗上下文（adjacent 或 both 模式）
+                if context_mode in ['adjacent', 'both']:
+                    adjacent = self._get_adjacent_sections(
+                        source_table,
+                        section['source_id'],
+                        section['section_id'],
+                        window_size=context_window
+                    )
+                    section['previous'] = adjacent['previous']
+                    section['next'] = adjacent['next']
                 
             except Exception as e:
                 logger.error(f"獲取段落上下文失敗: {str(e)}", exc_info=True)
@@ -380,3 +412,90 @@ class SectionSearchService:
         except Exception as e:
             logger.error(f"獲取兄弟段落失敗: {str(e)}", exc_info=True)
             return []
+    
+    def _get_adjacent_sections(
+        self,
+        source_table: str,
+        source_id: int,
+        section_id: str,
+        window_size: int = 1
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        獲取相鄰段落（前後各 N 個段落）
+        
+        Args:
+            source_table: 來源表名
+            source_id: 來源文檔 ID
+            section_id: 當前段落 ID（如 '3.2'）
+            window_size: 視窗大小（前後各取幾個段落，預設 1）
+        
+        Returns:
+            {
+                'previous': [前面的段落列表],
+                'next': [後面的段落列表]
+            }
+        
+        Example:
+            當前段落 = '3.2', window_size = 1
+            返回: {
+                'previous': [3.1的內容],
+                'next': [3.3的內容]
+            }
+            
+            當前段落 = '3.2', window_size = 2
+            返回: {
+                'previous': [3.0的內容, 3.1的內容],
+                'next': [3.3的內容, 3.4的內容]
+            }
+        """
+        try:
+            with connection.cursor() as cursor:
+                # 1. 獲取當前文檔的所有段落（按 section_id 排序）
+                cursor.execute(
+                    """
+                    SELECT 
+                        section_id, heading_level, heading_text,
+                        section_path, content, word_count
+                    FROM document_section_embeddings
+                    WHERE source_table = %s AND source_id = %s
+                    ORDER BY section_id;
+                    """,
+                    [source_table, source_id]
+                )
+                
+                columns = ['section_id', 'heading_level', 'heading_text',
+                          'section_path', 'content', 'word_count']
+                all_sections = [dict(zip(columns, row)) for row in cursor.fetchall()]
+                
+                # 2. 找到當前段落的位置
+                current_index = None
+                for i, sec in enumerate(all_sections):
+                    if sec['section_id'] == section_id:
+                        current_index = i
+                        break
+                
+                if current_index is None:
+                    logger.warning(f"找不到當前段落: {section_id}")
+                    return {'previous': [], 'next': []}
+                
+                # 3. 取前 window_size 個段落
+                start_index = max(0, current_index - window_size)
+                previous_sections = all_sections[start_index:current_index]
+                
+                # 4. 取後 window_size 個段落
+                end_index = min(len(all_sections), current_index + window_size + 1)
+                next_sections = all_sections[current_index + 1:end_index]
+                
+                logger.info(
+                    f"🔍 相鄰段落: {section_id} - "
+                    f"前 {len(previous_sections)} 個, 後 {len(next_sections)} 個"
+                )
+                
+                return {
+                    'previous': previous_sections,
+                    'next': next_sections
+                }
+                
+        except Exception as e:
+            logger.error(f"獲取相鄰段落失敗: {str(e)}", exc_info=True)
+            return {'previous': [], 'next': []}

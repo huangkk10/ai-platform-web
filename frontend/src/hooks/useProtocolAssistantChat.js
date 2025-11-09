@@ -1,10 +1,23 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { message } from 'antd';
 
 const useProtocolAssistantChat = (conversationId, setConversationId, setMessages, user, currentUserId) => {
   const [loading, setLoading] = useState(false);
   const [loadingStartTime, setLoadingStartTime] = useState(null);
   const abortControllerRef = useRef(null);
+  
+  // ✅ 新增：搜尋版本狀態管理
+  const [searchVersion, setSearchVersion] = useState(() => {
+    // 從 localStorage 讀取用戶偏好（預設 v1）
+    const saved = localStorage.getItem('protocol_search_version');
+    return saved || 'v1';
+  });
+  
+  // ✅ 新增：同步到 localStorage
+  useEffect(() => {
+    localStorage.setItem('protocol_search_version', searchVersion);
+    console.log('🔍 [Protocol Search Version] 已保存到 localStorage:', searchVersion);
+  }, [searchVersion]);
 
   const stopRequest = useCallback(() => {
     if (abortControllerRef.current) {
@@ -31,10 +44,12 @@ const useProtocolAssistantChat = (conversationId, setConversationId, setMessages
       const requestBody = {
         message: userMessage.content,
         conversation_id: conversationId,  // ✅ 恢復使用 conversation_id
-        user_id: currentUserId
+        user_id: currentUserId,
+        search_version: searchVersion  // ✅ 新增：傳遞搜尋版本
       };
       
       console.log('📤 [Protocol Assistant] 發送請求:', requestBody);
+      console.log('🔍 [Protocol Search Version]:', searchVersion);
 
       // ✅ 修正：使用正確的 API 端點 /api/protocol-guide/chat/
       // 原本錯誤的端點：/api/protocol-assistant/chat/ (404)
@@ -137,7 +152,9 @@ const useProtocolAssistantChat = (conversationId, setConversationId, setMessages
     sendMessage,
     loading,
     loadingStartTime,
-    stopRequest
+    stopRequest,
+    searchVersion,      // ✅ 新增：導出搜尋版本狀態
+    setSearchVersion    // ✅ 新增：導出設置函數
   };
 };
 

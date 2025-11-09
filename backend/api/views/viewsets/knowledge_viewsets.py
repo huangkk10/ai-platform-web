@@ -613,7 +613,8 @@ class RVTGuideViewSet(
                     threshold=threshold,
                     min_level=min_level,
                     max_level=max_level,
-                    context_window=context_window
+                    context_window=context_window,
+                    context_mode=context_mode
                 )
             else:
                 # V1: 基礎搜尋（預設）
@@ -644,8 +645,19 @@ class RVTGuideViewSet(
                 
                 # ✅ V2 特有：添加上下文資訊
                 if version == 'v2':
-                    result_dict['has_context'] = result.get('has_context', False)
-                    result_dict['context'] = result.get('context', {})
+                    # Adjacent 模式的上下文
+                    if 'previous' in result:
+                        result_dict['previous'] = result.get('previous', [])
+                    if 'next' in result:
+                        result_dict['next'] = result.get('next', [])
+                    
+                    # Hierarchical 模式的上下文
+                    if 'parent' in result:
+                        result_dict['parent'] = result.get('parent')
+                    if 'children' in result:
+                        result_dict['children'] = result.get('children', [])
+                    if 'siblings' in result:
+                        result_dict['siblings'] = result.get('siblings', [])
                 
                 results.append(result_dict)
             
@@ -1192,47 +1204,42 @@ class ProtocolGuideViewSet(
     @action(detail=False, methods=['post'])
     def search_sections(self, request):
         """
-        段落級別語義搜尋 API
+        段落級別語義搜尋 API（支援 V1/V2 版本切換）
         
         使用 Chunking 技術，在段落級別進行精準搜尋。
         
         請求參數：
         - query (str): 搜尋查詢
+        - version (str): 搜尋版本 'v1'(基礎) 或 'v2'(上下文增強)，預設 'v1'
         - limit (int): 結果數量，預設 5
         - threshold (float): 相似度閾值，預設 0.7
         - min_level (int): 最小標題層級，預設 None
         - max_level (int): 最大標題層級，預設 None
-        - with_context (bool): 是否包含上下文，預設 False
-        - context_window (int): 上下文視窗大小，預設 1
+        - context_window (int): 上下文視窗大小（V2 專用），預設 1
         
         回應：
         {
-            "results": [
-                {
-                    "section_id": 1,
-                    "source_id": 1,
-                    "section_title": "測試環境準備",
-                    "section_path": "ULINK Protocol 測試基礎指南 > 環境設置 > 測試環境準備",
-                    "content": "段落內容...",
-                    "similarity": 0.9145,
-                    "level": 3,
-                    "parent_title": "環境設置"
-                }
-            ],
+            "success": true,
+            "version": "v1",
+            "results": [...],
             "total": 3,
             "query": "ULINK 測試環境",
-            "search_type": "section"
+            "execution_time": "1234ms"
         }
         """
+        import time
+        start_time = time.time()
+        
         try:
             # 獲取請求參數
             query = request.data.get('query', '')
+            version = request.data.get('version', 'v1')  # ✅ 新增：版本參數
             limit = request.data.get('limit', 5)
             threshold = request.data.get('threshold', 0.7)
             min_level = request.data.get('min_level', None)
             max_level = request.data.get('max_level', None)
-            with_context = request.data.get('with_context', False)
             context_window = request.data.get('context_window', 1)
+            context_mode = request.data.get('context_mode', 'adjacent')  # ✅ 新增
             
             if not query:
                 return Response({
@@ -1245,8 +1252,10 @@ class ProtocolGuideViewSet(
             # 初始化服務
             search_service = SectionSearchService()
             
-            # 執行搜尋
-            if with_context:
+            # ✅ 根據版本執行不同的搜尋策略
+            if version == 'v2':
+                # V2：上下文增強搜尋
+                logger.info(f"🔍 Protocol Guide 使用 V2 上下文搜尋: {query}")
                 raw_results = search_service.search_with_context(
                     query=query,
                     source_table='protocol_guide',
@@ -1254,9 +1263,12 @@ class ProtocolGuideViewSet(
                     threshold=threshold,
                     min_level=min_level,
                     max_level=max_level,
-                    context_window=context_window
+                    context_window=context_window,
+                    context_mode=context_mode
                 )
             else:
+                # V1：基礎搜尋（預設）
+                logger.info(f"🔍 Protocol Guide 使用 V1 基礎搜尋: {query}")
                 raw_results = search_service.search_sections(
                     query=query,
                     source_table='protocol_guide',
@@ -1269,7 +1281,7 @@ class ProtocolGuideViewSet(
             # 標準化結果格式（適配前端）
             results = []
             for result in raw_results:
-                results.append({
+                result_dict = {
                     'section_id': result.get('section_id'),
                     'source_id': result.get('source_id'),
                     'section_title': result.get('heading_text', ''),  # 使用 heading_text
@@ -1280,20 +1292,45 @@ class ProtocolGuideViewSet(
                     'word_count': result.get('word_count', 0),
                     'has_code': result.get('has_code', False),
                     'has_images': result.get('has_images', False)
-                })
+                }
+                
+                # ✅ V2 特有：添加上下文資訊
+                if version == 'v2':
+                    # Adjacent 模式的上下文
+                    if 'previous' in result:
+                        result_dict['previous'] = result.get('previous', [])
+                    if 'next' in result:
+                        result_dict['next'] = result.get('next', [])
+                    
+                    # Hierarchical 模式的上下文
+                    if 'parent' in result:
+                        result_dict['parent'] = result.get('parent')
+                    if 'children' in result:
+                        result_dict['children'] = result.get('children', [])
+                    if 'siblings' in result:
+                        result_dict['siblings'] = result.get('siblings', [])
+                
+                results.append(result_dict)
+            
+            # 計算執行時間
+            elapsed = (time.time() - start_time) * 1000
             
             return Response({
+                'success': True,
+                'version': version,  # ✅ 返回使用的版本
                 'results': results,
                 'total': len(results),
                 'query': query,
-                'search_type': 'section',
-                'with_context': with_context
+                'execution_time': f"{elapsed:.0f}ms"  # ✅ 返回執行時間
             })
             
         except Exception as e:
             logger.error(f"段落搜尋失敗: {str(e)}")
+            elapsed = (time.time() - start_time) * 1000
             return Response({
-                'error': f'段落搜尋失敗: {str(e)}'
+                'success': False,
+                'error': f'段落搜尋失敗: {str(e)}',
+                'execution_time': f"{elapsed:.0f}ms"
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['post'])
