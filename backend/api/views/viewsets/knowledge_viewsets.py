@@ -605,16 +605,15 @@ class RVTGuideViewSet(
             
             # ✅ 根據版本執行不同搜尋
             if version == 'v2':
-                # V2: 上下文增強搜尋
-                raw_results = search_service.search_sections_with_expanded_context(
+                # V2: 上下文增強搜尋（使用 search_with_context 方法）
+                raw_results = search_service.search_with_context(
                     query=query,
                     source_table='rvt_guide',
                     limit=limit,
                     threshold=threshold,
                     min_level=min_level,
                     max_level=max_level,
-                    context_window=context_window,
-                    context_mode=context_mode
+                    context_window=context_window
                 )
             else:
                 # V1: 基礎搜尋（預設）
