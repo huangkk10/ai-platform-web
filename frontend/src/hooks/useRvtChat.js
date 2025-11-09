@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { message } from 'antd';
 import { recordChatUsage, CHAT_TYPES } from '../utils/chatUsage';
 import { 
@@ -13,17 +13,30 @@ import {
  * 處理 RVT Assistant 的 API 通訊邏輯
  * 包含：發送訊息、錯誤處理、自動重試、取消請求等功能
  * 
+ * 🎯 新增：支援搜尋版本切換（V1/V2）
+ * 
  * @param {string} conversationId - 當前對話 ID
  * @param {Function} setConversationId - 更新對話 ID 的函數
  * @param {Function} setMessages - 更新訊息列表的函數
  * @param {Object} user - 當前用戶對象
  * @param {number} currentUserId - 當前用戶 ID
- * @returns {Object} - { sendMessage, loading, stopRequest }
+ * @returns {Object} - { sendMessage, loading, stopRequest, searchVersion, setSearchVersion }
  */
 const useRvtChat = (conversationId, setConversationId, setMessages, user, currentUserId) => {
   const [loading, setLoading] = useState(false);
   const [loadingStartTime, setLoadingStartTime] = useState(null);
   const abortControllerRef = useRef(null);
+  
+  // ✅ 新增：搜尋版本狀態（預設 V1）
+  const [searchVersion, setSearchVersion] = useState(() => {
+    // 從 localStorage 載入設定，預設為 'v1'
+    return localStorage.getItem('rvt_search_version') || 'v1';
+  });
+  
+  // ✅ 新增：同步搜尋版本到 localStorage
+  useEffect(() => {
+    localStorage.setItem('rvt_search_version', searchVersion);
+  }, [searchVersion]);
 
   /**
    * 發送訊息到 RVT Assistant API
@@ -49,7 +62,8 @@ const useRvtChat = (conversationId, setConversationId, setMessages, user, curren
         signal: abortController.signal,
         body: JSON.stringify({
           message: userMessage.content,
-          conversation_id: conversationId || ''
+          conversation_id: conversationId || '',
+          search_version: searchVersion  // ✅ 新增：傳送搜尋版本參數
         })
       });
 
@@ -274,7 +288,9 @@ const useRvtChat = (conversationId, setConversationId, setMessages, user, curren
     sendMessage,
     loading,
     loadingStartTime,
-    stopRequest
+    stopRequest,
+    searchVersion,      // ✅ 新增：導出搜尋版本
+    setSearchVersion    // ✅ 新增：導出版本切換函數
   };
 };
 

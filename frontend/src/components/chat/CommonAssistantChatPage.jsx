@@ -32,6 +32,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import MessageList from './MessageList';
 import useMessageStorage from '../../hooks/useMessageStorage';
 import useMessageFeedback from '../../hooks/useMessageFeedback';
+import SearchVersionToggle from './SearchVersionToggle';  // ✅ 新增：導入搜尋版本切換組件
 
 const { Content } = Layout;
 const { TextArea } = Input;
@@ -68,13 +69,23 @@ const CommonAssistantChatPage = ({
   const messagesEndRef = useRef(null);
   
   // 使用傳入的 Chat Hook
-  const { sendMessage, loading, loadingStartTime, stopRequest } = useChatHook(
+  const chatHookReturn = useChatHook(
     conversationId,
     setConversationId,
     setMessages,
     user,
     currentUserId
   );
+  
+  // ✅ 解構返回值（支援有 searchVersion 和沒有的情況）
+  const { 
+    sendMessage, 
+    loading, 
+    loadingStartTime, 
+    stopRequest,
+    searchVersion,      // 可能為 undefined（如果 Hook 不支援）
+    setSearchVersion    // 可能為 undefined（如果 Hook 不支援）
+  } = chatHookReturn;
   
   const { feedbackStates, submitFeedback } = useMessageFeedback();
   
@@ -219,6 +230,23 @@ const CommonAssistantChatPage = ({
           padding: '16px 24px',
           boxShadow: '0 -2px 8px rgba(0, 0, 0, 0.06)'
         }}>
+          {/* ✅ 新增：搜尋版本切換組件（僅當 Hook 支援時顯示） */}
+          {searchVersion !== undefined && setSearchVersion && (
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'flex-end', 
+              marginBottom: '12px',
+              maxWidth: '800px',
+              margin: '0 auto 12px auto'
+            }}>
+              <SearchVersionToggle
+                searchVersion={searchVersion}
+                onVersionChange={setSearchVersion}
+                disabled={loading}
+              />
+            </div>
+          )}
+          
           <div className="input-container" style={{
             display: 'flex',
             alignItems: 'flex-end',

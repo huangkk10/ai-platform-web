@@ -551,7 +551,7 @@ class RVTGuideViewSet(
     @action(detail=False, methods=['post'])
     def search_sections(self, request):
         """
-        段落級別語義搜尋 API（RVT Guide）
+        段落級別語義搜尋 API（RVT Guide）- 支援 V1/V2 版本切換
         
         使用 Chunking 技術，在段落級別進行精準搜尋。
         
@@ -561,18 +561,36 @@ class RVTGuideViewSet(
         - threshold (float): 相似度閾值，預設 0.7
         - min_level (int): 最小標題層級，預設 None
         - max_level (int): 最大標題層級，預設 None
-        - with_context (bool): 是否包含上下文，預設 False
-        - context_window (int): 上下文視窗大小，預設 1
+        
+        🎯 新增：版本切換參數
+        - version (str): 搜尋版本 'v1' 或 'v2'，預設 'v1'
+          - v1: 基礎搜尋（不包含上下文）
+          - v2: 上下文增強搜尋（包含前後段落和父子段落）
+        - context_window (int): V2 專用，上下文視窗大小，預設 1
+        - context_mode (str): V2 專用，上下文模式 'adjacent', 'hierarchical', 'both'，預設 'adjacent'
+        
+        回傳：
+        - version: 實際使用的版本
+        - results: 搜尋結果
+        - execution_time: 執行時間（毫秒）
         """
+        import time
+        
         try:
+            # 開始計時
+            start_time = time.time()
+            
             # 獲取請求參數
             query = request.data.get('query', '')
             limit = request.data.get('limit', 5)
             threshold = request.data.get('threshold', 0.7)
             min_level = request.data.get('min_level', None)
             max_level = request.data.get('max_level', None)
-            with_context = request.data.get('with_context', False)
+            
+            # ✅ 新增：版本控制參數
+            version = request.data.get('version', 'v1')
             context_window = request.data.get('context_window', 1)
+            context_mode = request.data.get('context_mode', 'adjacent')
             
             if not query:
                 return Response({
@@ -585,18 +603,21 @@ class RVTGuideViewSet(
             # 初始化服務
             search_service = SectionSearchService()
             
-            # 執行搜尋
-            if with_context:
-                raw_results = search_service.search_with_context(
+            # ✅ 根據版本執行不同搜尋
+            if version == 'v2':
+                # V2: 上下文增強搜尋
+                raw_results = search_service.search_sections_with_expanded_context(
                     query=query,
                     source_table='rvt_guide',
                     limit=limit,
                     threshold=threshold,
                     min_level=min_level,
                     max_level=max_level,
-                    context_window=context_window
+                    context_window=context_window,
+                    context_mode=context_mode
                 )
             else:
+                # V1: 基礎搜尋（預設）
                 raw_results = search_service.search_sections(
                     query=query,
                     source_table='rvt_guide',
@@ -609,7 +630,7 @@ class RVTGuideViewSet(
             # 標準化結果格式
             results = []
             for result in raw_results:
-                results.append({
+                result_dict = {
                     'section_id': result.get('section_id'),
                     'source_id': result.get('source_id'),
                     'section_title': result.get('heading_text', ''),
@@ -620,14 +641,26 @@ class RVTGuideViewSet(
                     'word_count': result.get('word_count', 0),
                     'has_code': result.get('has_code', False),
                     'has_images': result.get('has_images', False)
-                })
+                }
+                
+                # ✅ V2 特有：添加上下文資訊
+                if version == 'v2':
+                    result_dict['has_context'] = result.get('has_context', False)
+                    result_dict['context'] = result.get('context', {})
+                
+                results.append(result_dict)
+            
+            # 計算執行時間
+            execution_time = (time.time() - start_time) * 1000  # 轉換為毫秒
             
             return Response({
+                'success': True,
+                'version': version,  # ✅ 返回實際使用的版本
                 'results': results,
                 'total': len(results),
                 'query': query,
                 'search_type': 'section',
-                'with_context': with_context
+                'execution_time': f'{execution_time:.0f}ms'  # ✅ 返回執行時間
             })
             
         except Exception as e:
