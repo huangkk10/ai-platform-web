@@ -68,15 +68,16 @@ class ProtocolGuideViewSetManager(BaseKnowledgeBaseViewSetManager):
             from library.common.knowledge_base.section_vectorization_service import SectionVectorizationService
             
             vectorization_service = SectionVectorizationService()
-            section_count = vectorization_service.vectorize_document_sections(
+            result = vectorization_service.vectorize_document_sections(
                 source_table='protocol_guide',
                 source_id=instance.id,
                 markdown_content=instance.content,
-                metadata={
-                    'title': instance.title
-                }
+                document_title=instance.title  # ✅ 修正參數名稱
             )
-            logger.info(f"✅ Protocol Guide {instance.id} 段落向量生成成功 ({section_count} 個段落)")
+            if result.get('success'):
+                logger.info(f"✅ Protocol Guide {instance.id} 段落向量生成成功 ({result.get('vectorized_count')} 個段落)")
+            else:
+                logger.error(f"❌ 段落向量生成失敗: {result.get('error')}")
         except Exception as e:
             logger.error(f"❌ 段落向量生成失敗: {str(e)}")
         
@@ -118,15 +119,16 @@ class ProtocolGuideViewSetManager(BaseKnowledgeBaseViewSetManager):
             )
             
             # 重新生成
-            section_count = vectorization_service.vectorize_document_sections(
+            result = vectorization_service.vectorize_document_sections(
                 source_table='protocol_guide',
                 source_id=instance.id,
                 markdown_content=instance.content,
-                metadata={
-                    'title': instance.title
-                }
+                document_title=instance.title  # ✅ 修正參數名稱
             )
-            logger.info(f"✅ Protocol Guide {instance.id} 段落向量更新成功 ({section_count} 個段落)")
+            if result.get('success'):
+                logger.info(f"✅ Protocol Guide {instance.id} 段落向量更新成功 ({result.get('vectorized_count')} 個段落)")
+            else:
+                logger.error(f"❌ 段落向量更新失敗: {result.get('error')}")
         except Exception as e:
             logger.error(f"❌ 段落向量更新失敗: {str(e)}")
         

@@ -115,7 +115,7 @@ class SectionVectorizationService:
         full_context: str
     ) -> bool:
         """
-        生成並儲存段落向量到資料庫
+        生成並儲存段落向量到資料庫（包含標題和內容的分離向量）
         
         Args:
             source_table: 來源表名
@@ -127,26 +127,40 @@ class SectionVectorizationService:
             成功 True，失敗 False
         """
         try:
-            # 生成 1024 維向量
+            # ✅ 生成標題向量（1024 維）
+            title_embedding = None
+            if section.title and section.title.strip():
+                title_embedding = self.embedding_service.generate_embedding(section.title)
+            
+            # ✅ 生成內容向量（1024 維）
+            content_embedding = None
+            if section.content and section.content.strip():
+                content_embedding = self.embedding_service.generate_embedding(section.content)
+            
+            # ✅ 生成完整上下文向量（向後兼容，舊欄位）
             embedding = self.embedding_service.generate_embedding(full_context)
             
             # 轉換為 pgvector 格式
             embedding_str = '[' + ','.join(map(str, embedding)) + ']'
+            title_embedding_str = '[' + ','.join(map(str, title_embedding)) + ']' if title_embedding is not None else None
+            content_embedding_str = '[' + ','.join(map(str, content_embedding)) + ']' if content_embedding is not None else None
             
-            # 儲存到資料庫
+            # ✅ 儲存到資料庫（包含三個向量欄位）
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
                     INSERT INTO document_section_embeddings (
                         source_table, source_id, section_id,
                         heading_level, heading_text, section_path, parent_section_id,
-                        content, full_context, embedding,
+                        content, full_context, 
+                        embedding, title_embedding, content_embedding,
                         word_count, has_code, has_images,
                         created_at, updated_at
                     ) VALUES (
                         %s, %s, %s,
                         %s, %s, %s, %s,
-                        %s, %s, %s::vector,
+                        %s, %s, 
+                        %s::vector, %s::vector, %s::vector,
                         %s, %s, %s,
                         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
                     )
@@ -159,6 +173,8 @@ class SectionVectorizationService:
                         content = EXCLUDED.content,
                         full_context = EXCLUDED.full_context,
                         embedding = EXCLUDED.embedding,
+                        title_embedding = EXCLUDED.title_embedding,
+                        content_embedding = EXCLUDED.content_embedding,
                         word_count = EXCLUDED.word_count,
                         has_code = EXCLUDED.has_code,
                         has_images = EXCLUDED.has_images,
@@ -167,7 +183,8 @@ class SectionVectorizationService:
                     [
                         source_table, source_id, section.section_id,
                         section.level, section.title, section.path, section.parent_id,
-                        section.content, full_context, embedding_str,
+                        section.content, full_context,
+                        embedding_str, title_embedding_str, content_embedding_str,
                         section.word_count, section.has_code, section.has_images
                     ]
                 )
