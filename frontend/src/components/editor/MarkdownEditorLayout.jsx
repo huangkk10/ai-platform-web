@@ -11,8 +11,8 @@
  */
 
 import React, { useEffect, useRef, useCallback } from 'react';
-import { Input, Spin, Card, Drawer, Tooltip, Button } from 'antd';
-import { PictureOutlined, CloseOutlined } from '@ant-design/icons';
+import { Input, Spin, Card, Drawer, Tooltip, Button, Modal } from 'antd';
+import { PictureOutlined, CloseOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import MdEditor from 'react-markdown-editor-lite';
 import MarkdownIt from 'markdown-it';
 import 'react-markdown-editor-lite/lib/index.css';
@@ -30,6 +30,10 @@ import useImageManager from '../../hooks/useImageManager';
 import { uploadStagedImages } from '../../utils/uploadStagedImages';
 import { convertImageReferencesToMarkdown } from '../../utils/imageReferenceConverter';
 import { fixAllMarkdownTables } from '../../utils/markdownTableFixer';
+import { 
+  validateMarkdownStructure, 
+  formatValidationMessage 
+} from '../../utils/markdownValidator';
 
 // 存儲圖片管理器回調的全局變數（使用閉包）
 let globalImageManagerHandler = null;
@@ -366,6 +370,59 @@ const MarkdownEditorLayout = ({
   // 處理儲存 - 支援暫存圖片上傳
   const handleSave = useCallback(async () => {
     try {
+      // 🆕 步驟 1：驗證 Markdown 格式（僅針對 Protocol Guide）
+      if (contentType === 'protocol-guide') {
+        console.log('🔍 開始驗證 Protocol Guide Markdown 格式...');
+        const validationResult = validateMarkdownStructure(formData.content);
+        
+        console.log('📊 驗證結果:', validationResult);
+
+        // 🆕 步驟 1.1：如果驗證失敗，顯示錯誤訊息並阻止儲存
+        if (!validationResult.valid) {
+          console.log('❌ 驗證失敗，阻止儲存');
+          
+          Modal.error({
+            title: '❌ 內容格式不符合要求',
+            width: 650,
+            content: formatValidationMessage(validationResult),
+            okText: '我知道了',
+            centered: true,
+            onOk: () => {
+              console.log('用戶關閉驗證錯誤對話框');
+            }
+          });
+          
+          // 🚫 阻止儲存
+          return;
+        }
+
+        // 🆕 步驟 1.2：如果有警告，詢問用戶是否繼續
+        if (validationResult.warnings.length > 0) {
+          console.log('⚠️ 有警告訊息，詢問用戶是否繼續');
+          
+          const confirmed = await new Promise((resolve) => {
+            Modal.confirm({
+              title: '⚠️ 內容建議改進',
+              width: 650,
+              icon: <ExclamationCircleOutlined style={{ color: '#fa8c16' }} />,
+              content: formatValidationMessage(validationResult),
+              okText: '繼續儲存',
+              cancelText: '返回修改',
+              centered: true,
+              onOk: () => resolve(true),
+              onCancel: () => resolve(false)
+            });
+          });
+          
+          if (!confirmed) {
+            console.log('用戶選擇返回修改');
+            return;
+          }
+        }
+
+        console.log('✅ Markdown 格式驗證通過，繼續儲存流程...');
+      }
+
       // 通知父組件開始儲存
       if (onSavingChange) onSavingChange(true);
 
@@ -458,6 +515,56 @@ const MarkdownEditorLayout = ({
       window.removeEventListener(eventName, handleSaveEvent);
     };
   }, [config.saveEventName]);
+
+  // 🆕 監聽格式檢查事件（手動觸發格式檢查）
+  useEffect(() => {
+    const handleCheckFormatEvent = () => {
+      console.log('🎯 收到格式檢查事件');
+      
+      // 只針對 Protocol Guide 進行檢查
+      if (contentType !== 'protocol-guide') {
+        Modal.info({
+          title: '💡 提示',
+          content: '格式檢查功能僅適用於 Protocol Guide',
+          centered: true
+        });
+        return;
+      }
+      
+      const validationResult = validateMarkdownStructure(formData.content);
+      
+      if (validationResult.valid) {
+        // 驗證通過
+        let title = '✅ 格式檢查通過';
+        if (validationResult.warnings.length > 0) {
+          title = '✅ 格式符合最低要求（有改進建議）';
+        }
+        
+        Modal.success({
+          title: title,
+          width: 650,
+          content: formatValidationMessage(validationResult),
+          okText: '關閉',
+          centered: true
+        });
+      } else {
+        // 驗證失敗
+        Modal.error({
+          title: '❌ 格式檢查失敗',
+          width: 650,
+          content: formatValidationMessage(validationResult),
+          okText: '我知道了',
+          centered: true
+        });
+      }
+    };
+
+    window.addEventListener('check-markdown-format', handleCheckFormatEvent);
+    
+    return () => {
+      window.removeEventListener('check-markdown-format', handleCheckFormatEvent);
+    };
+  }, [formData.content, contentType]);
 
   // 處理預覽面板中的圖片加載（客戶端）
   useEffect(() => {

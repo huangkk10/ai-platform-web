@@ -12,7 +12,7 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Button, Space } from 'antd';
-import { ArrowLeftOutlined, SaveOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, SaveOutlined, CheckOutlined } from '@ant-design/icons';
 import TopHeader from '../components/TopHeader';
 import MarkdownEditorLayout from '../components/editor/MarkdownEditorLayout';
 import { getEditorConfig } from '../config/editorConfig';
@@ -57,6 +57,17 @@ const MarkdownEditorPage = () => {
     console.log(`📤 已觸發 ${editorConfig.saveEventName} 事件`);
   };
 
+  // 🆕 處理格式檢查事件
+  const handleCheckFormat = () => {
+    console.log('🔍 手動檢查格式');
+    
+    // 觸發格式檢查事件
+    const event = new CustomEvent('check-markdown-format', {
+      detail: { source: 'topheader-button' }
+    });
+    window.dispatchEvent(event);
+  };
+
   // 額外操作按鈕
   const extraActions = (
     <Space>
@@ -66,6 +77,17 @@ const MarkdownEditorPage = () => {
       >
         返回
       </Button>
+      
+      {/* 🆕 格式檢查按鈕（僅 Protocol Guide 顯示） */}
+      {editorConfig.contentType === 'protocol-guide' && (
+        <Button
+          icon={<CheckOutlined />}
+          onClick={handleCheckFormat}
+        >
+          檢查格式
+        </Button>
+      )}
+      
       <Button
         type="primary"
         icon={<SaveOutlined />}
