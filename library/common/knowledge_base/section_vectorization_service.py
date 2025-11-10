@@ -65,12 +65,13 @@ class SectionVectorizationService:
                     # 準備完整上下文（包含路徑和內容）
                     full_context = f"{section.path}\n\n{section.content}"
                     
-                    # 生成向量
+                    # 生成向量（傳遞 document_title）
                     success = self._store_section_embedding(
                         source_table=source_table,
                         source_id=source_id,
                         section=section,
-                        full_context=full_context
+                        full_context=full_context,
+                        document_title=document_title  # ✅ 傳遞文檔標題
                     )
                     
                     if success:
@@ -112,7 +113,8 @@ class SectionVectorizationService:
         source_table: str,
         source_id: int,
         section: MarkdownSection,
-        full_context: str
+        full_context: str,
+        document_title: str = ""  # ✅ 添加文檔標題參數
     ) -> bool:
         """
         生成並儲存段落向量到資料庫（包含標題和內容的分離向量）
@@ -122,6 +124,7 @@ class SectionVectorizationService:
             source_id: 來源記錄 ID
             section: 段落數據
             full_context: 完整上下文（路徑 + 內容）
+            document_title: 文檔標題（用於 document_title 欄位）
         
         Returns:
             成功 True，失敗 False
@@ -145,12 +148,17 @@ class SectionVectorizationService:
             title_embedding_str = '[' + ','.join(map(str, title_embedding)) + ']' if title_embedding is not None else None
             content_embedding_str = '[' + ','.join(map(str, content_embedding)) + ']' if content_embedding is not None else None
             
-            # ✅ 儲存到資料庫（包含三個向量欄位）
+            # 🔧 生成 document_id（使用 source_table + source_id 的組合）
+            # 格式：protocol_guide_20, rvt_guide_15 等
+            document_id = f"{source_table}_{source_id}"
+            
+            # ✅ 儲存到資料庫（包含三個向量欄位 + document_id + document_title）
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
                     INSERT INTO document_section_embeddings (
                         source_table, source_id, section_id,
+                        document_id, document_title,
                         heading_level, heading_text, section_path, parent_section_id,
                         content, full_context, 
                         embedding, title_embedding, content_embedding,
@@ -158,6 +166,7 @@ class SectionVectorizationService:
                         created_at, updated_at
                     ) VALUES (
                         %s, %s, %s,
+                        %s, %s,
                         %s, %s, %s, %s,
                         %s, %s, 
                         %s::vector, %s::vector, %s::vector,
@@ -166,6 +175,8 @@ class SectionVectorizationService:
                     )
                     ON CONFLICT (source_table, source_id, section_id)
                     DO UPDATE SET
+                        document_id = EXCLUDED.document_id,
+                        document_title = EXCLUDED.document_title,
                         heading_level = EXCLUDED.heading_level,
                         heading_text = EXCLUDED.heading_text,
                         section_path = EXCLUDED.section_path,
@@ -182,6 +193,7 @@ class SectionVectorizationService:
                     """,
                     [
                         source_table, source_id, section.section_id,
+                        document_id, document_title,
                         section.level, section.title, section.path, section.parent_id,
                         section.content, full_context,
                         embedding_str, title_embedding_str, content_embedding_str,
