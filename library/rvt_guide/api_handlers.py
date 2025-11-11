@@ -49,15 +49,105 @@ class RVTGuideAPIHandler(BaseKnowledgeBaseAPIHandler):
         from .search_service import RVTGuideSearchService
         return RVTGuideSearchService()
     
-    # ⚠️  以下方法保留，因為包含 RVT Guide 特定的複雜邏輯（對話記錄、圖片處理等）
-    # 如果將來這些邏輯也通用化，可以進一步遷移至基礎類別
+    # ===== 智能搜尋路由器整合（2025-11-11）=====
+    
+    @classmethod
+    def handle_chat_api(cls, request):
+        """
+        處理 RVT Guide 聊天 API（使用智能搜尋路由器）
+        
+        覆寫基類方法，使用 SmartSearchRouter 實現兩階段搜尋策略：
+        - 模式 A：關鍵字優先全文搜尋（含全文關鍵字）
+        - 模式 B：標準兩階段搜尋（無全文關鍵字）
+        
+        Args:
+            request: Django request 對象
+            
+        Returns:
+            Response: Django REST Framework Response
+        """
+        try:
+            # 解析請求數據
+            data = request.data
+            message = data.get('message', '').strip()
+            conversation_id = data.get('conversation_id', '')
+            
+            # 驗證輸入
+            if not message:
+                return Response({
+                    'success': False,
+                    'error': '訊息內容不能為空'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 獲取用戶 ID
+            user_id = f"rvt_guide_user_{request.user.id if request.user.is_authenticated else 'guest'}"
+            
+            logger.info(f"📩 RVT Guide Chat Request (智能搜尋)")
+            logger.info(f"   User: {request.user.username if request.user.is_authenticated else 'guest'}")
+            logger.info(f"   Message: {message[:50]}...")
+            logger.info(f"   Conversation ID: {conversation_id if conversation_id else 'New'}")
+            
+            # 使用智能搜尋路由器
+            from .smart_search_router import SmartSearchRouter
+            
+            router = SmartSearchRouter()
+            
+            start_time = time.time()
+            
+            # 執行智能搜尋
+            result = router.handle_smart_search(
+                user_query=message,
+                conversation_id=conversation_id,
+                user_id=user_id,
+                request=request
+            )
+            
+            elapsed = time.time() - start_time
+            
+            # 處理結果
+            if result.get('mode') == 'error':
+                logger.error(f"❌ RVT 智能搜尋失敗: {result.get('error')}")
+                return Response({
+                    'success': False,
+                    'error': result.get('error', '搜尋失敗')
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+            # 成功回應
+            logger.info(f"✅ RVT 智能搜尋完成")
+            logger.info(f"   模式: {result.get('mode')}")
+            logger.info(f"   階段: {result.get('stage', 'N/A')}")
+            logger.info(f"   是否降級: {result.get('is_fallback', False)}")
+            logger.info(f"   響應時間: {elapsed:.2f} 秒")
+            
+            return Response({
+                'success': True,
+                'answer': result.get('answer', ''),
+                'mode': result.get('mode'),
+                'stage': result.get('stage'),
+                'is_fallback': result.get('is_fallback', False),
+                'fallback_reason': result.get('fallback_reason'),
+                'message_id': result.get('message_id'),
+                'conversation_id': result.get('conversation_id', conversation_id),
+                'response_time': elapsed,
+                'tokens': result.get('tokens', {}),
+                'metadata': result.get('metadata', {}),  # ✅ 添加 metadata（包含引用來源）
+            }, status=status.HTTP_200_OK)
+        
+        except Exception as e:
+            logger.error(f"❌ RVT Guide Chat API 錯誤: {str(e)}", exc_info=True)
+            return Response({
+                'success': False,
+                'error': f'服務器錯誤: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    # ===== 以下為舊版實現（保留作為參考）=====
     
     @staticmethod
-    def handle_chat_api(request):
+    def handle_chat_api_legacy(request):
         """
-        處理 RVT Guide 聊天 API
+        處理 RVT Guide 聊天 API（舊版實現，僅供參考）
         
-        取代原本 views.py 中的 rvt_guide_chat 函數
+        ⚠️ 已被智能搜尋路由器取代，保留此方法僅供參考或緊急回退
         """
         try:
             data = request.data
@@ -74,7 +164,7 @@ class RVTGuideAPIHandler(BaseKnowledgeBaseAPIHandler):
             try:
                 from library.config import get_rvt_guide_config
                 rvt_config_obj = get_rvt_guide_config()
-                rvt_config = rvt_config_obj.to_dict()  # 轉換為字典以兼容現有代碼
+                rvt_config = rvt_config_obj.to_dict()
             except Exception as config_error:
                 logger.error(f"Failed to load RVT Guide config: {config_error}")
                 return Response({
@@ -93,7 +183,7 @@ class RVTGuideAPIHandler(BaseKnowledgeBaseAPIHandler):
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
             # 記錄請求
-            logger.info(f"RVT Guide chat request from user: {request.user.username if request.user.is_authenticated else 'guest'}")
+            logger.info(f"RVT Guide chat request (legacy) from user: {request.user.username if request.user.is_authenticated else 'guest'}")
             logger.debug(f"RVT Guide message: {message[:100]}...")
             
             # 準備請求
