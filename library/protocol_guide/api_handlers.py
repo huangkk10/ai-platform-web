@@ -49,10 +49,101 @@ class ProtocolGuideAPIHandler(BaseKnowledgeBaseAPIHandler):
             logger.error(f"Protocol Guide 配置獲取失敗: {str(e)}")
             return {}
     
-    # 如果需要自定義邏輯，可以覆寫方法
-    # 例如：
-    # @classmethod
-    # def perform_search(cls, query, limit=5):
-    #     """自定義搜索邏輯"""
-    #     # 實現特殊搜索邏輯
-    #     pass
+    # ===== 智能搜尋路由器整合（2025-11-11）=====
+    
+    @classmethod
+    def handle_chat_api(cls, request):
+        """
+        處理知識庫聊天 API（使用智能搜尋路由器）
+        
+        覆寫基類方法，使用 SmartSearchRouter 實現兩階段搜尋策略：
+        - 模式 A：關鍵字優先全文搜尋（含全文關鍵字）
+        - 模式 B：標準兩階段搜尋（無全文關鍵字）
+        
+        Args:
+            request: Django request 對象
+            
+        Returns:
+            Response: Django REST Framework Response
+        """
+        from rest_framework.response import Response
+        from rest_framework import status
+        import logging
+        import time
+        
+        logger = logging.getLogger(__name__)
+        
+        try:
+            # 解析請求數據
+            data = request.data
+            message = data.get('message', '').strip()
+            conversation_id = data.get('conversation_id', '')
+            
+            # 驗證輸入
+            if not message:
+                return Response({
+                    'success': False,
+                    'error': '訊息內容不能為空'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 獲取用戶 ID
+            user_id = f"protocol_guide_user_{request.user.id if request.user.is_authenticated else 'guest'}"
+            
+            logger.info(f"📩 Protocol Guide Chat Request")
+            logger.info(f"   User: {request.user.username if request.user.is_authenticated else 'guest'}")
+            logger.info(f"   Message: {message[:50]}...")
+            logger.info(f"   Conversation ID: {conversation_id if conversation_id else 'New'}")
+            
+            # 使用智能搜尋路由器
+            from .smart_search_router import SmartSearchRouter
+            
+            router = SmartSearchRouter()
+            
+            start_time = time.time()
+            
+            # 執行智能搜尋
+            result = router.handle_smart_search(
+                user_query=message,
+                conversation_id=conversation_id,
+                user_id=user_id,
+                request=request
+            )
+            
+            elapsed = time.time() - start_time
+            
+            # 處理結果
+            if result.get('mode') == 'error':
+                logger.error(f"❌ 智能搜尋失敗: {result.get('error')}")
+                return Response({
+                    'success': False,
+                    'error': result.get('error', '搜尋失敗')
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+            # 成功回應
+            logger.info(f"✅ 智能搜尋完成")
+            logger.info(f"   模式: {result.get('mode')}")
+            logger.info(f"   階段: {result.get('stage', 'N/A')}")
+            logger.info(f"   是否降級: {result.get('is_fallback', False)}")
+            logger.info(f"   響應時間: {elapsed:.2f} 秒")
+            
+            return Response({
+                'success': True,
+                'answer': result.get('answer', ''),
+                'mode': result.get('mode'),
+                'stage': result.get('stage'),
+                'is_fallback': result.get('is_fallback', False),
+                'fallback_reason': result.get('fallback_reason'),
+                'message_id': result.get('message_id'),
+                'conversation_id': result.get('conversation_id', conversation_id),
+                'response_time': elapsed,
+                'tokens': result.get('tokens', {}),
+                'metadata': result.get('metadata', {}),  # ✅ 添加 metadata（包含引用來源）
+                'search_results_count': len(result.get('search_results', []))
+            }, status=status.HTTP_200_OK)
+        
+        except Exception as e:
+            logger.error(f"❌ Protocol Guide Chat API 錯誤: {str(e)}", exc_info=True)
+            return Response({
+                'success': False,
+                'error': f'服務器錯誤: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

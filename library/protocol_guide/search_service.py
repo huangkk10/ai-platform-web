@@ -286,5 +286,96 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
     # def _get_item_content(self, item):
     #     """自定義內容獲取邏輯"""
     #     return f"標題: {item.title}\n內容: {item.content}"
+    
+    # ============================================================
+    # 智能搜尋路由支援方法（2025-11-11）
+    # ============================================================
+    
+    def section_search(self, query: str, top_k: int = 5, threshold: float = 0.5) -> list:
+        """
+        段落向量搜尋（用於智能路由器 - 模式 B 階段 1）
+        
+        Args:
+            query: 搜尋查詢
+            top_k: 返回前 K 個結果
+            threshold: 相似度閾值
+            
+        Returns:
+            List[Dict]: 段落搜尋結果
+        """
+        try:
+            # 使用基類的 search_knowledge，但強制返回 section 級結果
+            _, cleaned_query = self._classify_and_clean_query(query)
+            
+            results = super().search_knowledge(
+                query=cleaned_query,
+                limit=top_k,
+                use_vector=True,
+                threshold=threshold
+            )
+            
+            # 格式化為統一的結果格式
+            formatted_results = []
+            for result in results:
+                formatted_results.append({
+                    'title': result.get('metadata', {}).get('document_title', '未知標題'),
+                    'content': result.get('content', ''),
+                    'source_id': result.get('metadata', {}).get('document_id', 'N/A'),
+                    'similarity': result.get('score', 0.0),
+                    'metadata': result.get('metadata', {})
+                })
+            
+            return formatted_results
+        
+        except Exception as e:
+            logger.error(f"❌ 段落搜尋失敗: {str(e)}", exc_info=True)
+            return []
+    
+    def full_document_search(self, query: str, top_k: int = 3, threshold: float = 0.5) -> list:
+        """
+        全文向量搜尋（用於智能路由器 - 模式 A & 模式 B 階段 2）
+        
+        Args:
+            query: 搜尋查詢
+            top_k: 返回前 K 個文檔
+            threshold: 相似度閾值
+            
+        Returns:
+            List[Dict]: 全文文檔搜尋結果
+        """
+        try:
+            # 強制使用文檔級搜尋
+            _, cleaned_query = self._classify_and_clean_query(query)
+            
+            # 執行向量搜尋
+            section_results = super().search_knowledge(
+                query=cleaned_query,
+                limit=top_k * 3,  # 多取一些結果以便組裝文檔
+                use_vector=True,
+                threshold=threshold
+            )
+            
+            # 擴展為完整文檔
+            full_documents = self._expand_to_full_document(section_results)
+            
+            # 限制返回數量
+            full_documents = full_documents[:top_k]
+            
+            # 格式化為統一的結果格式
+            formatted_results = []
+            for doc in full_documents:
+                formatted_results.append({
+                    'title': doc.get('title', '未知標題'),
+                    'content': doc.get('content', ''),
+                    'source_id': doc.get('metadata', {}).get('document_id', 'N/A'),
+                    'similarity': doc.get('score', 0.0),
+                    'metadata': doc.get('metadata', {})
+                })
+            
+            return formatted_results
+        
+        except Exception as e:
+            logger.error(f"❌ 全文搜尋失敗: {str(e)}", exc_info=True)
+            return []
 
 
