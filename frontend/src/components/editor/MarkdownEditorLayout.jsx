@@ -521,11 +521,11 @@ const MarkdownEditorLayout = ({
     const handleCheckFormatEvent = () => {
       console.log('🎯 收到格式檢查事件');
       
-      // 只針對 Protocol Guide 進行檢查
-      if (contentType !== 'protocol-guide') {
+      // 支援 Protocol Guide 和 RVT Guide
+      if (contentType !== 'protocol-guide' && contentType !== 'rvt-guide') {
         Modal.info({
           title: '💡 提示',
-          content: '格式檢查功能僅適用於 Protocol Guide',
+          content: '格式檢查功能僅適用於 Protocol Guide 和 RVT Guide',
           centered: true
         });
         return;

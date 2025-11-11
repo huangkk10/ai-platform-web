@@ -78,8 +78,8 @@ const MarkdownEditorPage = () => {
         返回
       </Button>
       
-      {/* 🆕 格式檢查按鈕（僅 Protocol Guide 顯示） */}
-      {editorConfig.contentType === 'protocol-guide' && (
+      {/* 🆕 格式檢查按鈕（Protocol Guide 和 RVT Guide） */}
+      {(editorConfig.contentType === 'protocol-guide' || editorConfig.contentType === 'rvt-guide') && (
         <Button
           icon={<CheckOutlined />}
           onClick={handleCheckFormat}
