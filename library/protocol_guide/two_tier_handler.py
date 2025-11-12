@@ -1,24 +1,24 @@
 """
-模式 B：兩階段搜尋處理器（方案 B：查詢重寫策略）
+模式 B：兩階段搜尋處理器（使用顯式 search_mode 參數）
 
 兩階段智能路由策略：
-1. 第一階段：段落級搜尋（發送原查詢給 Dify）
+1. 第一階段：段落級搜尋（search_mode='auto'）
 2. 檢測 AI 回答是否不確定
-3. 如果不確定 → 第二階段：全文級搜尋（添加「完整」觸發詞）
+3. 如果不確定 → 第二階段：全文級搜尋（search_mode='document_only'）
 4. 仍不確定 → 降級模式（返回友善提示 + 引用來源）
 
-流程（方案 B）：
-階段 1: 發送原查詢 → Dify 段落搜尋 → AI 回答 → 檢測不確定
+流程（使用 search_mode）：
+階段 1: 發送原查詢 + inputs={'search_mode': 'auto'} → Dify 段落搜尋 → AI 回答 → 檢測不確定
 └─ 如果確定 → 返回結果
 └─ 如果不確定 → 階段 2
 
-階段 2: 發送「原查詢 + 完整」→ Dify 全文搜尋 → AI 回答 → 檢測不確定
+階段 2: 發送原查詢 + inputs={'search_mode': 'document_only'} → Dify 全文搜尋 → AI 回答 → 檢測不確定
 └─ 如果確定 → 返回結果（標記為 Stage 2 成功）
 └─ 如果不確定 → 降級模式（「請參考以下文件。」+ metadata）
 
 Author: AI Platform Team
 Date: 2025-11-11
-Updated: 2025-11-11 (方案 B 重構)
+Updated: 2025-11-13 (使用顯式 search_mode 參數，取代查詢重寫)
 """
 
 import logging
@@ -34,14 +34,15 @@ logger = logging.getLogger(__name__)
 
 class TwoTierSearchHandler:
     """
-    模式 B 處理器：兩階段搜尋（方案 B）
+    模式 B 處理器：兩階段搜尋（使用顯式 search_mode）
     
     適用場景：用戶查詢不包含全文關鍵字（標準查詢）
     
-    方案 B 改進：
-    - Stage 1：發送原查詢給 Dify（段落級搜尋）
-    - Stage 2：發送「原查詢 + 完整」給 Dify（全文級搜尋）
+    改進實現（2025-11-13）：
+    - Stage 1：發送原查詢 + inputs={'search_mode': 'auto'}（段落級搜尋）
+    - Stage 2：發送原查詢 + inputs={'search_mode': 'document_only'}（全文級搜尋）
     - 不再執行 Protocol Assistant 向量搜尋
+    - 不再使用查詢重寫（添加「完整」關鍵字）
     - 引用來源來自 Dify 的 metadata.retriever_resources
     """
     
@@ -190,7 +191,7 @@ class TwoTierSearchHandler:
         is_full_search: bool = False
     ) -> Dict[str, Any]:
         """
-        請求 Dify AI 回答（方案 B：查詢重寫策略）
+        請求 Dify AI 回答（支援顯式 search_mode）
         
         Args:
             query: 用戶查詢
@@ -200,27 +201,44 @@ class TwoTierSearchHandler:
             
         Returns:
             Dict: Dify 回應
+                {
+                    'answer': str,
+                    'message_id': str,
+                    'conversation_id': str,
+                    'metadata': dict,
+                    'raw_response': dict
+                }
         """
         try:
-            # ✅ 方案 B：根據搜尋階段重寫查詢（而非傳遞上下文）
-            if is_full_search:
-                # Stage 2：添加全文觸發詞，引導 Dify 進行全文搜尋
-                rewritten_query = f"{query} 完整"
-                logger.info(f"   📝 Stage 2 查詢重寫: {query} → {rewritten_query}")
-            else:
-                # Stage 1：保持原查詢，Dify 進行段落級搜尋
-                rewritten_query = query
+            # ✅ 改進：不需要查詢重寫，使用顯式 search_mode
+            # 保持原查詢不變
+            rewritten_query = query
             
-            # 使用 DifyChatClient（只傳查詢，不傳上下文）
+            if is_full_search:
+                # Stage 2：通過 inputs 傳遞文檔搜索模式
+                logger.info(f"   📝 Stage 2: 使用文檔搜索模式 (search_mode='document_only')")
+                inputs = {
+                    'search_mode': 'document_only',  # ← 顯式指定文檔搜索
+                    'require_detailed_answer': 'true'
+                }
+            else:
+                # Stage 1：使用自動模式（段落優先）
+                logger.info(f"   📝 Stage 1: 使用自動搜索模式 (search_mode='auto')")
+                inputs = {
+                    'search_mode': 'auto'
+                }
+            
+            # 使用 DifyChatClient
             response = self.dify_client.chat(
-                question=rewritten_query,  # ✅ 只傳查詢（無上下文）
+                question=rewritten_query,  # ✅ 原查詢（無修改）
                 conversation_id=conversation_id if conversation_id else "",
                 user=user_id,
+                inputs=inputs,  # ← 通過 inputs 傳遞 search_mode
                 verbose=False
             )
             
             return response
         
         except Exception as e:
-            logger.error(f"❌ Dify 請求失敗: {str(e)}", exc_info=True)
+            logger.error(f"❌ Protocol Dify 請求失敗: {str(e)}", exc_info=True)
             raise

@@ -203,7 +203,7 @@ class TwoTierSearchHandler:
         is_full_search: bool = False
     ) -> Dict[str, Any]:
         """
-        請求 Dify AI 回答（方案 B：查詢重寫策略）
+        請求 Dify AI 回答（支援顯式 search_mode）
         
         Args:
             query: 用戶查詢
@@ -222,20 +222,30 @@ class TwoTierSearchHandler:
                 }
         """
         try:
-            # ✅ 方案 B：根據搜尋階段重寫查詢（而非傳遞上下文）
-            if is_full_search:
-                # Stage 2：添加全文觸發詞，引導 Dify 進行全文搜尋
-                rewritten_query = f"{query} 完整內容"
-                logger.info(f"   📝 Stage 2 查詢重寫: {query} → {rewritten_query}")
-            else:
-                # Stage 1：保持原查詢，Dify 進行段落級搜尋
-                rewritten_query = query
+            # ✅ 改進：不需要查詢重寫，使用顯式 search_mode
+            # 保持原查詢不變
+            rewritten_query = query
             
-            # 使用 DifyChatClient（只傳查詢，不傳上下文）
+            if is_full_search:
+                # Stage 2：通過 inputs 傳遞文檔搜索模式
+                logger.info(f"   📝 Stage 2: 使用文檔搜索模式 (search_mode='document_only')")
+                inputs = {
+                    'search_mode': 'document_only',  # ← 顯式指定文檔搜索
+                    'require_detailed_answer': 'true'
+                }
+            else:
+                # Stage 1：使用自動模式（段落優先）
+                logger.info(f"   📝 Stage 1: 使用自動搜索模式 (search_mode='auto')")
+                inputs = {
+                    'search_mode': 'auto'
+                }
+            
+            # 使用 DifyChatClient
             response = self.dify_client.chat(
-                question=rewritten_query,  # ✅ 只傳查詢（無上下文）
+                question=rewritten_query,  # ✅ 原查詢（無修改）
                 conversation_id=conversation_id if conversation_id else "",
                 user=user_id,
+                inputs=inputs,  # ← 通過 inputs 傳遞 search_mode
                 verbose=False
             )
             

@@ -45,7 +45,7 @@ class BaseKnowledgeBaseSearchService(ABC):
         if self.source_table is None:
             raise NotImplementedError(f"{self.__class__.__name__} must define 'source_table' attribute")
     
-    def search_knowledge(self, query, limit=5, use_vector=True, threshold=0.7):
+    def search_knowledge(self, query, limit=5, use_vector=True, threshold=0.7, search_mode='auto'):
         """
         搜索知識庫
         
@@ -59,6 +59,10 @@ class BaseKnowledgeBaseSearchService(ABC):
             limit: 返回結果數量上限
             use_vector: 是否使用向量搜索
             threshold: 相似度閾值 (0.0 ~ 1.0)，來自 Dify Studio 設定
+            search_mode: 搜索模式（傳遞給 search_with_vectors）
+                - 'auto': 自動模式（預設）
+                - 'section_only': 只搜索段落
+                - 'document_only': 只搜索文檔
         """
         try:
             results = []
@@ -66,10 +70,10 @@ class BaseKnowledgeBaseSearchService(ABC):
             # 嘗試向量搜索
             if use_vector:
                 try:
-                    vector_results = self.search_with_vectors(query, limit, threshold)
+                    vector_results = self.search_with_vectors(query, limit, threshold, search_mode)
                     if vector_results:
                         results.extend(vector_results)
-                        self.logger.info(f"向量搜索返回 {len(vector_results)} 條結果 (threshold={threshold})")
+                        self.logger.info(f"向量搜索返回 {len(vector_results)} 條結果 (threshold={threshold}, mode={search_mode})")
                 except Exception as e:
                     self.logger.warning(f"向量搜索失敗: {str(e)}")
             
@@ -96,13 +100,14 @@ class BaseKnowledgeBaseSearchService(ABC):
             self.logger.error(f"搜索失敗: {str(e)}")
             return []
     
-    def search_with_vectors(self, query, limit=5, threshold=0.7):
+    def search_with_vectors(self, query, limit=5, threshold=0.7, search_mode='auto'):
         """
-        使用向量進行搜索 (通用實現 - 已重構)
+        使用向量進行搜索 (通用實現 - 已重構，支援顯式搜索模式)
         
         ✨ 重構亮點：
         - 優先使用段落向量搜尋（更精準）
         - 備用整篇文檔向量搜尋
+        - ✅ 支援顯式 search_mode 參數（直接控制搜索類型）
         - 所有知識庫共用此實現
         - 子類無需覆寫，除非有特殊邏輯
         - ✅ threshold 可完全參數化，來自 Dify Studio
@@ -113,10 +118,38 @@ class BaseKnowledgeBaseSearchService(ABC):
             query: 查詢字串
             limit: 返回結果數量上限
             threshold: 相似度閾值 (0.0 ~ 1.0)，來自 Dify Studio 設定
+            search_mode: 搜索模式（顯式控制）
+                - 'auto': 自動模式（段落優先，允許降級，預設）
+                - 'section_only': 只搜索段落（不降級）
+                - 'document_only': 只搜索文檔（跳過段落）
+                - 'section_preferred': 優先段落（同 auto）
+                - 'document_preferred': 優先文檔
         """
         try:
-            # 🎯 優先使用段落向量搜尋
-            try:
+            # === 模式 1：只搜索文檔（顯式指定）===
+            if search_mode == 'document_only':
+                self.logger.info(f"🎯 顯式文檔搜索模式 (search_mode='document_only', threshold={threshold})")
+                from .vector_search_helper import search_with_vectors_generic
+                
+                # 使用降級閾值
+                doc_threshold = max(threshold * 0.85, 0.5)
+                
+                results = search_with_vectors_generic(
+                    query=query,
+                    model_class=self.model_class,
+                    source_table=self.source_table,
+                    limit=limit,
+                    threshold=doc_threshold,
+                    use_1024=True,
+                    content_formatter=self._get_item_content
+                )
+                
+                self.logger.info(f"📄 文檔搜索返回 {len(results)} 個結果 (threshold={doc_threshold:.2f})")
+                return results
+            
+            # === 模式 2：只搜索段落（不降級）===
+            elif search_mode == 'section_only':
+                self.logger.info(f"🎯 顯式段落搜索模式 (search_mode='section_only', threshold={threshold})")
                 from .section_search_service import SectionSearchService
                 section_service = SectionSearchService()
                 
@@ -124,34 +157,57 @@ class BaseKnowledgeBaseSearchService(ABC):
                     query=query,
                     source_table=self.source_table,
                     limit=limit,
-                    threshold=threshold  # ✅ 使用傳入的 threshold
+                    threshold=threshold
                 )
                 
                 if section_results:
-                    self.logger.info(f"✅ 段落向量搜尋成功: {len(section_results)} 個結果 (threshold={threshold})")
-                    # 將段落結果轉換為標準格式
+                    self.logger.info(f"✅ 段落搜索成功: {len(section_results)} 個結果")
                     return self._format_section_results_to_standard(section_results, limit)
-            except Exception as section_error:
-                self.logger.warning(f"⚠️ 段落向量搜尋失敗，使用整篇文檔搜尋: {str(section_error)}")
+                else:
+                    self.logger.info(f"⚠️ 段落搜索無結果（不降級）")
+                    return []
             
-            # 備用：整篇文檔向量搜尋（使用稍低的 threshold）
-            from .vector_search_helper import search_with_vectors_generic
-            
-            # 文檔搜索使用稍低的 threshold (threshold * 0.85)
-            doc_threshold = max(threshold * 0.85, 0.5)
-            
-            results = search_with_vectors_generic(
-                query=query,
-                model_class=self.model_class,
-                source_table=self.source_table,
-                limit=limit,
-                threshold=doc_threshold,  # ✅ 使用動態計算的 threshold
-                use_1024=True,
-                content_formatter=self._get_item_content
-            )
-            
-            self.logger.info(f"📄 整篇文檔向量搜尋返回 {len(results)} 個結果 (threshold={doc_threshold:.2f})")
-            return results
+            # === 模式 3：自動模式（段落優先，允許降級）===
+            else:  # 'auto', 'section_preferred'
+                self.logger.info(f"🎯 自動搜索模式 (search_mode='{search_mode}', 優先段落)")
+                
+                # 🎯 優先使用段落向量搜尋
+                try:
+                    from .section_search_service import SectionSearchService
+                    section_service = SectionSearchService()
+                    
+                    section_results = section_service.search_sections(
+                        query=query,
+                        source_table=self.source_table,
+                        limit=limit,
+                        threshold=threshold  # ✅ 使用傳入的 threshold
+                    )
+                    
+                    if section_results:
+                        self.logger.info(f"✅ 段落向量搜尋成功: {len(section_results)} 個結果 (threshold={threshold})")
+                        # 將段落結果轉換為標準格式
+                        return self._format_section_results_to_standard(section_results, limit)
+                except Exception as section_error:
+                    self.logger.warning(f"⚠️ 段落向量搜尋失敗，使用整篇文檔搜尋: {str(section_error)}")
+                
+                # 備用：整篇文檔向量搜尋（使用稍低的 threshold）
+                from .vector_search_helper import search_with_vectors_generic
+                
+                # 文檔搜索使用稍低的 threshold (threshold * 0.85)
+                doc_threshold = max(threshold * 0.85, 0.5)
+                
+                results = search_with_vectors_generic(
+                    query=query,
+                    model_class=self.model_class,
+                    source_table=self.source_table,
+                    limit=limit,
+                    threshold=doc_threshold,  # ✅ 使用動態計算的 threshold
+                    use_1024=True,
+                    content_formatter=self._get_item_content
+                )
+                
+                self.logger.info(f"📄 整篇文檔向量搜尋返回 {len(results)} 個結果 (threshold={doc_threshold:.2f})")
+                return results
             
         except Exception as e:
             self.logger.error(f"向量搜索錯誤: {str(e)}")

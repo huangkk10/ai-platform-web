@@ -1,18 +1,19 @@
 """
-模式 A：關鍵字優先全文搜尋處理器（方案 B：查詢重寫策略）
+模式 A：關鍵字優先全文搜尋處理器（使用顯式 search_mode='document_only'）
 
-當用戶查詢包含全文關鍵字時，直接發送查詢給 Dify AI（含全文關鍵字）。
-如果 AI 回答不確定，則進入降級模式，返回友善提示 + 引用來源。
+當用戶查詢包含全文關鍵字時，自動設置 search_mode='document_only'，
+直接進行文檔級別搜索。如果 AI 回答不確定，則進入降級模式。
 
-流程（方案 B）：
+流程（使用 search_mode）：
 1. 檢測到全文關鍵字
-2. 發送原查詢給 Dify（讓 Dify 自己搜尋知識庫）
-3. 檢測 AI 回答是否不確定
-4. 如果不確定 → 降級模式（「請參考以下文件。」+ metadata）
+2. 設置 inputs={'search_mode': 'document_only'} 
+3. 發送原查詢給 Dify（讓 Dify 依據 search_mode 檢索文檔知識源）
+4. 檢測 AI 回答是否不確定
+5. 如果不確定 → 降級模式（「請參考以下文件。」+ metadata）
 
 Author: AI Platform Team
 Date: 2025-11-11
-Updated: 2025-11-11 (方案 B 重構)
+Updated: 2025-11-13 (改用 search_mode 參數，取代查詢重寫)
 """
 
 import logging
@@ -26,17 +27,17 @@ from library.common.ai_response import is_uncertain_response  # ✅ 移除 forma
 logger = logging.getLogger(__name__)
 
 
-class KeywordTriggeredSearchHandler:
+class ProtocolGuideKeywordTriggeredHandler:
     """
-    模式 A 處理器：關鍵字優先全文搜尋（方案 B）
+    Protocol Guide 關鍵字觸發處理器（方案 A）
     
-    適用場景：用戶查詢包含全文關鍵字（如：完整、全文、所有步驟、詳細等）
+    當用戶查詢包含全文搜尋關鍵字時觸發，直接進行文檔級別搜索。
     
-    方案 B 改進：
-    - 不再執行 Protocol Assistant 向量搜尋
-    - 直接發送原查詢給 Dify（含全文關鍵字）
-    - 讓 Dify 使用自己的知識庫進行搜尋
-    - 引用來源來自 Dify 的 metadata.retriever_resources
+    **使用顯式 search_mode**：
+    - Mode A 自動設置 search_mode='document_only'
+    - 用戶已明確要求完整內容，直接搜索文檔級別
+    - 通過 inputs 參數傳遞模式，不修改查詢內容
+    - 讓 Dify 的 RAG 依據 search_mode 檢索相應知識源
     """
     
     def __init__(self):
@@ -143,7 +144,7 @@ class KeywordTriggeredSearchHandler:
         user_id: str
     ) -> Dict[str, Any]:
         """
-        請求 Dify AI 回答（方案 B：不傳遞上下文）
+        請求 Dify AI 回答（使用顯式 search_mode='document_only'）
         
         Args:
             query: 用戶查詢
@@ -154,19 +155,29 @@ class KeywordTriggeredSearchHandler:
             Dict: Dify 回應
         """
         try:
-            # ✅ 方案 B：直接傳遞原查詢（不添加搜尋結果上下文）
-            # Mode A 的查詢通常已包含全文關鍵字（如「完整」、「全文」）
+            # ✅ 改進：Mode A 直接使用文檔搜索模式（用戶已明確要求完整內容）
+            logger.info(f"   📝 Mode A: 使用文檔搜索模式 (search_mode='document_only')")
             
-            # 使用 DifyChatClient（只傳查詢，不傳上下文）
+            inputs = {
+                'search_mode': 'document_only',  # ← 關鍵字查詢直接搜索完整文檔
+                'require_detailed_answer': 'true'
+            }
+            
+            # 使用 DifyChatClient
             response = self.dify_client.chat(
-                question=query,  # ✅ 只傳查詢（無上下文）
+                question=query,  # ✅ 原查詢（保留用戶的「完整」等關鍵字）
                 conversation_id=conversation_id if conversation_id else "",
                 user=user_id,
+                inputs=inputs,  # ← 通過 inputs 傳遞 search_mode
                 verbose=False
             )
             
             return response
         
         except Exception as e:
-            logger.error(f"❌ Dify 請求失敗: {str(e)}", exc_info=True)
+            logger.error(f"❌ Protocol Dify 請求失敗: {str(e)}", exc_info=True)
             raise
+
+
+# ✅ 向後兼容：提供舊名稱的別名
+KeywordTriggeredSearchHandler = ProtocolGuideKeywordTriggeredHandler

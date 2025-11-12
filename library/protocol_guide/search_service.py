@@ -232,7 +232,7 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
         return full_documents
     
     def search_knowledge(self, query: str, limit: int = 5, use_vector: bool = True, 
-                        threshold: float = 0.7) -> list:
+                        threshold: float = 0.7, search_mode: str = 'auto') -> list:
         """
         覆寫基類方法，添加文檔級搜尋支援 + 查詢清理（方案一）
         
@@ -257,6 +257,7 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
             limit: 返回結果數量 (預設: 5)
             use_vector: 是否使用向量搜尋 (預設: True)
             threshold: 相似度閾值 (預設: 0.7)
+            search_mode: 搜索模式 ('auto', 'section_only', 'document_only')（預設: 'auto'）
             
         Returns:
             搜尋結果列表（section 或 document 級）
@@ -269,7 +270,8 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
             query=cleaned_query,  # ✅ 使用清理後的查詢
             limit=limit,
             use_vector=use_vector,
-            threshold=threshold
+            threshold=threshold,
+            search_mode=search_mode  # ✅ 傳遞 search_mode 到基類
         )
         
         # 步驟 3: 如果是文檔級查詢，擴展為完整文檔

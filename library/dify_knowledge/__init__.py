@@ -274,20 +274,24 @@ class DifyKnowledgeSearchHandler:
         self.logger.info(f"Knowledge ID 標準化: '{knowledge_id}' -> '{normalized}'")
         return normalized
     
-    def search_knowledge_by_type(self, knowledge_type, query, limit=5, threshold=0.7):
+    def search_knowledge_by_type(self, knowledge_type, query, limit=5, threshold=0.7, search_mode='auto'):
         """
-        根據知識類型執行搜索
+        根據知識類型執行搜索（支援顯式 search_mode）
         
         Args:
             knowledge_type: 標準化的知識類型
             query: 搜索查詢
             limit: 結果數量限制
             threshold: 相似度閾值 (0.0 ~ 1.0)，來自 Dify Studio
+            search_mode: 搜索模式
+                - 'auto': 自動模式（預設）
+                - 'section_only': 只搜索段落
+                - 'document_only': 只搜索文檔
             
         Returns:
             list: 搜索結果列表
         """
-        self.logger.info(f"執行搜索: type={knowledge_type}, query='{query}', limit={limit}, threshold={threshold}")
+        self.logger.info(f"執行搜索: type={knowledge_type}, query='{query}', limit={limit}, threshold={threshold}, mode='{search_mode}'")
         
         try:
             if knowledge_type == 'know_issue':
@@ -296,12 +300,17 @@ class DifyKnowledgeSearchHandler:
                 return results
                 
             elif knowledge_type == 'rvt_guide':
-                # 優先使用向量搜索
+                # 優先使用向量搜索（傳遞 search_mode）
                 if self.vector_search_available and self.search_rvt_guide_with_vectors:
                     try:
-                        # ✅ 傳遞 threshold 參數
-                        results = self.search_rvt_guide_with_vectors(query, limit=limit, threshold=threshold)
-                        self.logger.info(f"RVT Guide 向量搜索結果: {len(results)} 條")
+                        # ✅ 傳遞 threshold 和 search_mode 參數
+                        results = self.search_rvt_guide_with_vectors(
+                            query, 
+                            limit=limit, 
+                            threshold=threshold,
+                            search_mode=search_mode  # ✅ 傳遞 search_mode
+                        )
+                        self.logger.info(f"RVT Guide 向量搜索結果: {len(results)} 條 (mode={search_mode})")
                         
                         # 如果向量搜索無結果，回退到關鍵字搜索（使用較低 threshold）
                         if not results:
@@ -322,8 +331,13 @@ class DifyKnowledgeSearchHandler:
                     return results
                     
             elif knowledge_type == 'protocol_guide':
-                # ✅ Protocol Guide 傳遞 threshold
-                results = self.search_protocol_guide_knowledge(query, limit=limit, threshold=threshold)
+                # ✅ Protocol Guide 傳遞 threshold 和 search_mode
+                results = self.search_protocol_guide_knowledge(
+                    query, 
+                    limit=limit, 
+                    threshold=threshold,
+                    search_mode=search_mode  # ✅ 傳遞 search_mode
+                )
                 self.logger.info(f"Protocol Guide 搜索結果: {len(results)} 條")
                 return results
                     
@@ -373,34 +387,39 @@ class DifyKnowledgeSearchHandler:
         
         return {'records': records}
     
-    def search(self, knowledge_id, query, top_k=5, score_threshold=0.7, metadata_condition=None):
+    def search(self, knowledge_id, query, top_k=5, score_threshold=0.7, search_mode='auto', metadata_condition=None):
         """
-        統一搜索接口
+        統一搜索接口（支援顯式 search_mode）
         
         Args:
             knowledge_id: 知識庫 ID
             query: 搜索查詢
             top_k: 返回結果數量
             score_threshold: 分數閾值（來自 Dify Studio）
+            search_mode: 搜索模式（顯式控制）
+                - 'auto': 自動模式（預設）
+                - 'section_only': 只搜索段落
+                - 'document_only': 只搜索文檔
             metadata_condition: 元數據條件（可選）
             
         Returns:
             dict: Dify 格式的回應
         """
         try:
-            # ✅ 方案 C：顯示完整參數流
+            # ✅ 顯示完整參數流（包含 search_mode）
             self.logger.info(f"🔍 [Stage 6] DifyKnowledgeSearchHandler.search() 接收參數:")
-            self.logger.info(f"   knowledge_id={knowledge_id}, query='{query}', top_k={top_k}, threshold={score_threshold}")
+            self.logger.info(f"   knowledge_id={knowledge_id}, query='{query}', top_k={top_k}, threshold={score_threshold}, search_mode='{search_mode}'")
             
             # 標準化知識庫 ID
             knowledge_type = self.normalize_knowledge_id(knowledge_id)
             
-            # ✅ 執行搜索（傳遞 threshold 到底層搜索服務）
+            # ✅ 執行搜索（傳遞 threshold 和 search_mode 到底層搜索服務）
             search_results = self.search_knowledge_by_type(
                 knowledge_type, 
                 query, 
                 limit=top_k,
-                threshold=score_threshold  # ✅ 傳遞 threshold
+                threshold=score_threshold,  # ✅ 傳遞 threshold
+                search_mode=search_mode     # ✅ 傳遞 search_mode
             )
             self.logger.info(f"📊 [Stage 10] 搜索返回 {len(search_results)} 條原始結果")
             
