@@ -32,7 +32,7 @@ const useProtocolAssistantChat = (conversationId, setConversationId, setMessages
         message: userMessage.content,
         conversation_id: conversationId,
         user_id: currentUserId,
-        search_version: 'v2'  // 固定使用 V2 版本
+        // search_version: 'v2'  // ❌ 註解掉：後端不使用，與測試腳本保持一致
       };
       
       console.log('📤 [Protocol Assistant] 發送請求:', requestBody);
