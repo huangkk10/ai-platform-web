@@ -4,7 +4,7 @@
 兩階段智能路由策略：
 1. 第一階段：段落級搜尋（發送原查詢給 Dify）
 2. 檢測 AI 回答是否不確定
-3. 如果不確定 → 第二階段：全文級搜尋（添加「完整內容」觸發詞）
+3. 如果不確定 → 第二階段：全文級搜尋（添加「完整」觸發詞）
 4. 仍不確定 → 降級模式（返回友善提示 + 引用來源）
 
 流程（方案 B）：
@@ -12,7 +12,7 @@
 └─ 如果確定 → 返回結果
 └─ 如果不確定 → 階段 2
 
-階段 2: 發送「原查詢 + 完整內容」→ Dify 全文搜尋 → AI 回答 → 檢測不確定
+階段 2: 發送「原查詢 + 完整」→ Dify 全文搜尋 → AI 回答 → 檢測不確定
 └─ 如果確定 → 返回結果（標記為 Stage 2 成功）
 └─ 如果不確定 → 降級模式（「請參考以下文件。」+ metadata）
 
@@ -40,7 +40,7 @@ class TwoTierSearchHandler:
     
     方案 B 改進：
     - Stage 1：發送原查詢給 Dify（段落級搜尋）
-    - Stage 2：發送「原查詢 + 完整內容」給 Dify（全文級搜尋）
+    - Stage 2：發送「原查詢 + 完整」給 Dify（全文級搜尋）
     - 不再執行 Protocol Assistant 向量搜尋
     - 引用來源來自 Dify 的 metadata.retriever_resources
     """
@@ -123,14 +123,14 @@ class TwoTierSearchHandler:
             
             # === 階段 2：全文級搜尋 ===
             logger.info(f"   ⚠️ 階段 1 回答不確定 (含關鍵字: {stage_1_keyword})")
-            logger.info(f"   🔄 進入階段 2: 發送「原查詢 + 完整內容」給 Dify（全文級搜尋）...")
+            logger.info(f"   🔄 進入階段 2: 發送「原查詢 + 完整」給 Dify（全文級搜尋）...")
             
-            # ✅ 方案 B：添加「完整內容」觸發詞，引導 Dify 全文搜尋
+            # ✅ 方案 B：添加「完整」觸發詞，引導 Dify 全文搜尋
             stage_2_response = self._request_dify_chat(
                 query=user_query,
                 conversation_id=conversation_id,
                 user_id=user_id,
-                is_full_search=True  # Stage 2 = 全文搜尋（添加「完整內容」）
+                is_full_search=True  # Stage 2 = 全文搜尋（添加「完整」）
             )
             
             stage_2_answer = stage_2_response.get('answer', '')
@@ -205,7 +205,7 @@ class TwoTierSearchHandler:
             # ✅ 方案 B：根據搜尋階段重寫查詢（而非傳遞上下文）
             if is_full_search:
                 # Stage 2：添加全文觸發詞，引導 Dify 進行全文搜尋
-                rewritten_query = f"{query} 完整內容"
+                rewritten_query = f"{query} 完整"
                 logger.info(f"   📝 Stage 2 查詢重寫: {query} → {rewritten_query}")
             else:
                 # Stage 1：保持原查詢，Dify 進行段落級搜尋
