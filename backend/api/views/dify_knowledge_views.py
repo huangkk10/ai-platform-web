@@ -315,6 +315,10 @@ def dify_knowledge_search(request):
             query = data.get('query', '')
             retrieval_setting = data.get('retrieval_setting', {})
             
+            # ✅ 提取 search_mode（來自 Dify inputs）
+            inputs = data.get('inputs', {})
+            search_mode = inputs.get('search_mode', 'auto')  # 預設為 'auto'
+            
             # 🎯 三層優先順序 Threshold 管理
             # 優先級 1：Dify Studio 設定（用戶當下設定）
             dify_threshold = retrieval_setting.get('score_threshold')
@@ -325,7 +329,7 @@ def dify_knowledge_search(request):
                 score_threshold = dify_threshold
                 logger.info(
                     f"🎯 [優先級 1] 使用 Dify Studio threshold={score_threshold} | "
-                    f"knowledge_id='{knowledge_id}' | query='{query}'"
+                    f"knowledge_id='{knowledge_id}' | query='{query}' | search_mode='{search_mode}'"
                 )
             else:
                 # Dify 沒有設定 threshold，使用 ThresholdManager（優先級 2: Database，優先級 3: Default）
@@ -351,7 +355,7 @@ def dify_knowledge_search(request):
                     
                     logger.info(
                         f"📊 [優先級 2/3] Dify 未設定，使用 ThresholdManager threshold={score_threshold} | "
-                        f"assistant_type='{assistant_type}' | knowledge_id='{knowledge_id}' | query='{query}'"
+                        f"assistant_type='{assistant_type}' | knowledge_id='{knowledge_id}' | query='{query}' | search_mode='{search_mode}'"
                     )
                 except Exception as e:
                     # 如果 ThresholdManager 失敗，使用硬編碼預設值
@@ -360,15 +364,16 @@ def dify_knowledge_search(request):
                         f"⚠️ ThresholdManager 失敗，使用硬編碼預設值 0.7: {e}"
                     )
             
-            # 執行搜索（threshold 會一路傳遞到 SQL 查詢）
+            # 執行搜索（threshold 和 search_mode 會一路傳遞到 SQL 查詢）
             result = handler.search(
                 knowledge_id=knowledge_id,
                 query=query,
                 top_k=retrieval_setting.get('top_k', 5),
-                score_threshold=score_threshold  # ✅ 傳遞 Dify 的 threshold
+                score_threshold=score_threshold,  # ✅ 傳遞 Dify 的 threshold
+                search_mode=search_mode  # ✅ 傳遞 search_mode
             )
             
-            logger.info(f"✅ 知識庫搜索成功: {knowledge_id}, query='{query}', results={len(result.get('records', []))}")
+            logger.info(f"✅ 知識庫搜索成功: {knowledge_id}, query='{query}', mode='{search_mode}', results={len(result.get('records', []))}")
             return Response(result)
         else:
             # 備用實現

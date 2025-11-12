@@ -510,33 +510,31 @@ def get_embedding_service(model_type: str = 'ultra_high') -> OpenSourceEmbedding
         _embedding_service = OpenSourceEmbeddingService(model_type)
     return _embedding_service
 
-def search_rvt_guide_with_vectors(query: str, limit: int = 5, threshold: float = 0.3) -> List[dict]:
+def search_rvt_guide_with_vectors(query: str, limit: int = 5, threshold: float = 0.3, search_mode: str = 'auto') -> List[dict]:
     """
     使用向量搜索 RVT Guide (1024維 - 預設)
     
-    ⚠️ 向後兼容函數 - 已重構使用 vector_search_helper
+    ⚠️ 向後兼容函數 - 已重構使用 RVTGuideSearchService
     🔗 新代碼建議直接使用 RVTGuideSearchService.search_knowledge()
     
     Args:
         query: 查詢文本
         limit: 返回結果數量
         threshold: 相似度閾值
+        search_mode: 搜索模式 ('auto', 'section_only', 'document_only')
         
     Returns:
         搜索結果列表
     """
-    from library.common.knowledge_base.vector_search_helper import search_with_vectors_generic
-    from api.models import RVTGuide
+    from library.rvt_guide.search_service import RVTGuideSearchService
     
-    # 使用通用 helper（內部會自動處理 DB 查詢和格式化）
-    return search_with_vectors_generic(
+    # ✅ 使用 RVTGuideSearchService（支援 search_mode）
+    service = RVTGuideSearchService()
+    return service.search_with_vectors(
         query=query,
-        model_class=RVTGuide,
-        source_table='rvt_guide',
         limit=limit,
         threshold=threshold,
-        use_1024=True,
-        content_formatter=_format_rvt_guide_content  # 使用特殊的內容格式化
+        search_mode=search_mode
     )
 
 # ✅ 768維相關函數已移除（2025-01-XX）
