@@ -315,9 +315,21 @@ def dify_knowledge_search(request):
             query = data.get('query', '')
             retrieval_setting = data.get('retrieval_setting', {})
             
-            # ✅ 提取 search_mode（來自 Dify inputs）
+            # 🔍 檢測特殊標記 __FULL_SEARCH__（二階段搜尋 Stage 2 標記）
+            search_mode = 'auto'  # 預設為 'auto'（段落搜尋）
+            
+            if '__FULL_SEARCH__' in query:
+                # 檢測到 Stage 2 標記
+                search_mode = 'document_only'  # 切換為全文搜尋
+                query = query.replace('__FULL_SEARCH__', '').strip()  # 清理標記
+                logger.info(f"🎯 檢測到 Stage 2 標記，切換到全文搜尋模式")
+                logger.info(f"🧹 清理後查詢: '{query}'")
+            
+            # ✅ 也支援從 Dify inputs 接收 search_mode（如果 Dify 工作室有配置）
             inputs = data.get('inputs', {})
-            search_mode = inputs.get('search_mode', 'auto')  # 預設為 'auto'
+            if 'search_mode' in inputs and '__FULL_SEARCH__' not in data.get('query', ''):
+                # 如果 inputs 中有 search_mode，且不是來自標記，則使用 inputs 的值
+                search_mode = inputs.get('search_mode', search_mode)
             
             # 🎯 三層優先順序 Threshold 管理
             # 優先級 1：Dify Studio 設定（用戶當下設定）

@@ -124,14 +124,20 @@ class TwoTierSearchHandler:
             
             # === 階段 2：全文級搜尋 ===
             logger.info(f"   ⚠️ 階段 1 回答不確定 (含關鍵字: {stage_1_keyword})")
-            logger.info(f"   🔄 進入階段 2: 發送「原查詢 + 完整」給 Dify（全文級搜尋）...")
+            logger.info(f"   🔄 進入階段 2: 發送「原查詢 + __FULL_SEARCH__」給 Dify（全文級搜尋）...")
             
-            # ✅ 方案 B：添加「完整」觸發詞，引導 Dify 全文搜尋
+            # ✅ 方案 A-Enhanced：添加特殊標記觸發全文搜尋
+            # 注意：Dify 不會將 inputs 參數傳遞給外部知識庫 API
+            # 所以我們使用查詢字串中的特殊標記來觸發全文搜尋
+            # 外部知識庫 API 會檢測並移除此標記，不影響實際搜尋
+            stage_2_query = f"{user_query} __FULL_SEARCH__"
+            logger.info(f"   🏷️ Stage 2 查詢（含標記）: {stage_2_query}")
+            
             stage_2_response = self._request_dify_chat(
-                query=user_query,
+                query=stage_2_query,
                 conversation_id=conversation_id,
                 user_id=user_id,
-                is_full_search=True  # Stage 2 = 全文搜尋（添加「完整」）
+                is_full_search=True  # Stage 2 = 全文搜尋
             )
             
             stage_2_answer = stage_2_response.get('answer', '')
