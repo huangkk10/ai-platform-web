@@ -186,10 +186,10 @@ class ProtocolAnalyticsAPIHandler:
             manager = ProtocolStatisticsManager()
             satisfaction_stats = manager._get_satisfaction_stats(days=days, user=target_user)
             
-            # 返回成功回應
+            # 返回成功回應（包裝在 data 中，與 RVT 格式一致）
             return Response({
                 'success': True,
-                **satisfaction_stats,  # 直接展開滿意度數據
+                'data': satisfaction_stats,  # 包裝在 data 中
                 'generated_at': datetime.now().isoformat()
             }, status=status.HTTP_200_OK)
             
