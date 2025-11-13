@@ -210,82 +210,13 @@ export const showImageModal = (imageData) => {
 
 /**
  * 從 metadata 中提取圖片檔名
+ * ⚠️ 功能已停用 (2025-11-14): 避免顯示無關圖片
  * @param {Object} metadata - API 回應的 metadata
- * @returns {Set} - 圖片檔名集合
+ * @returns {Set} - 圖片檔名集合（目前返回空集合）
  */
 export const extractImagesFromMetadata = (metadata) => {
-  const imageFilenames = new Set();
-  
-  console.log('🔍 提取 metadata 中的圖片:', metadata);
-  
-  // 🆕 檢查多個可能的 metadata 位置
-  const metadataLocations = [
-    metadata?.retriever_resources,     // 原有的位置
-    metadata?.dify_metadata?.retriever_resources,  // Dify 回應中的位置
-    metadata?.image_filenames,         // 直接的檔名列表
-    metadata?.images                   // 新增：直接的圖片陣列
-  ];
-  
-  metadataLocations.forEach((resources, locationIndex) => {
-    if (Array.isArray(resources)) {
-      resources.forEach((resource) => {
-        if (resource && resource.content) {
-          console.log(`🔍 檢查 metadata 位置${locationIndex + 1}:`, resource.content.substring(0, 200));
-          
-          // 🆕 針對新格式的圖片檔名提取
-          const imagePatterns = [
-            // 主要格式：🖼️ filename.png
-            /🖼️\s*([a-zA-Z0-9\-_.]{8,}\.(?:png|jpg|jpeg|gif|bmp|webp))/gi,
-            
-            // 備用格式
-            /圖片.*?([a-zA-Z0-9\-_.]{8,}\.(?:png|jpg|jpeg|gif|bmp|webp))/gi,
-            
-            // 舊格式兼容
-            /kisspng-[a-zA-Z0-9\-_.]{15,}\.(?:png|jpg|jpeg|gif|bmp|webp)\b/gi,
-            /\b([a-zA-Z0-9\-_.]{20,}\.(?:png|jpg|jpeg|gif|bmp|webp))\b/gi
-          ];
-          
-          imagePatterns.forEach((pattern, patternIndex) => {
-            let match;
-            while ((match = pattern.exec(resource.content)) !== null) {
-              let filename = match[1] ? match[1].trim() : match[0].trim();
-              filename = filename.replace(/^🖼️\s*/, '').trim();
-              
-              if (filename && 
-                  filename.length >= 8 && 
-                  /^[a-zA-Z0-9\-_.]+\.(?:png|jpg|jpeg|gif|bmp|webp)$/i.test(filename)) {
-                
-                // 🎯 進階檢查：避免誤判簡短檔名
-                const filenameWithoutExt = filename.replace(/\.(png|jpg|jpeg|gif|bmp|webp)$/i, '');
-                const hasMinLength = filenameWithoutExt.length >= 5;
-                const hasSpecialChars = /[-_]/.test(filenameWithoutExt);
-                
-                if (hasMinLength || hasSpecialChars) {
-                  imageFilenames.add(filename);
-                  console.log(`✅ metadata 模式${patternIndex + 1}提取: "${filename}"`);
-                } else {
-                  console.log(`❌ metadata 模式${patternIndex + 1}檔名太短: "${filename}"`);
-                }
-              }
-            }
-          });
-        }
-      });
-    } else if (Array.isArray(resources)) {
-      // 🆕 處理直接的檔名陣列
-      resources.forEach(filename => {
-        if (filename && typeof filename === 'string' && 
-            /^[a-zA-Z0-9\-_.]+\.(?:png|jpg|jpeg|gif|bmp|webp)$/i.test(filename)) {
-          imageFilenames.add(filename);
-          console.log(`✅ metadata 直接檔名: "${filename}"`);
-        }
-      });
-    }
-  });
-  
-  console.log(`🎯 metadata 最終提取圖片:`, Array.from(imageFilenames));
-  
-  return imageFilenames;
+  console.log('⚠️ extractImagesFromMetadata 功能已停用（避免顯示無關圖片）');
+  return new Set();
 };
 
 /**
