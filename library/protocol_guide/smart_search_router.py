@@ -93,10 +93,12 @@ class SmartSearchRouter:
         # 決定搜尋策略
         search_mode = self.route_search_strategy(user_query)
         
+        result = None
+        
         try:
             if search_mode == 'mode_a':
                 # 模式 A：關鍵字優先全文搜尋
-                return self.mode_a_handler.handle_keyword_triggered_search(
+                result = self.mode_a_handler.handle_keyword_triggered_search(
                     user_query=user_query,
                     conversation_id=conversation_id,
                     user_id=user_id,
@@ -104,12 +106,22 @@ class SmartSearchRouter:
                 )
             else:
                 # 模式 B：標準兩階段搜尋
-                return self.mode_b_handler.handle_two_tier_search(
+                result = self.mode_b_handler.handle_two_tier_search(
                     user_query=user_query,
                     conversation_id=conversation_id,
                     user_id=user_id,
                     **kwargs
                 )
+            
+            # 🆕 記錄對話到資料庫（支援 Analytics）
+            self._record_conversation(
+                user_query=user_query,
+                conversation_id=conversation_id,
+                result=result,
+                kwargs=kwargs
+            )
+            
+            return result
         
         except Exception as e:
             logger.error(f"❌ 智能搜尋路由失敗: {str(e)}", exc_info=True)
@@ -121,3 +133,83 @@ class SmartSearchRouter:
                 'is_fallback': True,
                 'error': str(e),
             }
+    
+    def _record_conversation(
+        self,
+        user_query: str,
+        conversation_id: str,
+        result: Dict[str, Any],
+        kwargs: Dict[str, Any]
+    ) -> None:
+        """
+        記錄對話到資料庫
+        
+        Args:
+            user_query: 用戶查詢
+            conversation_id: 對話 ID
+            result: 搜尋結果
+            kwargs: 額外參數（包含 request）
+        """
+        try:
+            from library.conversation_management import (
+                CONVERSATION_MANAGEMENT_AVAILABLE, 
+                record_complete_exchange
+            )
+            
+            if not CONVERSATION_MANAGEMENT_AVAILABLE:
+                logger.warning("Conversation Management Library 不可用，跳過對話記錄")
+                return
+            
+            request = kwargs.get('request')
+            if not request:
+                logger.warning("未提供 request 物件，無法記錄對話")
+                return
+            
+            # 只記錄成功的搜尋結果（排除錯誤模式）
+            if result.get('mode') == 'error':
+                logger.info("搜尋失敗，跳過對話記錄")
+                return
+            
+            # 先確保會話存在並設置正確的 chat_type
+            from library.conversation_management import get_or_create_session
+            
+            session_result = get_or_create_session(
+                request=request,
+                session_id=result.get('conversation_id', conversation_id),
+                chat_type='protocol_assistant_chat'  # ⚠️ 重要！指定正確的類型
+            )
+            
+            if not session_result.get('success'):
+                logger.warning(f"⚠️ 無法建立會話: {session_result.get('error')}")
+                return
+            
+            # 記錄完整的對話交互
+            conversation_result = record_complete_exchange(
+                request=request,
+                session_id=result.get('conversation_id', conversation_id),
+                user_message=user_query,
+                assistant_message=result.get('answer', ''),
+                response_time=result.get('response_time', 0),
+                token_usage=result.get('tokens', {}),
+                metadata={
+                    'dify_message_id': result.get('message_id', ''),
+                    'mode': result.get('mode'),
+                    'stage': result.get('stage'),
+                    'is_fallback': result.get('is_fallback', False),
+                    'fallback_reason': result.get('fallback_reason', ''),
+                    'dify_metadata': result.get('metadata', {}),
+                    'workspace': 'Protocol_Guide',
+                    'app_name': 'Protocol Assistant'
+                }
+            )
+            
+            if conversation_result.get('success'):
+                logger.info(f"✅ Protocol 對話記錄成功: session={conversation_id}, mode={result.get('mode')}")
+            else:
+                logger.warning(f"⚠️ Protocol 對話記錄失敗: {conversation_result.get('error', 'Unknown error')}")
+                
+        except ImportError as import_error:
+            logger.warning(f"Conversation Management Library 導入失敗: {str(import_error)}")
+        except Exception as conv_error:
+            # 對話記錄失敗不應影響主要功能
+            logger.error(f"❌ Protocol 對話記錄錯誤: {str(conv_error)}", exc_info=True)
