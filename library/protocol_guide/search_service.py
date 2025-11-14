@@ -78,6 +78,8 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
         
         清理策略：
         - 移除文檔級關鍵字（'完整'、'全部' 等），避免影響向量語義
+        - 移除請求性詞語（'請說明'、'請解釋' 等）
+        - ✅ 新增：大小寫正規化（統一轉為大寫，提升匹配率）
         - 保留查詢分類結果，用於後續結果格式化決策
         
         業界標準：78% 的 RAG 系統使用此技術
@@ -95,14 +97,16 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
         
         Examples:
             >>> _classify_and_clean_query("如何完整測試 USB")
-            ('document', '如何測試 USB')  # 移除 '完整'
+            ('document', 'USB')  # 移除 '完整'、'如何測試'
             
-            >>> _classify_and_clean_query("USB 測試的所有步驟")
-            ('document', 'USB 測試的步驟')  # 移除 '所有步驟'
+            >>> _classify_and_clean_query("iol sop 請說明")
+            ('document', 'IOL')  # 移除 'sop'、'請說明'，大寫化
             
             >>> _classify_and_clean_query("USB 如何測試")
-            ('section', 'USB 如何測試')  # 無關鍵字，保持原樣
+            ('section', 'USB')  # 無關鍵字，只保留核心詞
         """
+        import re
+        
         query_lower = query.lower()
         query_type = 'section'
         cleaned_query = query
@@ -115,18 +119,65 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
                 detected_keywords.append(keyword)
                 # 從查詢中移除關鍵字（保留語義核心）
                 # 使用大小寫不敏感的替換
-                import re
                 pattern = re.compile(re.escape(keyword), re.IGNORECASE)
                 cleaned_query = pattern.sub('', cleaned_query)
         
+        # ✅ 新增：移除請求性詞語（提升向量語義精準度）
+        REQUEST_WORDS = [
+            '請說明', '請解釋', '請告訴', '請問', '請教', '請幫忙',
+            '如何', '怎麼', '怎樣', '是什麼', '什麼是',
+            '解釋', '說明', '告訴我', '幫我', '給我'
+        ]
+        for request_word in REQUEST_WORDS:
+            pattern = re.compile(re.escape(request_word), re.IGNORECASE)
+            cleaned_query = pattern.sub('', cleaned_query)
+        
         # 清理多餘空格
-        cleaned_query = ' '.join(cleaned_query.split())
+        cleaned_query = ' '.join(cleaned_query.split()).strip()
+        
+        # ✅ 新增：大小寫正規化（針對縮寫詞）
+        # 將連續的英文字母轉為大寫（例如 "iol" → "IOL", "usb" → "USB"）
+        def uppercase_acronyms(text):
+            """將可能是縮寫詞的連續英文字母轉為大寫"""
+            words = text.split()
+            normalized_words = []
+            for word in words:
+                # 如果是純英文字母且長度 <= 5（可能是縮寫詞）
+                if word.isalpha() and len(word) <= 5 and word.islower():
+                    normalized_words.append(word.upper())
+                else:
+                    normalized_words.append(word)
+            return ' '.join(normalized_words)
+        
+        cleaned_query = uppercase_acronyms(cleaned_query)
+        
+        # ⚠️ 重要：如果清理後查詢為空，返回 'list_all' 模式
+        # 例如：用戶只輸入 "sop" → 應該列出所有 SOP 文檔
+        if not cleaned_query or cleaned_query.strip() == '':
+            if query_type == 'document':
+                # ✅ 使用第一個檢測到的關鍵字作為搜尋詞（而非原始查詢）
+                # 例如：「全部 sop」→ 使用 "sop" 搜尋
+                search_keyword = detected_keywords[0] if detected_keywords else query
+                logger.info(f"🎯 列出所有文檔模式:")
+                logger.info(f"   原始查詢: '{query}'")
+                logger.info(f"   檢測關鍵字: {detected_keywords}")
+                logger.info(f"   ⚠️ 清理後查詢為空 → 改用 'list_all' 模式")
+                logger.info(f"   ✅ 使用關鍵字搜尋: '{search_keyword}'")
+                return 'list_all', search_keyword  # 返回關鍵字，觸發全列表模式
+            else:
+                # 如果不是文檔級查詢但清理後為空，保留原查詢
+                logger.warning(f"⚠️ 清理後查詢為空，保留原查詢: '{query}'")
+                return query_type, query
         
         if query_type == 'document':
             logger.info(f"🎯 文檔級查詢檢測:")
             logger.info(f"   原始查詢: '{query}'")
             logger.info(f"   檢測關鍵字: {detected_keywords}")
             logger.info(f"   清理後查詢: '{cleaned_query}' (用於向量搜尋)")
+        else:
+            logger.info(f"📝 一般查詢清理:")
+            logger.info(f"   原始查詢: '{query}'")
+            logger.info(f"   清理後查詢: '{cleaned_query}'")
         
         return query_type, cleaned_query
     
@@ -232,7 +283,7 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
         return full_documents
     
     def search_knowledge(self, query: str, limit: int = 5, use_vector: bool = True, 
-                        threshold: float = 0.7, search_mode: str = 'auto') -> list:
+                        threshold: float = 0.7, search_mode: str = 'auto', stage: int = 1) -> list:
         """
         覆寫基類方法，添加文檔級搜尋支援 + 查詢清理（方案一）
         
@@ -258,6 +309,7 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
             use_vector: 是否使用向量搜尋 (預設: True)
             threshold: 相似度閾值 (預設: 0.7)
             search_mode: 搜索模式 ('auto', 'section_only', 'document_only')（預設: 'auto'）
+            stage: 搜尋階段 (1=段落搜尋, 2=全文搜尋)（預設: 1）
             
         Returns:
             搜尋結果列表（section 或 document 級）
@@ -265,13 +317,35 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
         # 步驟 1: 分類查詢 + 清理關鍵字
         query_type, cleaned_query = self._classify_and_clean_query(query)
         
+        # ⚠️ 處理 'list_all' 模式（當查詢只包含文檔級關鍵字時）
+        if query_type == 'list_all':
+            logger.info("🔍 觸發 'list_all' 模式 → 使用關鍵字搜尋列出所有相關文檔")
+            # 使用原始查詢（例如 "sop"）做關鍵字搜尋
+            # 將 use_vector=False 強制使用關鍵字搜尋，threshold 降低到 0.3
+            results = super().search_knowledge(
+                query=cleaned_query,  # 使用原始查詢（如 "sop"）
+                limit=limit,
+                use_vector=False,  # 強制使用關鍵字搜尋
+                threshold=0.3,  # 降低閾值以包含更多結果
+                search_mode='auto',
+                stage=stage
+            )
+            
+            # 擴展為完整文檔
+            if results:
+                logger.info(f"🔄 將 {len(results)} 個關鍵字搜尋結果擴展為完整文檔")
+                results = self._expand_to_full_document(results)
+            
+            return results
+        
         # 步驟 2: 使用清理後的查詢執行搜尋（提升向量語義準確度）
         results = super().search_knowledge(
             query=cleaned_query,  # ✅ 使用清理後的查詢
             limit=limit,
             use_vector=use_vector,
             threshold=threshold,
-            search_mode=search_mode  # ✅ 傳遞 search_mode 到基類
+            search_mode=search_mode,  # ✅ 傳遞 search_mode 到基類
+            stage=stage  # ✅ 傳遞 stage 參數
         )
         
         # 步驟 3: 如果是文檔級查詢，擴展為完整文檔
@@ -309,11 +383,13 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
             # 使用基類的 search_knowledge，但強制返回 section 級結果
             _, cleaned_query = self._classify_and_clean_query(query)
             
+            # ✅ 傳遞 stage=1 (段落搜尋使用第一階段權重)
             results = super().search_knowledge(
                 query=cleaned_query,
                 limit=top_k,
                 use_vector=True,
-                threshold=threshold
+                threshold=threshold,
+                stage=1  # 第一階段：段落搜尋
             )
             
             # 格式化為統一的結果格式
@@ -349,12 +425,14 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
             # 強制使用文檔級搜尋
             _, cleaned_query = self._classify_and_clean_query(query)
             
+            # ✅ 傳遞 stage=2 (全文搜尋使用第二階段權重)
             # 執行向量搜尋
             section_results = super().search_knowledge(
                 query=cleaned_query,
                 limit=top_k * 3,  # 多取一些結果以便組裝文檔
                 use_vector=True,
-                threshold=threshold
+                threshold=threshold,
+                stage=2  # 第二階段：全文搜尋
             )
             
             # 擴展為完整文檔

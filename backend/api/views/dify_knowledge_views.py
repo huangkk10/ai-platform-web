@@ -317,12 +317,14 @@ def dify_knowledge_search(request):
             
             # 🔍 檢測特殊標記 __FULL_SEARCH__（二階段搜尋 Stage 2 標記）
             search_mode = 'auto'  # 預設為 'auto'（段落搜尋）
+            stage = 1  # ✅ 預設為 Stage 1（段落搜尋）
             
             if '__FULL_SEARCH__' in query:
                 # 檢測到 Stage 2 標記
                 search_mode = 'document_only'  # 切換為全文搜尋
+                stage = 2  # ✅ 設置為 Stage 2（全文搜尋）
                 query = query.replace('__FULL_SEARCH__', '').strip()  # 清理標記
-                logger.info(f"🎯 檢測到 Stage 2 標記，切換到全文搜尋模式")
+                logger.info(f"🎯 檢測到 Stage 2 標記，切換到全文搜尋模式 (stage={stage})")
                 logger.info(f"🧹 清理後查詢: '{query}'")
             
             # ✅ 也支援從 Dify inputs 接收 search_mode（如果 Dify 工作室有配置）
@@ -330,8 +332,11 @@ def dify_knowledge_search(request):
             if 'search_mode' in inputs and '__FULL_SEARCH__' not in data.get('query', ''):
                 # 如果 inputs 中有 search_mode，且不是來自標記，則使用 inputs 的值
                 search_mode = inputs.get('search_mode', search_mode)
+                # ✅ 根據 search_mode 設置 stage
+                if search_mode in ['document_only', 'document_preferred']:
+                    stage = 2
             
-            # 🎯 三層優先順序 Threshold 管理
+            # 🎯 三層優先順序 Threshold 管理（支援兩階段）
             # 優先級 1：Dify Studio 設定（用戶當下設定）
             dify_threshold = retrieval_setting.get('score_threshold')
             
@@ -341,7 +346,7 @@ def dify_knowledge_search(request):
                 score_threshold = dify_threshold
                 logger.info(
                     f"🎯 [優先級 1] 使用 Dify Studio threshold={score_threshold} | "
-                    f"knowledge_id='{knowledge_id}' | query='{query}' | search_mode='{search_mode}'"
+                    f"knowledge_id='{knowledge_id}' | query='{query}' | search_mode='{search_mode}' | stage={stage}"
                 )
             else:
                 # Dify 沒有設定 threshold，使用 ThresholdManager（優先級 2: Database，優先級 3: Default）
@@ -360,14 +365,17 @@ def dify_knowledge_search(request):
                     assistant_type = assistant_type_mapping.get(knowledge_id, 'protocol_assistant')
                     
                     manager = get_threshold_manager()
+                    # ✅ 傳遞 stage 參數給 ThresholdManager
                     score_threshold = manager.get_threshold(
                         assistant_type=assistant_type,
-                        dify_threshold=None  # 傳入 None，讓 Manager 使用 Database 或 Default
+                        dify_threshold=None,  # 傳入 None，讓 Manager 使用 Database 或 Default
+                        stage=stage  # ✅ 根據 stage 選擇對應的 threshold
                     )
                     
                     logger.info(
                         f"📊 [優先級 2/3] Dify 未設定，使用 ThresholdManager threshold={score_threshold} | "
-                        f"assistant_type='{assistant_type}' | knowledge_id='{knowledge_id}' | query='{query}' | search_mode='{search_mode}'"
+                        f"assistant_type='{assistant_type}' | knowledge_id='{knowledge_id}' | query='{query}' | "
+                        f"search_mode='{search_mode}' | stage={stage}"
                     )
                 except Exception as e:
                     # 如果 ThresholdManager 失敗，使用硬編碼預設值
@@ -376,16 +384,17 @@ def dify_knowledge_search(request):
                         f"⚠️ ThresholdManager 失敗，使用硬編碼預設值 0.7: {e}"
                     )
             
-            # 執行搜索（threshold 和 search_mode 會一路傳遞到 SQL 查詢）
+            # 執行搜索（threshold、search_mode 和 stage 會一路傳遞到 SQL 查詢）
             result = handler.search(
                 knowledge_id=knowledge_id,
                 query=query,
                 top_k=retrieval_setting.get('top_k', 5),
                 score_threshold=score_threshold,  # ✅ 傳遞 Dify 的 threshold
-                search_mode=search_mode  # ✅ 傳遞 search_mode
+                search_mode=search_mode,  # ✅ 傳遞 search_mode
+                stage=stage  # ✅ 傳遞 stage 參數
             )
             
-            logger.info(f"✅ 知識庫搜索成功: {knowledge_id}, query='{query}', mode='{search_mode}', results={len(result.get('records', []))}")
+            logger.info(f"✅ 知識庫搜索成功: {knowledge_id}, query='{query}', mode='{search_mode}', stage={stage}, results={len(result.get('records', []))}")
             return Response(result)
         else:
             # 備用實現

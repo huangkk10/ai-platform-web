@@ -16,6 +16,7 @@ router.register(r'protocol-guides', views.ProtocolGuideViewSet)
 router.register(r'protocol-assistant', views.ProtocolAssistantViewSet, basename='protocol-assistant')
 router.register(r'content-images', views.ContentImageViewSet)
 router.register(r'threshold-settings', views.SearchThresholdViewSet)
+router.register(r'search-threshold-settings', views.SearchThresholdSettingViewSet, basename='search-threshold-setting')
 
 urlpatterns = [
     path('', include(router.urls)),

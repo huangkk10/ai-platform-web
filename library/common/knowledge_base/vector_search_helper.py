@@ -36,19 +36,22 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def _get_weights_for_assistant(source_table: str) -> tuple:
+def _get_weights_for_assistant(source_table: str, stage: int = 1) -> tuple:
     """
-    根據 source_table 獲取權重配置
+    根據 source_table 獲取權重配置（支援兩階段）
     
     Args:
         source_table: 向量表中的 source_table 值 (如 'protocol_guide')
+        stage: 搜尋階段 (1=段落, 2=全文)
     
     Returns:
         (title_weight, content_weight) 元組，值為 0.0-1.0 的浮點數
     
     Example:
-        >>> _get_weights_for_assistant('protocol_guide')
-        (0.0, 1.0)  # 如果設定為 0% 標題 / 100% 內容
+        >>> _get_weights_for_assistant('protocol_guide', stage=1)
+        (0.6, 0.4)  # 第一階段 60% 標題 / 40% 內容
+        >>> _get_weights_for_assistant('protocol_guide', stage=2)
+        (0.5, 0.5)  # 第二階段 50% 標題 / 50% 內容
     """
     from api.models import SearchThresholdSetting
     
@@ -66,13 +69,24 @@ def _get_weights_for_assistant(source_table: str) -> tuple:
     
     try:
         setting = SearchThresholdSetting.objects.get(assistant_type=assistant_type)
-        title_weight = setting.title_weight / 100.0  # 轉換為小數 (60 -> 0.6)
-        content_weight = setting.content_weight / 100.0  # (40 -> 0.4)
         
-        logger.info(
-            f"載入權重配置: {assistant_type} -> "
-            f"標題 {setting.title_weight}% / 內容 {setting.content_weight}%"
-        )
+        # 根據配置策略選擇權重
+        if setting.use_unified_weights or stage == 1:
+            # 使用第一階段配置
+            title_weight = setting.stage1_title_weight / 100.0
+            content_weight = setting.stage1_content_weight / 100.0
+            logger.info(
+                f"載入第一階段權重配置: {assistant_type} -> "
+                f"標題 {setting.stage1_title_weight}% / 內容 {setting.stage1_content_weight}%"
+            )
+        else:
+            # 使用第二階段配置
+            title_weight = setting.stage2_title_weight / 100.0
+            content_weight = setting.stage2_content_weight / 100.0
+            logger.info(
+                f"載入第二階段權重配置: {assistant_type} -> "
+                f"標題 {setting.stage2_title_weight}% / 內容 {setting.stage2_content_weight}%"
+            )
         
         return title_weight, content_weight
         
@@ -88,13 +102,14 @@ def search_with_vectors_generic(
     query: str,
     model_class: Type[models.Model],
     source_table: str,
-    limit: int = 5,
+    limit: int = 10,
     threshold: float = 0.0,
     use_1024: bool = True,
-    content_formatter: Optional[Callable] = None
+    content_formatter: Optional[Callable] = None,
+    stage: int = 1
 ) -> List[Dict[str, Any]]:
     """
-    通用向量搜尋函數 - 所有知識庫共用
+    通用向量搜尋函數 - 所有知識庫共用（支援兩階段）
     
     Args:
         query: 查詢文本
@@ -104,6 +119,7 @@ def search_with_vectors_generic(
         threshold: 相似度閾值 (建議設為 0.0，由上層過濾)
         use_1024: 是否使用 1024 維向量表
         content_formatter: 可選的內容格式化函數 func(item) -> str
+        stage: 搜尋階段 (1=段落, 2=全文)
     
     Returns:
         格式化的搜尋結果列表:
@@ -122,18 +138,26 @@ def search_with_vectors_generic(
     
     Example:
         >>> from api.models import ProtocolGuide
+        >>> # 第一階段段落搜尋
         >>> results = search_with_vectors_generic(
         ...     query="ULINK 連接",
         ...     model_class=ProtocolGuide,
         ...     source_table='protocol_guide',
-        ...     limit=5
+        ...     limit=5,
+        ...     stage=1
         ... )
-        >>> len(results)
-        3
+        >>> # 第二階段全文搜尋
+        >>> results = search_with_vectors_generic(
+        ...     query="ULINK 連接",
+        ...     model_class=ProtocolGuide,
+        ...     source_table='protocol_guide',
+        ...     limit=5,
+        ...     stage=2
+        ... )
     """
     try:
-        # 步驟 1: 讀取權重配置
-        title_weight, content_weight = _get_weights_for_assistant(source_table)
+        # 步驟 1: 讀取權重配置（根據 stage）
+        title_weight, content_weight = _get_weights_for_assistant(source_table, stage=stage)
         
         # 步驟 2: 向量搜尋（使用多向量方法）
         from api.services.embedding_service import get_embedding_service
@@ -152,12 +176,12 @@ def search_with_vectors_generic(
         )
         
         if not vector_results:
-            logger.info(f"向量搜尋無結果: {source_table}, query='{query}'")
+            logger.info(f"向量搜尋無結果: {source_table}, query='{query}', stage={stage}")
             return []
         
         logger.info(
             f"✅ 多向量搜尋找到 {len(vector_results)} 條結果: {source_table} "
-            f"(權重: {title_weight*100:.0f}%/{content_weight*100:.0f}%)"
+            f"(Stage {stage}, 權重: {title_weight*100:.0f}%/{content_weight*100:.0f}%)"
         )
         
         # 步驟 3: 批量查詢 DB（避免 N+1 問題）
@@ -177,7 +201,7 @@ def search_with_vectors_generic(
         return formatted_results
         
     except Exception as e:
-        logger.error(f"通用向量搜尋失敗 ({source_table}): {str(e)}", exc_info=True)
+        logger.error(f"通用向量搜尋失敗 ({source_table}, stage={stage}): {str(e)}", exc_info=True)
         return []
 
 

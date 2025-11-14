@@ -40,6 +40,9 @@ from .content_viewsets import ContentImageViewSet
 # Threshold 設定管理
 from .threshold_viewsets import SearchThresholdViewSet
 
+# System 設定管理
+from .system_viewsets import SearchThresholdSettingViewSet
+
 # 系統監控
 from .monitoring_views import (
     system_logs,
@@ -68,6 +71,8 @@ __all__ = [
     'ContentImageViewSet',
     # Threshold
     'SearchThresholdViewSet',
+    # System
+    'SearchThresholdSettingViewSet',
     # Monitoring
     'system_logs',
     'simple_system_status',

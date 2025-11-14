@@ -363,8 +363,22 @@ class SearchThresholdSettingSerializer(serializers.ModelSerializer):
             'assistant_type',
             'assistant_type_display',
             'master_threshold',
-            'title_weight',  # 新增：標題權重
-            'content_weight',  # 新增：內容權重
+            'title_weight',  # 舊欄位：標題權重（向後相容）
+            'content_weight',  # 舊欄位：內容權重（向後相容）
+            
+            # 🆕 第一階段配置
+            'stage1_threshold',
+            'stage1_title_weight',
+            'stage1_content_weight',
+            
+            # 🆕 第二階段配置
+            'stage2_threshold',
+            'stage2_title_weight',
+            'stage2_content_weight',
+            
+            # 🆕 配置策略
+            'use_unified_weights',
+            
             'calculated_thresholds',  # 計算後的所有 threshold
             'description',
             'is_active',
@@ -405,8 +419,47 @@ class SearchThresholdSettingSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("內容權重必須在 0 到 100 之間")
         return value
     
+    # === 🆕 第一階段驗證 ===
+    def validate_stage1_threshold(self, value):
+        """驗證第一階段 threshold 範圍"""
+        if value < 0 or value > 1:
+            raise serializers.ValidationError("第一階段 Threshold 必須在 0.00 到 1.00 之間")
+        return value
+    
+    def validate_stage1_title_weight(self, value):
+        """驗證第一階段標題權重範圍"""
+        if value < 0 or value > 100:
+            raise serializers.ValidationError("第一階段標題權重必須在 0 到 100 之間")
+        return value
+    
+    def validate_stage1_content_weight(self, value):
+        """驗證第一階段內容權重範圍"""
+        if value < 0 or value > 100:
+            raise serializers.ValidationError("第一階段內容權重必須在 0 到 100 之間")
+        return value
+    
+    # === 🆕 第二階段驗證 ===
+    def validate_stage2_threshold(self, value):
+        """驗證第二階段 threshold 範圍"""
+        if value < 0 or value > 1:
+            raise serializers.ValidationError("第二階段 Threshold 必須在 0.00 到 1.00 之間")
+        return value
+    
+    def validate_stage2_title_weight(self, value):
+        """驗證第二階段標題權重範圍"""
+        if value < 0 or value > 100:
+            raise serializers.ValidationError("第二階段標題權重必須在 0 到 100 之間")
+        return value
+    
+    def validate_stage2_content_weight(self, value):
+        """驗證第二階段內容權重範圍"""
+        if value < 0 or value > 100:
+            raise serializers.ValidationError("第二階段內容權重必須在 0 到 100 之間")
+        return value
+    
     def validate(self, attrs):
-        """驗證權重總和"""
+        """驗證權重總和（支援兩階段配置）"""
+        # === 舊欄位驗證（向後相容） ===
         title_weight = attrs.get('title_weight', getattr(self.instance, 'title_weight', 60) if self.instance else 60)
         content_weight = attrs.get('content_weight', getattr(self.instance, 'content_weight', 40) if self.instance else 40)
         
@@ -414,6 +467,33 @@ class SearchThresholdSettingSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({
                 'non_field_errors': ['標題權重與內容權重的總和必須為 100%']
             })
+        
+        # === 🆕 第一階段權重驗證 ===
+        stage1_title = attrs.get('stage1_title_weight', 
+                                 getattr(self.instance, 'stage1_title_weight', 60) if self.instance else 60)
+        stage1_content = attrs.get('stage1_content_weight',
+                                   getattr(self.instance, 'stage1_content_weight', 40) if self.instance else 40)
+        
+        if stage1_title + stage1_content != 100:
+            raise serializers.ValidationError({
+                'non_field_errors': ['第一階段：標題權重與內容權重的總和必須為 100%']
+            })
+        
+        # === 🆕 第二階段權重驗證 ===
+        # 只有在不使用統一配置時才驗證第二階段
+        use_unified = attrs.get('use_unified_weights',
+                               getattr(self.instance, 'use_unified_weights', True) if self.instance else True)
+        
+        if not use_unified:
+            stage2_title = attrs.get('stage2_title_weight',
+                                    getattr(self.instance, 'stage2_title_weight', 50) if self.instance else 50)
+            stage2_content = attrs.get('stage2_content_weight',
+                                      getattr(self.instance, 'stage2_content_weight', 50) if self.instance else 50)
+            
+            if stage2_title + stage2_content != 100:
+                raise serializers.ValidationError({
+                    'non_field_errors': ['第二階段：標題權重與內容權重的總和必須為 100%']
+                })
         
         return attrs
     

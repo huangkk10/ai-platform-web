@@ -18,12 +18,16 @@ class SectionSearchService:
     def __init__(self):
         self.embedding_service = get_embedding_service('ultra_high')  # 1024 維
     
-    def _get_weights_for_assistant(self, source_table: str) -> tuple:
+    def _get_weights_for_assistant(self, source_table: str, stage: int = 1) -> tuple:
         """
-        根據 source_table 獲取對應的權重配置
+        根據 source_table 獲取對應的權重配置（支援兩階段）
+        
+        Args:
+            source_table: 來源表名 ('protocol_guide', 'rvt_guide')
+            stage: 搜尋階段 (1=段落搜尋, 2=全文搜尋)
         
         Returns:
-            tuple: (title_weight, content_weight) 範圍 0.0-1.0
+            tuple: (title_weight, content_weight, threshold) 範圍 0.0-1.0
         """
         from api.models import SearchThresholdSetting
         
@@ -36,17 +40,41 @@ class SectionSearchService:
         assistant_type = table_to_type.get(source_table)
         if not assistant_type:
             logger.warning(f"未知的 source_table: {source_table}，使用預設權重 60/40")
-            return (0.6, 0.4)
+            return (0.6, 0.4, 0.7)
         
         try:
             setting = SearchThresholdSetting.objects.get(assistant_type=assistant_type)
-            title_weight = setting.title_weight / 100.0
-            content_weight = setting.content_weight / 100.0
-            logger.info(f"📊 載入段落搜尋權重配置: {assistant_type} -> 標題 {setting.title_weight}% / 內容 {setting.content_weight}%")
-            return (title_weight, content_weight)
+            
+            # 根據配置策略選擇權重
+            if setting.use_unified_weights or stage == 1:
+                # 使用第一階段配置
+                title_weight = setting.stage1_title_weight / 100.0
+                content_weight = setting.stage1_content_weight / 100.0
+                threshold = float(setting.stage1_threshold)
+                logger.info(
+                    f"📊 載入第一階段搜尋權重配置: {assistant_type} -> "
+                    f"標題 {setting.stage1_title_weight}% / 內容 {setting.stage1_content_weight}% / "
+                    f"threshold {threshold}"
+                )
+            else:
+                # 使用第二階段配置
+                title_weight = setting.stage2_title_weight / 100.0
+                content_weight = setting.stage2_content_weight / 100.0
+                threshold = float(setting.stage2_threshold)
+                logger.info(
+                    f"📊 載入第二階段搜尋權重配置: {assistant_type} -> "
+                    f"標題 {setting.stage2_title_weight}% / 內容 {setting.stage2_content_weight}% / "
+                    f"threshold {threshold}"
+                )
+            
+            return (title_weight, content_weight, threshold)
+            
         except SearchThresholdSetting.DoesNotExist:
-            logger.warning(f"找不到 {assistant_type} 的權重配置，使用預設 60/40")
-            return (0.6, 0.4)
+            logger.warning(f"找不到 {assistant_type} 的權重配置，使用預設 60/40/0.7")
+            return (0.6, 0.4, 0.7)
+        except Exception as e:
+            logger.error(f"讀取權重配置失敗: {str(e)}，使用預設值")
+            return (0.6, 0.4, 0.7)
     
     def search_sections(
         self,
@@ -55,10 +83,11 @@ class SectionSearchService:
         min_level: Optional[int] = None,
         max_level: Optional[int] = None,
         limit: int = 5,
-        threshold: float = 0.7
+        threshold: Optional[float] = None,  # ⚠️ 改為可選
+        stage: int = 1  # 🆕 新增階段參數
     ) -> List[Dict[str, Any]]:
         """
-        搜尋段落
+        搜尋段落（支援兩階段配置）
         
         Args:
             query: 查詢文本
@@ -66,7 +95,8 @@ class SectionSearchService:
             min_level: 最小標題層級 (1-6)
             max_level: 最大標題層級 (1-6)
             limit: 返回結果數量
-            threshold: 相似度閾值 (0-1)
+            threshold: 外部傳入的 threshold（優先使用），如為 None 則使用資料庫配置
+            stage: 搜尋階段 (1=段落, 2=全文)
         
         Returns:
             段落列表 [{
@@ -83,8 +113,19 @@ class SectionSearchService:
             }]
         """
         try:
-            # ✅ 獲取權重配置
-            title_weight, content_weight = self._get_weights_for_assistant(source_table)
+            # 🆕 獲取配置（包含 threshold）
+            title_weight, content_weight, db_threshold = self._get_weights_for_assistant(
+                source_table, stage
+            )
+            
+            # Threshold 優先順序：外部傳入 > 資料庫配置
+            final_threshold = threshold if threshold is not None else db_threshold
+            
+            logger.info(
+                f"🔍 段落搜尋配置 (Stage {stage}): "
+                f"threshold={final_threshold}, "
+                f"weights={int(title_weight*100)}%/{int(content_weight*100)}%"
+            )
             
             # 生成查詢向量
             query_embedding = self.embedding_service.generate_embedding(query)
@@ -169,10 +210,10 @@ class SectionSearchService:
             # 添加相似度閾值（對於多向量，閾值應用於加權後的分數）
             if multi_vector_count > 0:
                 sql += f" AND (({title_weight} * (1 - (dse.title_embedding <=> %s::vector))) + ({content_weight} * (1 - (dse.content_embedding <=> %s::vector)))) >= %s"
-                params.extend([embedding_str, embedding_str, threshold])
+                params.extend([embedding_str, embedding_str, final_threshold])
             else:
                 sql += " AND (1 - (embedding <=> %s::vector)) >= %s"
-                params.extend([embedding_str, threshold])
+                params.extend([embedding_str, final_threshold])
             
             # 排序和限制
             sql += " ORDER BY similarity DESC LIMIT %s"

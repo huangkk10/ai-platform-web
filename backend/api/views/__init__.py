@@ -177,6 +177,9 @@ from .viewsets import (
     # Threshold ViewSets (threshold_viewsets.py)
     SearchThresholdViewSet,
     
+    # System ViewSets (system_viewsets.py)
+    SearchThresholdSettingViewSet,
+    
     # Monitoring Views (monitoring_views.py)
     system_logs,
     simple_system_status,

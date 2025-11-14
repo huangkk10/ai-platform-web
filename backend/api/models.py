@@ -1152,17 +1152,66 @@ class SearchThresholdSetting(models.Model):
         help_text="段落向量搜尋使用的 threshold (0.00 ~ 1.00)。其他搜尋會自動計算：文檔=0.85倍、關鍵字=0.5倍"
     )
     
-    # 多向量權重設定（新增）
+    # 多向量權重設定（保留以向後相容）
     title_weight = models.IntegerField(
         default=60,
-        verbose_name="標題權重",
-        help_text="標題向量的權重百分比（0-100），用於多向量搜尋"
+        verbose_name="標題權重（舊）",
+        help_text="標題向量的權重百分比（0-100），保留以向後相容。建議使用 stage1/stage2 配置"
     )
     
     content_weight = models.IntegerField(
         default=40,
-        verbose_name="內容權重",
-        help_text="內容向量的權重百分比（0-100），用於多向量搜尋"
+        verbose_name="內容權重（舊）",
+        help_text="內容向量的權重百分比（0-100），保留以向後相容。建議使用 stage1/stage2 配置"
+    )
+    
+    # === 🆕 第一階段配置（段落向量搜尋） ===
+    stage1_title_weight = models.IntegerField(
+        default=60,
+        verbose_name="第一階段標題權重",
+        help_text="段落向量搜尋時的標題權重（0-100）"
+    )
+    
+    stage1_content_weight = models.IntegerField(
+        default=40,
+        verbose_name="第一階段內容權重",
+        help_text="段落向量搜尋時的內容權重（0-100）"
+    )
+    
+    stage1_threshold = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        default=0.70,
+        verbose_name="第一階段 Threshold",
+        help_text="段落向量搜尋的相似度閾值（0.00-1.00）"
+    )
+    
+    # === 🆕 第二階段配置（全文向量搜尋） ===
+    stage2_title_weight = models.IntegerField(
+        default=50,
+        verbose_name="第二階段標題權重",
+        help_text="全文向量搜尋時的標題權重（0-100）"
+    )
+    
+    stage2_content_weight = models.IntegerField(
+        default=50,
+        verbose_name="第二階段內容權重",
+        help_text="全文向量搜尋時的內容權重（0-100）"
+    )
+    
+    stage2_threshold = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        default=0.60,
+        verbose_name="第二階段 Threshold",
+        help_text="全文向量搜尋的相似度閾值（0.00-1.00，建議比第一階段低）"
+    )
+    
+    # === 🆕 配置策略 ===
+    use_unified_weights = models.BooleanField(
+        default=True,
+        verbose_name="使用統一權重",
+        help_text="若啟用，第一、二階段使用相同權重（向後相容模式）"
     )
     
     description = models.TextField(
@@ -1221,7 +1270,19 @@ class SearchThresholdSetting(models.Model):
         elif self.master_threshold > 1:
             self.master_threshold = 1
         
-        # 確保權重在有效範圍內
+        # 確保 stage1 threshold 在有效範圍內
+        if self.stage1_threshold < 0:
+            self.stage1_threshold = 0
+        elif self.stage1_threshold > 1:
+            self.stage1_threshold = 1
+        
+        # 確保 stage2 threshold 在有效範圍內
+        if self.stage2_threshold < 0:
+            self.stage2_threshold = 0
+        elif self.stage2_threshold > 1:
+            self.stage2_threshold = 1
+        
+        # 確保權重在有效範圍內（舊欄位，向後相容）
         if self.title_weight < 0:
             self.title_weight = 0
         elif self.title_weight > 100:
@@ -1232,9 +1293,39 @@ class SearchThresholdSetting(models.Model):
         elif self.content_weight > 100:
             self.content_weight = 100
         
-        # 確保權重總和為 100
+        # 確保權重總和為 100（舊欄位）
         if self.title_weight + self.content_weight != 100:
             # 如果總和不是 100，自動調整 content_weight
             self.content_weight = 100 - self.title_weight
+        
+        # === 🆕 第一階段權重驗證 ===
+        if self.stage1_title_weight < 0:
+            self.stage1_title_weight = 0
+        elif self.stage1_title_weight > 100:
+            self.stage1_title_weight = 100
+        
+        if self.stage1_content_weight < 0:
+            self.stage1_content_weight = 0
+        elif self.stage1_content_weight > 100:
+            self.stage1_content_weight = 100
+        
+        # 確保第一階段權重總和為 100
+        if self.stage1_title_weight + self.stage1_content_weight != 100:
+            self.stage1_content_weight = 100 - self.stage1_title_weight
+        
+        # === 🆕 第二階段權重驗證 ===
+        if self.stage2_title_weight < 0:
+            self.stage2_title_weight = 0
+        elif self.stage2_title_weight > 100:
+            self.stage2_title_weight = 100
+        
+        if self.stage2_content_weight < 0:
+            self.stage2_content_weight = 0
+        elif self.stage2_content_weight > 100:
+            self.stage2_content_weight = 100
+        
+        # 確保第二階段權重總和為 100
+        if self.stage2_title_weight + self.stage2_content_weight != 100:
+            self.stage2_content_weight = 100 - self.stage2_title_weight
         
         super().save(*args, **kwargs)

@@ -93,8 +93,8 @@ class ThresholdManager:
         
         return is_valid
     
-    def _load_from_database(self) -> Dict[str, float]:
-        """從資料庫載入 threshold 設定"""
+    def _load_from_database(self) -> Dict[str, dict]:
+        """從資料庫載入 threshold 設定（擴充為載入完整配置）"""
         try:
             # 延遲導入避免循環依賴
             from api.models import SearchThresholdSetting
@@ -103,9 +103,31 @@ class ThresholdManager:
             
             cache = {}
             for setting in settings:
-                cache[setting.assistant_type] = float(setting.master_threshold)
+                # ✅ 儲存完整配置（包含兩階段）
+                cache[setting.assistant_type] = {
+                    # 第一階段
+                    'stage1_threshold': float(setting.stage1_threshold),
+                    'stage1_title_weight': setting.stage1_title_weight,
+                    'stage1_content_weight': setting.stage1_content_weight,
+                    
+                    # 第二階段
+                    'stage2_threshold': float(setting.stage2_threshold),
+                    'stage2_title_weight': setting.stage2_title_weight,
+                    'stage2_content_weight': setting.stage2_content_weight,
+                    
+                    # 配置策略
+                    'use_unified_weights': setting.use_unified_weights,
+                    
+                    # 舊欄位（向後相容）
+                    'master_threshold': float(setting.master_threshold),
+                    'title_weight': setting.title_weight,
+                    'content_weight': setting.content_weight
+                }
+                
                 self.logger.debug(
-                    f"載入設定: {setting.assistant_type} = {setting.master_threshold}"
+                    f"載入設定: {setting.assistant_type} = "
+                    f"Stage1({setting.stage1_threshold}/{setting.stage1_title_weight}%) "
+                    f"Stage2({setting.stage2_threshold}/{setting.stage2_title_weight}%)"
                 )
             
             self.logger.info(f"📊 從資料庫載入 {len(cache)} 個 threshold 設定")
@@ -126,23 +148,22 @@ class ThresholdManager:
         self,
         assistant_type: str,
         dify_threshold: Optional[float] = None,
-        threshold_type: str = 'master'
+        threshold_type: str = 'master',
+        stage: int = 1  # 🆕 新增階段參數
     ) -> float:
         """
-        獲取 threshold 值（三層優先順序）
+        獲取 threshold 值（支援兩階段配置）
         
         優先順序：
         1. dify_threshold（Dify Studio 設定）- 最高優先
         2. Database threshold（Web 管理介面設定）- 中等優先
-        3. DEFAULT_THRESHOLD (0.7) - 最低優先
+        3. DEFAULT_THRESHOLD - 最低優先
         
         Args:
             assistant_type: Assistant 類型 ('protocol_assistant', 'rvt_assistant')
             dify_threshold: Dify Studio 傳來的 threshold（可選）
-            threshold_type: Threshold 類型
-                - 'master': 段落向量 threshold（原始值）
-                - 'document': 文檔向量 threshold（master * 0.85）
-                - 'keyword': 關鍵字 threshold（master * 0.5）
+            threshold_type: 已廢棄，保留以向後相容
+            stage: 搜尋階段 (1=段落搜尋, 2=全文搜尋)
         
         Returns:
             float: Threshold 值
@@ -151,48 +172,88 @@ class ThresholdManager:
         if dify_threshold is not None:
             self.logger.info(
                 f"🎯 使用 Dify Studio threshold: {dify_threshold} "
-                f"(assistant={assistant_type})"
+                f"(assistant={assistant_type}, stage={stage})"
             )
-            master_threshold = dify_threshold
-        else:
-            # 優先級 2：資料庫設定
-            # 檢查快取是否有效
-            if not self._is_cache_valid():
-                self._refresh_cache()
+            return dify_threshold
+        
+        # 優先級 2：資料庫設定
+        if not self._is_cache_valid():
+            self._refresh_cache()
+        
+        if assistant_type in self._cache:
+            config = self._cache[assistant_type]
             
-            # 從快取讀取
-            if assistant_type in self._cache:
-                master_threshold = self._cache[assistant_type]
+            # 根據配置策略選擇 threshold
+            if config['use_unified_weights'] or stage == 1:
+                # 使用第一階段配置
+                threshold = config['stage1_threshold']
                 self.logger.info(
-                    f"📊 使用資料庫 threshold: {master_threshold} "
-                    f"(assistant={assistant_type})"
+                    f"📊 使用第一階段 threshold: {threshold} "
+                    f"(assistant={assistant_type}, stage={stage})"
                 )
             else:
-                # 優先級 3：預設值
-                master_threshold = DEFAULT_THRESHOLD
+                # 使用第二階段配置
+                threshold = config['stage2_threshold']
                 self.logger.info(
-                    f"⚙️ 使用預設 threshold: {master_threshold} "
-                    f"(assistant={assistant_type}, 資料庫無設定)"
+                    f"📊 使用第二階段 threshold: {threshold} "
+                    f"(assistant={assistant_type}, stage={stage})"
                 )
+            
+            return threshold
         
-        # 根據類型計算最終 threshold
-        if threshold_type == 'master':
-            final_threshold = master_threshold
-        elif threshold_type == 'document':
-            final_threshold = round(master_threshold * 0.85, 2)
-            self.logger.debug(
-                f"計算文檔 threshold: {master_threshold} * 0.85 = {final_threshold}"
-            )
-        elif threshold_type == 'keyword':
-            final_threshold = round(master_threshold * 0.5, 2)
-            self.logger.debug(
-                f"計算關鍵字 threshold: {master_threshold} * 0.5 = {final_threshold}"
-            )
-        else:
-            self.logger.warning(f"未知的 threshold_type: {threshold_type}，使用 master")
-            final_threshold = master_threshold
+        # 優先級 3：預設值
+        default_threshold = 0.7 if stage == 1 else 0.6
+        self.logger.info(
+            f"⚙️ 使用預設 threshold: {default_threshold} "
+            f"(assistant={assistant_type}, stage={stage}, 資料庫無設定)"
+        )
+        return default_threshold
+    
+    def get_weights(
+        self,
+        assistant_type: str,
+        stage: int = 1
+    ) -> tuple:
+        """
+        獲取權重配置
         
-        return final_threshold
+        Args:
+            assistant_type: Assistant 類型
+            stage: 搜尋階段 (1=段落, 2=全文)
+        
+        Returns:
+            (title_weight, content_weight) 元組 (0.0-1.0)
+        """
+        # 檢查快取
+        if not self._is_cache_valid():
+            self._refresh_cache()
+        
+        if assistant_type in self._cache:
+            config = self._cache[assistant_type]
+            
+            # 根據配置策略選擇權重
+            if config['use_unified_weights'] or stage == 1:
+                # 使用第一階段配置
+                title_weight = config['stage1_title_weight'] / 100.0
+                content_weight = config['stage1_content_weight'] / 100.0
+                self.logger.debug(
+                    f"載入第一階段權重: {assistant_type} -> "
+                    f"{config['stage1_title_weight']}% / {config['stage1_content_weight']}%"
+                )
+            else:
+                # 使用第二階段配置
+                title_weight = config['stage2_title_weight'] / 100.0
+                content_weight = config['stage2_content_weight'] / 100.0
+                self.logger.debug(
+                    f"載入第二階段權重: {assistant_type} -> "
+                    f"{config['stage2_title_weight']}% / {config['stage2_content_weight']}%"
+                )
+            
+            return (title_weight, content_weight)
+        
+        # 預設值
+        self.logger.warning(f"找不到 {assistant_type} 的權重配置，使用預設 60/40")
+        return (0.6, 0.4)
     
     def get_all_thresholds(
         self,
@@ -273,7 +334,8 @@ def get_threshold_manager() -> ThresholdManager:
 def get_threshold(
     assistant_type: str,
     dify_threshold: Optional[float] = None,
-    threshold_type: str = 'master'
+    threshold_type: str = 'master',
+    stage: int = 1  # 🆕 新增
 ) -> float:
     """
     獲取 threshold 值（便利函數）
@@ -281,13 +343,32 @@ def get_threshold(
     Args:
         assistant_type: Assistant 類型
         dify_threshold: Dify Studio 傳來的 threshold（可選）
-        threshold_type: Threshold 類型（'master', 'document', 'keyword'）
+        threshold_type: 已廢棄，保留以向後相容
+        stage: 搜尋階段 (1=段落, 2=全文)
     
     Returns:
         float: Threshold 值
     """
     manager = get_threshold_manager()
-    return manager.get_threshold(assistant_type, dify_threshold, threshold_type)
+    return manager.get_threshold(assistant_type, dify_threshold, threshold_type, stage)
+
+
+def get_weights(
+    assistant_type: str,
+    stage: int = 1
+) -> tuple:
+    """
+    獲取權重配置（便利函數）
+    
+    Args:
+        assistant_type: Assistant 類型
+        stage: 搜尋階段 (1=段落, 2=全文)
+    
+    Returns:
+        (title_weight, content_weight) 元組 (0.0-1.0)
+    """
+    manager = get_threshold_manager()
+    return manager.get_weights(assistant_type, stage)
 
 
 def get_all_thresholds(
@@ -319,6 +400,7 @@ __all__ = [
     'ThresholdManager',
     'get_threshold_manager',
     'get_threshold',
+    'get_weights',  # 🆕 新增
     'get_all_thresholds',
     'refresh_threshold_cache',
     'DEFAULT_THRESHOLD',
