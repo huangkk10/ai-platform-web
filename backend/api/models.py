@@ -409,6 +409,7 @@ class ChatUsage(models.Model):
         ('know_issue_chat', 'Protocol RAG'),
         ('log_analyze_chat', 'AI OCR'),
         ('rvt_assistant_chat', 'RVT Assistant'),
+        ('protocol_assistant_chat', 'Protocol Assistant'),
     ]
     
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="用戶")

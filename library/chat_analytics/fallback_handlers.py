@@ -112,7 +112,7 @@ def fallback_record_chat_usage_api(request):
         chat_type = request_data.get('chat_type')
         
         # 基本驗證
-        valid_types = ['know_issue_chat', 'log_analyze_chat', 'rvt_assistant_chat']
+        valid_types = ['know_issue_chat', 'log_analyze_chat', 'rvt_assistant_chat', 'protocol_assistant_chat']
         if chat_type not in valid_types:
             return Response({
                 'success': False,

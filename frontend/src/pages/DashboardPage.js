@@ -52,7 +52,8 @@ const DashboardPage = () => {
   const FUNCTION_COLORS = {
     'RVT Assistant': '#1890ff',     // 蓝色
     'AI OCR': '#52c41a',           // 绿色  
-    'Protocol RAG': '#faad14'       // 橙色
+    'Protocol RAG': '#faad14',      // 橙色
+    'Protocol Assistant': '#722ed1' // 紫色
   };
 
   // 根据功能名称获取颜色
@@ -78,6 +79,7 @@ const DashboardPage = () => {
       'Protocol RAG': day.know_issue_chat,
       'AI OCR': day.log_analyze_chat,
       'RVT Assistant': day.rvt_assistant_chat || 0,
+      'Protocol Assistant': day.protocol_assistant_chat || 0,
       total: day.total
     }));
   };
@@ -269,6 +271,13 @@ const DashboardPage = () => {
                       strokeWidth={2}
                       dot={{ r: 4 }}
                     />
+                    <Line 
+                      type="monotone" 
+                      dataKey="Protocol Assistant" 
+                      stroke={FUNCTION_COLORS['Protocol Assistant']} 
+                      strokeWidth={2}
+                      dot={{ r: 4 }}
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
@@ -297,13 +306,15 @@ const DashboardPage = () => {
                 const lightBackgroundColor = {
                   '#1890ff': '#e6f7ff',  // RVT Assistant 蓝色背景
                   '#52c41a': '#f6ffed',  // AI OCR 绿色背景
-                  '#faad14': '#fff7e6'   // Protocol RAG 橙色背景
+                  '#faad14': '#fff7e6',  // Protocol RAG 橙色背景
+                  '#722ed1': '#f9f0ff'   // Protocol Assistant 紫色背景
                 }[functionColor] || '#f5f5f5';
                 
                 const borderColor = {
                   '#1890ff': '#91d5ff',  // RVT Assistant 蓝色边框
                   '#52c41a': '#b7eb8f',  // AI OCR 绿色边框  
-                  '#faad14': '#ffd591'   // Protocol RAG 橙色边框
+                  '#faad14': '#ffd591',  // Protocol RAG 橙色边框
+                  '#722ed1': '#d3adf7'   // Protocol Assistant 紫色边框
                 }[functionColor] || '#d9d9d9';
 
                 return (

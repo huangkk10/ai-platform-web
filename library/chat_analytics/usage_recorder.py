@@ -15,7 +15,7 @@ from typing import Dict, Any, Optional
 logger = logging.getLogger(__name__)
 
 # 有效的聊天類型
-VALID_CHAT_TYPES = ['know_issue_chat', 'log_analyze_chat', 'rvt_assistant_chat']
+VALID_CHAT_TYPES = ['know_issue_chat', 'log_analyze_chat', 'rvt_assistant_chat', 'protocol_assistant_chat']
 
 
 class ChatUsageRecorder:

@@ -34,10 +34,11 @@ logger = logging.getLogger(__name__)
 CHAT_TYPE_DISPLAY_MAP = {
     'know_issue_chat': 'Protocol RAG',
     'log_analyze_chat': 'AI OCR', 
-    'rvt_assistant_chat': 'RVT Assistant'
+    'rvt_assistant_chat': 'RVT Assistant',
+    'protocol_assistant_chat': 'Protocol Assistant'
 }
 
-VALID_CHAT_TYPES = ['know_issue_chat', 'log_analyze_chat', 'rvt_assistant_chat']
+VALID_CHAT_TYPES = ['know_issue_chat', 'log_analyze_chat', 'rvt_assistant_chat', 'protocol_assistant_chat']
 
 # 核心組件導入
 try:

@@ -27,7 +27,8 @@ logger = logging.getLogger(__name__)
 CHAT_TYPE_DISPLAY_MAP = {
     'know_issue_chat': 'Protocol RAG',
     'log_analyze_chat': 'AI OCR', 
-    'rvt_assistant_chat': 'RVT Assistant'
+    'rvt_assistant_chat': 'RVT Assistant',
+    'protocol_assistant_chat': 'Protocol Assistant'
 }
 
 
@@ -177,6 +178,7 @@ class ChatUsageStatisticsHandler:
                 know_issue_count = day_usage.filter(chat_type='know_issue_chat').count()
                 log_analyze_count = day_usage.filter(chat_type='log_analyze_chat').count()
                 rvt_assistant_count = day_usage.filter(chat_type='rvt_assistant_chat').count()
+                protocol_assistant_count = day_usage.filter(chat_type='protocol_assistant_chat').count()
                 total_count = day_usage.count()
                 
                 daily_stats.append({
@@ -184,7 +186,8 @@ class ChatUsageStatisticsHandler:
                     'total': total_count,
                     'know_issue_chat': know_issue_count,
                     'log_analyze_chat': log_analyze_count,
-                    'rvt_assistant_chat': rvt_assistant_count
+                    'rvt_assistant_chat': rvt_assistant_count,
+                    'protocol_assistant_chat': protocol_assistant_count
                 })
             
             self.logger.info(f"每日統計數據生成完成: {days} 天")
