@@ -202,6 +202,7 @@ class BaseKnowledgeBaseSearchService(ABC):
                 # 文檔搜索使用稍低的 threshold (threshold * 0.85)
                 doc_threshold = max(threshold * 0.85, 0.5)
                 
+                # ✅ 修正：備用文檔搜尋應該使用 stage=2（全文搜尋）
                 results = search_with_vectors_generic(
                     query=query,
                     model_class=self.model_class,
@@ -210,7 +211,7 @@ class BaseKnowledgeBaseSearchService(ABC):
                     threshold=doc_threshold,  # ✅ 使用動態計算的 threshold
                     use_1024=True,
                     content_formatter=self._get_item_content,
-                    stage=stage  # ✅ 傳遞 stage 參數
+                    stage=2  # ✅ 修正：備用文檔搜尋使用 stage=2
                 )
                 
                 self.logger.info(f"📄 整篇文檔向量搜尋返回 {len(results)} 個結果 (threshold={doc_threshold:.2f}, stage={stage})")

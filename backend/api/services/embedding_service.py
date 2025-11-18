@@ -365,7 +365,7 @@ class OpenSourceEmbeddingService:
                     [
                         source_table,
                         source_id,
-                        combined_content[:1000],  # 儲存前 1000 字元
+                        combined_content[:10000],  # 儲存前 10000 字元（提升 10 倍，涵蓋大部分文章）
                         content_hash,
                         json.dumps(title_embedding),
                         json.dumps(content_embedding),
