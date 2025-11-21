@@ -1,6 +1,11 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import UserProfile, Project, Task, KnowIssue, TestClass, OCRTestClass, OCRStorageBenchmark, RVTGuide, ProtocolGuide, ContentImage
+from .models import (
+    UserProfile, Project, Task, KnowIssue, TestClass, OCRTestClass, 
+    OCRStorageBenchmark, RVTGuide, ProtocolGuide, ContentImage,
+    SearchAlgorithmVersion, BenchmarkMetric, BenchmarkTestCase,
+    BenchmarkTestRun, BenchmarkTestResult
+)
 
 # 導入通用序列化器（適用於所有知識庫）
 from library.common.serializers import ContentImageSerializer
@@ -503,3 +508,141 @@ class SearchThresholdSettingSerializer(serializers.ModelSerializer):
         if request and request.user and request.user.is_authenticated:
             validated_data['updated_by'] = request.user
         return super().update(instance, validated_data)
+
+
+# ========================================
+# 搜尋演算法跑分系統 Serializers
+# ========================================
+
+class SearchAlgorithmVersionSerializer(serializers.ModelSerializer):
+    """搜尋演算法版本 Serializer"""
+    created_by_username = serializers.CharField(source='created_by.username', read_only=True)
+    test_runs_count = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = SearchAlgorithmVersion
+        fields = [
+            'id', 'version_name', 'version_code', 'description', 'algorithm_type',
+            'parameters', 'is_active', 'is_baseline', 'created_at', 'created_by',
+            'created_by_username', 'avg_precision', 'avg_recall', 'avg_response_time',
+            'total_tests', 'test_runs_count'
+        ]
+        read_only_fields = ['created_at', 'created_by', 'test_runs_count']
+    
+    def get_test_runs_count(self, obj):
+        """獲取測試執行次數"""
+        return obj.test_runs.count()
+    
+    def create(self, validated_data):
+        """創建時自動設定 created_by"""
+        request = self.context.get('request')
+        if request and request.user and request.user.is_authenticated:
+            validated_data['created_by'] = request.user
+        return super().create(validated_data)
+
+
+class BenchmarkMetricSerializer(serializers.ModelSerializer):
+    """評分維度 Serializer"""
+    
+    class Meta:
+        model = BenchmarkMetric
+        fields = [
+            'id', 'metric_name', 'metric_key', 'description', 'metric_type',
+            'calculation_method', 'max_score', 'min_score', 'weight',
+            'is_active', 'display_order', 'created_at'
+        ]
+        read_only_fields = ['created_at']
+
+
+class BenchmarkTestCaseSerializer(serializers.ModelSerializer):
+    """測試案例 Serializer"""
+    created_by_username = serializers.CharField(source='created_by.username', read_only=True)
+    results_count = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = BenchmarkTestCase
+        fields = [
+            'id', 'question', 'question_type', 'difficulty_level',
+            'expected_document_ids', 'expected_keywords', 'expected_answer_summary',
+            'min_required_matches', 'acceptable_document_ids', 'category', 'tags',
+            'source', 'is_active', 'is_validated', 'total_runs', 'avg_score',
+            'created_at', 'updated_at', 'created_by', 'created_by_username',
+            'results_count'
+        ]
+        read_only_fields = ['created_at', 'updated_at', 'created_by', 'results_count']
+    
+    def get_results_count(self, obj):
+        """獲取測試結果數量"""
+        return obj.results.count()
+    
+    def create(self, validated_data):
+        """創建時自動設定 created_by"""
+        request = self.context.get('request')
+        if request and request.user and request.user.is_authenticated:
+            validated_data['created_by'] = request.user
+        return super().create(validated_data)
+
+
+class BenchmarkTestRunSerializer(serializers.ModelSerializer):
+    """測試執行記錄 Serializer"""
+    version_name = serializers.CharField(source='version.version_name', read_only=True)
+    version_code = serializers.CharField(source='version.version_code', read_only=True)
+    triggered_by_username = serializers.CharField(source='triggered_by.username', read_only=True)
+    results_count = serializers.SerializerMethodField()
+    passed_count = serializers.SerializerMethodField()
+    failed_count = serializers.SerializerMethodField()
+    pass_rate = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = BenchmarkTestRun
+        fields = [
+            'id', 'version', 'version_name', 'version_code', 'run_name', 'run_type',
+            'total_test_cases', 'completed_test_cases', 'status', 'overall_score',
+            'avg_precision', 'avg_recall', 'avg_f1_score', 'avg_response_time',
+            'started_at', 'completed_at', 'duration_seconds', 'triggered_by',
+            'triggered_by_username', 'environment', 'git_commit_hash', 'notes',
+            'created_at', 'results_count', 'passed_count', 'failed_count', 'pass_rate'
+        ]
+        read_only_fields = [
+            'created_at', 'results_count', 'passed_count', 'failed_count', 'pass_rate'
+        ]
+    
+    def get_results_count(self, obj):
+        """獲取測試結果數量"""
+        return obj.results.count()
+    
+    def get_passed_count(self, obj):
+        """獲取通過的測試數量"""
+        return obj.results.filter(is_passed=True).count()
+    
+    def get_failed_count(self, obj):
+        """獲取失敗的測試數量"""
+        return obj.results.filter(is_passed=False).count()
+    
+    def get_pass_rate(self, obj):
+        """計算通過率"""
+        total = obj.results.count()
+        if total == 0:
+            return 0
+        passed = obj.results.filter(is_passed=True).count()
+        return round((passed / total) * 100, 2)
+
+
+class BenchmarkTestResultSerializer(serializers.ModelSerializer):
+    """測試結果詳細 Serializer"""
+    test_run_name = serializers.CharField(source='test_run.run_name', read_only=True)
+    test_case_question = serializers.CharField(source='test_case.question', read_only=True)
+    test_case_difficulty = serializers.CharField(source='test_case.difficulty_level', read_only=True)
+    
+    class Meta:
+        model = BenchmarkTestResult
+        fields = [
+            'id', 'test_run', 'test_run_name', 'test_case', 'test_case_question',
+            'test_case_difficulty', 'search_query', 'returned_document_ids',
+            'returned_document_scores', 'precision_score', 'recall_score',
+            'f1_score', 'ndcg_score', 'response_time', 'true_positives',
+            'false_positives', 'false_negatives', 'is_passed', 'pass_reason',
+            'detailed_results', 'created_at'
+        ]
+        read_only_fields = ['created_at']
+

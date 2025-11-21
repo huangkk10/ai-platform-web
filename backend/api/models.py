@@ -1330,3 +1330,244 @@ class SearchThresholdSetting(models.Model):
             self.stage2_content_weight = 100 - self.stage2_title_weight
         
         super().save(*args, **kwargs)
+
+
+# ========================================
+# 搜尋演算法跑分系統 Models
+# ========================================
+
+class SearchAlgorithmVersion(models.Model):
+    """搜尋演算法版本"""
+    version_name = models.CharField(max_length=100, verbose_name="版本名稱")
+    version_code = models.CharField(max_length=50, unique=True, verbose_name="版本代碼")
+    description = models.TextField(blank=True, verbose_name="描述")
+    algorithm_type = models.CharField(max_length=50, blank=True, verbose_name="演算法類型")
+    parameters = models.JSONField(default=dict, verbose_name="參數配置")
+    
+    is_active = models.BooleanField(default=True, verbose_name="是否啟用")
+    is_baseline = models.BooleanField(default=False, verbose_name="是否為基準版本")
+    
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="創建時間")
+    created_by = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        related_name='created_versions',
+        verbose_name="創建者"
+    )
+    
+    # 效能指標快照
+    avg_precision = models.DecimalField(
+        max_digits=5, decimal_places=4, null=True, blank=True, verbose_name="平均精準度"
+    )
+    avg_recall = models.DecimalField(
+        max_digits=5, decimal_places=4, null=True, blank=True, verbose_name="平均召回率"
+    )
+    avg_response_time = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="平均響應時間"
+    )
+    total_tests = models.IntegerField(default=0, verbose_name="總測試次數")
+    
+    class Meta:
+        db_table = 'search_algorithm_version'
+        ordering = ['-created_at']
+        verbose_name = '搜尋演算法版本'
+        verbose_name_plural = '搜尋演算法版本'
+    
+    def __str__(self):
+        return f"{self.version_name} ({self.version_code})"
+
+
+class BenchmarkMetric(models.Model):
+    """評分維度"""
+    metric_name = models.CharField(max_length=100, unique=True, verbose_name="維度名稱")
+    metric_key = models.CharField(max_length=50, unique=True, verbose_name="維度鍵值")
+    description = models.TextField(blank=True, verbose_name="描述")
+    metric_type = models.CharField(max_length=30, blank=True, verbose_name="維度類型")
+    calculation_method = models.TextField(blank=True, verbose_name="計算方式")
+    
+    max_score = models.DecimalField(
+        max_digits=5, decimal_places=2, default=100.00, verbose_name="最高分"
+    )
+    min_score = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0.00, verbose_name="最低分"
+    )
+    weight = models.DecimalField(
+        max_digits=3, decimal_places=2, default=1.00, verbose_name="權重"
+    )
+    
+    is_active = models.BooleanField(default=True, verbose_name="是否啟用")
+    display_order = models.IntegerField(default=0, verbose_name="顯示順序")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="創建時間")
+    
+    class Meta:
+        db_table = 'benchmark_metric'
+        ordering = ['display_order']
+        verbose_name = '評分維度'
+        verbose_name_plural = '評分維度'
+    
+    def __str__(self):
+        return f"{self.metric_name} (權重: {self.weight})"
+
+
+class BenchmarkTestCase(models.Model):
+    """測試案例"""
+    question = models.TextField(verbose_name="測試問題")
+    question_type = models.CharField(max_length=50, blank=True, verbose_name="問題類型")
+    difficulty_level = models.CharField(max_length=20, blank=True, verbose_name="難度等級")
+    
+    expected_document_ids = models.JSONField(default=list, verbose_name="預期文檔IDs")
+    expected_keywords = models.JSONField(default=list, verbose_name="預期關鍵字")
+    expected_answer_summary = models.TextField(blank=True, verbose_name="預期答案摘要")
+    min_required_matches = models.IntegerField(default=1, verbose_name="最少匹配數")
+    acceptable_document_ids = models.JSONField(default=list, verbose_name="可接受文檔IDs")
+    
+    category = models.CharField(max_length=100, blank=True, verbose_name="類別")
+    tags = models.JSONField(default=list, verbose_name="標籤")
+    source = models.CharField(max_length=100, blank=True, verbose_name="來源")
+    
+    is_active = models.BooleanField(default=True, verbose_name="是否啟用")
+    is_validated = models.BooleanField(default=False, verbose_name="是否已驗證")
+    
+    total_runs = models.IntegerField(default=0, verbose_name="總執行次數")
+    avg_score = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True, verbose_name="平均分數"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="創建時間")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新時間")
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='created_test_cases',
+        verbose_name="創建者"
+    )
+    
+    class Meta:
+        db_table = 'benchmark_test_case'
+        ordering = ['category', 'difficulty_level']
+        verbose_name = '測試案例'
+        verbose_name_plural = '測試案例'
+    
+    def __str__(self):
+        return f"[{self.difficulty_level}] {self.question[:50]}..."
+
+
+class BenchmarkTestRun(models.Model):
+    """測試執行記錄"""
+    version = models.ForeignKey(
+        SearchAlgorithmVersion,
+        on_delete=models.CASCADE,
+        related_name='test_runs',
+        verbose_name="版本"
+    )
+    run_name = models.CharField(max_length=200, blank=True, verbose_name="執行名稱")
+    run_type = models.CharField(max_length=50, default='manual', verbose_name="執行類型")
+    
+    total_test_cases = models.IntegerField(verbose_name="總測試案例數")
+    completed_test_cases = models.IntegerField(default=0, verbose_name="已完成案例數")
+    status = models.CharField(max_length=30, default='pending', verbose_name="狀態")
+    
+    # 總體結果
+    overall_score = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True, verbose_name="總分"
+    )
+    avg_precision = models.DecimalField(
+        max_digits=5, decimal_places=4, null=True, blank=True, verbose_name="平均精準度"
+    )
+    avg_recall = models.DecimalField(
+        max_digits=5, decimal_places=4, null=True, blank=True, verbose_name="平均召回率"
+    )
+    avg_f1_score = models.DecimalField(
+        max_digits=5, decimal_places=4, null=True, blank=True, verbose_name="平均F1分數"
+    )
+    avg_response_time = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="平均響應時間"
+    )
+    
+    # 時間記錄
+    started_at = models.DateTimeField(null=True, blank=True, verbose_name="開始時間")
+    completed_at = models.DateTimeField(null=True, blank=True, verbose_name="完成時間")
+    duration_seconds = models.IntegerField(null=True, blank=True, verbose_name="執行時長(秒)")
+    
+    # 元數據
+    triggered_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='triggered_test_runs',
+        verbose_name="觸發者"
+    )
+    environment = models.CharField(max_length=50, blank=True, verbose_name="環境")
+    git_commit_hash = models.CharField(max_length=40, blank=True, verbose_name="Git Commit Hash")
+    notes = models.TextField(blank=True, verbose_name="備註")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="創建時間")
+    
+    class Meta:
+        db_table = 'benchmark_test_run'
+        ordering = ['-created_at']
+        verbose_name = '測試執行記錄'
+        verbose_name_plural = '測試執行記錄'
+    
+    def __str__(self):
+        return f"{self.run_name} - {self.status}"
+
+
+class BenchmarkTestResult(models.Model):
+    """測試結果詳細"""
+    test_run = models.ForeignKey(
+        BenchmarkTestRun,
+        on_delete=models.CASCADE,
+        related_name='results',
+        verbose_name="測試執行"
+    )
+    test_case = models.ForeignKey(
+        BenchmarkTestCase,
+        on_delete=models.CASCADE,
+        related_name='results',
+        verbose_name="測試案例"
+    )
+    
+    search_query = models.TextField(verbose_name="搜尋查詢")
+    returned_document_ids = models.JSONField(default=list, verbose_name="返回文檔IDs")
+    returned_document_scores = models.JSONField(default=list, verbose_name="返回文檔分數")
+    
+    # 評分指標
+    precision_score = models.DecimalField(
+        max_digits=5, decimal_places=4, null=True, blank=True, verbose_name="精準度分數"
+    )
+    recall_score = models.DecimalField(
+        max_digits=5, decimal_places=4, null=True, blank=True, verbose_name="召回率分數"
+    )
+    f1_score = models.DecimalField(
+        max_digits=5, decimal_places=4, null=True, blank=True, verbose_name="F1分數"
+    )
+    ndcg_score = models.DecimalField(
+        max_digits=5, decimal_places=4, null=True, blank=True, verbose_name="NDCG分數"
+    )
+    response_time = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="響應時間(ms)"
+    )
+    
+    # 混淆矩陣
+    true_positives = models.IntegerField(null=True, blank=True, verbose_name="真陽性")
+    false_positives = models.IntegerField(null=True, blank=True, verbose_name="假陽性")
+    false_negatives = models.IntegerField(null=True, blank=True, verbose_name="假陰性")
+    
+    # 結果判定
+    is_passed = models.BooleanField(null=True, blank=True, verbose_name="是否通過")
+    pass_reason = models.TextField(blank=True, verbose_name="通過原因")
+    
+    detailed_results = models.JSONField(default=dict, verbose_name="詳細結果")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="創建時間")
+    
+    class Meta:
+        db_table = 'benchmark_test_result'
+        ordering = ['test_run', 'id']
+        verbose_name = '測試結果'
+        verbose_name_plural = '測試結果'
+    
+    def __str__(self):
+        passed = "✅" if self.is_passed else "❌"
+        return f"{passed} {self.test_case.question[:30]}..."
