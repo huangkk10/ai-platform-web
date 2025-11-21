@@ -17,6 +17,11 @@ router.register(r'protocol-assistant', views.ProtocolAssistantViewSet, basename=
 router.register(r'content-images', views.ContentImageViewSet)
 router.register(r'threshold-settings', views.SearchThresholdViewSet)
 router.register(r'search-threshold-settings', views.SearchThresholdSettingViewSet, basename='search-threshold-setting')
+# Benchmark Testing System
+router.register(r"benchmark/test-cases", views.BenchmarkTestCaseViewSet, basename="benchmark-test-case")
+router.register(r"benchmark/test-runs", views.BenchmarkTestRunViewSet, basename="benchmark-test-run")
+router.register(r"benchmark/test-results", views.BenchmarkTestResultViewSet, basename="benchmark-test-result")
+router.register(r"benchmark/versions", views.SearchAlgorithmVersionViewSet, basename="benchmark-version")
 
 urlpatterns = [
     path('', include(router.urls)),

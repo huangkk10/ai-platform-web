@@ -1,11 +1,15 @@
 """
-Benchmark 系統 Library
+Benchmark System Library
 
-提供搜尋演算法跑分系統的核心功能：
-- ScoringEngine: 評分計算引擎
-- TestRunner: 測試執行引擎
+提供 Protocol Assistant 搜尋演算法的評測系統，包括：
+- ScoringEngine: 評分引擎
+- BenchmarkTestRunner: 測試執行器
 """
 
 from .scoring_engine import ScoringEngine
+from .test_runner import BenchmarkTestRunner
 
-__all__ = ["ScoringEngine"]
+__all__ = [
+    'ScoringEngine',
+    'BenchmarkTestRunner',
+]

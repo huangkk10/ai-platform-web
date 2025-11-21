@@ -14,6 +14,10 @@ import {
   ToolOutlined,
   RightOutlined,
   SlidersOutlined,
+  DashboardOutlined,
+  PlayCircleOutlined,
+  TagOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 import smiLogo from '../assets/images/smi.png';
@@ -124,6 +128,21 @@ const Sidebar = ({ collapsed, onCollapse }) => {
         break;
       case 'markdown-test':
         navigate('/dev/markdown-test');
+        break;
+      case 'benchmark-dashboard':
+        navigate('/benchmark/dashboard');
+        break;
+      case 'benchmark-test-cases':
+        navigate('/benchmark/test-cases');
+        break;
+      case 'benchmark-test-execution':
+        navigate('/benchmark/test-execution');
+        break;
+      case 'benchmark-results':
+        navigate('/benchmark/results');
+        break;
+      case 'benchmark-versions':
+        navigate('/benchmark/versions');
         break;
       default:
         console.log('Unknown menu key:', key);
@@ -248,6 +267,40 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       label: '系統設定',
     };
 
+    // Benchmark 測試系統選單
+    const benchmarkSubmenu = {
+      key: 'benchmark',
+      icon: <ThunderboltOutlined />,
+      label: 'Benchmark 測試',
+      children: [
+        {
+          key: 'benchmark-dashboard',
+          icon: <DashboardOutlined />,
+          label: 'Dashboard',
+        },
+        {
+          key: 'benchmark-test-cases',
+          icon: <FileTextOutlined />,
+          label: 'Test Cases',
+        },
+        {
+          key: 'benchmark-test-execution',
+          icon: <PlayCircleOutlined />,
+          label: 'Test Execution',
+        },
+        {
+          key: 'benchmark-results',
+          icon: <BarChartOutlined />,
+          label: 'Results',
+        },
+        {
+          key: 'benchmark-versions',
+          icon: <TagOutlined />,
+          label: 'Versions',
+        },
+      ],
+    };
+
     const devToolsItem = {
       key: 'dev-tools',
       icon: <ExperimentOutlined />,
@@ -267,6 +320,13 @@ const Sidebar = ({ collapsed, onCollapse }) => {
     const currentPath = window.location.pathname;
     const isKnowledgePage = currentPath.startsWith('/knowledge/');
     const isAdminPage = currentPath.startsWith('/admin/');
+    const isBenchmarkPage = currentPath.startsWith('/benchmark/');
+
+    // Benchmark 測試系統選單 - 需要管理員權限（暫定）
+    if ((initialized && isAuthenticated && user && (user.is_staff || user.is_superuser)) ||
+      (!initialized && isBenchmarkPage)) {
+      items.push(benchmarkSubmenu);
+    }
 
     // 知識庫選單 - 需要任何知識庫權限
     const knowledgeMenuItems = getKnowledgeMenuItems();

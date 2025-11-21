@@ -29,6 +29,7 @@ import MarkdownEditorPage from './pages/MarkdownEditorPage';
 import UnifiedAnalyticsPage from './pages/UnifiedAnalyticsPage';
 import DevMarkdownTestPage from './pages/DevMarkdownTestPage';
 import SystemLogViewerPage from './pages/admin/SystemLogViewerPage';
+import BenchmarkDashboardPage from './pages/benchmark/BenchmarkDashboardPage';
 
 const { Content } = Layout;
 
@@ -92,6 +93,16 @@ function AppLayout() {
         return 'Analytics Dashboard';
       case '/dev/markdown-test':
         return '🧪 Markdown 測試頁面';
+      case '/benchmark/dashboard':
+        return 'Benchmark Dashboard';
+      case '/benchmark/test-cases':
+        return '測試案例管理';
+      case '/benchmark/test-execution':
+        return '測試執行';
+      case '/benchmark/results':
+        return '測試結果';
+      case '/benchmark/versions':
+        return '版本管理';
       default:
         // Markdown 編輯器頁面標題（整頁模式）
         if (pathname.startsWith('/knowledge/rvt-guide/markdown-edit/')) {
@@ -333,6 +344,13 @@ function AppLayout() {
             } />
             <Route path="/admin/rvt-analytics" element={<UnifiedAnalyticsPage />} />
             <Route path="/admin/analytics" element={<UnifiedAnalyticsPage />} />
+
+            {/* Benchmark 測試系統（需要管理員權限） */}
+            <Route path="/benchmark/dashboard" element={
+              <ProtectedRoute permission="isStaff" fallbackTitle="Benchmark 系統存取受限">
+                <BenchmarkDashboardPage />
+              </ProtectedRoute>
+            } />
 
             {/* 🧪 開發工具 - Markdown 測試頁面（所有用戶可訪問） */}
             <Route path="/dev/markdown-test" element={<DevMarkdownTestPage />} />

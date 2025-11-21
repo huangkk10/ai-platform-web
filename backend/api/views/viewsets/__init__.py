@@ -43,6 +43,14 @@ from .threshold_viewsets import SearchThresholdViewSet
 # System 設定管理
 from .system_viewsets import SearchThresholdSettingViewSet
 
+# Benchmark 測試系統
+from .benchmark_viewsets import (
+    BenchmarkTestCaseViewSet,
+    BenchmarkTestRunViewSet,
+    BenchmarkTestResultViewSet,
+    SearchAlgorithmVersionViewSet
+)
+
 # 系統監控
 from .monitoring_views import (
     system_logs,
@@ -73,6 +81,11 @@ __all__ = [
     'SearchThresholdViewSet',
     # System
     'SearchThresholdSettingViewSet',
+    # Benchmark
+    'BenchmarkTestCaseViewSet',
+    'BenchmarkTestRunViewSet',
+    'BenchmarkTestResultViewSet',
+    'SearchAlgorithmVersionViewSet',
     # Monitoring
     'system_logs',
     'simple_system_status',

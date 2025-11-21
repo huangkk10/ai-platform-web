@@ -180,6 +180,12 @@ from .viewsets import (
     # System ViewSets (system_viewsets.py)
     SearchThresholdSettingViewSet,
     
+    # Benchmark ViewSets (benchmark_viewsets.py)
+    BenchmarkTestCaseViewSet,
+    BenchmarkTestRunViewSet,
+    BenchmarkTestResultViewSet,
+    SearchAlgorithmVersionViewSet,
+    
     # Monitoring Views (monitoring_views.py)
     system_logs,
     simple_system_status,
@@ -251,6 +257,12 @@ __all__ = [
     'ProtocolGuideViewSet',
     'ProtocolAssistantViewSet',
     'ContentImageViewSet',
+    
+    # Benchmark ViewSets
+    'BenchmarkTestCaseViewSet',
+    'BenchmarkTestRunViewSet',
+    'BenchmarkTestResultViewSet',
+    'SearchAlgorithmVersionViewSet',
     
     # Chat APIs
     'dify_chat',
