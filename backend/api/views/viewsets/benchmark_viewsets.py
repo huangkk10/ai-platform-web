@@ -63,9 +63,9 @@ class BenchmarkTestCaseViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(question_type=question_type)
         
         # 知識源篩選
-        knowledge_source = self.request.query_params.get('knowledge_source')
-        if knowledge_source:
-            queryset = queryset.filter(knowledge_source=knowledge_source)
+        source = self.request.query_params.get('source')
+        if source:
+            queryset = queryset.filter(source=source)
         
         # 啟用狀態篩選
         is_active = self.request.query_params.get('is_active')
@@ -111,7 +111,7 @@ class BenchmarkTestCaseViewSet(viewsets.ModelViewSet):
             
             # 按知識源統計
             'by_knowledge_source': list(
-                queryset.values('knowledge_source')
+                queryset.values('source')
                 .annotate(count=Count('id'))
                 .order_by('-count')
             ),

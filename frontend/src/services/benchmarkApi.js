@@ -7,6 +7,11 @@
 
 import axios from 'axios';
 
+// 確保所有請求都帶上認證憑證
+const api = axios.create({
+  withCredentials: true,
+});
+
 // ==================== Test Cases API ====================
 
 /**
@@ -19,7 +24,7 @@ import axios from 'axios';
  * @param {boolean} params.is_active - 啟用狀態篩選
  */
 export const getTestCases = (params = {}) => {
-  return axios.get('/api/benchmark/test-cases/', { params });
+  return api.get('/api/benchmark/test-cases/', { params });
 };
 
 /**
@@ -27,7 +32,7 @@ export const getTestCases = (params = {}) => {
  * @param {number} id - 測試案例 ID
  */
 export const getTestCase = (id) => {
-  return axios.get(`/api/benchmark/test-cases/${id}/`);
+  return api.get(`/api/benchmark/test-cases/${id}/`);
 };
 
 /**
@@ -35,7 +40,7 @@ export const getTestCase = (id) => {
  * @param {Object} data - 測試案例數據
  */
 export const createTestCase = (data) => {
-  return axios.post('/api/benchmark/test-cases/', data);
+  return api.post('/api/benchmark/test-cases/', data);
 };
 
 /**
@@ -44,7 +49,7 @@ export const createTestCase = (data) => {
  * @param {Object} data - 更新數據
  */
 export const updateTestCase = (id, data) => {
-  return axios.put(`/api/benchmark/test-cases/${id}/`, data);
+  return api.put(`/api/benchmark/test-cases/${id}/`, data);
 };
 
 /**
@@ -53,7 +58,7 @@ export const updateTestCase = (id, data) => {
  * @param {Object} data - 更新數據
  */
 export const patchTestCase = (id, data) => {
-  return axios.patch(`/api/benchmark/test-cases/${id}/`, data);
+  return api.patch(`/api/benchmark/test-cases/${id}/`, data);
 };
 
 /**
@@ -61,14 +66,14 @@ export const patchTestCase = (id, data) => {
  * @param {number} id - 測試案例 ID
  */
 export const deleteTestCase = (id) => {
-  return axios.delete(`/api/benchmark/test-cases/${id}/`);
+  return api.delete(`/api/benchmark/test-cases/${id}/`);
 };
 
 /**
  * 獲取測試案例統計資訊
  */
 export const getTestCaseStatistics = () => {
-  return axios.get('/api/benchmark/test-cases/statistics/');
+  return api.get('/api/benchmark/test-cases/statistics/');
 };
 
 /**
@@ -76,7 +81,7 @@ export const getTestCaseStatistics = () => {
  * @param {Array<number>} ids - 測試案例 ID 列表
  */
 export const bulkActivateTestCases = (ids) => {
-  return axios.post('/api/benchmark/test-cases/bulk_activate/', { ids });
+  return api.post('/api/benchmark/test-cases/bulk_activate/', { ids });
 };
 
 /**
@@ -84,7 +89,7 @@ export const bulkActivateTestCases = (ids) => {
  * @param {Array<number>} ids - 測試案例 ID 列表
  */
 export const bulkDeactivateTestCases = (ids) => {
-  return axios.post('/api/benchmark/test-cases/bulk_deactivate/', { ids });
+  return api.post('/api/benchmark/test-cases/bulk_deactivate/', { ids });
 };
 
 // ==================== Test Runs API ====================
@@ -98,7 +103,7 @@ export const bulkDeactivateTestCases = (ids) => {
  * @param {number} params.days - 時間範圍篩選（天數）
  */
 export const getTestRuns = (params = {}) => {
-  return axios.get('/api/benchmark/test-runs/', { params });
+  return api.get('/api/benchmark/test-runs/', { params });
 };
 
 /**
@@ -106,7 +111,7 @@ export const getTestRuns = (params = {}) => {
  * @param {number} id - 測試執行 ID
  */
 export const getTestRun = (id) => {
-  return axios.get(`/api/benchmark/test-runs/${id}/`);
+  return api.get(`/api/benchmark/test-runs/${id}/`);
 };
 
 /**
@@ -114,7 +119,7 @@ export const getTestRun = (id) => {
  * @param {Object} data - 測試執行數據
  */
 export const createTestRun = (data) => {
-  return axios.post('/api/benchmark/test-runs/', data);
+  return api.post('/api/benchmark/test-runs/', data);
 };
 
 /**
@@ -123,7 +128,7 @@ export const createTestRun = (data) => {
  * @param {Object} data - 更新數據
  */
 export const updateTestRun = (id, data) => {
-  return axios.put(`/api/benchmark/test-runs/${id}/`, data);
+  return api.put(`/api/benchmark/test-runs/${id}/`, data);
 };
 
 /**
@@ -131,7 +136,7 @@ export const updateTestRun = (id, data) => {
  * @param {number} id - 測試執行 ID
  */
 export const deleteTestRun = (id) => {
-  return axios.delete(`/api/benchmark/test-runs/${id}/`);
+  return api.delete(`/api/benchmark/test-runs/${id}/`);
 };
 
 /**
@@ -141,7 +146,7 @@ export const deleteTestRun = (id) => {
  * @param {boolean} params.passed_only - 是否只顯示通過的結果
  */
 export const getTestRunResults = (id, params = {}) => {
-  return axios.get(`/api/benchmark/test-runs/${id}/results/`, { params });
+  return api.get(`/api/benchmark/test-runs/${id}/results/`, { params });
 };
 
 /**
@@ -157,7 +162,7 @@ export const getTestRunResults = (id, params = {}) => {
  * @param {string} data.notes - 備註（可選）
  */
 export const startTest = (data) => {
-  return axios.post('/api/benchmark/test-runs/start_test/', data);
+  return api.post('/api/benchmark/test-runs/start_test/', data);
 };
 
 /**
@@ -165,7 +170,7 @@ export const startTest = (data) => {
  * @param {number} id - 測試執行 ID
  */
 export const stopTest = (id) => {
-  return axios.post(`/api/benchmark/test-runs/${id}/stop_test/`);
+  return api.post(`/api/benchmark/test-runs/${id}/stop_test/`);
 };
 
 /**
@@ -174,7 +179,7 @@ export const stopTest = (id) => {
  * @param {number} runId2 - 測試執行 ID 2
  */
 export const compareTestRuns = (runId1, runId2) => {
-  return axios.post('/api/benchmark/test-runs/compare/', {
+  return api.post('/api/benchmark/test-runs/compare/', {
     run_id_1: runId1,
     run_id_2: runId2,
   });
@@ -190,7 +195,7 @@ export const compareTestRuns = (runId1, runId2) => {
  * @param {boolean} params.is_passed - 通過狀態篩選
  */
 export const getTestResults = (params = {}) => {
-  return axios.get('/api/benchmark/test-results/', { params });
+  return api.get('/api/benchmark/test-results/', { params });
 };
 
 /**
@@ -198,14 +203,14 @@ export const getTestResults = (params = {}) => {
  * @param {number} id - 測試結果 ID
  */
 export const getTestResult = (id) => {
-  return axios.get(`/api/benchmark/test-results/${id}/`);
+  return api.get(`/api/benchmark/test-results/${id}/`);
 };
 
 /**
  * 獲取所有失敗的測試案例
  */
 export const getFailedCases = () => {
-  return axios.get('/api/benchmark/test-results/failed_cases/');
+  return api.get('/api/benchmark/test-results/failed_cases/');
 };
 
 // ==================== Versions API ====================
@@ -214,7 +219,7 @@ export const getFailedCases = () => {
  * 獲取演算法版本列表
  */
 export const getVersions = () => {
-  return axios.get('/api/benchmark/versions/');
+  return api.get('/api/benchmark/versions/');
 };
 
 /**
@@ -222,7 +227,7 @@ export const getVersions = () => {
  * @param {number} id - 版本 ID
  */
 export const getVersion = (id) => {
-  return axios.get(`/api/benchmark/versions/${id}/`);
+  return api.get(`/api/benchmark/versions/${id}/`);
 };
 
 /**
@@ -234,7 +239,7 @@ export const getVersion = (id) => {
  * @param {Object} data.config_snapshot - 配置快照
  */
 export const createVersion = (data) => {
-  return axios.post('/api/benchmark/versions/', data);
+  return api.post('/api/benchmark/versions/', data);
 };
 
 /**
@@ -243,7 +248,7 @@ export const createVersion = (data) => {
  * @param {Object} data - 更新數據
  */
 export const updateVersion = (id, data) => {
-  return axios.put(`/api/benchmark/versions/${id}/`, data);
+  return api.put(`/api/benchmark/versions/${id}/`, data);
 };
 
 /**
@@ -252,7 +257,7 @@ export const updateVersion = (id, data) => {
  * @param {Object} data - 更新數據
  */
 export const patchVersion = (id, data) => {
-  return axios.patch(`/api/benchmark/versions/${id}/`, data);
+  return api.patch(`/api/benchmark/versions/${id}/`, data);
 };
 
 /**
@@ -260,7 +265,7 @@ export const patchVersion = (id, data) => {
  * @param {number} id - 版本 ID
  */
 export const deleteVersion = (id) => {
-  return axios.delete(`/api/benchmark/versions/${id}/`);
+  return api.delete(`/api/benchmark/versions/${id}/`);
 };
 
 /**
@@ -268,7 +273,7 @@ export const deleteVersion = (id) => {
  * @param {number} id - 版本 ID
  */
 export const setAsBaseline = (id) => {
-  return axios.post(`/api/benchmark/versions/${id}/set_as_baseline/`);
+  return api.post(`/api/benchmark/versions/${id}/set_as_baseline/`);
 };
 
 /**
@@ -276,19 +281,19 @@ export const setAsBaseline = (id) => {
  * @param {number} id - 版本 ID
  */
 export const getVersionTestHistory = (id) => {
-  return axios.get(`/api/benchmark/versions/${id}/test_history/`);
+  return api.get(`/api/benchmark/versions/${id}/test_history/`);
 };
 
 /**
  * 獲取當前基準版本
  */
 export const getBaselineVersion = () => {
-  return axios.get('/api/benchmark/versions/baseline/');
+  return api.get('/api/benchmark/versions/baseline/');
 };
 
 // ==================== 匯出所有 API ====================
 
-export default {
+const benchmarkApi = {
   // Test Cases
   getTestCases,
   getTestCase,
@@ -327,3 +332,5 @@ export default {
   getVersionTestHistory,
   getBaselineVersion,
 };
+
+export default benchmarkApi;

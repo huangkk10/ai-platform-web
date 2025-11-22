@@ -30,12 +30,12 @@ import {
   CheckCircleOutlined,
   ClockCircleOutlined,
   ExperimentOutlined,
-  RiseOutlined,
-  FallOutlined,
   ArrowRightOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import benchmarkApi from '../../services/benchmarkApi';
+import ScoreTrendChart from '../../components/charts/ScoreTrendChart';
+import PassRateTrendChart from '../../components/charts/PassRateTrendChart';
 import './BenchmarkDashboardPage.css';
 
 const { Title, Text } = Typography;
@@ -48,6 +48,10 @@ const BenchmarkDashboardPage = () => {
   const [error, setError] = useState(null);
   const [recentTests, setRecentTests] = useState([]);
   const [baselineVersion, setBaselineVersion] = useState(null);
+  const [chartData, setChartData] = useState({
+    scoreData: [],
+    passRateData: [],
+  });
   const [statistics, setStatistics] = useState({
     totalTests: 0,
     avgScore: 0,
@@ -69,7 +73,15 @@ const BenchmarkDashboardPage = () => {
         benchmarkApi.getBaselineVersion().catch(() => null), // 可能沒有基準版本
       ]);
 
-      const tests = testsResponse.data || [];
+      // 處理 API 回應數據（可能是分頁或直接陣列）
+      let tests = [];
+      if (Array.isArray(testsResponse.data)) {
+        tests = testsResponse.data;
+      } else if (testsResponse.data?.results && Array.isArray(testsResponse.data.results)) {
+        tests = testsResponse.data.results;
+      } else if (testsResponse.data?.data && Array.isArray(testsResponse.data.data)) {
+        tests = testsResponse.data.data;
+      }
       
       // 計算統計資訊
       const completedTests = tests.filter(t => t.status === 'completed');
@@ -85,31 +97,52 @@ const BenchmarkDashboardPage = () => {
         return testDate >= weekAgo;
       });
 
-      // 計算平均值
+      // 計算平均值（確保類型轉換）
       const avgScore = completedTests.length > 0
-        ? completedTests.reduce((sum, t) => sum + (t.overall_score || 0), 0) / completedTests.length
+        ? completedTests.reduce((sum, t) => sum + (parseFloat(t.overall_score) || 0), 0) / completedTests.length
         : 0;
       
       const avgPassRate = completedTests.length > 0
         ? completedTests.reduce((sum, t) => {
-            const rate = t.total_test_cases > 0 
-              ? (t.passed_test_cases / t.total_test_cases) * 100 
-              : 0;
+            // 使用 API 提供的 pass_rate 欄位
+            const rate = parseFloat(t.pass_rate) || 0;
             return sum + rate;
           }, 0) / completedTests.length
         : 0;
 
       const avgResponseTime = completedTests.length > 0
-        ? completedTests.reduce((sum, t) => sum + (t.avg_time_ms || 0), 0) / completedTests.length
+        ? completedTests.reduce((sum, t) => sum + (parseFloat(t.avg_response_time) || 0), 0) / completedTests.length
         : 0;
 
       setStatistics({
         totalTests: tests.length,
-        avgScore: avgScore.toFixed(2),
-        avgPassRate: avgPassRate.toFixed(1),
-        avgResponseTime: avgResponseTime.toFixed(0),
+        avgScore: parseFloat(avgScore.toFixed(2)),
+        avgPassRate: parseFloat(avgPassRate.toFixed(1)),
+        avgResponseTime: parseFloat(avgResponseTime.toFixed(0)),
         todayTests: todayTests.length,
         weekTests: weekTests.length,
+      });
+
+      // 準備圖表數據（只使用已完成的測試）
+      const chartDataPoints = completedTests
+        .sort((a, b) => new Date(a.created_at) - new Date(b.created_at)) // 按時間排序
+        .map(test => ({
+          date: new Date(test.created_at).toLocaleDateString('zh-TW', {
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+          overall_score: parseFloat(test.overall_score) || 0,
+          precision: (parseFloat(test.avg_precision) || 0) * 100, // 轉換為百分比
+          recall: (parseFloat(test.avg_recall) || 0) * 100,
+          f1_score: (parseFloat(test.avg_f1_score) || 0) * 100,
+          pass_rate: parseFloat(test.pass_rate) || 0,
+        }));
+
+      setChartData({
+        scoreData: chartDataPoints,
+        passRateData: chartDataPoints,
       });
 
       // 設置最近 10 次測試
@@ -175,25 +208,28 @@ const BenchmarkDashboardPage = () => {
       key: 'overall_score',
       width: 100,
       align: 'center',
-      sorter: (a, b) => a.overall_score - b.overall_score,
-      render: (score) => (
-        <Text strong style={{ fontSize: '16px', color: score >= 70 ? '#52c41a' : score >= 50 ? '#faad14' : '#f5222d' }}>
-          {score ? score.toFixed(1) : 'N/A'}
-        </Text>
-      ),
+      sorter: (a, b) => (parseFloat(a.overall_score) || 0) - (parseFloat(b.overall_score) || 0),
+      render: (score) => {
+        const numScore = parseFloat(score);
+        if (isNaN(numScore)) return <Text>N/A</Text>;
+        return (
+          <Text strong style={{ fontSize: '16px', color: numScore >= 70 ? '#52c41a' : numScore >= 50 ? '#faad14' : '#f5222d' }}>
+            {numScore.toFixed(1)}
+          </Text>
+        );
+      },
     },
     {
       title: '通過率',
+      dataIndex: 'pass_rate',
       key: 'pass_rate',
       width: 100,
       align: 'center',
-      render: (_, record) => {
-        const rate = record.total_test_cases > 0 
-          ? ((record.passed_test_cases / record.total_test_cases) * 100).toFixed(1)
-          : 0;
+      render: (rate) => {
+        const numRate = parseFloat(rate) || 0;
         return (
-          <Text style={{ color: rate >= 80 ? '#52c41a' : rate >= 60 ? '#faad14' : '#f5222d' }}>
-            {rate}%
+          <Text style={{ color: numRate >= 80 ? '#52c41a' : numRate >= 60 ? '#faad14' : '#f5222d' }}>
+            {numRate.toFixed(1)}%
           </Text>
         );
       },
@@ -205,18 +241,20 @@ const BenchmarkDashboardPage = () => {
       width: 80,
       align: 'center',
       render: (total, record) => (
-        <Text>{record.passed_test_cases}/{total}</Text>
+        <Text>{record.passed_count || 0}/{total}</Text>
       ),
     },
     {
       title: '平均時間',
-      dataIndex: 'avg_time_ms',
-      key: 'avg_time_ms',
+      dataIndex: 'avg_response_time',
+      key: 'avg_response_time',
       width: 100,
       align: 'center',
-      render: (time) => (
-        <Text>{time ? `${time.toFixed(0)}ms` : 'N/A'}</Text>
-      ),
+      render: (time) => {
+        const numTime = parseFloat(time);
+        if (isNaN(numTime)) return <Text>N/A</Text>;
+        return <Text>{numTime.toFixed(0)}ms</Text>;
+      },
     },
     {
       title: '狀態',
@@ -425,16 +463,34 @@ const BenchmarkDashboardPage = () => {
         )}
       </Card>
 
-      {/* 圖表區域（預留） */}
+      {/* 圖表區域 */}
       <Row gutter={[16, 16]} style={{ marginTop: '24px' }}>
         <Col xs={24} lg={12}>
-          <Card title="分數趨勢圖">
-            <Empty description="圖表功能開發中..." image={Empty.PRESENTED_IMAGE_SIMPLE} />
+          <Card 
+            title={
+              <Space>
+                <Text strong>分數趨勢圖</Text>
+                <Text type="secondary" style={{ fontSize: '12px', fontWeight: 'normal' }}>
+                  （最近 30 天）
+                </Text>
+              </Space>
+            }
+          >
+            <ScoreTrendChart data={chartData.scoreData} />
           </Card>
         </Col>
         <Col xs={24} lg={12}>
-          <Card title="通過率趨勢圖">
-            <Empty description="圖表功能開發中..." image={Empty.PRESENTED_IMAGE_SIMPLE} />
+          <Card 
+            title={
+              <Space>
+                <Text strong>通過率趨勢圖</Text>
+                <Text type="secondary" style={{ fontSize: '12px', fontWeight: 'normal' }}>
+                  （最近 30 天）
+                </Text>
+              </Space>
+            }
+          >
+            <PassRateTrendChart data={chartData.passRateData} />
           </Card>
         </Col>
       </Row>

@@ -30,6 +30,7 @@ import UnifiedAnalyticsPage from './pages/UnifiedAnalyticsPage';
 import DevMarkdownTestPage from './pages/DevMarkdownTestPage';
 import SystemLogViewerPage from './pages/admin/SystemLogViewerPage';
 import BenchmarkDashboardPage from './pages/benchmark/BenchmarkDashboardPage';
+import BenchmarkTestExecutionPage from './pages/benchmark/BenchmarkTestExecutionPage';
 
 const { Content } = Layout;
 
@@ -349,6 +350,11 @@ function AppLayout() {
             <Route path="/benchmark/dashboard" element={
               <ProtectedRoute permission="isStaff" fallbackTitle="Benchmark 系統存取受限">
                 <BenchmarkDashboardPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/benchmark/test-execution" element={
+              <ProtectedRoute permission="isStaff" fallbackTitle="Benchmark 系統存取受限">
+                <BenchmarkTestExecutionPage />
               </ProtectedRoute>
             } />
 
