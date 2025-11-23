@@ -49,6 +49,9 @@ const BatchComparisonPage = () => {
   const [loading, setLoading] = useState(true);
   const [comparisonData, setComparisonData] = useState(null);
   const [testRuns, setTestRuns] = useState([]);
+  const [detailedResults, setDetailedResults] = useState([]);  // 每個測試案例的詳細結果
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [detailTablePagination, setDetailTablePagination] = useState({ current: 1, pageSize: 10 });  // 追蹤詳細表格分頁狀態
 
   useEffect(() => {
     loadComparisonData();
@@ -95,11 +98,82 @@ const BatchComparisonPage = () => {
       const realComparison = generateRealComparison(batchRuns);
       setComparisonData(realComparison);
 
+      // ✅ 載入詳細測試結果（每個測試案例的表現）
+      await loadDetailedResults(batchRuns);
+
     } catch (error) {
       console.error('載入對比資料失敗:', error);
       message.error('載入對比資料失敗');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ✅ 載入每個測試案例的詳細結果
+  const loadDetailedResults = async (runs) => {
+    setLoadingDetails(true);
+    try {
+      // 為每個 test_run 獲取詳細結果（請求所有資料，不分頁）
+      const detailsPromises = runs.map(run => 
+        benchmarkApi.getTestResults({ 
+          test_run_id: run.id,
+          page_size: 1000  // ✅ 請求足夠大的頁面大小以獲取所有結果
+        })
+      );
+      
+      const detailsResponses = await Promise.all(detailsPromises);
+      
+      // 整理資料：按測試案例分組
+      const resultsByTestCase = {};
+      
+      runs.forEach((run, runIndex) => {
+        // ✅ 處理分頁格式的 API 回應
+        const responseData = detailsResponses[runIndex]?.data;
+        const results = Array.isArray(responseData) 
+          ? responseData 
+          : (responseData?.results || []);
+        
+        console.log(`  版本 ${run.version?.version_name}: 找到 ${results.length} 個測試結果`);
+        
+        results.forEach(result => {
+          const testCaseId = result.test_case;
+          
+          if (!resultsByTestCase[testCaseId]) {
+            resultsByTestCase[testCaseId] = {
+              test_case_id: testCaseId,
+              question: result.test_case_question || `測試案例 ${testCaseId}`,
+              difficulty: result.test_case_difficulty || 'N/A',
+              versions: {},
+            };
+          }
+          
+          // 記錄該版本的表現
+          resultsByTestCase[testCaseId].versions[run.version?.version_name || `版本 ${run.version}`] = {
+            version_id: run.version?.id || run.version,
+            test_run_id: run.id,
+            precision: parseFloat(result.precision_score) || 0,
+            recall: parseFloat(result.recall_score) || 0,
+            f1_score: parseFloat(result.f1_score) || 0,
+            ndcg: parseFloat(result.ndcg_score) || 0,
+            response_time: parseFloat(result.response_time) || 0,
+            is_passed: result.is_passed,
+            true_positives: result.true_positives || 0,
+            false_positives: result.false_positives || 0,
+            false_negatives: result.false_negatives || 0,
+          };
+        });
+      });
+      
+      // 轉換為陣列格式
+      const detailedArray = Object.values(resultsByTestCase);
+      console.log('📊 載入詳細結果:', detailedArray.length, '個測試案例');
+      setDetailedResults(detailedArray);
+      
+    } catch (error) {
+      console.error('載入詳細結果失敗:', error);
+      message.warning('載入詳細結果失敗，僅顯示匯總資料');
+    } finally {
+      setLoadingDetails(false);
     }
   };
 
@@ -113,9 +187,9 @@ const BatchComparisonPage = () => {
         version_id: run.version?.id || run.version,
         version_name: run.version?.version_name || run.version_name || `版本 ${run.version}`,
         overall_score: parseFloat(run.overall_score) || 0,
-        precision: parseFloat(run.precision) || 0,
-        recall: parseFloat(run.recall) || 0,
-        f1_score: parseFloat(run.f1_score) || 0,
+        precision: parseFloat(run.avg_precision) || 0,  // ⚠️ 保持比例值（0-1），顯示時會 × 100
+        recall: parseFloat(run.avg_recall) || 0,        // ⚠️ 保持比例值（0-1），顯示時會 × 100
+        f1_score: parseFloat(run.avg_f1_score) || 0,    // ⚠️ 保持比例值（0-1），顯示時會 × 100
         ndcg: parseFloat(run.ndcg) || 0,
         avg_response_time: parseFloat(run.avg_response_time) || 0,
         pass_rate: parseFloat(run.pass_rate) || 0,
@@ -326,6 +400,103 @@ const BatchComparisonPage = () => {
     },
   ];
 
+  // 測試案例詳細表格列定義
+  const detailColumns = [
+    {
+      title: '#',
+      dataIndex: 'index',
+      key: 'index',
+      width: 60,
+      fixed: 'left',
+      align: 'center',
+      render: (text, record, index) => {
+        // ✅ 計算全局序號：(當前頁碼 - 1) × 每頁筆數 + 當前行索引 + 1
+        return (detailTablePagination.current - 1) * detailTablePagination.pageSize + index + 1;
+      },
+    },
+    {
+      title: '測試案例',
+      dataIndex: 'question',
+      key: 'question',
+      width: 250,
+      fixed: 'left',
+      ellipsis: {
+        showTitle: false,
+      },
+      render: (text) => (
+        <Tooltip title={text} placement="topLeft">
+          <Text>{text}</Text>
+        </Tooltip>
+      ),
+    },
+    {
+      title: '難度',
+      dataIndex: 'difficulty',
+      key: 'difficulty',
+      width: 100,
+      align: 'center',
+      render: (text) => {
+        const colorMap = {
+          'easy': 'success',
+          'medium': 'warning',
+          'hard': 'error',
+        };
+        return <Tag color={colorMap[text] || 'default'}>{text}</Tag>;
+      },
+    },
+    // 為每個版本動態創建列
+    ...(comparisonData?.versions || []).map(version => ({
+      title: (
+        <Space direction="vertical" size={0} style={{ textAlign: 'center' }}>
+          <Text strong>{version.version_name}</Text>
+          {version.is_baseline && <Tag color="gold" size="small">基準</Tag>}
+        </Space>
+      ),
+      key: `version_${version.version_id}`,
+      width: 160,
+      align: 'center',
+      render: (_, record) => {
+        const versionResult = record.versions[version.version_name];
+        if (!versionResult) {
+          return <Text type="secondary">-</Text>;
+        }
+        
+        const { precision, recall, f1_score, is_passed } = versionResult;
+        
+        return (
+          <Tooltip
+            title={
+              <div>
+                <div>Precision: {(precision * 100).toFixed(1)}%</div>
+                <div>Recall: {(recall * 100).toFixed(1)}%</div>
+                <div>F1 Score: {(f1_score * 100).toFixed(1)}%</div>
+                <div>TP: {versionResult.true_positives} | FP: {versionResult.false_positives} | FN: {versionResult.false_negatives}</div>
+                <div>響應時間: {versionResult.response_time.toFixed(0)}ms</div>
+              </div>
+            }
+          >
+            <Space direction="vertical" size={2} style={{ width: '100%' }}>
+              {is_passed ? (
+                <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 16 }} />
+              ) : (
+                <Tag color="error" style={{ margin: 0 }}>未通過</Tag>
+              )}
+              <Text style={{ fontSize: 12 }}>
+                P: {(precision * 100).toFixed(0)}%
+              </Text>
+              <Text style={{ fontSize: 12 }}>
+                R: {(recall * 100).toFixed(0)}%
+              </Text>
+              <Text strong style={{ fontSize: 12, color: '#1890ff' }}>
+                F1: {(f1_score * 100).toFixed(0)}%
+              </Text>
+            </Space>
+          </Tooltip>
+        );
+      },
+    })),
+  ];
+
   // 導出報告
   const handleExportReport = () => {
     if (!comparisonData) return;
@@ -468,7 +639,12 @@ const BatchComparisonPage = () => {
         {/* 詳細數據對比表 */}
         <Card
           type="inner"
-          title="📋 詳細數據對比"
+          title={
+            <Space>
+              <span>📋 詳細數據對比</span>
+              <Tag color="blue">共 {detailedResults.length} 題</Tag>
+            </Space>
+          }
           style={{ marginBottom: 24 }}
         >
           <Table
@@ -479,6 +655,58 @@ const BatchComparisonPage = () => {
             size="middle"
             scroll={{ x: 1200 }}
           />
+        </Card>
+
+        {/* 測試案例詳細表現 */}
+        <Card
+          type="inner"
+          title={
+            <Space>
+              <span>🎯 測試案例詳細表現</span>
+              {loadingDetails && <Spin size="small" />}
+            </Space>
+          }
+          style={{ marginBottom: 24 }}
+        >
+          {detailedResults.length > 0 ? (
+            <>
+              <Alert
+                message="每個測試案例在不同搜尋版本下的表現對比"
+                description={
+                  <Space direction="vertical">
+                    <Text>✓ 綠色勾選：測試通過 | ✗ 紅色標籤：測試未通過</Text>
+                    <Text>P = Precision（精準度）| R = Recall（召回率）| F1 = F1 Score（綜合指標）</Text>
+                    <Text type="secondary">提示：將滑鼠懸停在數據上查看詳細資訊</Text>
+                  </Space>
+                }
+                type="info"
+                showIcon
+                style={{ marginBottom: 16 }}
+              />
+              <Table
+                dataSource={detailedResults}
+                columns={detailColumns}
+                rowKey="test_case_id"
+                pagination={{
+                  current: detailTablePagination.current,
+                  pageSize: detailTablePagination.pageSize,
+                  showSizeChanger: true,
+                  showTotal: (total) => `共 ${total} 個測試案例`,
+                  onChange: (page, pageSize) => {
+                    setDetailTablePagination({ current: page, pageSize });
+                  },
+                }}
+                size="small"
+                scroll={{ x: 1200 }}
+                bordered
+              />
+            </>
+          ) : (
+            <Empty
+              description="暫無詳細測試結果資料"
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+            />
+          )}
         </Card>
 
         {/* 場景化推薦 */}

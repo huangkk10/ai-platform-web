@@ -27,6 +27,7 @@ from api.serializers import (
     BenchmarkTestResultSerializer,
     SearchAlgorithmVersionSerializer
 )
+from api.pagination import DynamicPageSizePagination
 
 
 class BenchmarkTestCaseViewSet(viewsets.ModelViewSet):
@@ -433,6 +434,9 @@ class BenchmarkTestResultViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = BenchmarkTestResultSerializer
     permission_classes = [permissions.IsAuthenticated]
     
+    # ✅ 使用自訂分頁類別以支援動態 page_size
+    pagination_class = DynamicPageSizePagination
+    
     def get_queryset(self):
         """支援篩選"""
         queryset = super().get_queryset()
@@ -506,7 +510,7 @@ class SearchAlgorithmVersionViewSet(viewsets.ModelViewSet):
     - 版本比較
     - 版本統計
     """
-    queryset = SearchAlgorithmVersion.objects.all().order_by('-created_at')
+    queryset = SearchAlgorithmVersion.objects.filter(is_active=True).order_by('-created_at')
     serializer_class = SearchAlgorithmVersionSerializer
     permission_classes = [permissions.IsAuthenticated]
     

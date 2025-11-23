@@ -1,5 +1,6 @@
 """Benchmark Test Runner"""
 import time
+import logging
 from typing import List, Dict, Any
 from decimal import Decimal
 from django.utils import timezone
@@ -7,6 +8,8 @@ from django.db import transaction
 from api.models import SearchAlgorithmVersion, BenchmarkTestCase, BenchmarkTestRun, BenchmarkTestResult
 from library.protocol_guide.search_service import ProtocolGuideSearchService
 from .scoring_engine import ScoringEngine
+
+logger = logging.getLogger(__name__)
 
 class BenchmarkTestRunner:
     def __init__(self, version_id: int, verbose: bool = False):
@@ -22,9 +25,82 @@ class BenchmarkTestRunner:
     def run_single_test(self, test_case, save_to_db=False, test_run=None):
         try:
             start = time.time()
-            results = self.search_service.search_knowledge(query=test_case.question, limit=10, use_vector=True)
+            
+            # ✅ 使用版本的搜尋參數配置
+            search_params = self.version.parameters or {}
+            strategy = search_params.get('strategy', 'hybrid_weighted')
+            
+            # 根據策略執行搜尋
+            if strategy == 'section_only':
+                # 純段落搜尋
+                search_mode = 'section_only'
+                threshold = search_params.get('section_threshold', 0.75)
+                
+                logger.info(f"🔍 版本 {self.version.version_code} - 策略: section_only, threshold: {threshold}")
+                
+                results = self.search_service.search_with_vectors(
+                    query=test_case.question, 
+                    limit=10, 
+                    threshold=threshold,
+                    search_mode=search_mode,
+                    stage=1
+                )
+                
+            elif strategy == 'document_only':
+                # 純全文搜尋
+                search_mode = 'document_only'
+                threshold = search_params.get('document_threshold', 0.65)
+                
+                logger.info(f"🔍 版本 {self.version.version_code} - 策略: document_only, threshold: {threshold}")
+                
+                results = self.search_service.search_with_vectors(
+                    query=test_case.question, 
+                    limit=10, 
+                    threshold=threshold,
+                    search_mode=search_mode,
+                    stage=1
+                )
+                
+            elif strategy == 'hybrid_weighted':
+                # ✅ 混合權重搜尋 - 使用 HybridWeightedStrategy
+                from library.benchmark.search_strategies import HybridWeightedStrategy
+                
+                section_weight = search_params.get('section_weight', 0.7)
+                document_weight = search_params.get('document_weight', 0.3)
+                section_threshold = search_params.get('section_threshold', 0.75)
+                document_threshold = search_params.get('document_threshold', 0.65)
+                
+                logger.info(
+                    f"🔍 版本 {self.version.version_code} - 策略: hybrid_weighted | "
+                    f"section_weight={section_weight}, document_weight={document_weight} | "
+                    f"section_threshold={section_threshold}, document_threshold={document_threshold}"
+                )
+                
+                hybrid_strategy = HybridWeightedStrategy(self.search_service)
+                results = hybrid_strategy.execute(
+                    query=test_case.question,
+                    limit=10,
+                    section_weight=section_weight,
+                    document_weight=document_weight,
+                    section_threshold=section_threshold,
+                    document_threshold=document_threshold
+                )
+                
+            else:
+                # 未知策略 - 使用 auto 模式
+                logger.warning(f"⚠️ 未知策略 '{strategy}'，使用 auto 模式")
+                results = self.search_service.search_with_vectors(
+                    query=test_case.question, 
+                    limit=10, 
+                    threshold=0.7,
+                    search_mode='auto',
+                    stage=1
+                )
+            
+            logger.info(f"   ✅ 搜尋完成，返回 {len(results)} 個結果")
+            
             rt = (time.time() - start) * 1000
-            ids = [r.get('metadata', {}).get('id') or r.get('id') for r in results if r.get('metadata', {}).get('id') or r.get('id')]
+            ids = [r.get('metadata', {}).get('id') or r.get('id') or r.get('document_id') for r in results if r.get('metadata', {}).get('id') or r.get('id') or r.get('document_id')]
             m = ScoringEngine.calculate_all_metrics(ids, test_case.expected_document_ids, rt, 10)
             passed = m['true_positives'] >= test_case.min_required_matches
             result = {'test_case': test_case, 'search_query': test_case.question,
@@ -40,6 +116,7 @@ class BenchmarkTestRunner:
                     false_positives=m['false_positives'], false_negatives=m['false_negatives'], is_passed=passed)
             return result
         except Exception as e:
+            logger.exception(f"測試失敗: {e}")
             self._log(f"測試失敗: {e}", 'ERROR')
             return {'test_case': test_case, 'search_query': test_case.question, 'is_passed': False, 
                    'precision': 0, 'recall': 0, 'f1_score': 0, 'ndcg': 0, 'speed_score': 0, 
@@ -51,7 +128,7 @@ class BenchmarkTestRunner:
     def run_batch_tests(self, test_cases, run_name, run_type='manual', notes=''):
         self._log(f"開始測試: {run_name}")
         test_run = BenchmarkTestRun.objects.create(
-            version=self.version, run_name=run_name, run_type=run_type,
+            version=self.version, run_name=run_name, run_type=run_type, notes=notes,
             total_test_cases=len(test_cases), status='running', started_at=timezone.now())
         results, passed = [], 0
         for i, tc in enumerate(test_cases, 1):
@@ -72,12 +149,10 @@ class BenchmarkTestRunner:
         asp = sum(r.get('speed_score', 0) for r in results) / n
         os = ScoringEngine.calculate_overall_score(ap, ar, af, an, asp)
         test_run.overall_score = Decimal(str(os))
-        test_run.precision_pct = Decimal(str(round(ap * 100, 2)))
-        test_run.recall_pct = Decimal(str(round(ar * 100, 2)))
-        test_run.f1_score_pct = Decimal(str(round(af * 100, 2)))
-        test_run.ndcg_pct = Decimal(str(round(an * 100, 2)))
-        test_run.speed_score_pct = Decimal(str(round(asp, 2)))
-        test_run.avg_time_ms = Decimal(str(round(sum(r.get('response_time', 0) for r in results) / n, 2)))
+        test_run.avg_precision = Decimal(str(round(ap, 4)))
+        test_run.avg_recall = Decimal(str(round(ar, 4)))
+        test_run.avg_f1_score = Decimal(str(round(af, 4)))
+        test_run.avg_response_time = Decimal(str(round(sum(r.get('response_time', 0) for r in results) / n, 2)))
         test_run.status = 'completed'
         test_run.completed_at = timezone.now()
         test_run.duration_seconds = int((test_run.completed_at - test_run.started_at).total_seconds())

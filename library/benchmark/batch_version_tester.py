@@ -30,68 +30,76 @@ class BatchVersionTester:
                 test_run = self._run_single_version_test(version, test_cases, batch_id, batch_name, notes)
                 test_runs.append(test_run)
                 test_run_ids.append(test_run.id)
-                print("  ✅ 完成")
+                print("  完成")
             except Exception as e:
-                print("  ❌ 失敗: " + str(e))
+                print("  失敗: " + str(e))
         
         execution_time = (datetime.now() - start_time).total_seconds()
         return {
-            "success": True,
-            "batch_id": batch_id,
-            "batch_name": batch_name,
-            "test_runs": test_runs,
-            "test_run_ids": test_run_ids,
-            "comparison": self._generate_comparison(test_runs),
-            "summary": self._generate_summary(test_runs, test_cases, execution_time),
+            "success": True, 
+            "batch_id": batch_id, 
+            "batch_name": batch_name, 
+            "test_runs": test_runs, 
+            "test_run_ids": test_run_ids, 
+            "comparison": self._generate_comparison(test_runs), 
+            "summary": self._generate_summary(test_runs, test_cases, execution_time)
         }
 
     def _prepare_versions(self, version_ids, force_retest, test_case_ids):
         from api.models import SearchAlgorithmVersion
-        return list(SearchAlgorithmVersion.objects.filter(id__in=version_ids) if version_ids else SearchAlgorithmVersion.objects.all())
+        if version_ids:
+            return list(SearchAlgorithmVersion.objects.filter(id__in=version_ids))
+        return list(SearchAlgorithmVersion.objects.all())
 
     def _prepare_test_cases(self, test_case_ids):
         from api.models import BenchmarkTestCase
-        return list(BenchmarkTestCase.objects.filter(id__in=test_case_ids, is_active=True) if test_case_ids else BenchmarkTestCase.objects.filter(is_active=True))
+        if test_case_ids:
+            return list(BenchmarkTestCase.objects.filter(id__in=test_case_ids, is_active=True))
+        return list(BenchmarkTestCase.objects.filter(is_active=True))
 
     def _run_single_version_test(self, version, test_cases, batch_id, batch_name, notes):
         from library.benchmark.test_runner import BenchmarkTestRunner
         runner = BenchmarkTestRunner(version_id=version.id, verbose=self.verbose)
+        
+        # 組合 notes：批次 ID + 用戶備註
+        batch_notes = "批次 ID: " + batch_id
+        if notes:
+            batch_notes = batch_notes + "\n" + notes
+        
         return runner.run_batch_tests(
             test_cases=test_cases, 
             run_name=batch_name + " - " + version.version_name, 
             run_type="batch_comparison", 
-            notes="批次 ID: " + batch_id + "\n" + notes
+            notes=batch_notes
         )
 
     def _generate_comparison(self, test_runs):
-        # ✅ 修正欄位名稱：precision → avg_precision, recall → avg_recall, f1_score → avg_f1_score
-        vdata = [{
-            "version_id": tr.version.id,
-            "version_name": tr.version.version_name,
-            "overall_score": float(tr.overall_score or 0),
-            "precision": float(tr.avg_precision or 0),        # ✅ 改為 avg_precision
-            "recall": float(tr.avg_recall or 0),              # ✅ 改為 avg_recall
-            "f1_score": float(tr.avg_f1_score or 0),          # ✅ 改為 avg_f1_score
-        } for tr in test_runs]
-        
+        vdata = []
+        for t in test_runs:
+            vdata.append({
+                "version_id": t.version.id, 
+                "version_name": t.version.version_name, 
+                "overall_score": float(t.overall_score or 0), 
+                "precision": float(t.avg_precision or 0) * 100,  # 轉為百分比
+                "recall": float(t.avg_recall or 0) * 100,        # 轉為百分比
+                "f1_score": float(t.avg_f1_score or 0) * 100     # 轉為百分比
+            })
         rank = {"by_overall_score": sorted(vdata, key=lambda x: x["overall_score"], reverse=True)}
-        return {
-            "versions": vdata,
-            "ranking": rank,
-            "best_version": rank["by_overall_score"][0] if rank["by_overall_score"] else None,
-            "trade_offs": []
-        }
+        best = rank["by_overall_score"][0] if rank["by_overall_score"] else None
+        return {"versions": vdata, "ranking": rank, "best_version": best, "trade_offs": []}
 
     def _generate_summary(self, test_runs, test_cases, execution_time):
         return {
-            "total_versions_tested": len(test_runs),
-            "total_test_cases": len(test_cases),
-            "total_tests_executed": len(test_runs) * len(test_cases),
-            "execution_time": execution_time,
+            "total_versions_tested": len(test_runs), 
+            "total_test_cases": len(test_cases), 
+            "total_tests_executed": len(test_runs) * len(test_cases), 
+            "execution_time": execution_time
         }
 
 def batch_test_all_versions(test_case_ids=None, force_retest=False, verbose=False):
-    return BatchVersionTester(verbose=verbose).run_batch_test(version_ids=None, test_case_ids=test_case_ids, force_retest=force_retest)
+    tester = BatchVersionTester(verbose=verbose)
+    return tester.run_batch_test(version_ids=None, test_case_ids=test_case_ids, force_retest=force_retest)
 
 def batch_test_selected_versions(version_ids, test_case_ids=None, batch_name=None, notes="", verbose=False):
-    return BatchVersionTester(verbose=verbose).run_batch_test(version_ids=version_ids, test_case_ids=test_case_ids, batch_name=batch_name, notes=notes)
+    tester = BatchVersionTester(verbose=verbose)
+    return tester.run_batch_test(version_ids=version_ids, test_case_ids=test_case_ids, batch_name=batch_name, notes=notes)

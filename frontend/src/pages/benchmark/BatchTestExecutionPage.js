@@ -203,15 +203,10 @@ const BatchTestExecutionPage = () => {
       
       setTestResult(response.data);
 
-      // 顯示成功訊息並提供跳轉選項
+      // 自動跳轉到批量測試歷史頁面
       setTimeout(() => {
-        const batchId = response.data.batch_id;
-        message.info({
-          content: '點擊此處查看對比報告',
-          duration: 5,
-          onClick: () => navigate(`/benchmark/comparison/${batchId}`),
-        });
-      }, 1000);
+        navigate('/benchmark/batch-history');
+      }, 1500);
 
     } catch (error) {
       message.destroy();
@@ -504,9 +499,9 @@ const BatchTestExecutionPage = () => {
                     type="primary"
                     size="large"
                     icon={<CheckOutlined />}
-                    onClick={() => navigate(`/benchmark/comparison/${testResult.batch_id}`)}
+                    onClick={() => navigate('/benchmark/batch-history')}
                   >
-                    查看對比報告
+                    查看批量測試歷史
                   </Button>
                   <Button
                     size="large"
