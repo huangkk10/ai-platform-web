@@ -649,12 +649,12 @@ class BenchmarkTestRunSerializer(serializers.ModelSerializer):
         return obj.results.filter(is_passed=False).count()
     
     def get_pass_rate(self, obj):
-        """計算通過率"""
+        """計算通過率（返回 0-1 的比例值，前端會 × 100 顯示為百分比）"""
         total = obj.results.count()
         if total == 0:
             return 0
         passed = obj.results.filter(is_passed=True).count()
-        return round((passed / total) * 100, 2)
+        return round(passed / total, 4)  # 返回比例值（如 0.9818）而非百分比
 
 
 class BenchmarkTestResultSerializer(serializers.ModelSerializer):

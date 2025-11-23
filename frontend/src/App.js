@@ -34,6 +34,7 @@ import BenchmarkTestExecutionPage from './pages/benchmark/BenchmarkTestExecution
 import BatchTestExecutionPage from './pages/benchmark/BatchTestExecutionPage';
 import BatchComparisonPage from './pages/benchmark/BatchComparisonPage';
 import BatchTestHistoryPage from './pages/benchmark/BatchTestHistoryPage';
+import TestCasesListPage from './pages/benchmark/TestCasesListPage';
 
 const { Content } = Layout;
 
@@ -357,6 +358,11 @@ function AppLayout() {
             <Route path="/benchmark/dashboard" element={
               <ProtectedRoute permission="isStaff" fallbackTitle="Benchmark 系統存取受限">
                 <BenchmarkDashboardPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/benchmark/test-cases" element={
+              <ProtectedRoute permission="isStaff" fallbackTitle="Benchmark 系統存取受限">
+                <TestCasesListPage />
               </ProtectedRoute>
             } />
             <Route path="/benchmark/test-execution" element={

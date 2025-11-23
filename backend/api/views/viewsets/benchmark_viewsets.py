@@ -43,6 +43,7 @@ class BenchmarkTestCaseViewSet(viewsets.ModelViewSet):
     queryset = BenchmarkTestCase.objects.all().order_by('-created_at')
     serializer_class = BenchmarkTestCaseSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = DynamicPageSizePagination  # 支援 ?page_size=1000
     
     def get_queryset(self):
         """支援多條件篩選"""
