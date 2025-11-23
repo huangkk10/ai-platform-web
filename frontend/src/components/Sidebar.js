@@ -19,6 +19,8 @@ import {
   TagOutlined,
   ThunderboltOutlined,
   HistoryOutlined,
+  RobotOutlined,
+  FileSearchOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 import smiLogo from '../assets/images/smi.png';
@@ -30,6 +32,7 @@ const Sidebar = ({ collapsed, onCollapse }) => {
   const { user, isAuthenticated, initialized, hasPermission, canManagePermissions } = useAuth();
   const navigate = useNavigate();
   const [knowledgeMenuVisible, setKnowledgeMenuVisible] = useState(false);
+  const [benchmarkMenuVisible, setBenchmarkMenuVisible] = useState(false);
 
   // 動態生成頂部選單項目，根據用戶權限
   const getTopMenuItems = () => {
@@ -151,6 +154,18 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       case 'benchmark-versions':
         navigate('/benchmark/versions');
         break;
+      case 'dify-benchmark-versions':
+        navigate('/dify-benchmark/versions');
+        break;
+      case 'dify-benchmark-test-cases':
+        navigate('/dify-benchmark/test-cases');
+        break;
+      case 'dify-benchmark-batch-test':
+        navigate('/dify-benchmark/batch-test');
+        break;
+      case 'dify-benchmark-history':
+        navigate('/dify-benchmark/history');
+        break;
       default:
         console.log('Unknown menu key:', key);
         break;
@@ -229,6 +244,133 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       ),
     };
 
+    // 獲取 Benchmark 子選單項目用於 Dropdown
+    const getBenchmarkMenuItems = () => {
+      const items = [];
+
+      // ===== Protocol Benchmark 分組 =====
+      items.push({
+        type: 'group',
+        label: 'Protocol Benchmark',
+      });
+
+      items.push({
+        key: 'benchmark-dashboard',
+        icon: <DashboardOutlined />,
+        label: 'Dashboard',
+        onClick: () => navigate('/benchmark/dashboard')
+      });
+
+      items.push({
+        key: 'benchmark-test-cases',
+        icon: <FileTextOutlined />,
+        label: 'Test Cases',
+        onClick: () => navigate('/benchmark/test-cases')
+      });
+
+      items.push({
+        key: 'benchmark-test-execution',
+        icon: <PlayCircleOutlined />,
+        label: 'Test Execution',
+        onClick: () => navigate('/benchmark/test-execution')
+      });
+
+      items.push({
+        key: 'benchmark-batch-test',
+        icon: <ThunderboltOutlined />,
+        label: 'Batch Test',
+        onClick: () => navigate('/benchmark/batch-test')
+      });
+
+      items.push({
+        key: 'benchmark-batch-history',
+        icon: <HistoryOutlined />,
+        label: 'Batch History',
+        onClick: () => navigate('/benchmark/batch-history')
+      });
+
+      items.push({
+        key: 'benchmark-results',
+        icon: <BarChartOutlined />,
+        label: 'Results',
+        onClick: () => navigate('/benchmark/results')
+      });
+
+      items.push({
+        key: 'benchmark-versions',
+        icon: <TagOutlined />,
+        label: 'Versions',
+        onClick: () => navigate('/benchmark/versions')
+      });
+
+      // ===== 分隔線 =====
+      items.push({
+        type: 'divider',
+      });
+
+      // ===== Dify Benchmark 分組 =====
+      items.push({
+        type: 'group',
+        label: 'Dify Benchmark',
+      });
+
+      items.push({
+        key: 'benchmark-dify-versions',
+        icon: <RobotOutlined />,
+        label: 'Dify 版本管理',
+        onClick: () => navigate('/benchmark/dify/versions')
+      });
+
+      items.push({
+        key: 'benchmark-dify-test-cases',
+        icon: <FileSearchOutlined />,
+        label: 'Dify 測試案例',
+        onClick: () => navigate('/benchmark/dify/test-cases')
+      });
+
+      items.push({
+        key: 'benchmark-dify-batch-test',
+        icon: <ThunderboltOutlined />,
+        label: 'Dify 批量測試',
+        onClick: () => navigate('/benchmark/dify/batch-test')
+      });
+
+      items.push({
+        key: 'benchmark-dify-history',
+        icon: <HistoryOutlined />,
+        label: 'Dify 測試歷史',
+        onClick: () => navigate('/benchmark/dify/history')
+      });
+
+      return items;
+    };
+
+    // Benchmark 測試選單項目 - 使用 Dropdown 實現 Hover 彈出
+    const benchmarkMenuItem = {
+      key: 'benchmark',
+      icon: <ThunderboltOutlined />,
+      label: (
+        <Dropdown
+          menu={{ items: getBenchmarkMenuItems() }}
+          placement="right"
+          trigger={['hover']}
+          overlayClassName="benchmark-submenu-popup"
+          open={benchmarkMenuVisible}
+          onOpenChange={setBenchmarkMenuVisible}
+        >
+          <span style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between', 
+            width: '100%' 
+          }}>
+            Benchmark 測試
+            <RightOutlined style={{ fontSize: '12px', marginLeft: '8px' }} />
+          </span>
+        </Dropdown>
+      ),
+    };
+
     // admin submenu - 只有管理員可見
     const getAdminChildren = () => {
       const children = [];
@@ -274,50 +416,6 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       label: '系統設定',
     };
 
-    // Benchmark 測試系統選單
-    const benchmarkSubmenu = {
-      key: 'benchmark',
-      icon: <ThunderboltOutlined />,
-      label: 'Benchmark 測試',
-      children: [
-        {
-          key: 'benchmark-dashboard',
-          icon: <DashboardOutlined />,
-          label: 'Dashboard',
-        },
-        {
-          key: 'benchmark-test-cases',
-          icon: <FileTextOutlined />,
-          label: 'Test Cases',
-        },
-        {
-          key: 'benchmark-test-execution',
-          icon: <PlayCircleOutlined />,
-          label: 'Test Execution',
-        },
-        {
-          key: 'benchmark-batch-test',
-          icon: <ThunderboltOutlined />,
-          label: 'Batch Test',
-        },
-        {
-          key: 'benchmark-batch-history',
-          icon: <HistoryOutlined />,
-          label: 'Batch History',
-        },
-        {
-          key: 'benchmark-results',
-          icon: <BarChartOutlined />,
-          label: 'Results',
-        },
-        {
-          key: 'benchmark-versions',
-          icon: <TagOutlined />,
-          label: 'Versions',
-        },
-      ],
-    };
-
     const devToolsItem = {
       key: 'dev-tools',
       icon: <ExperimentOutlined />,
@@ -339,10 +437,10 @@ const Sidebar = ({ collapsed, onCollapse }) => {
     const isAdminPage = currentPath.startsWith('/admin/');
     const isBenchmarkPage = currentPath.startsWith('/benchmark/');
 
-    // Benchmark 測試系統選單 - 需要管理員權限（暫定）
+    // Benchmark 測試系統選單 (包含 Protocol 和 Dify) - 需要管理員權限
     if ((initialized && isAuthenticated && user && (user.is_staff || user.is_superuser)) ||
       (!initialized && isBenchmarkPage)) {
-      items.push(benchmarkSubmenu);
+      items.push(benchmarkMenuItem);
     }
 
     // 知識庫選單 - 需要任何知識庫權限

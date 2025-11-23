@@ -783,10 +783,14 @@ class DifyTestResultSerializer(serializers.ModelSerializer):
             'test_case_expected_answer',
             'dify_answer',
             'response_time',
-            'tokens_used',
+            # 'tokens_used',  # ❌ Model 中不存在，移除
             'dify_message_id',
-            'dify_conversation_id',
-            'retrieved_documents',
+            # 'dify_conversation_id',  # ❌ Model 中不存在，移除
+            'retrieved_documents',  # ✅ 保留
+            'score',  # ✅ 添加分數欄位
+            'is_passed',  # ✅ 添加通過狀態
+            'matched_keywords',  # ✅ 添加匹配關鍵字
+            'missing_keywords',  # ✅ 添加缺失關鍵字
             'evaluation',
             'created_at'
         ]
@@ -808,18 +812,18 @@ class DifyTestRunSerializer(serializers.ModelSerializer):
             'version_name',
             'batch_id',
             'run_name',
-            'status',
-            'total_cases',
+            # 'status',  # ❌ Model 中不存在，移除
+            'total_test_cases',  # ✅ 修正：total_cases → total_test_cases
             'passed_cases',
             'failed_cases',
             'pass_rate',
             'average_score',
             'average_response_time',
-            'total_tokens',
+            # 'total_tokens',  # ❌ Model 中不存在，移除
             'started_at',
             'completed_at',
-            'execution_time',
-            'notes',
+            'total_execution_time',  # ✅ 修正：execution_time → total_execution_time
+            'notes',  # ✅ 恢復：Model 中確實存在
             'created_at',
             'results',
             'results_count'

@@ -36,6 +36,10 @@ import BatchComparisonPage from './pages/benchmark/BatchComparisonPage';
 import BatchTestHistoryPage from './pages/benchmark/BatchTestHistoryPage';
 import TestCasesListPage from './pages/benchmark/TestCasesListPage';
 
+// Dify Benchmark 頁面
+import DifyVersionManagementPage from './pages/dify-benchmark/DifyVersionManagementPage';
+import DifyTestCasePage from './pages/dify-benchmark/DifyTestCasePage';
+
 const { Content } = Layout;
 
 // 配置 axios
@@ -112,6 +116,20 @@ function AppLayout() {
         return '測試結果';
       case '/benchmark/versions':
         return '版本管理';
+      case '/benchmark/dify/versions':
+      case '/dify-benchmark/versions':
+        return 'Dify 版本管理';
+      case '/benchmark/dify/test-cases':
+      case '/dify-benchmark/test-cases':
+        return 'Dify 測試案例';
+      case '/benchmark/dify/batch-test':
+      case '/dify-benchmark/batch-test':
+        return 'Dify 批量測試';
+      case '/benchmark/dify/history':
+      case '/dify-benchmark/history':
+        return 'Dify 測試歷史';
+      case '/dify-benchmark/dashboard':
+        return 'Dify Benchmark Dashboard';
       default:
         // Markdown 編輯器頁面標題（整頁模式）
         if (pathname.startsWith('/knowledge/rvt-guide/markdown-edit/')) {
@@ -383,6 +401,29 @@ function AppLayout() {
             <Route path="/benchmark/comparison/:batchId" element={
               <ProtectedRoute permission="isStaff" fallbackTitle="Benchmark 系統存取受限">
                 <BatchComparisonPage />
+              </ProtectedRoute>
+            } />
+
+            {/* Dify Benchmark 測試系統（需要管理員權限） */}
+            <Route path="/dify-benchmark/versions" element={
+              <ProtectedRoute permission="isStaff" fallbackTitle="Dify Benchmark 系統存取受限">
+                <DifyVersionManagementPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/benchmark/dify/versions" element={
+              <ProtectedRoute permission="isStaff" fallbackTitle="Dify Benchmark 系統存取受限">
+                <DifyVersionManagementPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/dify-benchmark/test-cases" element={
+              <ProtectedRoute permission="isStaff" fallbackTitle="Dify Benchmark 系統存取受限">
+                <DifyTestCasePage />
+              </ProtectedRoute>
+            } />
+            <Route path="/benchmark/dify/test-cases" element={
+              <ProtectedRoute permission="isStaff" fallbackTitle="Dify Benchmark 系統存取受限">
+                <DifyTestCasePage />
               </ProtectedRoute>
             } />
 

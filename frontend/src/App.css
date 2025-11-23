@@ -619,6 +619,62 @@
   color: inherit !important;
 }
 
+/* Benchmark 測試懸停子選單樣式 */
+.benchmark-submenu-popup {
+  background: transparent !important;
+  padding: 0 !important;
+}
+
+.benchmark-submenu-popup .ant-dropdown-menu {
+  background: #2c3e50 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  padding: 4px 0 !important;
+  min-width: 200px !important;
+}
+
+.benchmark-submenu-popup .ant-dropdown-menu-item {
+  color: #ecf0f1 !important;
+  padding: 8px 16px !important;
+  margin: 2px 8px !important;
+  border-radius: 6px !important;
+  transition: all 0.2s ease !important;
+  font-size: 16px !important;
+}
+
+.benchmark-submenu-popup .ant-dropdown-menu-item:hover {
+  background: rgba(52, 152, 219, 0.3) !important;
+  color: #fff !important;
+}
+
+.benchmark-submenu-popup .ant-dropdown-menu-item-selected {
+  background: #3498db !important;
+  color: #fff !important;
+}
+
+/* Benchmark 子選單圖標樣式 */
+.benchmark-submenu-popup .ant-dropdown-menu-item .anticon {
+  font-size: 16px !important;
+  margin-right: 8px !important;
+  color: inherit !important;
+}
+
+/* Benchmark 子選單分組標題樣式 */
+.benchmark-submenu-popup .ant-dropdown-menu-item-group-title {
+  color: #95a5a6 !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  padding: 8px 16px 4px 16px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+}
+
+/* Benchmark 子選單分隔線樣式 */
+.benchmark-submenu-popup .ant-dropdown-menu-item-divider {
+  background-color: rgba(236, 240, 241, 0.1) !important;
+  margin: 4px 8px !important;
+}
+
 /* 響應式設計 - 管理頁面 */
 @media (max-width: 768px) {
   .admin-page {

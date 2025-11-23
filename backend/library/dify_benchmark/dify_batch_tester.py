@@ -56,18 +56,29 @@ class DifyBatchTester:
         # }
     """
     
-    def __init__(self, use_ai_evaluator: bool = False):
+    def __init__(
+        self,
+        use_ai_evaluator: bool = False,
+        use_parallel: bool = True,
+        max_workers: int = 5
+    ):
         """
         初始化批量測試器
         
         Args:
             use_ai_evaluator: 是否使用 AI 評分（預設 False）
+            use_parallel: 是否使用多線程並行執行（預設 True）
+            max_workers: 多線程並行的最大線程數（預設 5）
         """
         self.use_ai_evaluator = use_ai_evaluator
+        self.use_parallel = use_parallel
+        self.max_workers = max_workers
         
         logger.info(
             f"DifyBatchTester 初始化完成: "
-            f"evaluator={'AI' if use_ai_evaluator else 'Keyword'}"
+            f"evaluator={'AI' if use_ai_evaluator else 'Keyword'}, "
+            f"parallel={'Yes' if use_parallel else 'No'}, "
+            f"max_workers={max_workers}"
         )
     
     def run_batch_test(
@@ -125,19 +136,28 @@ class DifyBatchTester:
                 try:
                     logger.info(f"測試版本: {version.version_name}")
                     
-                    # 創建 Test Runner
+                    # 創建 Test Runner（傳遞並行參數）
                     runner = DifyTestRunner(
                         version=version,
-                        use_ai_evaluator=self.use_ai_evaluator
+                        use_ai_evaluator=self.use_ai_evaluator,
+                        max_workers=self.max_workers
                     )
                     
-                    # 執行測試
-                    test_run = runner.run_batch_tests(
-                        test_cases=test_cases,
-                        run_name=f"{batch_name} - {version.version_name}",
-                        batch_id=batch_id,
-                        description=description
-                    )
+                    # 執行測試（根據 use_parallel 選擇方法）
+                    if self.use_parallel:
+                        test_run = runner.run_batch_tests_parallel(
+                            test_cases=test_cases,
+                            run_name=f"{batch_name} - {version.version_name}",
+                            batch_id=batch_id,
+                            description=description
+                        )
+                    else:
+                        test_run = runner.run_batch_tests(
+                            test_cases=test_cases,
+                            run_name=f"{batch_name} - {version.version_name}",
+                            batch_id=batch_id,
+                            description=description
+                        )
                     
                     # 獲取測試摘要
                     summary = runner.get_test_summary(test_run)
