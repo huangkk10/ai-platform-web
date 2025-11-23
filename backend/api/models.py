@@ -1571,3 +1571,470 @@ class BenchmarkTestResult(models.Model):
     def __str__(self):
         passed = "✅" if self.is_passed else "❌"
         return f"{passed} {self.test_case.question[:30]}..."
+
+
+# ============================================================================
+# Dify Benchmark System Models
+# ============================================================================
+
+class DifyConfigVersion(models.Model):
+    """Dify 配置版本"""
+    version_name = models.CharField(
+        max_length=200, 
+        unique=True, 
+        verbose_name="版本名稱"
+    )
+    version_code = models.CharField(
+        max_length=100, 
+        unique=True, 
+        verbose_name="版本代碼"
+    )
+    description = models.TextField(
+        blank=True, 
+        verbose_name="描述"
+    )
+    
+    # Dify 配置
+    dify_app_id = models.CharField(
+        max_length=100, 
+        verbose_name="Dify App ID"
+    )
+    dify_api_key = models.CharField(
+        max_length=200, 
+        verbose_name="Dify API Key"
+    )
+    dify_api_url = models.CharField(
+        max_length=500,
+        default='http://10.10.172.37/v1/chat-messages',
+        verbose_name="Dify API URL"
+    )
+    
+    # 配置內容（JSON）
+    system_prompt = models.TextField(
+        blank=True, 
+        verbose_name="系統提示詞"
+    )
+    rag_settings = models.JSONField(
+        default=dict, 
+        blank=True, 
+        verbose_name="RAG 設置"
+    )
+    model_config = models.JSONField(
+        default=dict, 
+        blank=True, 
+        verbose_name="模型配置"
+    )
+    
+    # 額外配置
+    retrieval_mode = models.CharField(
+        max_length=50, 
+        blank=True, 
+        verbose_name="檢索模式"
+    )
+    custom_config = models.JSONField(
+        default=dict, 
+        blank=True, 
+        verbose_name="自訂配置"
+    )
+    
+    # 版本管理
+    is_active = models.BooleanField(
+        default=True, 
+        verbose_name="啟用"
+    )
+    is_baseline = models.BooleanField(
+        default=False, 
+        verbose_name="基準版本"
+    )
+    
+    created_by = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True,
+        verbose_name="創建者"
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="創建時間"
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name="更新時間"
+    )
+    
+    class Meta:
+        db_table = 'dify_config_version'
+        ordering = ['-created_at']
+        verbose_name = 'Dify 配置版本'
+        verbose_name_plural = 'Dify 配置版本'
+    
+    def __str__(self):
+        return f"{self.version_name} ({self.version_code})"
+
+
+class DifyBenchmarkTestCase(models.Model):
+    """Dify 測試案例"""
+    DIFFICULTY_CHOICES = [
+        ('easy', '簡單'),
+        ('medium', '中等'),
+        ('hard', '困難'),
+    ]
+    
+    question = models.TextField(verbose_name="測試問題")
+    test_class_name = models.CharField(
+        max_length=200, 
+        blank=True, 
+        verbose_name="測試類別"
+    )
+    
+    # 評分標準
+    expected_answer = models.TextField(
+        blank=True, 
+        verbose_name="期望答案"
+    )
+    answer_keywords = models.JSONField(
+        default=list, 
+        verbose_name="關鍵字"
+    )
+    evaluation_criteria = models.JSONField(
+        default=dict, 
+        blank=True, 
+        verbose_name="評分標準"
+    )
+    
+    # 測試案例屬性
+    difficulty_level = models.CharField(
+        max_length=20,
+        choices=DIFFICULTY_CHOICES,
+        default='medium',
+        verbose_name="難度"
+    )
+    question_type = models.CharField(
+        max_length=50, 
+        blank=True, 
+        verbose_name="問題類型"
+    )
+    max_score = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        default=100.00, 
+        verbose_name="滿分"
+    )
+    
+    # 管理欄位
+    is_active = models.BooleanField(
+        default=True, 
+        verbose_name="啟用"
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="創建時間"
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name="更新時間"
+    )
+    
+    class Meta:
+        db_table = 'dify_benchmark_test_case'
+        ordering = ['id']
+        verbose_name = 'Dify 測試案例'
+        verbose_name_plural = 'Dify 測試案例'
+    
+    def __str__(self):
+        return f"{self.question[:50]}..."
+
+
+class DifyTestRun(models.Model):
+    """Dify 測試執行記錄"""
+    version = models.ForeignKey(
+        DifyConfigVersion,
+        on_delete=models.CASCADE,
+        related_name='test_runs',
+        verbose_name="測試版本"
+    )
+    
+    # 測試資訊
+    run_name = models.CharField(
+        max_length=300, 
+        verbose_name="測試名稱"
+    )
+    run_type = models.CharField(
+        max_length=50, 
+        default='batch_comparison', 
+        verbose_name="測試類型"
+    )
+    batch_id = models.CharField(
+        max_length=100, 
+        blank=True, 
+        verbose_name="批次ID"
+    )
+    
+    # 測試統計
+    total_test_cases = models.IntegerField(
+        default=0, 
+        verbose_name="總測試案例數"
+    )
+    passed_cases = models.IntegerField(
+        default=0, 
+        verbose_name="通過案例數"
+    )
+    failed_cases = models.IntegerField(
+        default=0, 
+        verbose_name="失敗案例數"
+    )
+    
+    # 評分指標
+    average_score = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        verbose_name="平均分數"
+    )
+    total_score = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        verbose_name="總分數"
+    )
+    pass_rate = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        verbose_name="通過率"
+    )
+    
+    # 時間統計
+    total_execution_time = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        verbose_name="總執行時間"
+    )
+    average_response_time = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        verbose_name="平均響應時間"
+    )
+    
+    # 詳細評分
+    completeness_score = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        verbose_name="完整性分數"
+    )
+    accuracy_score = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        verbose_name="準確性分數"
+    )
+    relevance_score = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        verbose_name="相關性分數"
+    )
+    
+    # 管理欄位
+    notes = models.TextField(
+        blank=True,
+        verbose_name="備註"
+    )
+    started_at = models.DateTimeField(
+        null=True,
+        verbose_name="開始時間"
+    )
+    completed_at = models.DateTimeField(
+        null=True,
+        verbose_name="完成時間"
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="創建時間"
+    )
+    
+    class Meta:
+        db_table = 'dify_test_run'
+        ordering = ['-created_at']
+        verbose_name = 'Dify 測試執行記錄'
+        verbose_name_plural = 'Dify 測試執行記錄'
+    
+    def __str__(self):
+        return f"{self.run_name} - {self.version.version_name}"
+
+
+class DifyTestResult(models.Model):
+    """Dify 單題測試結果"""
+    test_run = models.ForeignKey(
+        DifyTestRun,
+        on_delete=models.CASCADE,
+        related_name='results',
+        verbose_name="測試執行"
+    )
+    test_case = models.ForeignKey(
+        DifyBenchmarkTestCase,
+        on_delete=models.CASCADE,
+        verbose_name="測試案例"
+    )
+    
+    # 測試結果
+    dify_answer = models.TextField(verbose_name="Dify 回答")
+    dify_message_id = models.CharField(
+        max_length=200, 
+        blank=True,
+        verbose_name="Dify 訊息ID"
+    )
+    
+    # 評分結果
+    score = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2,
+        verbose_name="分數"
+    )
+    is_passed = models.BooleanField(verbose_name="通過")
+    
+    # 細項評分
+    completeness_score = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        verbose_name="完整性分數"
+    )
+    accuracy_score = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        verbose_name="準確性分數"
+    )
+    relevance_score = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        verbose_name="相關性分數"
+    )
+    
+    # 評分詳情
+    evaluation_details = models.JSONField(
+        default=dict, 
+        blank=True,
+        verbose_name="評分詳細說明"
+    )
+    matched_keywords = models.JSONField(
+        default=list, 
+        blank=True,
+        verbose_name="匹配關鍵字"
+    )
+    missing_keywords = models.JSONField(
+        default=list, 
+        blank=True,
+        verbose_name="缺失關鍵字"
+    )
+    
+    # 時間統計
+    response_time = models.DecimalField(
+        max_digits=10, 
+        decimal_places=3, 
+        null=True, 
+        blank=True,
+        verbose_name="響應時間"
+    )
+    
+    # RAG 檢索資訊
+    retrieved_documents = models.JSONField(
+        default=list, 
+        blank=True,
+        verbose_name="檢索文檔"
+    )
+    retrieval_scores = models.JSONField(
+        default=list, 
+        blank=True,
+        verbose_name="檢索分數"
+    )
+    
+    # 管理欄位
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="創建時間"
+    )
+    
+    class Meta:
+        db_table = 'dify_test_result'
+        ordering = ['id']
+        verbose_name = 'Dify 測試結果'
+        verbose_name_plural = 'Dify 測試結果'
+    
+    def __str__(self):
+        passed = "✅" if self.is_passed else "❌"
+        return f"{passed} {self.test_case.question[:30]}... - {self.score}"
+
+
+class DifyAnswerEvaluation(models.Model):
+    """Dify 答案評分記錄"""
+    test_result = models.ForeignKey(
+        DifyTestResult,
+        on_delete=models.CASCADE,
+        related_name='evaluations',
+        verbose_name="測試結果"
+    )
+    
+    # 評分輸入
+    question = models.TextField(verbose_name="問題")
+    expected_answer = models.TextField(
+        blank=True,
+        verbose_name="期望答案"
+    )
+    actual_answer = models.TextField(verbose_name="實際答案")
+    
+    # AI 評分結果
+    evaluator_model = models.CharField(
+        max_length=100, 
+        default='keyword_only',
+        verbose_name="評分模型"
+    )
+    evaluation_prompt = models.TextField(
+        blank=True,
+        verbose_name="評分提示詞"
+    )
+    evaluation_response = models.TextField(
+        blank=True,
+        verbose_name="評分回應"
+    )
+    
+    # 評分細節
+    scores = models.JSONField(
+        default=dict,
+        verbose_name="各項分數"
+    )
+    feedback = models.TextField(
+        blank=True,
+        verbose_name="評分反饋"
+    )
+    
+    # 管理欄位
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="創建時間"
+    )
+    
+    class Meta:
+        db_table = 'dify_answer_evaluation'
+        ordering = ['id']
+        verbose_name = 'Dify 答案評分記錄'
+        verbose_name_plural = 'Dify 答案評分記錄'
+    
+    def __str__(self):
+        return f"Evaluation for {self.test_result.test_case.question[:30]}..."

@@ -186,6 +186,11 @@ from .viewsets import (
     BenchmarkTestResultViewSet,
     SearchAlgorithmVersionViewSet,
     
+    # Dify Benchmark ViewSets (dify_benchmark_viewsets.py)
+    DifyConfigVersionViewSet,
+    DifyBenchmarkTestCaseViewSet,
+    DifyTestRunViewSet,
+    
     # Monitoring Views (monitoring_views.py)
     system_logs,
     simple_system_status,

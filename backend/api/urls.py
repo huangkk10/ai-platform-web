@@ -17,11 +17,17 @@ router.register(r'protocol-assistant', views.ProtocolAssistantViewSet, basename=
 router.register(r'content-images', views.ContentImageViewSet)
 router.register(r'threshold-settings', views.SearchThresholdViewSet)
 router.register(r'search-threshold-settings', views.SearchThresholdSettingViewSet, basename='search-threshold-setting')
-# Benchmark Testing System
+
+# Benchmark Testing System (舊版 - Protocol Search Benchmark)
 router.register(r"benchmark/test-cases", views.BenchmarkTestCaseViewSet, basename="benchmark-test-case")
 router.register(r"benchmark/test-runs", views.BenchmarkTestRunViewSet, basename="benchmark-test-run")
 router.register(r"benchmark/test-results", views.BenchmarkTestResultViewSet, basename="benchmark-test-result")
 router.register(r"benchmark/versions", views.SearchAlgorithmVersionViewSet, basename="benchmark-version")
+
+# Dify Benchmark System (新版 - Dify Config Benchmark)
+router.register(r"dify-benchmark/versions", views.DifyConfigVersionViewSet, basename="dify-benchmark-version")
+router.register(r"dify-benchmark/test-cases", views.DifyBenchmarkTestCaseViewSet, basename="dify-benchmark-test-case")
+router.register(r"dify-benchmark/test-runs", views.DifyTestRunViewSet, basename="dify-benchmark-test-run")
 
 urlpatterns = [
     path('', include(router.urls)),

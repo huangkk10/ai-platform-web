@@ -51,6 +51,13 @@ from .benchmark_viewsets import (
     SearchAlgorithmVersionViewSet
 )
 
+# Dify Benchmark 測試系統
+from .dify_benchmark_viewsets import (
+    DifyConfigVersionViewSet,
+    DifyBenchmarkTestCaseViewSet,
+    DifyTestRunViewSet
+)
+
 # 系統監控
 from .monitoring_views import (
     system_logs,
@@ -86,6 +93,10 @@ __all__ = [
     'BenchmarkTestRunViewSet',
     'BenchmarkTestResultViewSet',
     'SearchAlgorithmVersionViewSet',
+    # Dify Benchmark
+    'DifyConfigVersionViewSet',
+    'DifyBenchmarkTestCaseViewSet',
+    'DifyTestRunViewSet',
     # Monitoring
     'system_logs',
     'simple_system_status',
