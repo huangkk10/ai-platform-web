@@ -1,0 +1,19 @@
+/* 批量測試歷史記錄頁面樣式 */
+
+.batch-test-history-page {
+  padding: 24px;
+  min-height: calc(100vh - 64px);
+  background-color: #f0f2f5;
+}
+
+.batch-test-history-page .ant-card {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.batch-test-history-page .ant-table-cell {
+  font-size: 14px;
+}
+
+.batch-test-history-page .ant-tag {
+  margin: 0;
+}

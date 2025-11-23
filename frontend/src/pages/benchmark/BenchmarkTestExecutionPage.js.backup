@@ -1,0 +1,527 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Card,
+  Form,
+  Input,
+  Select,
+  InputNumber,
+  Button,
+  Space,
+  Alert,
+  Statistic,
+  Row,
+  Col,
+  Progress,
+  Divider,
+  message,
+  Spin,
+  Tag,
+  Typography,
+  Empty,
+} from 'antd';
+import {
+  PlayCircleOutlined,
+  ReloadOutlined,
+  ExperimentOutlined,
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  FileTextOutlined,
+} from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
+import benchmarkApi from '../../services/benchmarkApi';
+import './BenchmarkTestExecutionPage.css';
+
+const { Title, Text, Paragraph } = Typography;
+const { TextArea } = Input;
+const { Option } = Select;
+
+const BenchmarkTestExecutionPage = () => {
+  const navigate = useNavigate();
+  const [form] = Form.useForm();
+
+  // 狀態管理
+  const [loading, setLoading] = useState(false);
+  const [versions, setVersions] = useState([]);
+  const [selectedVersion, setSelectedVersion] = useState(null);
+  const [testCaseStats, setTestCaseStats] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [isTestRunning, setIsTestRunning] = useState(false);
+  const [currentTestRun, setCurrentTestRun] = useState(null);
+  const [testProgress, setTestProgress] = useState(0);
+  const [pollInterval, setPollInterval] = useState(null);
+
+  // 測試配置選項
+  const categories = [
+    '資源路徑',
+    '技術規格',
+    '測試流程',
+    '問題排查',
+    'Protocol 指令',
+    'Error Code',
+    '設備型號',
+    '軟體版本',
+    '測試工具',
+    '其他',
+  ];
+
+  const difficulties = [
+    { value: 'easy', label: '簡單', color: 'green' },
+    { value: 'medium', label: '中等', color: 'orange' },
+    { value: 'hard', label: '困難', color: 'red' },
+  ];
+
+  const questionTypes = [
+    '查詢',
+    '配置',
+    '故障排除',
+    '最佳實踐',
+    '比較分析',
+    '操作指南',
+    '概念理解',
+    '綜合應用',
+  ];
+
+  // 載入版本列表
+  useEffect(() => {
+    loadVersions();
+    loadTestCaseStatistics();
+  }, []);
+
+  const loadVersions = async () => {
+    try {
+      setLoading(true);
+      const response = await benchmarkApi.getVersions();
+      
+      let versionList = [];
+      if (Array.isArray(response.data)) {
+        versionList = response.data;
+      } else if (response.data?.results) {
+        versionList = response.data.results;
+      } else if (response.data?.data) {
+        versionList = response.data.data;
+      }
+
+      // 只顯示啟用的版本
+      const activeVersions = versionList.filter(v => v.is_active !== false);
+      setVersions(activeVersions);
+
+      // 預設選擇 baseline 版本
+      const baseline = activeVersions.find(v => v.is_baseline);
+      if (baseline) {
+        setSelectedVersion(baseline.id);
+        form.setFieldsValue({ version_id: baseline.id });
+      }
+    } catch (error) {
+      console.error('載入版本失敗:', error);
+      message.error('載入版本列表失敗');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadTestCaseStatistics = async (filters = {}) => {
+    try {
+      setPreviewLoading(true);
+      const response = await benchmarkApi.getTestCaseStatistics(filters);
+      setTestCaseStats(response.data);
+    } catch (error) {
+      console.error('載入測試案例統計失敗:', error);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  // 表單值變化時更新預覽
+  const handleFormChange = (changedValues, allValues) => {
+    const filters = {};
+    if (allValues.category) filters.category = allValues.category;
+    if (allValues.difficulty) filters.difficulty = allValues.difficulty;
+    if (allValues.question_type) filters.question_type = allValues.question_type;
+    
+    loadTestCaseStatistics(filters);
+  };
+
+  // 啟動測試
+  const handleStartTest = async (values) => {
+    try {
+      setLoading(true);
+      setIsTestRunning(true);
+
+      const testData = {
+        version_id: values.version_id,
+        run_name: values.run_name,
+        run_type: 'manual',
+        category: values.category || null,
+        difficulty: values.difficulty || null,
+        question_type: values.question_type || null,
+        limit: values.limit || null,
+        notes: values.notes || '',
+      };
+
+      const response = await benchmarkApi.startTest(testData);
+      const testRun = response.data;
+
+      setCurrentTestRun(testRun);
+      message.success('測試已啟動！');
+
+      // 開始輪詢測試進度
+      startPollingProgress(testRun.id);
+    } catch (error) {
+      console.error('啟動測試失敗:', error);
+      message.error(error.response?.data?.error || '啟動測試失敗');
+      setIsTestRunning(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 輪詢測試進度
+  const startPollingProgress = (testRunId) => {
+    const interval = setInterval(async () => {
+      try {
+        const response = await benchmarkApi.getTestRun(testRunId);
+        const testRun = response.data;
+
+        setCurrentTestRun(testRun);
+
+        // 計算進度
+        const progress = testRun.total_test_cases > 0
+          ? Math.round((testRun.completed_test_cases / testRun.total_test_cases) * 100)
+          : 0;
+        setTestProgress(progress);
+
+        // 測試完成
+        if (testRun.status === 'completed') {
+          clearInterval(interval);
+          setPollInterval(null);
+          setIsTestRunning(false);
+          message.success('測試完成！');
+
+          // 3 秒後導航到結果頁面
+          setTimeout(() => {
+            navigate(`/benchmark/results?run_id=${testRunId}`);
+          }, 3000);
+        } else if (testRun.status === 'failed') {
+          clearInterval(interval);
+          setPollInterval(null);
+          setIsTestRunning(false);
+          message.error('測試執行失敗');
+        }
+      } catch (error) {
+        console.error('獲取測試進度失敗:', error);
+      }
+    }, 2000); // 每 2 秒更新一次
+
+    setPollInterval(interval);
+  };
+
+  // 停止測試
+  const handleStopTest = () => {
+    if (pollInterval) {
+      clearInterval(pollInterval);
+      setPollInterval(null);
+    }
+    setIsTestRunning(false);
+    setCurrentTestRun(null);
+    setTestProgress(0);
+    message.info('已停止監控測試進度');
+  };
+
+  // 組件卸載時清理輪詢
+  useEffect(() => {
+    return () => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+    };
+  }, [pollInterval]);
+
+  return (
+    <div className="benchmark-test-execution-page">
+      <div className="page-header">
+        <div className="header-content">
+          <ExperimentOutlined className="page-icon" />
+          <Title level={2}>測試執行</Title>
+        </div>
+        <Space>
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={() => {
+              loadVersions();
+              loadTestCaseStatistics();
+            }}
+            disabled={isTestRunning}
+          >
+            重新整理
+          </Button>
+        </Space>
+      </div>
+
+      {isTestRunning && currentTestRun && (
+        <Alert
+          message="測試執行中"
+          description={
+            <div>
+              <Paragraph>
+                測試名稱：<Text strong>{currentTestRun.run_name}</Text>
+              </Paragraph>
+              <Progress
+                percent={testProgress}
+                status={currentTestRun.status === 'completed' ? 'success' : 'active'}
+              />
+              <Paragraph style={{ marginTop: 8, marginBottom: 0 }}>
+                進度：{currentTestRun.completed_test_cases} / {currentTestRun.total_test_cases} 個測試案例
+              </Paragraph>
+            </div>
+          }
+          type="info"
+          showIcon
+          icon={<ClockCircleOutlined />}
+          closable
+          onClose={handleStopTest}
+          style={{ marginBottom: 24 }}
+        />
+      )}
+
+      <Row gutter={24}>
+        {/* 左側：測試配置表單 */}
+        <Col xs={24} lg={14}>
+          <Card title="測試配置" className="config-card">
+            <Form
+              form={form}
+              layout="vertical"
+              onFinish={handleStartTest}
+              onValuesChange={handleFormChange}
+              disabled={isTestRunning}
+            >
+              {/* 版本選擇 */}
+              <Form.Item
+                label="演算法版本"
+                name="version_id"
+                rules={[{ required: true, message: '請選擇版本' }]}
+              >
+                <Select
+                  placeholder="選擇要測試的版本"
+                  onChange={setSelectedVersion}
+                  size="large"
+                >
+                  {versions.map(version => (
+                    <Option key={version.id} value={version.id}>
+                      <Space>
+                        {version.version_name}
+                        {version.is_baseline && (
+                          <Tag color="gold">Baseline</Tag>
+                        )}
+                      </Space>
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+
+              {/* 測試名稱 */}
+              <Form.Item
+                label="測試名稱"
+                name="run_name"
+                rules={[{ required: true, message: '請輸入測試名稱' }]}
+              >
+                <Input
+                  placeholder="例如：Protocol Assistant 效能測試 v2.1"
+                  size="large"
+                />
+              </Form.Item>
+
+              <Divider>篩選條件（可選）</Divider>
+
+              <Row gutter={16}>
+                {/* 測試分類 */}
+                <Col xs={24} sm={12}>
+                  <Form.Item label="測試分類" name="category">
+                    <Select
+                      placeholder="所有分類"
+                      allowClear
+                      size="large"
+                    >
+                      {categories.map(cat => (
+                        <Option key={cat} value={cat}>{cat}</Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </Col>
+
+                {/* 難度 */}
+                <Col xs={24} sm={12}>
+                  <Form.Item label="難度" name="difficulty">
+                    <Select
+                      placeholder="所有難度"
+                      allowClear
+                      size="large"
+                    >
+                      {difficulties.map(diff => (
+                        <Option key={diff.value} value={diff.value}>
+                          <Tag color={diff.color}>{diff.label}</Tag>
+                        </Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </Col>
+
+                {/* 問題類型 */}
+                <Col xs={24} sm={12}>
+                  <Form.Item label="問題類型" name="question_type">
+                    <Select
+                      placeholder="所有類型"
+                      allowClear
+                      size="large"
+                    >
+                      {questionTypes.map(type => (
+                        <Option key={type} value={type}>{type}</Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </Col>
+
+                {/* 測試數量限制 */}
+                <Col xs={24} sm={12}>
+                  <Form.Item
+                    label="測試數量限制"
+                    name="limit"
+                    tooltip="留空則執行所有符合條件的測試案例"
+                  >
+                    <InputNumber
+                      placeholder="不限制"
+                      min={1}
+                      style={{ width: '100%' }}
+                      size="large"
+                    />
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              {/* 備註 */}
+              <Form.Item label="備註" name="notes">
+                <TextArea
+                  rows={3}
+                  placeholder="測試目的、預期結果等備註資訊（可選）"
+                />
+              </Form.Item>
+
+              {/* 提交按鈕 */}
+              <Form.Item>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  icon={<PlayCircleOutlined />}
+                  size="large"
+                  loading={loading}
+                  disabled={isTestRunning}
+                  block
+                >
+                  {isTestRunning ? '測試執行中...' : '開始測試'}
+                </Button>
+              </Form.Item>
+            </Form>
+          </Card>
+        </Col>
+
+        {/* 右側：測試案例預覽 */}
+        <Col xs={24} lg={10}>
+          <Card title="測試案例預覽" className="preview-card">
+            <Spin spinning={previewLoading}>
+              {testCaseStats ? (
+                <div className="preview-content">
+                  <div className="total-cases">
+                    <Statistic
+                      title="將執行的測試案例"
+                      value={testCaseStats.total || 0}
+                      suffix="個"
+                      prefix={<FileTextOutlined />}
+                    />
+                  </div>
+
+                  <Divider />
+
+                  {/* 按分類統計 */}
+                  {testCaseStats.by_category && Object.keys(testCaseStats.by_category).length > 0 && (
+                    <div className="stats-section">
+                      <Title level={5}>按分類</Title>
+                      <div className="stats-list">
+                        {Object.entries(testCaseStats.by_category)
+                          .sort((a, b) => b[1] - a[1])
+                          .slice(0, 5)
+                          .map(([category, count]) => (
+                            <div key={category} className="stats-item">
+                              <Text>{category}</Text>
+                              <Tag color="blue">{count}</Tag>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 按難度統計 */}
+                  {testCaseStats.by_difficulty && (
+                    <div className="stats-section">
+                      <Title level={5}>按難度</Title>
+                      <div className="stats-list">
+                        {testCaseStats.by_difficulty.easy > 0 && (
+                          <div className="stats-item">
+                            <Text>簡單</Text>
+                            <Tag color="green">{testCaseStats.by_difficulty.easy}</Tag>
+                          </div>
+                        )}
+                        {testCaseStats.by_difficulty.medium > 0 && (
+                          <div className="stats-item">
+                            <Text>中等</Text>
+                            <Tag color="orange">{testCaseStats.by_difficulty.medium}</Tag>
+                          </div>
+                        )}
+                        {testCaseStats.by_difficulty.hard > 0 && (
+                          <div className="stats-item">
+                            <Text>困難</Text>
+                            <Tag color="red">{testCaseStats.by_difficulty.hard}</Tag>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 按問題類型統計 */}
+                  {testCaseStats.by_question_type && Object.keys(testCaseStats.by_question_type).length > 0 && (
+                    <div className="stats-section">
+                      <Title level={5}>按問題類型</Title>
+                      <div className="stats-list">
+                        {Object.entries(testCaseStats.by_question_type)
+                          .sort((a, b) => b[1] - a[1])
+                          .slice(0, 5)
+                          .map(([type, count]) => (
+                            <div key={type} className="stats-item">
+                              <Text>{type}</Text>
+                              <Tag color="purple">{count}</Tag>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {testCaseStats.total === 0 && (
+                    <Empty
+                      description="沒有符合條件的測試案例"
+                      image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    />
+                  )}
+                </div>
+              ) : (
+                <Empty
+                  description="載入中..."
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                />
+              )}
+            </Spin>
+          </Card>
+        </Col>
+      </Row>
+    </div>
+  );
+};
+
+export default BenchmarkTestExecutionPage;

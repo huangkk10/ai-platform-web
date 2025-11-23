@@ -1,0 +1,86 @@
+/**
+ * 批量測試執行頁面樣式
+ */
+
+.batch-test-execution-page {
+  padding: 24px;
+  background-color: #f0f2f5;
+  min-height: calc(100vh - 64px);
+}
+
+.batch-test-execution-page .ant-card {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* 版本卡片樣式 */
+.batch-test-execution-page .version-card {
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+
+.batch-test-execution-page .version-card:hover {
+  border-color: #1890ff;
+  box-shadow: 0 2px 12px rgba(24, 144, 255, 0.2);
+}
+
+.batch-test-execution-page .version-card.selected {
+  border-color: #1890ff;
+  background-color: #e6f7ff;
+}
+
+.batch-test-execution-page .version-card .ant-card-body {
+  padding: 12px;
+}
+
+/* 統計卡片樣式 */
+.batch-test-execution-page .ant-statistic-title {
+  font-size: 14px;
+  color: #8c8c8c;
+}
+
+.batch-test-execution-page .ant-statistic-content {
+  font-size: 24px;
+  font-weight: 600;
+}
+
+/* 測試結果區域動畫 */
+.batch-test-execution-page .ant-card-body {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 按鈕樣式優化 */
+.batch-test-execution-page .ant-btn-primary {
+  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+  border: none;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.batch-test-execution-page .ant-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.4);
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+  .batch-test-execution-page {
+    padding: 12px;
+  }
+
+  .batch-test-execution-page .ant-col {
+    margin-bottom: 16px;
+  }
+}

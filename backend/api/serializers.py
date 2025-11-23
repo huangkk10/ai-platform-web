@@ -585,8 +585,7 @@ class BenchmarkTestCaseSerializer(serializers.ModelSerializer):
 
 class BenchmarkTestRunSerializer(serializers.ModelSerializer):
     """測試執行記錄 Serializer"""
-    version_name = serializers.CharField(source='version.version_name', read_only=True)
-    version_code = serializers.CharField(source='version.version_code', read_only=True)
+    version = serializers.SerializerMethodField()  # 返回完整版本物件
     triggered_by_username = serializers.CharField(source='triggered_by.username', read_only=True)
     results_count = serializers.SerializerMethodField()
     passed_count = serializers.SerializerMethodField()
@@ -596,7 +595,7 @@ class BenchmarkTestRunSerializer(serializers.ModelSerializer):
     class Meta:
         model = BenchmarkTestRun
         fields = [
-            'id', 'version', 'version_name', 'version_code', 'run_name', 'run_type',
+            'id', 'version', 'run_name', 'run_type',
             'total_test_cases', 'completed_test_cases', 'status', 'overall_score',
             'avg_precision', 'avg_recall', 'avg_f1_score', 'avg_response_time',
             'started_at', 'completed_at', 'duration_seconds', 'triggered_by',
@@ -606,6 +605,36 @@ class BenchmarkTestRunSerializer(serializers.ModelSerializer):
         read_only_fields = [
             'created_at', 'results_count', 'passed_count', 'failed_count', 'pass_rate'
         ]
+    
+    def get_version(self, obj):
+        """返回完整的版本資訊"""
+        if obj.version:
+            return {
+                'id': obj.version.id,
+                'version_name': obj.version.version_name,
+                'version_code': obj.version.version_code,
+                'description': obj.version.description,
+                'is_baseline': obj.version.is_baseline,
+            }
+        return None
+    
+    def create(self, validated_data):
+        """創建測試執行時處理 version 欄位"""
+        # version 在創建時應該從 context 或 initial_data 中獲取
+        version_id = self.initial_data.get('version') or self.initial_data.get('version_id')
+        if version_id:
+            from api.models import SearchAlgorithmVersion
+            validated_data['version'] = SearchAlgorithmVersion.objects.get(id=version_id)
+        return super().create(validated_data)
+    
+    def update(self, instance, validated_data):
+        """更新測試執行時處理 version 欄位"""
+        # version 在更新時不應該被修改，但如果有提供則處理
+        version_id = self.initial_data.get('version') or self.initial_data.get('version_id')
+        if version_id:
+            from api.models import SearchAlgorithmVersion
+            validated_data['version'] = SearchAlgorithmVersion.objects.get(id=version_id)
+        return super().update(instance, validated_data)
     
     def get_results_count(self, obj):
         """獲取測試結果數量"""

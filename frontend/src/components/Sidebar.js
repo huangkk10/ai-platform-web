@@ -18,6 +18,7 @@ import {
   PlayCircleOutlined,
   TagOutlined,
   ThunderboltOutlined,
+  HistoryOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 import smiLogo from '../assets/images/smi.png';
@@ -137,6 +138,12 @@ const Sidebar = ({ collapsed, onCollapse }) => {
         break;
       case 'benchmark-test-execution':
         navigate('/benchmark/test-execution');
+        break;
+      case 'benchmark-batch-test':
+        navigate('/benchmark/batch-test');
+        break;
+      case 'benchmark-batch-history':
+        navigate('/benchmark/batch-history');
         break;
       case 'benchmark-results':
         navigate('/benchmark/results');
@@ -287,6 +294,16 @@ const Sidebar = ({ collapsed, onCollapse }) => {
           key: 'benchmark-test-execution',
           icon: <PlayCircleOutlined />,
           label: 'Test Execution',
+        },
+        {
+          key: 'benchmark-batch-test',
+          icon: <ThunderboltOutlined />,
+          label: 'Batch Test',
+        },
+        {
+          key: 'benchmark-batch-history',
+          icon: <HistoryOutlined />,
+          label: 'Batch History',
         },
         {
           key: 'benchmark-results',

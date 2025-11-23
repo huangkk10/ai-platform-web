@@ -1,0 +1,117 @@
+/**
+ * 批量對比報告頁面樣式
+ */
+
+.batch-comparison-page {
+  padding: 24px;
+  background-color: #f0f2f5;
+  min-height: calc(100vh - 64px);
+}
+
+.batch-comparison-page .ant-card {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* 統計資訊卡片 */
+.batch-comparison-page .ant-statistic {
+  text-align: center;
+}
+
+.batch-comparison-page .ant-statistic-title {
+  font-size: 14px;
+  color: #8c8c8c;
+  margin-bottom: 4px;
+}
+
+.batch-comparison-page .ant-statistic-content {
+  font-size: 28px;
+  font-weight: 600;
+}
+
+/* 表格樣式優化 */
+.batch-comparison-page .ant-table {
+  font-size: 14px;
+}
+
+.batch-comparison-page .ant-table-thead > tr > th {
+  background-color: #fafafa;
+  font-weight: 600;
+  color: #262626;
+}
+
+.batch-comparison-page .ant-table-tbody > tr:hover {
+  background-color: #e6f7ff;
+}
+
+.batch-comparison-page .ant-table-tbody > tr:first-child {
+  background-color: #fff7e6;
+}
+
+/* Tag 樣式優化 */
+.batch-comparison-page .ant-tag {
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+/* 場景推薦卡片樣式 */
+.batch-comparison-page .ant-card-small > .ant-card-head {
+  background: linear-gradient(135deg, #f5f5f5 0%, #fafafa 100%);
+}
+
+/* 動畫效果 */
+.batch-comparison-page .ant-card-body {
+  animation: fadeInUp 0.4s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 最佳版本卡片高亮 */
+.batch-comparison-page .ant-card-body[style*="fffbe6"] {
+  border: 2px solid #faad14;
+  box-shadow: 0 4px 16px rgba(250, 173, 20, 0.2);
+}
+
+/* 按鈕樣式 */
+.batch-comparison-page .ant-btn-primary {
+  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+  border: none;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.batch-comparison-page .ant-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.4);
+}
+
+/* 響應式設計 */
+@media (max-width: 1200px) {
+  .batch-comparison-page .ant-col {
+    margin-bottom: 16px;
+  }
+
+  .batch-comparison-page .ant-table {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .batch-comparison-page {
+    padding: 12px;
+  }
+
+  .batch-comparison-page .ant-statistic-content {
+    font-size: 20px;
+  }
+}

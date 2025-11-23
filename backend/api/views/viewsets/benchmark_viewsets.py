@@ -568,3 +568,46 @@ class SearchAlgorithmVersionViewSet(viewsets.ModelViewSet):
                 {'error': '尚未設定基準版本'},
                 status=status.HTTP_404_NOT_FOUND
             )
+
+    @action(detail=False, methods=['post'])
+    def batch_test(self, request):
+        """批量測試多個版本"""
+        from library.benchmark.batch_version_tester import BatchVersionTester
+        
+        version_ids = request.data.get('version_ids')
+        test_case_ids = request.data.get('test_case_ids')
+        batch_name = request.data.get('batch_name')
+        notes = request.data.get('notes', '')
+        force_retest = request.data.get('force_retest', False)
+        
+        if version_ids and not isinstance(version_ids, list):
+            return Response({'error': 'version_ids 必須是陣列'}, status=status.HTTP_400_BAD_REQUEST)
+        if test_case_ids and not isinstance(test_case_ids, list):
+            return Response({'error': 'test_case_ids 必須是陣列'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            tester = BatchVersionTester(verbose=False)
+            result = tester.run_batch_test(
+                version_ids=version_ids,
+                test_case_ids=test_case_ids,
+                batch_name=batch_name,
+                notes=notes,
+                force_retest=force_retest
+            )
+            
+            if not result.get('success'):
+                return Response({'error': result.get('error', '測試失敗')}, status=status.HTTP_400_BAD_REQUEST)
+            
+            response_data = {
+                'success': True,
+                'batch_id': result['batch_id'],
+                'batch_name': result['batch_name'],
+                'test_run_ids': result['test_run_ids'],
+                'comparison': result['comparison'],
+                'summary': result['summary']
+            }
+            
+            return Response(response_data, status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            return Response({'error': f'批量測試失敗: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

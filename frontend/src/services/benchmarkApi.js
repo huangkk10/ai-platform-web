@@ -291,6 +291,19 @@ export const getBaselineVersion = () => {
   return api.get('/api/benchmark/versions/baseline/');
 };
 
+/**
+ * 批量測試多個版本
+ * @param {Object} data - 批量測試配置
+ * @param {Array<number>} data.version_ids - 版本 ID 列表（可選，null 表示所有版本）
+ * @param {Array<number>} data.test_case_ids - 測試案例 ID 列表（可選，null 表示所有啟用案例）
+ * @param {string} data.batch_name - 批次名稱（可選）
+ * @param {string} data.notes - 備註（可選）
+ * @param {boolean} data.force_retest - 是否強制重測（可選，預設 false）
+ */
+export const batchTest = (data) => {
+  return api.post('/api/benchmark/versions/batch_test/', data);
+};
+
 // ==================== 匯出所有 API ====================
 
 const benchmarkApi = {
@@ -331,6 +344,7 @@ const benchmarkApi = {
   setAsBaseline,
   getVersionTestHistory,
   getBaselineVersion,
+  batchTest,
 };
 
 export default benchmarkApi;
