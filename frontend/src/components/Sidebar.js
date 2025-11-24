@@ -289,19 +289,20 @@ const Sidebar = ({ collapsed, onCollapse }) => {
         onClick: () => navigate('/benchmark/batch-history')
       });
 
-      items.push({
-        key: 'benchmark-results',
-        icon: <BarChartOutlined />,
-        label: 'Results',
-        onClick: () => navigate('/benchmark/results')
-      });
+      // ⚠️ 暫時隱藏：Results 和 Versions 頁面尚未實作
+      // items.push({
+      //   key: 'benchmark-results',
+      //   icon: <BarChartOutlined />,
+      //   label: 'Results',
+      //   onClick: () => navigate('/benchmark/results')
+      // });
 
-      items.push({
-        key: 'benchmark-versions',
-        icon: <TagOutlined />,
-        label: 'Versions',
-        onClick: () => navigate('/benchmark/versions')
-      });
+      // items.push({
+      //   key: 'benchmark-versions',
+      //   icon: <TagOutlined />,
+      //   label: 'Versions',
+      //   onClick: () => navigate('/benchmark/versions')
+      // });
 
       // ===== 分隔線 =====
       items.push({
@@ -317,28 +318,28 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       items.push({
         key: 'benchmark-dify-versions',
         icon: <RobotOutlined />,
-        label: 'Dify 版本管理',
+        label: 'Dify Versions',
         onClick: () => navigate('/benchmark/dify/versions')
       });
 
       items.push({
         key: 'benchmark-dify-test-cases',
         icon: <FileSearchOutlined />,
-        label: 'Dify 測試案例',
+        label: 'Dify Test Cases',
         onClick: () => navigate('/benchmark/dify/test-cases')
       });
 
       items.push({
         key: 'benchmark-dify-batch-test',
         icon: <ThunderboltOutlined />,
-        label: 'Dify 批量測試',
+        label: 'Dify Batch Test',
         onClick: () => navigate('/benchmark/dify/batch-test')
       });
 
       items.push({
         key: 'benchmark-dify-history',
         icon: <HistoryOutlined />,
-        label: 'Dify 測試歷史',
+        label: 'Dify Test History',
         onClick: () => navigate('/benchmark/dify/history')
       });
 
