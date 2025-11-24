@@ -60,7 +60,7 @@ class DifyBatchTester:
         self,
         use_ai_evaluator: bool = False,
         use_parallel: bool = True,
-        max_workers: int = 5
+        max_workers: int = 10
     ):
         """
         初始化批量測試器
@@ -68,7 +68,7 @@ class DifyBatchTester:
         Args:
             use_ai_evaluator: 是否使用 AI 評分（預設 False）
             use_parallel: 是否使用多線程並行執行（預設 True）
-            max_workers: 多線程並行的最大線程數（預設 5）
+            max_workers: 多線程並行的最大線程數（預設 10）
         """
         self.use_ai_evaluator = use_ai_evaluator
         self.use_parallel = use_parallel

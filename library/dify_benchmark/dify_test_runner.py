@@ -60,7 +60,7 @@ class DifyTestRunner:
         version: DifyConfigVersion,
         use_ai_evaluator: bool = False,
         api_timeout: int = 75,
-        max_workers: int = 5
+        max_workers: int = 10
     ):
         """
         初始化測試執行器
@@ -69,7 +69,7 @@ class DifyTestRunner:
             version: Dify 配置版本實例
             use_ai_evaluator: 是否使用 AI 評分（預設 False，使用關鍵字評分）
             api_timeout: Dify API 超時時間（秒）
-            max_workers: 多線程並行執行的最大線程數（預設 5）
+            max_workers: 多線程並行執行的最大線程數（預設 10）
         """
         self.version = version
         self.use_ai_evaluator = use_ai_evaluator
