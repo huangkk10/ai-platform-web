@@ -848,14 +848,15 @@ class DifyTestRunListSerializer(serializers.ModelSerializer):
             'version_name',
             'batch_id',
             'run_name',
-            'status',
-            'total_cases',
+            'run_type',
+            'total_test_cases',
             'passed_cases',
+            'failed_cases',
             'pass_rate',
             'average_score',
             'started_at',
             'completed_at',
-            'execution_time',
+            'total_execution_time',
             'created_at'
         ]
         read_only_fields = ['id', 'created_at']

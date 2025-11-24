@@ -39,6 +39,7 @@ import TestCasesListPage from './pages/benchmark/TestCasesListPage';
 // Dify Benchmark 頁面
 import DifyVersionManagementPage from './pages/dify-benchmark/DifyVersionManagementPage';
 import DifyTestCasePage from './pages/dify-benchmark/DifyTestCasePage';
+import DifyTestHistoryPage from './pages/benchmark/DifyTestHistoryPage';
 
 const { Content } = Layout;
 
@@ -424,6 +425,18 @@ function AppLayout() {
             <Route path="/benchmark/dify/test-cases" element={
               <ProtectedRoute permission="isStaff" fallbackTitle="Dify Benchmark 系統存取受限">
                 <DifyTestCasePage />
+              </ProtectedRoute>
+            } />
+
+            {/* Dify 測試歷史 */}
+            <Route path="/benchmark/dify/history" element={
+              <ProtectedRoute permission="isStaff" fallbackTitle="Dify Benchmark 系統存取受限">
+                <DifyTestHistoryPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/dify-benchmark/history" element={
+              <ProtectedRoute permission="isStaff" fallbackTitle="Dify Benchmark 系統存取受限">
+                <DifyTestHistoryPage />
               </ProtectedRoute>
             } />
 
