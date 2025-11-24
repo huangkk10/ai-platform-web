@@ -30,7 +30,8 @@ import UnifiedAnalyticsPage from './pages/UnifiedAnalyticsPage';
 import DevMarkdownTestPage from './pages/DevMarkdownTestPage';
 import SystemLogViewerPage from './pages/admin/SystemLogViewerPage';
 import BenchmarkDashboardPage from './pages/benchmark/BenchmarkDashboardPage';
-import BenchmarkTestExecutionPage from './pages/benchmark/BenchmarkTestExecutionPage';
+// ✅ Test Execution 已移除，統一使用 Batch Test
+// import BenchmarkTestExecutionPage from './pages/benchmark/BenchmarkTestExecutionPage';
 import BatchTestExecutionPage from './pages/benchmark/BatchTestExecutionPage';
 import BatchComparisonPage from './pages/benchmark/BatchComparisonPage';
 import BatchTestHistoryPage from './pages/benchmark/BatchTestHistoryPage';
@@ -107,8 +108,9 @@ function AppLayout() {
         return 'Benchmark Dashboard';
       case '/benchmark/test-cases':
         return '測試案例管理';
-      case '/benchmark/test-execution':
-        return '測試執行';
+      // ✅ Test Execution 已移除
+      // case '/benchmark/test-execution':
+      //   return '測試執行';
       case '/benchmark/batch-test':
         return '批量測試';
       case '/benchmark/batch-history':
@@ -384,11 +386,12 @@ function AppLayout() {
                 <TestCasesListPage />
               </ProtectedRoute>
             } />
-            <Route path="/benchmark/test-execution" element={
+            {/* ✅ Test Execution 路由已移除，統一使用 Batch Test */}
+            {/* <Route path="/benchmark/test-execution" element={
               <ProtectedRoute permission="isStaff" fallbackTitle="Benchmark 系統存取受限">
                 <BenchmarkTestExecutionPage />
               </ProtectedRoute>
-            } />
+            } /> */}
             <Route path="/benchmark/batch-test" element={
               <ProtectedRoute permission="isStaff" fallbackTitle="Benchmark 系統存取受限">
                 <BatchTestExecutionPage />

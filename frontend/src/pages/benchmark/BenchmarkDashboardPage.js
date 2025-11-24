@@ -335,9 +335,9 @@ const BenchmarkDashboardPage = () => {
           </Button>
           <Button
             type="primary"
-            onClick={() => navigate('/benchmark/test-execution')}
+            onClick={() => navigate('/benchmark/batch-test')}
           >
-            開始新測試
+            開始批量測試
           </Button>
         </Space>
       </div>
@@ -456,8 +456,8 @@ const BenchmarkDashboardPage = () => {
             description="尚無測試執行記錄"
             image={Empty.PRESENTED_IMAGE_SIMPLE}
           >
-            <Button type="primary" onClick={() => navigate('/benchmark/test-execution')}>
-              開始第一次測試
+            <Button type="primary" onClick={() => navigate('/benchmark/batch-test')}>
+              開始批量測試
             </Button>
           </Empty>
         )}

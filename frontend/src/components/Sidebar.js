@@ -139,9 +139,10 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       case 'benchmark-test-cases':
         navigate('/benchmark/test-cases');
         break;
-      case 'benchmark-test-execution':
-        navigate('/benchmark/test-execution');
-        break;
+      // ✅ Test Execution 已移除
+      // case 'benchmark-test-execution':
+      //   navigate('/benchmark/test-execution');
+      //   break;
       case 'benchmark-batch-test':
         navigate('/benchmark/batch-test');
         break;
@@ -268,12 +269,13 @@ const Sidebar = ({ collapsed, onCollapse }) => {
         onClick: () => navigate('/benchmark/test-cases')
       });
 
-      items.push({
-        key: 'benchmark-test-execution',
-        icon: <PlayCircleOutlined />,
-        label: 'Test Execution',
-        onClick: () => navigate('/benchmark/test-execution')
-      });
+      // ✅ Test Execution 已移除，統一使用 Batch Test
+      // items.push({
+      //   key: 'benchmark-test-execution',
+      //   icon: <PlayCircleOutlined />,
+      //   label: 'Test Execution',
+      //   onClick: () => navigate('/benchmark/test-execution')
+      // });
 
       items.push({
         key: 'benchmark-batch-test',
