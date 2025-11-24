@@ -16,6 +16,7 @@ DifyBatchTester (orchestrator)
 """
 
 import logging
+import sys
 import uuid
 from typing import List, Dict, Any, Optional
 from datetime import datetime
@@ -27,6 +28,7 @@ from api.models import (
     DifyTestRun
 )
 from .dify_test_runner import DifyTestRunner
+from .progress_tracker import progress_tracker
 
 logger = logging.getLogger(__name__)
 
@@ -72,13 +74,23 @@ class DifyBatchTester:
         """
         self.use_ai_evaluator = use_ai_evaluator
         self.use_parallel = use_parallel
-        self.max_workers = max_workers
+        
+        # ✅ 強制類型轉換：確保 max_workers 是整數
+        self.max_workers = int(max_workers) if max_workers else 10
+        
+        # 驗證範圍
+        if self.max_workers <= 0:
+            logger.warning(f"⚠️ max_workers={max_workers} 無效，使用預設值 10")
+            self.max_workers = 10
+        elif self.max_workers > 20:
+            logger.warning(f"⚠️ max_workers={max_workers} 過大，限制為 20")
+            self.max_workers = 20
         
         logger.info(
             f"DifyBatchTester 初始化完成: "
             f"evaluator={'AI' if use_ai_evaluator else 'Keyword'}, "
             f"parallel={'Yes' if use_parallel else 'No'}, "
-            f"max_workers={max_workers}"
+            f"max_workers={self.max_workers} (type: {type(self.max_workers).__name__})"
         )
     
     def run_batch_test(
@@ -86,7 +98,8 @@ class DifyBatchTester:
         version_ids: List[int],
         test_case_ids: Optional[List[int]] = None,
         batch_name: str = None,
-        description: str = None
+        description: str = None,
+        batch_id: str = None  # 新增：允許外部指定 batch_id
     ) -> Dict[str, Any]:
         """
         執行批量對比測試
@@ -96,6 +109,7 @@ class DifyBatchTester:
             test_case_ids: 測試案例 ID 列表（可選，預設使用所有案例）
             batch_name: 批次名稱（可選）
             description: 批次描述（可選）
+            batch_id: 批次 ID（可選，用於進度追蹤）
         
         Returns:
             測試結果字典：
@@ -110,7 +124,8 @@ class DifyBatchTester:
         """
         try:
             # 1. 生成 Batch ID
-            batch_id = self._generate_batch_id()
+            if not batch_id:
+                batch_id = self._generate_batch_id()
             
             # 2. 生成預設名稱
             if not batch_name:
@@ -122,19 +137,52 @@ class DifyBatchTester:
             # 4. 載入測試案例
             test_cases = self._load_test_cases(test_case_ids)
             
+            # 5. 初始化進度追蹤
+            total_tests = len(versions) * len(test_cases)
+            versions_info = [
+                {
+                    'id': v.id,
+                    'name': v.version_name,
+                    'test_count': len(test_cases)
+                }
+                for v in versions
+            ]
+            progress_tracker.initialize_batch(
+                batch_id=batch_id,
+                total_tests=total_tests,
+                versions=versions_info,
+                batch_name=batch_name
+            )
+            
             logger.info(
                 f"開始批量測試: "
                 f"batch_id={batch_id}, "
                 f"versions={len(versions)}, "
                 f"test_cases={len(test_cases)}"
             )
+            sys.stdout.flush()
+            sys.stderr.flush()
             
-            # 5. 執行所有版本的測試
+            # 6. 執行所有版本的測試
             test_runs = []
             
             for version in versions:
                 try:
                     logger.info(f"測試版本: {version.version_name}")
+                    sys.stdout.flush()
+                    sys.stderr.flush()
+                    
+                    # 更新進度：開始測試此版本
+                    progress_tracker.update_version_progress(
+                        batch_id=batch_id,
+                        version_id=version.id,
+                        status='running'
+                    )
+                    progress_tracker.update_progress(
+                        batch_id=batch_id,
+                        current_version=version.id,
+                        current_version_name=version.version_name
+                    )
                     
                     # 創建 Test Runner（傳遞並行參數）
                     runner = DifyTestRunner(
@@ -163,19 +211,45 @@ class DifyBatchTester:
                     summary = runner.get_test_summary(test_run)
                     test_runs.append(summary)
                     
+                    # 更新進度：版本測試完成
+                    progress_tracker.update_progress(
+                        batch_id=batch_id,
+                        completed_tests=len(test_cases)
+                    )
+                    progress_tracker.update_version_progress(
+                        batch_id=batch_id,
+                        version_id=version.id,
+                        completed_tests=len(test_cases),
+                        status='completed',
+                        average_score=summary['average_score'],
+                        pass_rate=summary['pass_rate']
+                    )
+                    
                     logger.info(
                         f"版本測試完成: "
                         f"version={version.version_name}, "
                         f"pass_rate={summary['pass_rate']:.2f}%"
                     )
+                    sys.stdout.flush()
+                    sys.stderr.flush()
                     
                 except Exception as e:
                     logger.error(f"版本測試失敗: {version.version_name}, 錯誤: {str(e)}", exc_info=True)
+                    
+                    # 更新進度：版本測試失敗
+                    progress_tracker.update_version_progress(
+                        batch_id=batch_id,
+                        version_id=version.id,
+                        status='error'
+                    )
             
-            # 6. 生成對比報告
+            # 7. 生成對比報告
             comparison = self._generate_comparison_report(test_runs)
             
-            # 7. 返回結果
+            # 8. 標記批次完成
+            progress_tracker.mark_completed(batch_id=batch_id, success=True)
+            
+            # 9. 返回結果
             result = {
                 'batch_id': batch_id,
                 'batch_name': batch_name,
@@ -192,11 +266,22 @@ class DifyBatchTester:
                 f"versions={len(versions)}, "
                 f"best_version={comparison.get('best_version', 'N/A')}"
             )
+            sys.stdout.flush()
+            sys.stderr.flush()
             
             return result
             
         except Exception as e:
             logger.error(f"批量測試失敗: {str(e)}", exc_info=True)
+            
+            # 標記批次失敗
+            if batch_id:
+                progress_tracker.mark_completed(
+                    batch_id=batch_id,
+                    success=False,
+                    error_message=str(e)
+                )
+            
             raise
     
     def _generate_batch_id(self) -> str:

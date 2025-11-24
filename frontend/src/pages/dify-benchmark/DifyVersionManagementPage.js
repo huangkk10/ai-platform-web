@@ -29,6 +29,7 @@ import {
   ReloadOutlined
 } from '@ant-design/icons';
 import difyBenchmarkApi from '../../services/difyBenchmarkApi';
+import BatchTestProgressModal from '../../components/dify-benchmark/BatchTestProgressModal';
 import './DifyVersionManagementPage.css';
 
 const { TextArea } = Input;
@@ -38,9 +39,14 @@ const DifyVersionManagementPage = () => {
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [statisticsModalVisible, setStatisticsModalVisible] = useState(false);
+  const [batchTestModalVisible, setBatchTestModalVisible] = useState(false);
+  const [progressModalVisible, setProgressModalVisible] = useState(false);
+  const [currentBatchId, setCurrentBatchId] = useState(null);
   const [editingVersion, setEditingVersion] = useState(null);
   const [versionStatistics, setVersionStatistics] = useState(null);
+  const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [form] = Form.useForm();
+  const [batchTestForm] = Form.useForm();
 
   // 獲取版本列表
   const fetchVersions = useCallback(async () => {
@@ -189,6 +195,202 @@ const DifyVersionManagementPage = () => {
     }
   };
 
+  // 開啟批量測試 Modal
+  const handleOpenBatchTest = () => {
+    if (selectedRowKeys.length === 0) {
+      message.warning('請至少選擇一個版本進行測試');
+      return;
+    }
+    
+    // 設定預設批次名稱
+    batchTestForm.setFieldsValue({
+      batch_name: `批量測試 ${new Date().toLocaleString('zh-TW')}`,
+      notes: '',
+      force_retest: false,
+      use_parallel: true,
+      max_workers: 10
+    });
+    
+    setBatchTestModalVisible(true);
+  };
+
+  // 執行批量測試
+  const handleExecuteBatchTest = async () => {
+    console.log('🚀 ========== 批量測試開始 ==========');
+    console.log('🚀 handleExecuteBatchTest 被調用');
+    console.log('📊 選中的版本 IDs:', selectedRowKeys);
+    console.log('📊 選中的版本數量:', selectedRowKeys.length);
+    
+    try {
+      // 步驟 1: 驗證表單
+      console.log('📝 步驟 1: 開始驗證表單...');
+      const values = await batchTestForm.validateFields();
+      console.log('✅ 表單驗證通過');
+      console.log('📋 表單數據:', JSON.stringify(values, null, 2));
+      
+      // 步驟 2: 生成批次 ID
+      console.log('📝 步驟 2: 生成批次 ID...');
+      const batchId = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      console.log('✅ 生成批次 ID:', batchId);
+      
+      // 步驟 3: 關閉配置 Modal
+      console.log('📝 步驟 3: 關閉配置 Modal...');
+      setBatchTestModalVisible(false);
+      console.log('✅ 配置 Modal 已關閉');
+      
+      // 步驟 4: 準備請求數據
+      console.log('📝 步驟 4: 準備 API 請求數據...');
+      const requestData = {
+        version_ids: selectedRowKeys,
+        test_case_ids: null,  // null = 使用所有啟用的測試案例
+        batch_name: values.batch_name,
+        notes: values.notes,
+        force_retest: values.force_retest,
+        use_parallel: values.use_parallel,
+        max_workers: values.max_workers,
+        batch_id: batchId  // 傳遞 batch_id 用於進度追蹤
+      };
+      console.log('✅ 請求數據準備完成');
+      console.log('📤 完整請求數據:', JSON.stringify(requestData, null, 2));
+      
+      // 步驟 5: 檢查 API 方法是否存在
+      console.log('📝 步驟 5: 檢查 API 方法...');
+      console.log('🔍 difyBenchmarkApi 對象:', difyBenchmarkApi);
+      console.log('🔍 batchTestDifyVersions 方法:', typeof difyBenchmarkApi.batchTestDifyVersions);
+      
+      if (typeof difyBenchmarkApi.batchTestDifyVersions !== 'function') {
+        console.error('❌ batchTestDifyVersions 不是一個函數！');
+        throw new Error('API 方法不存在');
+      }
+      
+      // 步驟 6: 發送 API 請求（⚠️ 必須先發送，再打開進度 Modal）
+      console.log('📝 步驟 6: 發送 API 請求...');
+      console.log('🌐 準備呼叫 difyBenchmarkApi.batchTestDifyVersions()');
+      
+      // 發送批量測試請求，等待請求發送成功後才打開進度 Modal
+      difyBenchmarkApi.batchTestDifyVersions(requestData)
+        .then((response) => {
+          console.log('✅ ========== API 呼叫成功 ==========');
+          console.log('📥 回應狀態:', response.status);
+          console.log('📥 回應數據:', response.data);
+          console.log('📥 完整回應:', response);
+          
+          // ✅ POST 成功後才打開進度 Modal（確保後端已初始化 ProgressTracker）
+          console.log('📝 步驟 7: API 成功，現在設定 batch_id 並打開 Modal...');
+          console.log('🔍 [批次 ID] 當前新生成的 batch_id:', batchId);
+          console.log('🔍 [State] 設定前的 currentBatchId:', currentBatchId);
+          
+          // 先設定 batch_id
+          setCurrentBatchId(batchId);
+          console.log('✅ [State] setCurrentBatchId() 已調用，新值:', batchId);
+          
+          // ✅ 延遲 500ms 後再打開 Modal，確保後端完全初始化 ProgressTracker
+          setTimeout(() => {
+            console.log('🔍 [渲染] 延遲後準備打開 Modal');
+            setProgressModalVisible(true);
+            console.log('✅ [Modal] 進度 Modal 已設為可見');
+            console.log('✅ [確認] BatchTestProgressModal 應該會收到 batchId:', batchId);
+          }, 500);  // ⚠️ 改為 500ms 延遲
+          
+          message.success('批量測試已啟動');
+        })
+        .catch((error) => {
+          console.error('❌ ========== API 呼叫失敗 ==========');
+          console.error('❌ 錯誤對象:', error);
+          console.error('❌ 錯誤類型:', error.constructor.name);
+          console.error('❌ 錯誤訊息:', error.message);
+          
+          if (error.response) {
+            // 伺服器回應錯誤（4xx, 5xx）
+            console.error('🔴 伺服器回應錯誤:');
+            console.error('   - 狀態碼:', error.response.status);
+            console.error('   - 狀態文字:', error.response.statusText);
+            console.error('   - 回應頭:', error.response.headers);
+            console.error('   - 回應數據:', error.response.data);
+          } else if (error.request) {
+            // 請求已發送但沒有收到回應
+            console.error('🔴 沒有收到伺服器回應:');
+            console.error('   - 請求:', error.request);
+          } else {
+            // 其他錯誤（請求配置錯誤等）
+            console.error('🔴 請求配置錯誤:', error.message);
+          }
+          
+          console.error('🔴 錯誤堆疊:', error.stack);
+          
+          message.error(`批量測試執行失敗: ${error.response?.data?.error || error.message || '未知錯誤'}`);
+          // ❌ 失敗時不打開進度 Modal
+        });
+      
+      console.log('📝 API 請求已發送，等待回應中...');
+      console.log('✅ ========== 批量測試初始化完成 ==========');
+      
+    } catch (error) {
+      console.error('❌ ========== 批量測試初始化失敗 ==========');
+      console.error('❌ 捕獲異常:', error);
+      console.error('❌ 異常類型:', error.constructor.name);
+      console.error('❌ 異常訊息:', error.message);
+      console.error('❌ 異常堆疊:', error.stack);
+      
+      if (error.errorFields) {
+        console.error('❌ 表單驗證錯誤:', error.errorFields);
+        message.error('請填寫所有必填欄位');
+      } else {
+        message.error(`初始化失敗: ${error.message}`);
+      }
+    }
+  };
+  
+  // 批量測試完成回調
+  const handleBatchTestComplete = (progressData) => {
+    console.log('批量測試完成:', progressData);
+    
+    // 顯示成功訊息
+    message.success(
+      `批量測試已完成！共執行 ${progressData.total_tests} 個測試，` +
+      `成功 ${progressData.completed_tests - progressData.failed_tests} 個，` +
+      `失敗 ${progressData.failed_tests} 個`
+    );
+    
+    // 重新載入版本列表
+    fetchVersions();
+    
+    // 清空選擇
+    setSelectedRowKeys([]);
+    
+    // 延遲關閉進度 Modal（讓用戶看到完成狀態）
+    setTimeout(() => {
+      setProgressModalVisible(false);
+      setCurrentBatchId(null);
+    }, 2500);
+  };
+  
+  // 取消/關閉進度 Modal
+  const handleProgressModalCancel = () => {
+    Modal.confirm({
+      title: '確定要關閉進度視窗嗎？',
+      content: '測試仍在後台執行，關閉視窗不會停止測試。',
+      okText: '確定關閉',
+      cancelText: '繼續查看',
+      onOk: () => {
+        setProgressModalVisible(false);
+        setCurrentBatchId(null);
+      }
+    });
+  };
+
+  // Table rowSelection 配置
+  const rowSelection = {
+    selectedRowKeys,
+    onChange: (newSelectedRowKeys) => {
+      setSelectedRowKeys(newSelectedRowKeys);
+    },
+    getCheckboxProps: (record) => ({
+      disabled: !record.is_active,  // 停用的版本無法選擇
+      name: record.version_name,
+    }),
+  };
+
   // 表格欄位定義
   const columns = [
     {
@@ -328,6 +530,9 @@ const DifyVersionManagementPage = () => {
           <Space>
             <RocketOutlined />
             <span>Dify 配置版本管理</span>
+            {selectedRowKeys.length > 0 && (
+              <Tag color="blue">已選擇 {selectedRowKeys.length} 個版本</Tag>
+            )}
           </Space>
         }
         extra={
@@ -337,6 +542,14 @@ const DifyVersionManagementPage = () => {
               onClick={fetchVersions}
             >
               重新整理
+            </Button>
+            <Button
+              type="primary"
+              icon={<RocketOutlined />}
+              onClick={handleOpenBatchTest}
+              disabled={selectedRowKeys.length === 0}
+            >
+              批量測試 ({selectedRowKeys.length})
             </Button>
             <Button
               type="primary"
@@ -353,6 +566,7 @@ const DifyVersionManagementPage = () => {
           dataSource={versions}
           rowKey="id"
           loading={loading}
+          rowSelection={rowSelection}
           scroll={{ x: 1400 }}
           pagination={{
             pageSize: 10,
@@ -570,6 +784,97 @@ const DifyVersionManagementPage = () => {
           </>
         )}
       </Modal>
+
+      {/* 批量測試 Modal */}
+      <Modal
+        title="批量測試配置"
+        open={batchTestModalVisible}
+        onOk={handleExecuteBatchTest}
+        onCancel={() => setBatchTestModalVisible(false)}
+        width={600}
+        okText="開始測試"
+        cancelText="取消"
+        confirmLoading={loading}
+      >
+        <Form
+          form={batchTestForm}
+          layout="vertical"
+        >
+          <Form.Item
+            label="批次名稱"
+            name="batch_name"
+            rules={[{ required: true, message: '請輸入批次名稱' }]}
+          >
+            <Input placeholder="例如：效能對比測試 v1" />
+          </Form.Item>
+
+          <Form.Item
+            label="備註"
+            name="notes"
+          >
+            <TextArea 
+              rows={3} 
+              placeholder="測試目的、預期結果等備註資訊（可選）" 
+            />
+          </Form.Item>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                label="並行線程數"
+                name="max_workers"
+                rules={[{ required: true, message: '請輸入線程數' }]}
+                tooltip="建議設定為 5-10，數值越大測試越快，但會增加系統負載"
+              >
+                <Input type="number" min={1} max={20} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label="是否強制重測"
+                name="force_retest"
+                valuePropName="checked"
+                tooltip="啟用後，即使已有測試結果也會重新執行"
+              >
+                <Switch checkedChildren="是" unCheckedChildren="否" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item
+            label="啟用並行執行"
+            name="use_parallel"
+            valuePropName="checked"
+            tooltip="建議保持啟用，可大幅提升測試速度（約 60-80%）"
+          >
+            <Switch checkedChildren="啟用" unCheckedChildren="停用" />
+          </Form.Item>
+
+          <div style={{ 
+            marginTop: '16px', 
+            padding: '12px', 
+            background: '#f0f2f5', 
+            borderRadius: '4px' 
+          }}>
+            <p style={{ margin: 0, fontSize: '13px', color: '#666' }}>
+              <strong>測試配置摘要：</strong>
+            </p>
+            <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px', fontSize: '13px' }}>
+              <li>選擇版本數：<strong>{selectedRowKeys.length}</strong> 個</li>
+              <li>測試案例：<strong>所有啟用的案例</strong></li>
+              <li>預估時間：約 {Math.ceil(selectedRowKeys.length * 15 / 10)} 秒（10 線程並行）</li>
+            </ul>
+          </div>
+        </Form>
+      </Modal>
+      
+      {/* 批量測試進度 Modal */}
+      <BatchTestProgressModal
+        visible={progressModalVisible}
+        batchId={currentBatchId}
+        onComplete={handleBatchTestComplete}
+        onCancel={handleProgressModalCancel}
+      />
     </div>
   );
 };

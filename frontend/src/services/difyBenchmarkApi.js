@@ -7,9 +7,11 @@
 
 import axios from 'axios';
 
-// 確保所有請求都帶上認證憑證
+// 確保所有請求都帶上認證憑證和 CSRF Token
 const api = axios.create({
   withCredentials: true,
+  xsrfCookieName: 'csrftoken',      // ✅ CSRF Cookie 名稱
+  xsrfHeaderName: 'X-CSRFToken',    // ✅ CSRF Header 名稱
 });
 
 // ==================== Dify Config Versions API ====================
@@ -115,6 +117,9 @@ export const getDifyVersionStatistics = (id) => {
  * - 50 個測試：150 秒 → 30 秒（80% 提升）
  */
 export const batchTestDifyVersions = (data) => {
+  console.log('📡 [API Client] batchTestDifyVersions 被調用');
+  console.log('📡 [API Client] 原始請求數據:', data);
+  
   // 設定預設值
   const requestData = {
     ...data,
@@ -122,7 +127,38 @@ export const batchTestDifyVersions = (data) => {
     max_workers: data.max_workers || 5,  // 預設 5 個並行線程
   };
   
-  return api.post('/api/dify-benchmark/versions/batch_test/', requestData);
+  console.log('📡 [API Client] 最終請求數據:', requestData);
+  console.log('📡 [API Client] API 端點: POST /api/dify-benchmark/versions/batch_test/');
+  console.log('📡 [API Client] axios 實例配置:', {
+    withCredentials: api.defaults.withCredentials,
+    xsrfCookieName: api.defaults.xsrfCookieName,
+    xsrfHeaderName: api.defaults.xsrfHeaderName,
+    baseURL: api.defaults.baseURL
+  });
+  
+  console.log('📡 [API Client] 準備發送 POST 請求...');
+  
+  return api.post('/api/dify-benchmark/versions/batch_test/', requestData)
+    .then(response => {
+      console.log('✅ [API Client] POST 請求成功');
+      console.log('✅ [API Client] 回應狀態:', response.status);
+      console.log('✅ [API Client] 回應數據:', response.data);
+      return response;
+    })
+    .catch(error => {
+      console.error('❌ [API Client] POST 請求失敗');
+      console.error('❌ [API Client] 錯誤詳情:', {
+        message: error.message,
+        response: error.response ? {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          data: error.response.data,
+          headers: error.response.headers
+        } : null,
+        request: error.request ? '請求已發送但無回應' : null
+      });
+      throw error;
+    });
 };
 
 // ==================== Dify Test Cases API ====================

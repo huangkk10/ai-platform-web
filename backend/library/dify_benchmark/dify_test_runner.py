@@ -1,7 +1,10 @@
 """
-Dify Test Runner - 單版本測試執行器
+Dify Test Runner - 單版本測試執行from .dify_api_client import DifyAPIClient
+from .keyword_evaluator import KeywordEvaluator
+from .progress_tracker import BatchTestProgressTracker
 
-用途：
+logger = logging.getLogger(__name__)
+progress_tracker = BatchTestProgressTracker()  # ✅ 初始化進度追蹤器途：
 1. 執行單一 Dify 版本的所有測試案例
 2. 呼叫 Dify API 獲取答案
 3. 使用 KeywordEvaluator 進行評分
@@ -30,8 +33,10 @@ from api.models import (
 )
 from .dify_api_client import DifyAPIClient
 from .evaluators import KeywordEvaluator
+from .progress_tracker import BatchTestProgressTracker
 
 logger = logging.getLogger(__name__)
+progress_tracker = BatchTestProgressTracker()  # ✅ 全局實例
 
 
 class DifyTestRunner:
@@ -66,14 +71,26 @@ class DifyTestRunner:
         初始化測試執行器
         
         Args:
-            version: Dify 配置版本實例
-            use_ai_evaluator: 是否使用 AI 評分（預設 False，使用關鍵字評分）
-            api_timeout: Dify API 超時時間（秒）
-            max_workers: 多線程並行執行的最大線程數（預設 10）
+            version: Dify 配置版本
+            use_ai_evaluator: 是否使用 AI 評分器
+            api_timeout: API 超時時間（秒）
+            max_workers: 最大並行線程數
         """
+        # ✅ 強制類型轉換：確保 max_workers 是整數
+        self.max_workers = int(max_workers) if max_workers else 10
+        
+        # 驗證 max_workers 範圍
+        if self.max_workers <= 0:
+            logger.warning(f"⚠️ max_workers={max_workers} 無效，使用預設值 10")
+            self.max_workers = 10
+        elif self.max_workers > 20:
+            logger.warning(f"⚠️ max_workers={max_workers} 過大，限制為 20")
+            self.max_workers = 20
+        
+        logger.info(f"🔧 [DifyTestRunner] max_workers 已設定為: {self.max_workers} (type: {type(self.max_workers).__name__})")
+        
         self.version = version
         self.use_ai_evaluator = use_ai_evaluator
-        self.max_workers = max_workers
         
         # 初始化 Dify API Client
         self.api_client = DifyAPIClient(timeout=api_timeout)
@@ -90,7 +107,7 @@ class DifyTestRunner:
         logger.info(
             f"DifyTestRunner 初始化完成: "
             f"version={version.version_name}, "
-            f"max_workers={max_workers}, "
+            f"max_workers={self.max_workers}, "
             f"evaluator={'AI' if use_ai_evaluator else 'Keyword'}"
         )
     
@@ -389,6 +406,34 @@ class DifyTestRunner:
                 else:
                     self._failed_count += 1
                 self._total_score += score
+            
+            # 6. ✅ 更新進度追蹤器（每個測試完成後立即更新）
+            # 🔍 調試：檢查 batch_id 狀態
+            logger.info(
+                f"🔍 [DEBUG] test_run.batch_id 狀態: "
+                f"hasattr={hasattr(test_run, 'batch_id')}, "
+                f"value='{test_run.batch_id if hasattr(test_run, 'batch_id') else 'N/A'}', "
+                f"type={type(test_run.batch_id) if hasattr(test_run, 'batch_id') else 'N/A'}"
+            )
+            
+            if hasattr(test_run, 'batch_id') and test_run.batch_id:
+                # 使用 completed_tests=1 表示完成 1 個測試（會自動累加）
+                progress_tracker.update_progress(
+                    batch_id=test_run.batch_id,
+                    completed_tests=1,  # 每次增加 1
+                    failed_tests=1 if not is_passed else 0,
+                    current_test_case=test_case.question[:50]  # 顯示當前測試案例
+                )
+                
+                logger.info(
+                    f"[Thread {index}] 📊 進度已更新: "
+                    f"batch_id={test_run.batch_id}, "
+                    f"test_case={test_case.question[:30]}..."
+                )
+            else:
+                logger.warning(
+                    f"⚠️ [Thread {index}] batch_id 為空或不存在，無法更新進度！"
+                )
             
             logger.info(
                 f"[Thread {index}] 測試完成: "

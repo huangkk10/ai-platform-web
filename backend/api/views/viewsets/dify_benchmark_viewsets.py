@@ -6,11 +6,15 @@ Dify Benchmark ViewSets
 
 import logging
 import json
+import threading  # ✅ 新增：用於背景執行測試
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Q, Avg, Count, Min, Max
 from django.utils import timezone
+
+# Import custom renderer for SSE
+from api.renderers import ServerSentEventRenderer
 
 from api.models import (
     DifyConfigVersion,
@@ -231,15 +235,16 @@ class DifyConfigVersionViewSet(viewsets.ModelViewSet):
             'recent_runs': DifyTestRunSerializer(recent_runs, many=True).data
         })
     
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=['post'], permission_classes=[])
     def batch_test(self, request):
         """
-        批量測試多個版本（支援多線程並行執行）
+        批量測試多個版本（背景執行，立即返回）
         
         POST /api/dify-benchmark/versions/batch_test/
         
         Body:
         {
+            "batch_id": "batch_xxx",        // 必填：批次 ID（前端生成）
             "version_ids": [1, 2, 3],       // 必填：版本 ID 列表
             "test_case_ids": [1, 2, 3],     // 可選：測試案例 ID（空則全部）
             "batch_name": "三版本對比",      // 可選：批次名稱
@@ -249,75 +254,224 @@ class DifyConfigVersionViewSet(viewsets.ModelViewSet):
             "max_workers": 5                // 可選：最大並行線程數（預設 5）
         }
         
-        效能提升：
-        - 10 個測試：30 秒 → 6 秒（80% 提升）
-        - 50 個測試：150 秒 → 30 秒（80% 提升）
-        
-        Returns:
+        Returns (立即返回，不等待測試完成):
         {
             "success": true,
             "batch_id": "batch_xxx",
-            "test_run_ids": [123, 124, 125],
-            "comparison": {...},
-            "summary": {...}
+            "message": "批量測試已啟動，請透過 SSE 追蹤進度"
         }
         """
         # 解析請求參數
+        batch_id = request.data.get('batch_id')  # ✅ 前端傳來的 batch_id
         version_ids = request.data.get('version_ids')
         test_case_ids = request.data.get('test_case_ids')
         batch_name = request.data.get('batch_name')
         notes = request.data.get('notes', '')
         use_ai_evaluator = request.data.get('use_ai_evaluator', False)
         
-        # 並行執行參數（新增）
-        use_parallel = request.data.get('use_parallel', True)  # 預設啟用
-        max_workers = request.data.get('max_workers', 5)       # 預設 5 個並行
+        # 並行執行參數
+        use_parallel = request.data.get('use_parallel', True)
+        max_workers = request.data.get('max_workers', 5)
         
         # 驗證參數
+        if not batch_id:
+            return Response({
+                'success': False,
+                'error': 'batch_id 必填'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
         if not version_ids or not isinstance(version_ids, list):
             return Response({
                 'success': False,
                 'error': 'version_ids 必須是版本 ID 列表'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        try:
-            # 執行批量測試（傳遞並行參數）
-            tester = DifyBatchTester(
-                use_ai_evaluator=use_ai_evaluator,
-                use_parallel=use_parallel,
-                max_workers=max_workers
-            )
-            
-            result = tester.run_batch_test(
-                version_ids=version_ids,
-                test_case_ids=test_case_ids,
-                batch_name=batch_name,
-                description=notes  # 修正：notes → description
-                # 注意：use_ai_evaluator 已在 tester 初始化時設定
-            )
-            
-            if result['success']:
-                return Response({
-                    'success': True,
-                    'batch_id': result['batch_id'],
-                    'batch_name': result['batch_name'],
-                    'test_run_ids': result['test_run_ids'],
-                    'comparison': result['comparison'],
-                    'summary': result['summary'],
-                    'message': '批量測試執行完成'
-                })
-            else:
-                return Response({
-                    'success': False,
-                    'error': result.get('error', '批量測試執行失敗')
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        logger.info(f"📥 收到批次測試請求: batch_id={batch_id}, version_ids={version_ids}")
         
-        except Exception as e:
-            logger.error(f"批量測試失敗: {str(e)}", exc_info=True)
+        # ✅ 定義背景執行函數
+        def run_test_in_background():
+            """在背景線程中執行測試"""
+            try:
+                logger.info(f"🚀 [背景執行] 開始批次測試: batch_id={batch_id}")
+                
+                tester = DifyBatchTester(
+                    use_ai_evaluator=use_ai_evaluator,
+                    use_parallel=use_parallel,
+                    max_workers=max_workers
+                )
+                
+                result = tester.run_batch_test(
+                    version_ids=version_ids,
+                    test_case_ids=test_case_ids,
+                    batch_name=batch_name,
+                    description=notes,
+                    batch_id=batch_id
+                )
+                
+                logger.info(f"✅ [背景執行] 批次測試完成: batch_id={batch_id}")
+                
+            except Exception as e:
+                logger.error(f"❌ [背景執行] 批次測試失敗: batch_id={batch_id}, error={str(e)}")
+                import traceback
+                logger.error(traceback.format_exc())
+        
+        # ✅ 啟動背景線程
+        thread = threading.Thread(target=run_test_in_background, daemon=True)
+        thread.start()
+        
+        logger.info(f"✅ 批次測試已在背景啟動: batch_id={batch_id}, thread={thread.name}")
+        
+        # ✅ 立即返回（不等待測試完成）
+        return Response({
+            'success': True,
+            'batch_id': batch_id,
+            'message': '批量測試已啟動，請透過 SSE 追蹤進度'
+        })
+    
+    @action(detail=False, methods=['get'], permission_classes=[], 
+            renderer_classes=[ServerSentEventRenderer])
+    def batch_test_progress(self, request):
+        """
+        獲取批量測試進度（Server-Sent Events 串流）
+        
+        GET /api/dify-benchmark/versions/batch_test_progress/?batch_id=xxx
+        
+        使用 Server-Sent Events (SSE) 推送即時進度更新。
+        前端使用 EventSource API 連接此端點。
+        
+        ⚠️ 注意：此端點不需要認證（因為 EventSource API 無法傳遞認證資訊）
+        安全性由 batch_id 的隨機性保證（類似 UUID）
+        
+        更新頻率：每 0.5 秒
+        
+        SSE 事件格式：
+        data: {
+            "batch_id": "batch_xxx",
+            "status": "running",
+            "progress": 45.5,
+            "completed_tests": 5,
+            "total_tests": 11,
+            "current_version": "Dify 二階搜尋 v1.1",
+            "current_test_case": "MIPI D-PHY 基本參數查詢",
+            "estimated_remaining_time": 30,
+            "versions": [...]
+        }
+        
+        Returns:
+            StreamingHttpResponse with SSE events
+        """
+        from django.http import StreamingHttpResponse
+        from library.dify_benchmark.progress_tracker import progress_tracker
+        import time
+        
+        batch_id = request.query_params.get('batch_id')
+        if not batch_id:
             return Response({
                 'success': False,
-                'error': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                'error': 'batch_id 參數為必填'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        def event_stream():
+            """SSE 事件串流生成器"""
+            try:
+                # ✅ 立即發送初始連接確認事件（觸發 EventSource onopen）
+                logger.info(f"SSE 連接已建立: batch_id={batch_id}")
+                
+                # ⚠️ 重要：先發送一個 data 事件來觸發 EventSource onopen
+                # 註解（`: ...`）不會觸發 onopen，只有 `data:` 事件才會！
+                initial_data = progress_tracker.get_progress(batch_id)
+                if initial_data:
+                    initial_sse = {
+                        'batch_id': initial_data['batch_id'],
+                        'batch_name': initial_data['batch_name'],
+                        'status': initial_data['status'],
+                        'progress': 0.0,
+                        'completed_tests': initial_data['completed_tests'],
+                        'total_tests': initial_data['total_tests'],
+                        'message': 'SSE connection established'
+                    }
+                    yield f'data: {json.dumps(initial_sse)}\n\n'
+                    logger.info(f"✅ 已發送初始 SSE 事件，觸發 onopen: batch_id={batch_id}")
+                
+                while True:
+                    # 獲取進度資料
+                    progress_data = progress_tracker.get_progress(batch_id)
+                    
+                    if not progress_data:
+                        # 批次不存在或已清理
+                        yield f'data: {json.dumps({"error": "Batch not found"})}\n\n'
+                        break
+                    
+                    # 計算整體進度百分比
+                    if progress_data['total_tests'] > 0:
+                        progress_percentage = (
+                            progress_data['completed_tests'] / progress_data['total_tests'] * 100
+                        )
+                    else:
+                        progress_percentage = 0
+                    
+                    # 構建 SSE 資料
+                    sse_data = {
+                        'batch_id': progress_data['batch_id'],
+                        'batch_name': progress_data['batch_name'],
+                        'status': progress_data['status'],
+                        'progress': round(progress_percentage, 2),
+                        'completed_tests': progress_data['completed_tests'],
+                        'total_tests': progress_data['total_tests'],
+                        'failed_tests': progress_data['failed_tests'],
+                        'current_version': progress_data['current_version_name'],
+                        'current_test_case': progress_data['current_test_case'],
+                        'estimated_remaining_time': progress_data['estimated_remaining_time'],
+                        'start_time': progress_data['start_time'],
+                        'last_update': progress_data['last_update'],
+                        'versions': [
+                            {
+                                'version_id': v_data['version_id'],
+                                'version_name': v_data['version_name'],
+                                'total_tests': v_data['total_tests'],
+                                'completed_tests': v_data['completed_tests'],
+                                'failed_tests': v_data['failed_tests'],
+                                'status': v_data['status'],
+                                'progress': round(
+                                    (v_data['completed_tests'] / v_data['total_tests'] * 100)
+                                    if v_data['total_tests'] > 0 else 0,
+                                    2
+                                ),
+                                'average_score': v_data.get('average_score'),
+                                'pass_rate': v_data.get('pass_rate')
+                            }
+                            for v_data in progress_data['versions'].values()
+                        ]
+                    }
+                    
+                    # 發送 SSE 事件
+                    yield f'data: {json.dumps(sse_data)}\n\n'
+                    
+                    # 如果測試完成，發送最後一次更新後結束
+                    if progress_data['status'] in ['completed', 'error']:
+                        logger.info(f"批次測試完成，關閉 SSE 連接: {batch_id}")
+                        break
+                    
+                    # 等待 0.5 秒後再次查詢
+                    time.sleep(0.5)
+            
+            except GeneratorExit:
+                logger.info(f"客戶端關閉 SSE 連接: {batch_id}")
+            except Exception as e:
+                logger.error(f"SSE 串流錯誤: {str(e)}", exc_info=True)
+                yield f'data: {json.dumps({"error": str(e)})}\n\n'
+        
+        # 創建 StreamingHttpResponse
+        response = StreamingHttpResponse(
+            event_stream(),
+            content_type='text/event-stream'
+        )
+        
+        # SSE 必要的 HTTP 標頭
+        response['Cache-Control'] = 'no-cache'
+        response['X-Accel-Buffering'] = 'no'  # 禁用 Nginx 緩衝
+        
+        return response
 
 
 class DifyBenchmarkTestCaseViewSet(viewsets.ModelViewSet):
