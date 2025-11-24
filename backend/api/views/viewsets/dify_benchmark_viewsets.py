@@ -230,8 +230,8 @@ class DifyConfigVersionViewSet(viewsets.ModelViewSet):
             'total_test_runs': stats['total_runs'] or 0,
             'average_score': round(stats['avg_score'] or 0, 2),
             'average_pass_rate': round(stats['avg_pass_rate'] or 0, 2),
-            'best_score': round(best_run.average_score, 2) if best_run else 0,
-            'worst_score': round(worst_run.average_score, 2) if worst_run else 0,
+            'best_score': round(best_run.average_score or 0, 2) if best_run else 0,
+            'worst_score': round(worst_run.average_score or 0, 2) if worst_run else 0,
             'recent_runs': DifyTestRunSerializer(recent_runs, many=True).data
         })
     
@@ -398,17 +398,83 @@ class DifyConfigVersionViewSet(viewsets.ModelViewSet):
                     progress_data = progress_tracker.get_progress(batch_id)
                     
                     if not progress_data:
-                        # 批次不存在或已清理
-                        yield f'data: {json.dumps({"error": "Batch not found"})}\n\n'
-                        break
+                        # ✅ 檢查批次是否已完成（從資料庫查詢）
+                        try:
+                            from api.models import DifyTestRun
+                            
+                            # 查詢該批次的所有測試執行記錄
+                            test_runs = DifyTestRun.objects.filter(
+                                batch_id=batch_id
+                            ).order_by('-created_at')
+                            
+                            if test_runs.exists():
+                                # 檢查所有測試是否都已完成（completed_at 不為 None）
+                                all_completed = all(tr.completed_at is not None for tr in test_runs)
+                                
+                                if all_completed:
+                                    # 批次已完成，計算統計資料
+                                    total_tests = test_runs.count()
+                                    avg_score = sum(tr.average_score or 0 for tr in test_runs) / total_tests
+                                    avg_pass_rate = sum(tr.pass_rate or 0 for tr in test_runs) / total_tests
+                                    
+                                    # 建構版本資料
+                                    versions_data = []
+                                    for tr in test_runs:
+                                        versions_data.append({
+                                            'version_id': tr.version.id,
+                                            'version_name': tr.version.version_name,
+                                            'test_run_id': tr.id,
+                                            'status': 'completed',
+                                            'progress': 100.0,
+                                            'passed_tests': tr.passed_cases,
+                                            'failed_tests': tr.failed_cases,
+                                            'total_tests': tr.total_test_cases,
+                                            'average_score': round(tr.average_score or 0, 2),
+                                            'pass_rate': round(tr.pass_rate or 0, 2)
+                                        })
+                                    
+                                    final_data = {
+                                        'batch_id': batch_id,
+                                        'status': 'completed',
+                                        'progress': 100.0,
+                                        'completed_tests': total_tests,
+                                        'total_tests': total_tests,
+                                        'average_score': round(avg_score, 2),
+                                        'pass_rate': round(avg_pass_rate, 2),
+                                        'message': '測試已完成（從資料庫恢復）',
+                                        'versions': versions_data
+                                    }
+                                    yield f'data: {json.dumps(final_data)}\n\n'
+                                    logger.info(f"✅ 從資料庫恢復完成狀態: batch_id={batch_id}, 版本數={total_tests}")
+                                    break
+                                else:
+                                    # 批次還在執行中，但記憶體丟失
+                                    logger.warning(f"⚠️ 批次正在執行但記憶體丟失: batch_id={batch_id}")
+                                    yield f'data: {json.dumps({"error": "Progress lost due to server restart"})}\n\n'
+                                    break
+                            else:
+                                # 批次確實不存在
+                                logger.warning(f"⚠️ 批次不存在於內存和資料庫: batch_id={batch_id}")
+                                yield f'data: {json.dumps({"error": "Batch not found"})}\n\n'
+                                break
+                        
+                        except Exception as e:
+                            logger.error(f"❌ 資料庫查詢異常: {str(e)}", exc_info=True)
+                            yield f'data: {json.dumps({"error": f"Database query failed: {str(e)}"})}\n\n'
+                            break
                     
                     # 計算整體進度百分比
                     if progress_data['total_tests'] > 0:
                         progress_percentage = (
                             progress_data['completed_tests'] / progress_data['total_tests'] * 100
                         )
+                        # ✅ 防止進度超過 100% (避免重複計數)
+                        progress_percentage = min(progress_percentage, 100.0)
                     else:
                         progress_percentage = 0
+                    
+                    # ✅ 防止 completed_tests 超過 total_tests (避免重複計數)
+                    completed_tests = min(progress_data['completed_tests'], progress_data['total_tests'])
                     
                     # 構建 SSE 資料
                     sse_data = {
@@ -416,7 +482,7 @@ class DifyConfigVersionViewSet(viewsets.ModelViewSet):
                         'batch_name': progress_data['batch_name'],
                         'status': progress_data['status'],
                         'progress': round(progress_percentage, 2),
-                        'completed_tests': progress_data['completed_tests'],
+                        'completed_tests': completed_tests,  # ✅ 使用修正後的值
                         'total_tests': progress_data['total_tests'],
                         'failed_tests': progress_data['failed_tests'],
                         'current_version': progress_data['current_version_name'],
@@ -429,12 +495,15 @@ class DifyConfigVersionViewSet(viewsets.ModelViewSet):
                                 'version_id': v_data['version_id'],
                                 'version_name': v_data['version_name'],
                                 'total_tests': v_data['total_tests'],
-                                'completed_tests': v_data['completed_tests'],
+                                'completed_tests': min(v_data['completed_tests'], v_data['total_tests']),  # ✅ 防止超過 total
                                 'failed_tests': v_data['failed_tests'],
                                 'status': v_data['status'],
                                 'progress': round(
-                                    (v_data['completed_tests'] / v_data['total_tests'] * 100)
-                                    if v_data['total_tests'] > 0 else 0,
+                                    min(  # ✅ 防止進度超過 100%
+                                        (v_data['completed_tests'] / v_data['total_tests'] * 100)
+                                        if v_data['total_tests'] > 0 else 0,
+                                        100.0
+                                    ),
                                     2
                                 ),
                                 'average_score': v_data.get('average_score'),
