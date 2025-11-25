@@ -397,7 +397,7 @@ const DifyVersionManagementPage = () => {
       title: '版本名稱',
       dataIndex: 'version_name',
       key: 'version_name',
-      width: 250,
+      width: 220,
       render: (text, record) => (
         <Space>
           {record.is_baseline && (
@@ -412,18 +412,19 @@ const DifyVersionManagementPage = () => {
       )
     },
     {
-      title: '版本代碼',
-      dataIndex: 'version_code',
-      key: 'version_code',
-      width: 200
-    },
-    {
-      title: 'Dify App ID',
-      dataIndex: 'dify_app_id',
-      key: 'dify_app_id',
-      width: 180,
+      title: '描述',
+      dataIndex: 'description',
+      key: 'description',
+      width: 350,
+      ellipsis: {
+        showTitle: false,
+      },
       render: (text) => (
-        <code style={{ fontSize: '12px', color: '#666' }}>{text}</code>
+        <Tooltip title={text || '無描述'} placement="topLeft">
+          <span style={{ color: text ? '#333' : '#999' }}>
+            {text || '無描述'}
+          </span>
+        </Tooltip>
       )
     },
     {
@@ -619,10 +620,28 @@ const DifyVersionManagementPage = () => {
           <Form.Item
             label="描述"
             name="description"
+            extra="建議詳細說明版本的搜尋策略、權重配置、適用場景等資訊"
           >
             <TextArea
-              rows={4}
-              placeholder="詳細描述此版本的配置和特點..."
+              rows={12}
+              placeholder="詳細描述此版本的配置和特點...
+              
+範例：
+📝 Dify 二階搜尋版本
+🎯 使用場景：Protocol 相關問題查詢
+
+⚙️ 一階搜尋：Section Search
+   • Top K：20 筆
+   • Threshold：80%
+   • 權重：標題 95% / 內容 5%
+
+⚙️ 二階搜尋：Document Search
+   • Top K：10 筆  
+   • Threshold：80%
+   • 權重：標題 10% / 內容 90%"
+              showCount
+              maxLength={2000}
+              style={{ fontFamily: 'monospace', fontSize: '13px' }}
             />
           </Form.Item>
 
