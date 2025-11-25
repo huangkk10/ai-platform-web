@@ -26,7 +26,8 @@ import {
   StarOutlined,
   StarFilled,
   LineChartOutlined,
-  ReloadOutlined
+  ReloadOutlined,
+  SyncOutlined
 } from '@ant-design/icons';
 import difyBenchmarkApi from '../../services/difyBenchmarkApi';
 import BatchTestProgressModal from '../../components/dify-benchmark/BatchTestProgressModal';
@@ -135,18 +136,59 @@ const DifyVersionManagementPage = () => {
   };
 
   // 設定為 Baseline
-  const handleSetBaseline = async (versionId) => {
-    setLoading(true);
-    try {
-      await difyBenchmarkApi.setDifyBaseline(versionId);
-      message.success('Baseline 版本設定成功');
-      fetchVersions();
-    } catch (error) {
-      message.error('設定 Baseline 失敗');
-      console.error('設定 Baseline 失敗:', error);
-    } finally {
-      setLoading(false);
-    }
+  const handleSetBaseline = async (version) => {
+    const isDynamic = version.rag_settings?.stage1?.use_dynamic_threshold || 
+                     version.rag_settings?.stage2?.use_dynamic_threshold;
+    
+    Modal.confirm({
+      title: '設定為 Baseline 版本',
+      content: (
+        <div>
+          <p>確定要將 <strong>{version.version_name}</strong> 設定為 Baseline 版本嗎？</p>
+          {isDynamic && (
+            <div style={{ 
+              marginTop: '12px', 
+              padding: '12px', 
+              background: '#fff7e6', 
+              border: '1px solid #ffd591',
+              borderRadius: '4px' 
+            }}>
+              <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                <div>
+                  <SyncOutlined spin style={{ color: '#fa8c16', marginRight: '8px' }} />
+                  <strong style={{ color: '#fa8c16' }}>此版本使用動態 Threshold</strong>
+                </div>
+                <div style={{ fontSize: '13px', color: '#666' }}>
+                  • 配置將從資料庫即時載入（SearchThresholdSetting）<br />
+                  • Benchmark 測試會使用最新的動態配置<br />
+                  • 可在 Threshold Setting 頁面調整參數
+                </div>
+              </Space>
+            </div>
+          )}
+          <p style={{ marginTop: '12px', color: '#666', fontSize: '13px' }}>
+            ⚠️ <strong>注意</strong>：Baseline 配置僅用於 Benchmark 測試。<br />
+            如需調整 Chat 功能的檢索參數，請在 Dify 工作室中設定。
+          </p>
+        </div>
+      ),
+      okText: '確定設定',
+      cancelText: '取消',
+      width: 520,
+      onOk: async () => {
+        setLoading(true);
+        try {
+          await difyBenchmarkApi.setDifyBaseline(version.id);
+          message.success('Baseline 版本設定成功');
+          fetchVersions();
+        } catch (error) {
+          message.error('設定 Baseline 失敗');
+          console.error('設定 Baseline 失敗:', error);
+        } finally {
+          setLoading(false);
+        }
+      }
+    });
   };
 
   // 執行測試
@@ -398,18 +440,30 @@ const DifyVersionManagementPage = () => {
       dataIndex: 'version_name',
       key: 'version_name',
       width: 220,
-      render: (text, record) => (
-        <Space>
-          {record.is_baseline && (
-            <Tooltip title="Baseline 版本">
-              <StarFilled style={{ color: '#faad14' }} />
-            </Tooltip>
-          )}
-          <span style={{ fontWeight: record.is_baseline ? 'bold' : 'normal' }}>
-            {text}
-          </span>
-        </Space>
-      )
+      render: (text, record) => {
+        const isDynamic = record.rag_settings?.stage1?.use_dynamic_threshold || 
+                         record.rag_settings?.stage2?.use_dynamic_threshold;
+        
+        return (
+          <Space>
+            {record.is_baseline && (
+              <Tooltip title="Baseline 版本">
+                <StarFilled style={{ color: '#faad14' }} />
+              </Tooltip>
+            )}
+            <span style={{ fontWeight: record.is_baseline ? 'bold' : 'normal' }}>
+              {text}
+            </span>
+            {isDynamic && (
+              <Tooltip title="動態 Threshold 版本（配置從資料庫載入）">
+                <Tag color="orange" icon={<SyncOutlined spin />} style={{ marginLeft: '4px' }}>
+                  動態
+                </Tag>
+              </Tooltip>
+            )}
+          </Space>
+        );
+      }
     },
     {
       title: '描述',
@@ -469,7 +523,7 @@ const DifyVersionManagementPage = () => {
                 type="link"
                 size="small"
                 icon={<StarOutlined />}
-                onClick={() => handleSetBaseline(record.id)}
+                onClick={() => handleSetBaseline(record)}
               >
                 Baseline
               </Button>
@@ -524,8 +578,43 @@ const DifyVersionManagementPage = () => {
     }
   ];
 
+  // 獲取當前 Baseline 版本
+  const baselineVersion = versions.find(v => v.is_baseline);
+  const baselineIsDynamic = baselineVersion?.rag_settings?.stage1?.use_dynamic_threshold || 
+                            baselineVersion?.rag_settings?.stage2?.use_dynamic_threshold;
+
   return (
     <div className="dify-version-management-page">
+      {/* Baseline 資訊摘要卡片 */}
+      {baselineVersion && (
+        <Card 
+          size="small" 
+          style={{ marginBottom: '16px', background: '#fffbf0', borderColor: '#faad14' }}
+        >
+          <Space size="large" style={{ width: '100%', justifyContent: 'space-between' }}>
+            <Space>
+              <StarFilled style={{ color: '#faad14', fontSize: '18px' }} />
+              <span style={{ fontWeight: 'bold', fontSize: '14px' }}>
+                當前 Baseline: {baselineVersion.version_name}
+              </span>
+              {baselineIsDynamic && (
+                <Tag color="orange" icon={<SyncOutlined spin />}>
+                  動態 Threshold
+                </Tag>
+              )}
+            </Space>
+            <Space>
+              <Tooltip title="Baseline 配置用於 Benchmark 測試">
+                <Tag color="blue">用於 Benchmark 測試</Tag>
+              </Tooltip>
+              <Tooltip title="Chat 配置需在 Dify 工作室設定">
+                <Tag color="default">Chat 需 Dify 工作室配置</Tag>
+              </Tooltip>
+            </Space>
+          </Space>
+        </Card>
+      )}
+      
       <Card
         title={
           <Space>

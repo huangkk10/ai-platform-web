@@ -407,7 +407,7 @@ Dify Benchmark API ViewSets 測試
 測試 3: DifyBenchmarkTestCaseViewSet
 ✅ List API 測試通過
   - Status Code: 200
-  - 測試案例數量: 55
+  - 測試案例數量: 58 (原始 55 題 + Title Boost 測試 3 題)
 
 測試 4: DifyTestRunViewSet
 ✅ List API 測試通過
@@ -424,7 +424,7 @@ Dify Benchmark API ViewSets 測試
 1. **✅ 所有 ViewSets 導入成功** - 架構完整
 2. **✅ URL 路由正確配置** - 所有端點可訪問
 3. **✅ List API 全部通過** - 基本 CRUD 功能正常
-4. **✅ 資料存在驗證** - 系統已有 4 個版本、55 個測試案例、4 個測試執行
+4. **✅ 資料存在驗證** - 系統已有 4 個版本、58 個測試案例（原始 55 + Title Boost 測試 3）、4 個測試執行
 
 ---
 

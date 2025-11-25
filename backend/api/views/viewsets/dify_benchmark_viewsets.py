@@ -96,31 +96,112 @@ class DifyConfigVersionViewSet(viewsets.ModelViewSet):
         """創建版本時設定創建者"""
         serializer.save(created_by=self.request.user)
     
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
     def set_baseline(self, request, pk=None):
         """
-        設定為基準版本
+        設定為基準版本（增強版 - 支援動態版本）
         
         POST /api/dify-benchmark/versions/:id/set_baseline/
         
-        將指定版本設定為基準版本，同時取消其他版本的 baseline 標記
+        功能：
+        1. 清除所有版本的 is_baseline 標記
+        2. 設定選定版本為 Baseline
+        3. 記錄操作日誌
+        4. 如果是動態版本，刷新 Threshold 快取
+        
+        權限：僅管理員
         """
+        from django.db import transaction
+        from library.dify_integration.dynamic_threshold_loader import DynamicThresholdLoader
+        
         version = self.get_object()
         
-        # 取消所有其他版本的 baseline
-        DifyConfigVersion.objects.filter(is_baseline=True).update(is_baseline=False)
-        
-        # 設定當前版本為 baseline
-        version.is_baseline = True
-        version.save()
-        
-        logger.info(f"版本 {version.version_name} 已設定為 baseline")
+        with transaction.atomic():
+            # 取消所有其他版本的 baseline
+            DifyConfigVersion.objects.filter(is_baseline=True).update(is_baseline=False)
+            
+            # 設定當前版本為 baseline
+            version.is_baseline = True
+            version.save()
+            
+            # 🆕 如果是動態版本，刷新 Threshold 快取
+            is_dynamic = DynamicThresholdLoader.is_dynamic_version(version.rag_settings)
+            if is_dynamic:
+                try:
+                    from library.common.threshold_manager import get_threshold_manager
+                    manager = get_threshold_manager()
+                    manager.clear_cache()
+                    logger.info(f"🔄 動態版本 {version.version_name} 設為 Baseline，已刷新快取")
+                except Exception as e:
+                    logger.error(f"刷新快取失敗: {str(e)}")
+            
+            # 記錄操作日誌
+            logger.info(
+                f"✅ 版本切換: {version.version_name} (ID: {version.id}) "
+                f"已設為 Baseline，動態版本: {is_dynamic}，操作者: {request.user.username}"
+            )
         
         return Response({
             'success': True,
-            'message': f'版本 {version.version_name} 已設定為基準版本',
-            'version': self.get_serializer(version).data
+            'message': f'版本 {version.version_name} 已設定為 Baseline',
+            'version_id': version.id,
+            'version_name': version.version_name,
+            'is_dynamic': is_dynamic,
+            'timestamp': timezone.now().isoformat(),
         })
+    
+    @action(detail=False, methods=['get'])
+    def get_baseline(self, request):
+        """
+        獲取當前 Baseline 版本
+        
+        GET /api/dify-benchmark/versions/get_baseline/
+        
+        回應：
+        {
+            "version_id": 1,
+            "version_name": "Dify 二階搜尋 v1.2.1",
+            "version_code": "dify-two-tier-v1.2.1",
+            "is_dynamic": true,
+            "rag_settings": {...},  // 如果是動態版本，返回動態載入後的配置
+            "description": "..."
+        }
+        """
+        from library.dify_integration.dynamic_threshold_loader import DynamicThresholdLoader
+        
+        baseline = DifyConfigVersion.objects.filter(
+            is_baseline=True, 
+            is_active=True
+        ).first()
+        
+        if not baseline:
+            return Response({
+                'success': False,
+                'error': '找不到 Baseline 版本',
+                'message': '請在版本管理中設定一個 Baseline 版本'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        # 🆕 如果是動態版本，載入最新配置
+        is_dynamic = DynamicThresholdLoader.is_dynamic_version(baseline.rag_settings)
+        if is_dynamic:
+            try:
+                rag_settings = DynamicThresholdLoader.load_full_rag_settings(baseline.rag_settings)
+                logger.info(f"🔄 Baseline 版本 {baseline.version_name} 使用動態配置")
+            except Exception as e:
+                logger.error(f"動態載入失敗，使用靜態配置: {str(e)}")
+                rag_settings = baseline.rag_settings
+        else:
+            rag_settings = baseline.rag_settings
+        
+        serializer = self.get_serializer(baseline)
+        data = serializer.data
+        data['is_dynamic'] = is_dynamic
+        data['rag_settings'] = rag_settings  # 返回動態載入後的配置
+        
+        return Response({
+            'success': True,
+            **data
+        }, status=status.HTTP_200_OK)
     
     @action(detail=True, methods=['post'])
     def run_benchmark(self, request, pk=None):

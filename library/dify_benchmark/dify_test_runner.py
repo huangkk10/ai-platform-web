@@ -92,16 +92,33 @@ class DifyTestRunner:
         self.version = version
         self.use_ai_evaluator = use_ai_evaluator
         
-        # ✅ v1.2: 準備版本配置（用於後端搜尋）
+        # ✅ v1.2.1: 動態載入 RAG 設定（如果版本啟用動態 Threshold）
+        from library.dify_integration.dynamic_threshold_loader import DynamicThresholdLoader
+        
+        if DynamicThresholdLoader.is_dynamic_version(version.rag_settings):
+            logger.info(f"🔄 版本 {version.version_name} 使用動態 Threshold 載入")
+            rag_settings = DynamicThresholdLoader.load_full_rag_settings(version.rag_settings)
+            logger.info(
+                f"✅ 動態配置載入完成: "
+                f"Stage1={rag_settings['stage1']['threshold']}/{rag_settings['stage1']['title_weight']}%/"
+                f"{rag_settings['stage1']['content_weight']}%, "
+                f"Stage2={rag_settings['stage2']['threshold']}/{rag_settings['stage2']['title_weight']}%/"
+                f"{rag_settings['stage2']['content_weight']}%"
+            )
+        else:
+            logger.info(f"📌 版本 {version.version_name} 使用靜態配置")
+            rag_settings = version.rag_settings
+        
+        # 準備版本配置（用於後端搜尋）
         self.version_config = {
             'version_code': version.version_code,
             'version_name': version.version_name,
-            'rag_settings': version.rag_settings
+            'rag_settings': rag_settings  # 使用動態或靜態配置
         }
         logger.info(
             f"📋 [DifyTestRunner] 版本配置已載入: "
             f"version={version.version_code}, "
-            f"retrieval_mode={version.rag_settings.get('retrieval_mode', 'unknown')}"
+            f"retrieval_mode={rag_settings.get('retrieval_mode', 'unknown')}"
         )
         
         # 初始化 Dify API Client
@@ -543,6 +560,38 @@ class DifyTestRunner:
         matched_keywords = evaluation_result['matched_keywords']
         missing_keywords = evaluation_result['missing_keywords']
         
+        # ✅ v1.2.1: 記錄實際使用的配置（用於追蹤動態配置）
+        rag_settings = self.version_config['rag_settings']
+        config_source = 'dynamic' if rag_settings.get('stage1', {}).get('loaded_from_db', False) else 'static'
+        
+        evaluation_details = {
+            # 🆕 配置來源
+            'config_source': config_source,
+            'version_name': self.version.version_name,
+            
+            # 🆕 實際使用的配置
+            'actual_config': {
+                'stage1': {
+                    'threshold': rag_settings.get('stage1', {}).get('threshold', 0),
+                    'title_weight': rag_settings.get('stage1', {}).get('title_weight', 0),
+                    'content_weight': rag_settings.get('stage1', {}).get('content_weight', 0),
+                    'title_match_bonus': rag_settings.get('stage1', {}).get('title_match_bonus', 0),
+                },
+                'stage2': {
+                    'threshold': rag_settings.get('stage2', {}).get('threshold', 0),
+                    'title_weight': rag_settings.get('stage2', {}).get('title_weight', 0),
+                    'content_weight': rag_settings.get('stage2', {}).get('content_weight', 0),
+                    'title_match_bonus': rag_settings.get('stage2', {}).get('title_match_bonus', 0),
+                },
+            },
+            
+            # 關鍵字匹配詳情
+            'total_keywords': len(keywords),
+            'matched_count': len(matched_keywords),
+            'missing_count': len(missing_keywords),
+            'match_details': evaluation_result.get('match_details', {}),
+        }
+        
         # 3. 儲存 TestResult
         test_result = DifyTestResult.objects.create(
             test_run=test_run,
@@ -553,7 +602,8 @@ class DifyTestRunner:
             is_passed=is_passed,
             response_time=response_time,
             matched_keywords=matched_keywords,
-            missing_keywords=missing_keywords
+            missing_keywords=missing_keywords,
+            evaluation_details=evaluation_details,  # ✅ 記錄實際配置
             # dify_conversation_id 和 retrieved_documents_count 欄位不存在，移除
         )
         
