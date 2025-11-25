@@ -5,27 +5,22 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-  Tabs, Table, Button, Space, Tag, Tooltip, message, Modal, 
-  Card, Statistic, Row, Col, Input, Select, Spin, Popconfirm
+  Table, Button, Space, Tag, Tooltip, message, Modal, 
+  Card, Statistic, Row, Col, Input, Select, Popconfirm
 } from 'antd';
 import {
-  FileTextOutlined, RobotOutlined, PlusOutlined, EditOutlined,
+  FileTextOutlined, EditOutlined,
   DeleteOutlined, EyeOutlined, ReloadOutlined, ExportOutlined,
-  ImportOutlined, SearchOutlined, FilterOutlined
+  SearchOutlined, FilterOutlined
 } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
 import unifiedBenchmarkApi from '../../services/unifiedBenchmarkApi';
 import './UnifiedTestCasePage.css';
 
-const { TabPane } = Tabs;
 const { Search } = Input;
 const { Option } = Select;
 
-const UnifiedTestCasePage = ({ defaultTab = 'protocol' }) => {
-  const navigate = useNavigate();
-  
+const UnifiedTestCasePage = ({ defaultTab = 'vsa' }) => {
   // State 管理
-  const [activeTab, setActiveTab] = useState(defaultTab);
   const [testCases, setTestCases] = useState([]);
   const [loading, setLoading] = useState(false);
   const [statistics, setStatistics] = useState({});
@@ -39,11 +34,9 @@ const UnifiedTestCasePage = ({ defaultTab = 'protocol' }) => {
   
   // Modal 控制
   const [detailModalVisible, setDetailModalVisible] = useState(false);
-  const [editModalVisible, setEditModalVisible] = useState(false);
   const [selectedCase, setSelectedCase] = useState(null);
   
-  // 分類列表
-  const [categories, setCategories] = useState([]);
+  // 分類列表（VSA 不需要 categories，但保留變數避免錯誤）
   const [testClasses, setTestClasses] = useState([]);
 
   // 載入測試案例
@@ -51,7 +44,7 @@ const UnifiedTestCasePage = ({ defaultTab = 'protocol' }) => {
     setLoading(true);
     try {
       const params = {
-        test_type: activeTab,
+        test_type: 'vsa', // 固定使用 VSA 類型
         search: searchText || undefined,
         ...filters,
       };
@@ -77,43 +70,31 @@ const UnifiedTestCasePage = ({ defaultTab = 'protocol' }) => {
   // 載入統計資料
   const loadStatistics = async () => {
     try {
-      const response = await unifiedBenchmarkApi.getStatistics(activeTab);
+      const response = await unifiedBenchmarkApi.getStatistics('vsa'); // 固定使用 VSA 類型
+      console.log('=== 統計資料 API 回應 ===');
+      console.log('完整回應:', response);
+      console.log('response.data:', response.data);
+      console.log('by_difficulty:', response.data?.by_difficulty);
+      console.log('========================');
       setStatistics(response.data);
     } catch (error) {
       console.error('載入統計資料失敗:', error);
     }
   };
 
-  // 載入分類列表
+  // 載入分類列表（VSA 不需要，但保留函數避免錯誤）
   const loadCategories = async () => {
-    try {
-      const response = await unifiedBenchmarkApi.getCategories(activeTab);
-      setCategories(response.data || []);
-    } catch (error) {
-      console.error('載入分類失敗:', error);
-    }
+    // VSA 模式不需要載入 categories
   };
 
   // 載入測試類別列表
   const loadTestClasses = async () => {
     try {
-      const response = await unifiedBenchmarkApi.getTestClasses(activeTab);
+      const response = await unifiedBenchmarkApi.getTestClasses('vsa'); // 固定使用 VSA 類型
       setTestClasses(response.data || []);
     } catch (error) {
       console.error('載入測試類別失敗:', error);
     }
-  };
-
-  // Tab 切換處理
-  const handleTabChange = (key) => {
-    setActiveTab(key);
-    setSearchText('');
-    setFilters({
-      difficulty_level: null,
-      category: null,
-      test_class_name: null,
-      is_active: null,
-    });
   };
 
   // 查看詳情
@@ -122,10 +103,11 @@ const UnifiedTestCasePage = ({ defaultTab = 'protocol' }) => {
     setDetailModalVisible(true);
   };
 
-  // 編輯
+  // 編輯（暫時使用詳情 Modal，未來可實作編輯功能）
   const handleEdit = (record) => {
     setSelectedCase(record);
-    setEditModalVisible(true);
+    setDetailModalVisible(true);
+    message.info('編輯功能開發中，目前顯示詳情');
   };
 
   // 刪除
@@ -157,13 +139,13 @@ const UnifiedTestCasePage = ({ defaultTab = 'protocol' }) => {
   // 批量匯出
   const handleExport = async () => {
     try {
-      const response = await unifiedBenchmarkApi.bulkExport(activeTab);
+      const response = await unifiedBenchmarkApi.bulkExport('vsa'); // 固定使用 VSA 類型
       const dataStr = JSON.stringify(response.data, null, 2);
       const dataBlob = new Blob([dataStr], { type: 'application/json' });
       const url = window.URL.createObjectURL(dataBlob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${activeTab}_test_cases_${new Date().getTime()}.json`;
+      link.download = `vsa_test_cases_${new Date().getTime()}.json`;
       link.click();
       window.URL.revokeObjectURL(url);
       message.success('匯出成功');
@@ -185,7 +167,7 @@ const UnifiedTestCasePage = ({ defaultTab = 'protocol' }) => {
   useEffect(() => {
     handleRefresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
+  }, []); // 移除 activeTab 依賴，因為固定使用 VSA
 
   // 搜尋和篩選變化時重新載入
   useEffect(() => {
@@ -196,7 +178,7 @@ const UnifiedTestCasePage = ({ defaultTab = 'protocol' }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchText, filters]);
 
-  // 動態欄位配置
+  // 動態欄位配置（VSA 專用）
   const getColumns = () => {
     // 共用欄位
     const baseColumns = [
@@ -261,44 +243,6 @@ const UnifiedTestCasePage = ({ defaultTab = 'protocol' }) => {
       },
     ];
 
-    // Protocol 專用欄位
-    const protocolColumns = [
-      {
-        title: '關鍵字',
-        dataIndex: 'expected_keywords',
-        key: 'expected_keywords',
-        width: 200,
-        render: (keywords) => {
-          if (!keywords || keywords.length === 0) return '-';
-          const displayKeywords = keywords.slice(0, 3);
-          const remaining = keywords.length - 3;
-          return (
-            <Space size={[0, 4]} wrap>
-              {displayKeywords.map((kw, index) => (
-                <Tag key={index} color="blue">{kw}</Tag>
-              ))}
-              {remaining > 0 && (
-                <Tooltip title={keywords.slice(3).join(', ')}>
-                  <Tag color="cyan">+{remaining}</Tag>
-                </Tooltip>
-              )}
-            </Space>
-          );
-        },
-      },
-      {
-        title: '判斷條件',
-        key: 'criteria_summary',
-        dataIndex: 'criteria_summary',
-        width: 250,
-        render: (summary) => (
-          <Tooltip title={summary} placement="left">
-            <Tag color="purple">{summary}</Tag>
-          </Tooltip>
-        ),
-      },
-    ];
-
     // VSA 專用欄位
     const vsaColumns = [
       {
@@ -333,120 +277,136 @@ const UnifiedTestCasePage = ({ defaultTab = 'protocol' }) => {
       },
     ];
 
-    // 操作欄位（動態）
+    // 操作欄位（VSA 完整 CRUD）
     const actionColumn = {
       title: '操作',
       key: 'actions',
-      width: activeTab === 'protocol' ? 120 : 220,
+      width: 220,
       fixed: 'right',
-      render: (_, record) => {
-        if (activeTab === 'protocol') {
-          // Protocol 模式：只有查看
-          return (
-            <Space>
-              <Tooltip title="查看詳情">
-                <Button
-                  type="link"
-                  icon={<EyeOutlined />}
-                  onClick={() => handleViewDetail(record)}
-                />
-              </Tooltip>
-            </Space>
-          );
-        } else {
-          // VSA 模式：完整 CRUD
-          return (
-            <Space>
-              <Tooltip title="查看詳情">
-                <Button
-                  type="link"
-                  icon={<EyeOutlined />}
-                  onClick={() => handleViewDetail(record)}
-                />
-              </Tooltip>
-              <Tooltip title="編輯">
-                <Button
-                  type="link"
-                  icon={<EditOutlined />}
-                  onClick={() => handleEdit(record)}
-                />
-              </Tooltip>
-              <Tooltip title={record.is_active ? '停用' : '啟用'}>
-                <Button
-                  type="link"
-                  onClick={() => handleToggleActive(record.id)}
-                >
-                  {record.is_active ? '停用' : '啟用'}
-                </Button>
-              </Tooltip>
-              <Popconfirm
-                title="確定要刪除此測試案例嗎？"
-                onConfirm={() => handleDelete(record.id)}
-                okText="確定"
-                cancelText="取消"
-              >
-                <Tooltip title="刪除">
-                  <Button
-                    type="link"
-                    danger
-                    icon={<DeleteOutlined />}
-                  />
-                </Tooltip>
-              </Popconfirm>
-            </Space>
-          );
-        }
-      },
+      render: (_, record) => (
+        <Space>
+          <Tooltip title="查看詳情">
+            <Button
+              type="link"
+              icon={<EyeOutlined />}
+              onClick={() => handleViewDetail(record)}
+            />
+          </Tooltip>
+          <Tooltip title="編輯">
+            <Button
+              type="link"
+              icon={<EditOutlined />}
+              onClick={() => handleEdit(record)}
+            />
+          </Tooltip>
+          <Tooltip title={record.is_active ? '停用' : '啟用'}>
+            <Button
+              type="link"
+              onClick={() => handleToggleActive(record.id)}
+            >
+              {record.is_active ? '停用' : '啟用'}
+            </Button>
+          </Tooltip>
+          <Popconfirm
+            title="確定要刪除此測試案例嗎？"
+            onConfirm={() => handleDelete(record.id)}
+            okText="確定"
+            cancelText="取消"
+          >
+            <Tooltip title="刪除">
+              <Button
+                type="link"
+                danger
+                icon={<DeleteOutlined />}
+              />
+            </Tooltip>
+          </Popconfirm>
+        </Space>
+      ),
     };
 
-    // 根據測試類型組合欄位
-    if (activeTab === 'protocol') {
-      return [...baseColumns, ...protocolColumns, actionColumn];
-    } else {
-      return [...baseColumns, ...vsaColumns, actionColumn];
-    }
+    return [...baseColumns, ...vsaColumns, actionColumn];
   };
 
   // 統計卡片組件
   const StatisticsCards = () => (
-    <Row gutter={16} style={{ marginBottom: 24 }}>
-      <Col span={6}>
-        <Card>
-          <Statistic
-            title="總測試案例"
-            value={statistics.total || 0}
-            prefix={<FileTextOutlined />}
-          />
-        </Card>
-      </Col>
-      <Col span={6}>
-        <Card>
-          <Statistic
-            title="啟用中"
-            value={statistics.active || 0}
-            valueStyle={{ color: '#3f8600' }}
-          />
-        </Card>
-      </Col>
-      <Col span={6}>
-        <Card>
-          <Statistic
-            title="簡單"
-            value={statistics.by_difficulty?.easy || 0}
-            valueStyle={{ color: '#52c41a' }}
-          />
-        </Card>
-      </Col>
-      <Col span={6}>
-        <Card>
-          <Statistic
-            title="困難"
-            value={statistics.by_difficulty?.hard || 0}
-            valueStyle={{ color: '#cf1322' }}
-          />
-        </Card>
-      </Col>
-    </Row>
+    <>
+      {/* 第一行：基本統計 */}
+      <Row gutter={16} style={{ marginBottom: 16 }}>
+        <Col span={6}>
+          <Card>
+            <Statistic
+              title="總測試案例"
+              value={statistics.total || 0}
+              prefix={<FileTextOutlined />}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card>
+            <Statistic
+              title="啟用中"
+              value={statistics.active || 0}
+              valueStyle={{ color: '#3f8600' }}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card>
+            <Statistic
+              title="停用"
+              value={statistics.inactive || 0}
+              valueStyle={{ color: '#999' }}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card>
+            <Statistic
+              title="平均分數"
+              value={statistics.average_score || 0}
+              precision={2}
+              suffix="分"
+              valueStyle={{ color: '#1890ff' }}
+            />
+          </Card>
+        </Col>
+      </Row>
+      
+      {/* 第二行：難度分布 */}
+      <Row gutter={16} style={{ marginBottom: 24 }}>
+        <Col span={8}>
+          <Card>
+            <Statistic
+              title="簡單題目"
+              value={statistics.by_difficulty?.easy || 0}
+              valueStyle={{ color: '#52c41a' }}
+              prefix="📗"
+            />
+          </Card>
+        </Col>
+        <Col span={8}>
+          <Card>
+            <Statistic
+              title="中等題目"
+              value={statistics.by_difficulty?.medium || 0}
+              valueStyle={{ color: '#faad14' }}
+              prefix="📙"
+            />
+          </Card>
+        </Col>
+        <Col span={8}>
+          <Card>
+            <Statistic
+              title="困難題目"
+              value={statistics.by_difficulty?.hard || 0}
+              valueStyle={{ color: '#cf1322' }}
+              prefix="📕"
+            />
+          </Card>
+        </Col>
+      </Row>
+    </>
   );
 
   // 篩選區域組件
@@ -484,21 +444,6 @@ const UnifiedTestCasePage = ({ defaultTab = 'protocol' }) => {
         <Option value="false">停用</Option>
       </Select>
       
-      {activeTab === 'protocol' && (
-        <Select
-          placeholder="選擇類別"
-          allowClear
-          style={{ width: 200 }}
-          value={filters.category}
-          onChange={(value) => setFilters({ ...filters, category: value })}
-          showSearch
-        >
-          {categories.map(cat => (
-            <Option key={cat} value={cat}>{cat}</Option>
-          ))}
-        </Select>
-      )}
-      
       <Select
         placeholder="選擇測試類別"
         allowClear
@@ -529,7 +474,7 @@ const UnifiedTestCasePage = ({ defaultTab = 'protocol' }) => {
   return (
     <div className="unified-test-case-page">
       <div className="page-header">
-        <h2>統一測試案例管理</h2>
+        <h2>VSA 測試案例管理</h2>
         <Space>
           <Button icon={<ReloadOutlined />} onClick={handleRefresh}>
             重新整理
@@ -540,65 +485,23 @@ const UnifiedTestCasePage = ({ defaultTab = 'protocol' }) => {
         </Space>
       </div>
 
-      <Tabs activeKey={activeTab} onChange={handleTabChange} size="large">
-        {/* Protocol Test Cases Tab */}
-        <TabPane
-          tab={
-            <span>
-              <FileTextOutlined />
-              Protocol Test Cases
-              <Tag style={{ marginLeft: 8 }}>{statistics.by_type?.protocol || 0}</Tag>
-            </span>
-          }
-          key="protocol"
-        >
-          <StatisticsCards />
-          <FilterArea />
-          <Table
-            columns={getColumns()}
-            dataSource={testCases}
-            rowKey="id"
-            loading={loading}
-            scroll={{ x: 1600, y: 'calc(100vh - 420px)' }}
-            pagination={{
-              showSizeChanger: true,
-              showQuickJumper: true,
-              showTotal: (total) => `共 ${total} 項`,
-              defaultPageSize: 20,
-              pageSizeOptions: ['10', '20', '50', '100'],
-            }}
-          />
-        </TabPane>
-
-        {/* VSA Test Cases Tab */}
-        <TabPane
-          tab={
-            <span>
-              <RobotOutlined />
-              VSA Test Cases
-              <Tag style={{ marginLeft: 8 }}>{statistics.by_type?.vsa || 0}</Tag>
-            </span>
-          }
-          key="vsa"
-        >
-          <StatisticsCards />
-          <FilterArea />
-          <Table
-            columns={getColumns()}
-            dataSource={testCases}
-            rowKey="id"
-            loading={loading}
-            scroll={{ x: 1800, y: 'calc(100vh - 420px)' }}
-            pagination={{
-              showSizeChanger: true,
-              showQuickJumper: true,
-              showTotal: (total) => `共 ${total} 項`,
-              defaultPageSize: 20,
-              pageSizeOptions: ['10', '20', '50', '100'],
-            }}
-          />
-        </TabPane>
-      </Tabs>
+      <StatisticsCards />
+      <FilterArea />
+      
+      <Table
+        columns={getColumns()}
+        dataSource={testCases}
+        rowKey="id"
+        loading={loading}
+        scroll={{ x: 1800, y: 'calc(100vh - 480px)' }}
+        pagination={{
+          showSizeChanger: true,
+          showQuickJumper: true,
+          showTotal: (total) => `共 ${total} 項`,
+          defaultPageSize: 20,
+          pageSizeOptions: ['10', '20', '50', '100'],
+        }}
+      />
 
       {/* 詳情 Modal */}
       <Modal
@@ -613,20 +516,9 @@ const UnifiedTestCasePage = ({ defaultTab = 'protocol' }) => {
             <p><strong>問題：</strong>{selectedCase.question}</p>
             <p><strong>測試類別：</strong>{selectedCase.test_class_name}</p>
             <p><strong>難度：</strong>{selectedCase.difficulty_level}</p>
-            {activeTab === 'protocol' && (
-              <>
-                <p><strong>預期文檔IDs：</strong>{JSON.stringify(selectedCase.expected_document_ids)}</p>
-                <p><strong>最少匹配數：</strong>{selectedCase.min_required_matches}</p>
-                <p><strong>預期關鍵字：</strong>{JSON.stringify(selectedCase.expected_keywords)}</p>
-              </>
-            )}
-            {activeTab === 'vsa' && (
-              <>
-                <p><strong>期望答案：</strong>{selectedCase.expected_answer}</p>
-                <p><strong>答案關鍵字：</strong>{JSON.stringify(selectedCase.answer_keywords)}</p>
-                <p><strong>滿分：</strong>{selectedCase.max_score}</p>
-              </>
-            )}
+            <p><strong>期望答案：</strong>{selectedCase.expected_answer}</p>
+            <p><strong>答案關鍵字：</strong>{JSON.stringify(selectedCase.answer_keywords)}</p>
+            <p><strong>滿分：</strong>{selectedCase.max_score}</p>
           </div>
         )}
       </Modal>

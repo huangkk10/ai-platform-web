@@ -108,7 +108,8 @@ function AppLayout() {
       case '/benchmark/dashboard':
         return 'Benchmark Dashboard';
       case '/benchmark/test-cases':
-        return '測試案例管理';
+      case '/benchmark/dify/test-cases':
+        return 'VSA 測試案例管理';
       // ✅ Test Execution 已移除
       // case '/benchmark/test-execution':
       //   return '測試執行';
@@ -382,16 +383,16 @@ function AppLayout() {
                 <BenchmarkDashboardPage />
               </ProtectedRoute>
             } />
-            {/* Unified Test Cases - 統一測試案例管理 */}
+            {/* Unified Test Cases - VSA 測試案例管理（統一使用 VSA）*/}
             <Route path="/benchmark/test-cases" element={
               <ProtectedRoute permission="isStaff" fallbackTitle="Benchmark 系統存取受限">
-                <UnifiedTestCasePage defaultTab="protocol" />
+                <UnifiedTestCasePage />
               </ProtectedRoute>
             } />
-            {/* VSA Test Cases - 導向統一頁面的 VSA Tab */}
+            {/* VSA Test Cases - 統一路由 */}
             <Route path="/benchmark/dify/test-cases" element={
               <ProtectedRoute permission="isStaff" fallbackTitle="Benchmark 系統存取受限">
-                <UnifiedTestCasePage defaultTab="vsa" />
+                <UnifiedTestCasePage />
               </ProtectedRoute>
             } />
             {/* ✅ Test Execution 路由已移除，統一使用 Batch Test */}

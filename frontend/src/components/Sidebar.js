@@ -136,9 +136,7 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       case 'benchmark-dashboard':
         navigate('/benchmark/dashboard');
         break;
-      case 'benchmark-test-cases':
-        navigate('/benchmark/test-cases');
-        break;
+      // ✅ Test Cases 已移除，統一使用 VSA Test Cases
       // ✅ Test Execution 已移除
       // case 'benchmark-test-execution':
       //   navigate('/benchmark/test-execution');
@@ -262,12 +260,7 @@ const Sidebar = ({ collapsed, onCollapse }) => {
         onClick: () => navigate('/benchmark/dashboard')
       });
 
-      items.push({
-        key: 'benchmark-test-cases',
-        icon: <FileTextOutlined />,
-        label: 'Test Cases',
-        onClick: () => navigate('/benchmark/test-cases')
-      });
+      // ✅ Test Cases 已移除，統一使用 Dify Benchmark 的 VSA Test Cases
 
       // ✅ Test Execution 已移除，統一使用 Batch Test
       // items.push({
@@ -332,7 +325,7 @@ const Sidebar = ({ collapsed, onCollapse }) => {
         key: 'benchmark-dify-test-cases',
         icon: <FileSearchOutlined />,
         label: (
-          <Tooltip title="測試案例庫 - 搜尋問題與預期結果" placement="right">
+          <Tooltip title="VSA 測試案例管理 - 統一的測試案例庫" placement="right">
             <span>VSA Test Cases</span>
           </Tooltip>
         ),
