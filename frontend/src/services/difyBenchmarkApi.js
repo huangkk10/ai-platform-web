@@ -83,6 +83,14 @@ export const setDifyBaseline = (id) => {
 };
 
 /**
+ * 獲取當前 Baseline 版本
+ * @returns {Promise} - 包含 baseline 版本資訊的 Promise
+ */
+export const getDifyBaseline = () => {
+  return api.get('/api/dify-benchmark/versions/get_baseline/');
+};
+
+/**
  * 執行 Benchmark 測試
  * @param {number} id - 版本 ID
  * @param {Object} params - 測試參數
@@ -348,6 +356,7 @@ const difyBenchmarkApi = {
   patchDifyVersion,
   deleteDifyVersion,
   setDifyBaseline,
+  getDifyBaseline,
   runDifyBenchmark,
   getDifyVersionStatistics,
   batchTestDifyVersions,

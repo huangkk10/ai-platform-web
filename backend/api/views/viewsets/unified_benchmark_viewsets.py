@@ -79,26 +79,33 @@ class UnifiedBenchmarkTestCaseViewSet(viewsets.ModelViewSet):
         獲取測試案例統計資料
         支援參數: test_type（可選，用於篩選特定類型）
         """
+        import logging
+        logger = logging.getLogger(__name__)
+        
         test_type = request.query_params.get('test_type', None)
         queryset = self.get_queryset()
         
+        logger.info(f"=== 統計 API 被調用 ===")
+        logger.info(f"test_type 參數: {test_type}")
+        logger.info(f"初始 queryset 數量: {queryset.count()}")
+        
         if test_type:
             queryset = queryset.filter(test_type=test_type)
+            logger.info(f"篩選後 queryset 數量: {queryset.count()}")
         
         # 基本統計
         total_count = queryset.count()
         active_count = queryset.filter(is_active=True).count()
         inactive_count = queryset.filter(is_active=False).count()
         
-        # 難度分布
-        difficulty_stats = queryset.values('difficulty_level').annotate(count=Count('id'))
+        # 難度分布 - 直接計數避免 ORM 問題
         difficulty_dict = {
-            'easy': 0,
-            'medium': 0,
-            'hard': 0,
+            'easy': queryset.filter(difficulty_level='easy').count(),
+            'medium': queryset.filter(difficulty_level='medium').count(),
+            'hard': queryset.filter(difficulty_level='hard').count(),
         }
-        for stat in difficulty_stats:
-            difficulty_dict[stat['difficulty_level']] = stat['count']
+        
+        logger.info(f"最終 difficulty_dict (直接計數): {difficulty_dict}")
         
         # 測試類型分布
         type_stats = queryset.values('test_type').annotate(count=Count('id'))

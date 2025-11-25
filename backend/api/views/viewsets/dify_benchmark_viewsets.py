@@ -200,7 +200,7 @@ class DifyConfigVersionViewSet(viewsets.ModelViewSet):
         
         return Response({
             'success': True,
-            **data
+            'baseline': data  # ✅ 包裝在 baseline 欄位中
         }, status=status.HTTP_200_OK)
     
     @action(detail=True, methods=['post'])
