@@ -121,18 +121,18 @@ function AppLayout() {
         return '版本管理';
       case '/benchmark/dify/versions':
       case '/dify-benchmark/versions':
-        return 'Dify 版本管理';
+        return 'VSA 版本管理';
       case '/benchmark/dify/test-cases':
       case '/dify-benchmark/test-cases':
-        return 'Dify 測試案例';
+        return 'VSA 測試案例';
       case '/benchmark/dify/batch-test':
       case '/dify-benchmark/batch-test':
-        return 'Dify 批量測試';
+        return 'VSA 批量測試';
       case '/benchmark/dify/history':
       case '/dify-benchmark/history':
-        return 'Dify 測試歷史';
+        return 'VSA 測試歷史';
       case '/dify-benchmark/dashboard':
-        return 'Dify Benchmark Dashboard';
+        return 'VSA Benchmark Dashboard';
       default:
         // Markdown 編輯器頁面標題（整頁模式）
         if (pathname.startsWith('/knowledge/rvt-guide/markdown-edit/')) {

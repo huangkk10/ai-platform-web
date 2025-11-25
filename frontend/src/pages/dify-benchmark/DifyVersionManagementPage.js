@@ -529,7 +529,7 @@ const DifyVersionManagementPage = () => {
         title={
           <Space>
             <RocketOutlined />
-            <span>Dify 配置版本管理</span>
+            <span>VSA 配置版本管理</span>
             {selectedRowKeys.length > 0 && (
               <Tag color="blue">已選擇 {selectedRowKeys.length} 個版本</Tag>
             )}

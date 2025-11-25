@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Layout, Menu, Avatar, Space, Typography, Dropdown } from 'antd';
+import { Layout, Menu, Avatar, Space, Typography, Dropdown, Tooltip } from 'antd';
 import {
   SettingOutlined,
   MenuFoldOutlined,
@@ -311,37 +311,53 @@ const Sidebar = ({ collapsed, onCollapse }) => {
         type: 'divider',
       });
 
-      // ===== Dify Benchmark 分組 =====
+      // ===== VSA Benchmark 分組 =====
       items.push({
         type: 'group',
-        label: 'Dify Benchmark',
+        label: 'VSA Benchmark',
       });
 
       items.push({
         key: 'benchmark-dify-versions',
         icon: <RobotOutlined />,
-        label: 'Dify Versions',
+        label: (
+          <Tooltip title="Vector Search Algorithm - 版本配置管理" placement="right">
+            <span>VSA Versions</span>
+          </Tooltip>
+        ),
         onClick: () => navigate('/benchmark/dify/versions')
       });
 
       items.push({
         key: 'benchmark-dify-test-cases',
         icon: <FileSearchOutlined />,
-        label: 'Dify Test Cases',
+        label: (
+          <Tooltip title="測試案例庫 - 搜尋問題與預期結果" placement="right">
+            <span>VSA Test Cases</span>
+          </Tooltip>
+        ),
         onClick: () => navigate('/benchmark/dify/test-cases')
       });
 
       items.push({
         key: 'benchmark-dify-batch-test',
         icon: <ThunderboltOutlined />,
-        label: 'Dify Batch Test',
+        label: (
+          <Tooltip title="批量測試 - 多版本效能對比" placement="right">
+            <span>VSA Batch Test</span>
+          </Tooltip>
+        ),
         onClick: () => navigate('/benchmark/dify/batch-test')
       });
 
       items.push({
         key: 'benchmark-dify-history',
         icon: <HistoryOutlined />,
-        label: 'Dify Test History',
+        label: (
+          <Tooltip title="測試記錄 - 歷史結果與分析報告" placement="right">
+            <span>VSA Test History</span>
+          </Tooltip>
+        ),
         onClick: () => navigate('/benchmark/dify/history')
       });
 

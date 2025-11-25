@@ -286,7 +286,7 @@ const DifyTestHistoryPage = () => {
         <Space direction="vertical" size="large" style={{ width: '100%' }}>
           {/* 頁面標題 */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Title level={2}>Dify 測試歷史</Title>
+            <Title level={2}>VSA 測試歷史</Title>
             <Space>
               <Button
                 icon={<ReloadOutlined />}

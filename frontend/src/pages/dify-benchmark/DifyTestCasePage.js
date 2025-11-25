@@ -535,7 +535,7 @@ const DifyTestCasePage = () => {
         title={
           <Space>
             <FileTextOutlined />
-            <span>Dify 測試案例管理</span>
+            <span>VSA 測試案例管理</span>
           </Space>
         }
         extra={
