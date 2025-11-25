@@ -66,6 +66,7 @@ class DifyConfigVersionViewSet(viewsets.ModelViewSet):
     queryset = DifyConfigVersion.objects.all().order_by('-created_at')
     serializer_class = DifyConfigVersionSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = None  # 禁用分頁，返回所有版本
     
     def get_queryset(self):
         """自定義查詢集"""
@@ -568,6 +569,7 @@ class DifyBenchmarkTestCaseViewSet(viewsets.ModelViewSet):
     queryset = DifyBenchmarkTestCase.objects.all().order_by('test_class_name', 'id')
     serializer_class = DifyBenchmarkTestCaseSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = None  # 禁用分頁，返回所有測試案例
     
     def get_queryset(self):
         """自定義查詢集"""
