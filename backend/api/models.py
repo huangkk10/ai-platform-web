@@ -1745,6 +1745,114 @@ class DifyBenchmarkTestCase(models.Model):
         return f"{self.question[:50]}..."
 
 
+class UnifiedBenchmarkTestCase(models.Model):
+    """統一的 Benchmark 測試案例（整合 Protocol 和 VSA）"""
+    
+    # 測試類型選項
+    TEST_TYPE_CHOICES = [
+        ('protocol', 'Protocol 搜尋測試'),
+        ('vsa', 'VSA 向量搜尋測試'),
+        ('hybrid', '混合測試'),
+    ]
+    
+    DIFFICULTY_CHOICES = [
+        ('easy', '簡單'),
+        ('medium', '中等'),
+        ('hard', '困難'),
+    ]
+    
+    # ===== 共用欄位 =====
+    question = models.TextField(verbose_name="測試問題")
+    test_class_name = models.CharField(max_length=200, blank=True, verbose_name="測試類別")
+    difficulty_level = models.CharField(
+        max_length=20,
+        choices=DIFFICULTY_CHOICES,
+        default='medium',
+        verbose_name="難度等級"
+    )
+    question_type = models.CharField(max_length=50, blank=True, verbose_name="問題類型")
+    category = models.CharField(max_length=100, blank=True, verbose_name="類別")
+    tags = models.JSONField(default=list, verbose_name="標籤")
+    is_active = models.BooleanField(default=True, verbose_name="是否啟用")
+    
+    # ===== 測試類型欄位（關鍵欄位）=====
+    test_type = models.CharField(
+        max_length=50,
+        choices=TEST_TYPE_CHOICES,
+        default='protocol',
+        verbose_name="測試類型",
+        db_index=True  # 添加索引以提升查詢效能
+    )
+    
+    # ===== Protocol 專用欄位 =====
+    expected_document_ids = models.JSONField(default=list, blank=True, verbose_name="預期文檔IDs")
+    min_required_matches = models.IntegerField(default=1, verbose_name="最少匹配數")
+    acceptable_document_ids = models.JSONField(default=list, blank=True, verbose_name="可接受文檔IDs")
+    expected_keywords = models.JSONField(default=list, blank=True, verbose_name="預期關鍵字")
+    expected_answer_summary = models.TextField(blank=True, verbose_name="預期答案摘要")
+    
+    # ===== VSA 專用欄位 =====
+    expected_answer = models.TextField(blank=True, verbose_name="期望答案")
+    answer_keywords = models.JSONField(default=list, blank=True, verbose_name="答案關鍵字")
+    evaluation_criteria = models.JSONField(default=dict, blank=True, verbose_name="評分標準")
+    max_score = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        default=100.00, 
+        verbose_name="滿分"
+    )
+    
+    # ===== 統計與驗證欄位 =====
+    is_validated = models.BooleanField(default=False, verbose_name="是否已驗證")
+    total_runs = models.IntegerField(default=0, verbose_name="總執行次數")
+    avg_score = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        null=True, 
+        blank=True, 
+        verbose_name="平均分數"
+    )
+    
+    # ===== 管理欄位 =====
+    notes = models.TextField(blank=True, verbose_name="備註")
+    source = models.CharField(max_length=100, blank=True, verbose_name="來源")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="創建時間")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新時間")
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_unified_test_cases',
+        verbose_name="創建者"
+    )
+    
+    class Meta:
+        db_table = 'unified_benchmark_test_case'
+        ordering = ['test_type', 'category', 'difficulty_level']
+        verbose_name = '統一測試案例'
+        verbose_name_plural = '統一測試案例'
+        indexes = [
+            models.Index(fields=['test_type', 'is_active']),
+            models.Index(fields=['test_type', 'category']),
+            models.Index(fields=['difficulty_level']),
+        ]
+    
+    def __str__(self):
+        return f"[{self.test_type}] {self.question[:50]}..."
+    
+    def get_criteria_summary(self):
+        """獲取判斷條件摘要（根據測試類型）"""
+        if self.test_type == 'protocol':
+            doc_count = len(self.expected_document_ids) if self.expected_document_ids else 0
+            keyword_count = len(self.expected_keywords) if self.expected_keywords else 0
+            return f"{doc_count} 文檔 | 匹配 ≥{self.min_required_matches} | {keyword_count} 關鍵字"
+        elif self.test_type == 'vsa':
+            keyword_count = len(self.answer_keywords) if self.answer_keywords else 0
+            return f"滿分 {self.max_score} | {keyword_count} 關鍵字"
+        return ""
+
+
 class DifyTestRun(models.Model):
     """Dify 測試執行記錄"""
     version = models.ForeignKey(

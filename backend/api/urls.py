@@ -29,6 +29,9 @@ router.register(r"dify-benchmark/versions", views.DifyConfigVersionViewSet, base
 router.register(r"dify-benchmark/test-cases", views.DifyBenchmarkTestCaseViewSet, basename="dify-benchmark-test-case")
 router.register(r"dify-benchmark/test-runs", views.DifyTestRunViewSet, basename="dify-benchmark-test-run")
 
+# Unified Benchmark System (統一測試案例系統 - 整合 Protocol 和 VSA)
+router.register(r"unified-benchmark/test-cases", views.UnifiedBenchmarkTestCaseViewSet, basename="unified-benchmark-test-case")
+
 urlpatterns = [
     path('', include(router.urls)),
     

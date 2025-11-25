@@ -191,6 +191,9 @@ from .viewsets import (
     DifyBenchmarkTestCaseViewSet,
     DifyTestRunViewSet,
     
+    # Unified Benchmark ViewSets (unified_benchmark_viewsets.py)
+    UnifiedBenchmarkTestCaseViewSet,
+    
     # Monitoring Views (monitoring_views.py)
     system_logs,
     simple_system_status,

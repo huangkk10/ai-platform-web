@@ -58,6 +58,9 @@ from .dify_benchmark_viewsets import (
     DifyTestRunViewSet
 )
 
+# Unified Benchmark 測試系統（整合 Protocol 和 VSA）
+from .unified_benchmark_viewsets import UnifiedBenchmarkTestCaseViewSet
+
 # 系統監控
 from .monitoring_views import (
     system_logs,
@@ -97,6 +100,8 @@ __all__ = [
     'DifyConfigVersionViewSet',
     'DifyBenchmarkTestCaseViewSet',
     'DifyTestRunViewSet',
+    # Unified Benchmark
+    'UnifiedBenchmarkTestCaseViewSet',
     # Monitoring
     'system_logs',
     'simple_system_status',

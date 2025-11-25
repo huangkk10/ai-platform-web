@@ -7,7 +7,9 @@ from .models import (
     BenchmarkTestRun, BenchmarkTestResult,
     # Dify Benchmark Models
     DifyConfigVersion, DifyBenchmarkTestCase, DifyTestRun, 
-    DifyTestResult, DifyAnswerEvaluation
+    DifyTestResult, DifyAnswerEvaluation,
+    # Unified Benchmark Model
+    UnifiedBenchmarkTestCase
 )
 
 # 導入通用序列化器（適用於所有知識庫）
@@ -875,3 +877,72 @@ class DifyBenchmarkTestCaseBulkImportSerializer(serializers.Serializer):
         if not attrs.get('file') and not attrs.get('data'):
             raise serializers.ValidationError('必須提供 file 或 data 之一')
         return attrs
+
+
+class UnifiedBenchmarkTestCaseSerializer(serializers.ModelSerializer):
+    """統一測試案例序列化器（支援 Protocol 和 VSA）"""
+    
+    criteria_summary = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = UnifiedBenchmarkTestCase
+        fields = [
+            'id',
+            'test_type',
+            'question',
+            'test_class_name',
+            'difficulty_level',
+            'question_type',
+            'category',
+            'tags',
+            'is_active',
+            # Protocol 專用欄位
+            'expected_document_ids',
+            'min_required_matches',
+            'acceptable_document_ids',
+            'expected_keywords',
+            'expected_answer_summary',
+            # VSA 專用欄位
+            'expected_answer',
+            'answer_keywords',
+            'evaluation_criteria',
+            'max_score',
+            # 統計欄位
+            'is_validated',
+            'total_runs',
+            'avg_score',
+            # 管理欄位
+            'notes',
+            'source',
+            'created_at',
+            'updated_at',
+            'created_by',
+            # 計算欄位
+            'criteria_summary',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at', 'criteria_summary']
+    
+    def get_criteria_summary(self, obj):
+        """獲取判斷條件摘要"""
+        return obj.get_criteria_summary()
+    
+    def to_representation(self, instance):
+        """根據 test_type 動態返回欄位"""
+        data = super().to_representation(instance)
+        
+        # Protocol 類型：移除 VSA 專用欄位
+        if instance.test_type == 'protocol':
+            data.pop('expected_answer', None)
+            data.pop('answer_keywords', None)
+            data.pop('evaluation_criteria', None)
+            data.pop('max_score', None)
+        
+        # VSA 類型：移除 Protocol 專用欄位
+        elif instance.test_type == 'vsa':
+            data.pop('expected_document_ids', None)
+            data.pop('min_required_matches', None)
+            data.pop('acceptable_document_ids', None)
+            data.pop('expected_answer_summary', None)
+        
+        return data
+

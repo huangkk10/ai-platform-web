@@ -36,6 +36,7 @@ import BatchTestExecutionPage from './pages/benchmark/BatchTestExecutionPage';
 import BatchComparisonPage from './pages/benchmark/BatchComparisonPage';
 import BatchTestHistoryPage from './pages/benchmark/BatchTestHistoryPage';
 import TestCasesListPage from './pages/benchmark/TestCasesListPage';
+import UnifiedTestCasePage from './pages/benchmark/UnifiedTestCasePage';
 
 // Dify Benchmark 頁面
 import DifyVersionManagementPage from './pages/dify-benchmark/DifyVersionManagementPage';
@@ -381,9 +382,16 @@ function AppLayout() {
                 <BenchmarkDashboardPage />
               </ProtectedRoute>
             } />
+            {/* Unified Test Cases - 統一測試案例管理 */}
             <Route path="/benchmark/test-cases" element={
               <ProtectedRoute permission="isStaff" fallbackTitle="Benchmark 系統存取受限">
-                <TestCasesListPage />
+                <UnifiedTestCasePage defaultTab="protocol" />
+              </ProtectedRoute>
+            } />
+            {/* VSA Test Cases - 導向統一頁面的 VSA Tab */}
+            <Route path="/benchmark/dify/test-cases" element={
+              <ProtectedRoute permission="isStaff" fallbackTitle="Benchmark 系統存取受限">
+                <UnifiedTestCasePage defaultTab="vsa" />
               </ProtectedRoute>
             } />
             {/* ✅ Test Execution 路由已移除，統一使用 Batch Test */}
