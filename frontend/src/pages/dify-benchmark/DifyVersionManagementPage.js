@@ -208,7 +208,7 @@ const DifyVersionManagementPage = () => {
       notes: '',
       force_retest: false,
       use_parallel: true,
-      max_workers: 10
+      max_workers: 5
     });
     
     setBatchTestModalVisible(true);
