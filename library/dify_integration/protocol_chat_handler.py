@@ -40,6 +40,11 @@ class ProtocolChatHandler:
         """
         處理聊天請求的主要方法
         
+        🆕 支援版本配置：
+        - 接收 version_code 參數（可選）
+        - 從資料庫讀取 DifyConfigVersion 配置
+        - 將版本配置傳遞給搜尋服務（啟用 Title Boost）
+        
         Args:
             request: Django request 對象
             
@@ -51,22 +56,27 @@ class ProtocolChatHandler:
             data = request.data
             message = data.get('message', '').strip()
             conversation_id = data.get('conversation_id', '')
+            version_code = data.get('version_code', None)  # 🆕 接收版本代碼
             
             # 驗證輸入
             validation_response = self._validate_input(message)
             if validation_response:
                 return validation_response
             
-            # 獲取配置
+            # 🆕 讀取版本配置（如果提供了 version_code）
+            version_config = self._load_version_config(version_code)
+            
+            # 獲取 Dify 配置
             config_response = self._get_dify_config()
             if isinstance(config_response, Response):
                 return config_response
             
             dify_config = config_response
             
-            # 執行聊天請求
+            # 執行聊天請求（傳遞版本配置）
             return self._execute_chat_request(
-                message, conversation_id, dify_config, request.user
+                message, conversation_id, dify_config, request.user,
+                version_config=version_config  # 🆕 傳遞版本配置
             )
             
         except Exception as e:
@@ -93,6 +103,107 @@ class ProtocolChatHandler:
             }, status=status.HTTP_400_BAD_REQUEST)
         
         return None
+    
+    def _load_version_config(self, version_code):
+        """
+        🆕 從資料庫載入版本配置
+        
+        Args:
+            version_code: 版本代碼（例如 'dify-two-tier-v1.2'）
+            
+        Returns:
+            版本配置字典或 None
+        """
+        if not version_code:
+            logger.debug("未提供 version_code，使用預設搜尋模式")
+            return None
+        
+        try:
+            from api.models import DifyConfigVersion
+            
+            version = DifyConfigVersion.objects.get(
+                version_code=version_code,
+                is_active=True
+            )
+            
+            version_config = {
+                'version_code': version.version_code,
+                'version_name': version.version_name,
+                'rag_settings': version.rag_settings,
+                'retrieval_mode': version.rag_settings.get('retrieval_mode', 'two_stage')
+            }
+            
+            logger.info(
+                f"✅ 載入版本配置成功: {version.version_name} "
+                f"(retrieval_mode={version_config['retrieval_mode']})"
+            )
+            
+            return version_config
+            
+        except Exception as e:
+            logger.warning(f"⚠️ 無法載入版本配置 ({version_code}): {e}")
+            return None
+    
+    def _perform_backend_search(self, query, version_config):
+        """
+        🆕 執行後端向量搜尋
+        
+        使用 ProtocolGuideSearchService 執行搜尋，
+        並將版本配置傳遞下去（啟用 Title Boost 等功能）
+        
+        Args:
+            query: 用戶查詢
+            version_config: 版本配置字典
+            
+        Returns:
+            格式化的搜尋結果字串（作為 Dify 的 Context）
+        """
+        try:
+            from library.protocol_guide.search_service import ProtocolGuideSearchService
+            
+            logger.info(f"🔍 執行後端搜尋: query='{query}', version={version_config.get('version_name')}")
+            
+            search_service = ProtocolGuideSearchService()
+            
+            # 執行搜尋（傳遞版本配置）
+            results = search_service.search_knowledge(
+                query=query,
+                limit=5,
+                use_vector=True,
+                threshold=0.7,
+                version_config=version_config  # 🆕 傳遞版本配置
+            )
+            
+            if not results:
+                logger.info("⚠️ 後端搜尋無結果")
+                return ""
+            
+            # 格式化搜尋結果為 Context
+            context_parts = []
+            for i, result in enumerate(results, 1):
+                title = result.get('title', '未知標題')
+                content = result.get('content', '')
+                score = result.get('score', 0.0)
+                
+                # 檢查是否使用了 Title Boost
+                metadata = result.get('metadata', {})
+                title_boost_applied = metadata.get('title_boost_applied', False)
+                boost_indicator = " [Title Boost ✨]" if title_boost_applied else ""
+                
+                context_parts.append(
+                    f"[文檔 {i}] {title}{boost_indicator} (相似度: {score:.2%})\n"
+                    f"{content[:500]}..."  # 限制長度
+                )
+            
+            context = "\n\n".join(context_parts)
+            
+            logger.info(f"✅ 後端搜尋完成: 返回 {len(results)} 個結果")
+            
+            return context
+            
+        except Exception as e:
+            logger.error(f"❌ 後端搜尋失敗: {e}", exc_info=True)
+            return ""
     
     def _get_dify_config(self):
         """
@@ -125,27 +236,38 @@ class ProtocolChatHandler:
                 'error': f'配置載入失敗: {str(config_error)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
-    def _execute_chat_request(self, message, conversation_id, dify_config, user):
+    def _execute_chat_request(self, message, conversation_id, dify_config, user, version_config=None):
         """
         執行聊天請求
+        
+        🆕 整合後端搜尋：
+        - 如果提供 version_config，執行後端向量搜尋
+        - 將搜尋結果作為 Context 傳遞給 Dify
+        - 支援 Title Boost 功能（透過 version_config）
         
         Args:
             message: 用戶訊息
             conversation_id: 對話 ID
             dify_config: Dify 配置
             user: 當前用戶
+            version_config: 🆕 版本配置字典（可選）
             
         Returns:
             Django Response 對象
         """
-        # 準備請求
+        # 🆕 步驟 1: 執行後端搜尋（如果有版本配置）
+        search_context = ""
+        if version_config:
+            search_context = self._perform_backend_search(message, version_config)
+        
+        # 步驟 2: 準備請求
         headers = {
             'Authorization': f'Bearer {dify_config.api_key}',
             'Content-Type': 'application/json'
         }
         
         payload = {
-            'inputs': {},
+            'inputs': {'context': search_context} if search_context else {},  # 🆕 傳遞搜尋結果
             'query': message,
             'response_mode': 'blocking',
             'user': f"web_user_{user.id if user.is_authenticated else 'guest'}"
@@ -156,7 +278,7 @@ class ProtocolChatHandler:
         
         start_time = time.time()
         
-        # 執行請求，帶重試機制
+        # 步驟 3: 執行請求，帶重試機制
         try:
             response = self._make_dify_request(dify_config.api_url, headers, payload)
             elapsed = time.time() - start_time

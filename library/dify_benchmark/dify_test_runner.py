@@ -92,6 +92,18 @@ class DifyTestRunner:
         self.version = version
         self.use_ai_evaluator = use_ai_evaluator
         
+        # ✅ v1.2: 準備版本配置（用於後端搜尋）
+        self.version_config = {
+            'version_code': version.version_code,
+            'version_name': version.version_name,
+            'rag_settings': version.rag_settings
+        }
+        logger.info(
+            f"📋 [DifyTestRunner] 版本配置已載入: "
+            f"version={version.version_code}, "
+            f"retrieval_mode={version.rag_settings.get('retrieval_mode', 'unknown')}"
+        )
+        
         # 初始化 Dify API Client
         self.api_client = DifyAPIClient(timeout=api_timeout)
         
@@ -337,11 +349,12 @@ class DifyTestRunner:
         )
         
         try:
-            # 1. 呼叫 Dify API（使用新 conversation_id）
+            # ✅ v1.2: 呼叫 Dify API（傳遞版本配置以使用後端搜尋）
             api_response = self.api_client.send_question(
                 question=test_case.question,
-                user_id=unique_user_id,  # ✅ 唯一 user_id
-                conversation_id=None     # ✅ 每次新對話
+                user_id=unique_user_id,      # ✅ 唯一 user_id
+                conversation_id=None,        # ✅ 每次新對話
+                version_config=self.version_config  # ✅ v1.2 新增：傳遞版本配置
             )
             
             # 提取資訊
@@ -350,6 +363,16 @@ class DifyTestRunner:
             dify_conversation_id = api_response.get('conversation_id', '')
             dify_message_id = api_response.get('message_id', '')
             retrieved_documents = api_response.get('retrieved_documents', [])
+            backend_search_used = api_response.get('backend_search_used', False)  # ✅ v1.2 新增
+            search_results_count = api_response.get('search_results_count', 0)  # ✅ v1.2 新增
+            
+            # ✅ v1.2: 記錄後端搜尋狀態
+            if backend_search_used:
+                logger.info(
+                    f"[Thread {index}] 🌟 使用後端搜尋: "
+                    f"results={search_results_count}, "
+                    f"version={self.version.version_code}"
+                )
             
             # 2. 使用 KeywordEvaluator 評分
             keywords = test_case.answer_keywords  # ✅ 直接訪問 JSONField 欄位

@@ -283,14 +283,16 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
         return full_documents
     
     def search_knowledge(self, query: str, limit: int = 5, use_vector: bool = True, 
-                        threshold: float = 0.7, search_mode: str = 'auto', stage: int = 1) -> list:
+                        threshold: float = 0.7, search_mode: str = 'auto', stage: int = 1,
+                        version_config: dict = None) -> list:
         """
-        覆寫基類方法，添加文檔級搜尋支援 + 查詢清理（方案一）
+        覆寫基類方法，添加文檔級搜尋支援 + 查詢清理（方案一）+ Title Boost 支援
         
-        智能搜索流程（Query Cleaning Pattern）：
+        智能搜索流程（Query Cleaning Pattern + Title Boost）：
         1. 分類查詢類型 + 清理關鍵字
         2. 使用清理後的查詢執行向量搜尋（提升語義準確度）
-        3. 根據原始查詢類型決定返回 section 或 document
+        3. 🆕 如果啟用 Title Boost，對標題匹配的結果加分
+        4. 根據原始查詢類型決定返回 section 或 document
         
         為什麼清理查詢？
         - 關鍵字如 '完整'、'全部' 會干擾向量語義理解
@@ -310,12 +312,34 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
             threshold: 相似度閾值 (預設: 0.7)
             search_mode: 搜索模式 ('auto', 'section_only', 'document_only')（預設: 'auto'）
             stage: 搜尋階段 (1=段落搜尋, 2=全文搜尋)（預設: 1）
+            version_config: 🆕 版本配置字典（包含 rag_settings），用於啟用 Title Boost（預設: None）
             
         Returns:
             搜尋結果列表（section 或 document 級）
         """
         # 步驟 1: 分類查詢 + 清理關鍵字
         query_type, cleaned_query = self._classify_and_clean_query(query)
+        
+        # 🆕 步驟 1.5: 解析 Title Boost 配置
+        enable_title_boost = False
+        title_boost_config = None
+        
+        if version_config:
+            try:
+                from library.common.knowledge_base.title_boost import TitleBoostConfig
+                
+                rag_settings = version_config.get('rag_settings', {})
+                title_boost_config = TitleBoostConfig.from_rag_settings(rag_settings, stage=stage)
+                enable_title_boost = title_boost_config.get('enabled', False)
+                
+                if enable_title_boost:
+                    logger.info(
+                        f"✅ Title Boost 已啟用 (Stage {stage}): "
+                        f"bonus={title_boost_config.get('title_match_bonus', 0):.2%}"
+                    )
+            except Exception as e:
+                logger.warning(f"⚠️ Title Boost 配置解析失敗，繼續使用標準搜尋: {e}")
+                enable_title_boost = False
         
         # ⚠️ 處理 'list_all' 模式（當查詢只包含文檔級關鍵字時）
         if query_type == 'list_all':
@@ -339,14 +363,64 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
             return results
         
         # 步驟 2: 使用清理後的查詢執行搜尋（提升向量語義準確度）
-        results = super().search_knowledge(
-            query=cleaned_query,  # ✅ 使用清理後的查詢
-            limit=limit,
-            use_vector=use_vector,
-            threshold=threshold,
-            search_mode=search_mode,  # ✅ 傳遞 search_mode 到基類
-            stage=stage  # ✅ 傳遞 stage 參數
-        )
+        # 🆕 如果啟用 Title Boost，使用增強版搜尋助手
+        if enable_title_boost and use_vector:
+            try:
+                from library.common.knowledge_base.enhanced_search_helper import search_with_vectors_generic_v2
+                from library.common.knowledge_base.title_boost import TitleBoostProcessor
+                
+                logger.info(f"🔍 使用 Title Boost 增強搜尋: query='{cleaned_query}'")
+                
+                # 使用增強版搜尋（內建 Title Boost）
+                vector_results = search_with_vectors_generic_v2(
+                    query=cleaned_query,
+                    model_class=self.model_class,  # 🆕 添加 model_class
+                    source_table=self.source_table,
+                    limit=limit,  # ✅ 修正：使用 limit 而非 top_k
+                    threshold=threshold,
+                    enable_title_boost=True,
+                    title_boost_config=title_boost_config
+                )
+                
+                # 轉換為標準格式（與基類返回格式一致）
+                results = []
+                for result in vector_results:
+                    results.append({
+                        'content': result.get('content', ''),
+                        'score': result.get('final_score', 0.0),
+                        'title': result.get('title', ''),
+                        'source_id': result.get('source_id'),
+                        'metadata': {
+                            'source_table': self.source_table,
+                            'title_boost_applied': result.get('title_boost_applied', False),
+                            'original_score': result.get('original_score'),
+                            'boost_amount': result.get('boost_amount', 0)
+                        }
+                    })
+                
+                logger.info(f"✅ Title Boost 搜尋完成: 返回 {len(results)} 個結果")
+                
+            except Exception as e:
+                logger.error(f"❌ Title Boost 搜尋失敗，降級為標準搜尋: {e}", exc_info=True)
+                # 降級為標準搜尋
+                results = super().search_knowledge(
+                    query=cleaned_query,
+                    limit=limit,
+                    use_vector=use_vector,
+                    threshold=threshold,
+                    search_mode=search_mode,
+                    stage=stage
+                )
+        else:
+            # 標準搜尋（不使用 Title Boost）
+            results = super().search_knowledge(
+                query=cleaned_query,  # ✅ 使用清理後的查詢
+                limit=limit,
+                use_vector=use_vector,
+                threshold=threshold,
+                search_mode=search_mode,  # ✅ 傳遞 search_mode 到基類
+                stage=stage  # ✅ 傳遞 stage 參數
+            )
         
         # 步驟 3: 如果是文檔級查詢，擴展為完整文檔
         if query_type == 'document' and results:

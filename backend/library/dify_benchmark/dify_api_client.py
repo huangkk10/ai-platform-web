@@ -2,15 +2,16 @@
 Dify API Client - 封裝 Dify Chat API 呼叫
 
 用途：
-1. 直接呼叫 Dify Chat API（不經過後端搜尋）
-2. 發送問題到 Dify，讓 Dify 自己執行 RAG 檢索
+1. 呼叫 Dify Chat API（支援後端搜尋整合）✅ v1.2 更新
+2. 可選：執行後端搜尋並傳遞上下文給 Dify ✅ 新增
 3. 接收並解析 Dify 回應
 4. 處理錯誤和超時
 
-注意：
-- 不使用 ProtocolGuideSearchService
-- 不整合後端搜尋
-- 讓 Dify 完全自主處理 RAG
+v1.2 更新（2025-01-20）：
+- ✅ 支援版本配置驅動的後端搜尋
+- ✅ 整合 ProtocolGuideSearchService 和 Title Boost
+- ✅ 向後相容：version_config 為可選參數
+- ✅ 無 version_config 時保持原有行為（Dify 自主 RAG）
 """
 
 import logging
@@ -25,16 +26,28 @@ logger = logging.getLogger(__name__)
 
 class DifyAPIClient:
     """
-    Dify API Client for Benchmark Testing
+    Dify API Client for Benchmark Testing (支援後端搜尋整合 v1.2)
     
-    直接呼叫 Dify API，不經過後端搜尋系統
+    ✅ v1.2 更新：支援版本配置驅動的後端搜尋
     
-    使用方式：
+    使用方式 1（原有方式 - Dify 自主 RAG）：
         client = DifyAPIClient()
         result = client.send_question(
             question="什麼是 I3C?",
             user_id="benchmark_user",
-            conversation_id=None  # 或指定特定對話 ID
+            conversation_id=None
+        )
+    
+    使用方式 2（v1.2 新增 - 後端搜尋 + Title Boost）：
+        client = DifyAPIClient()
+        result = client.send_question(
+            question="IOL SOP",
+            user_id="benchmark_user",
+            conversation_id=None,
+            version_config={  # ✅ 傳遞版本配置
+                'version_code': 'v1.2',
+                'rag_settings': {...}
+            }
         )
         
         # 返回：
@@ -45,7 +58,9 @@ class DifyAPIClient:
         #     'conversation_id': "conv_xxx",
         #     'response_time': 1.23,
         #     'retrieved_documents': [...],
-        #     'tokens': {...}
+        #     'tokens': {...},
+        #     'backend_search_used': True,  # ✅ 新增欄位
+        #     'search_results_count': 3     # ✅ 新增欄位
         # }
     """
     
@@ -82,15 +97,22 @@ class DifyAPIClient:
         self,
         question: str,
         user_id: str = "benchmark_tester",
-        conversation_id: Optional[str] = None
+        conversation_id: Optional[str] = None,
+        version_config: Optional[Dict[str, Any]] = None  # ✅ v1.2 新增參數
     ) -> Dict[str, Any]:
         """
-        發送問題到 Dify API（直接呼叫，不經過後端搜尋）
+        發送問題到 Dify API（支援後端搜尋整合 v1.2）
         
         Args:
             question: 測試問題
             user_id: 用戶 ID（預設為 benchmark_tester）
             conversation_id: 對話 ID（可選，用於連續對話）
+            version_config: 版本配置字典（可選，v1.2 新增）
+                {
+                    'version_code': 'v1.2',
+                    'version_name': 'Dify 二階搜尋 v1.2',
+                    'rag_settings': {...}
+                }
         
         Returns:
             API 回應字典：
@@ -102,11 +124,31 @@ class DifyAPIClient:
                 'response_time': float,
                 'retrieved_documents': List[Dict],
                 'tokens': Dict[str, int],
+                'backend_search_used': bool,  # ✅ v1.2 新增
+                'search_results_count': int,  # ✅ v1.2 新增
                 'error': str (if failed)
             }
         """
         try:
             logger.info(f"發送問題到 Dify: question={question[:100]}")
+            
+            # ✅ v1.2: 執行後端搜尋（如果有版本配置）
+            search_context = None
+            search_results_count = 0
+            backend_search_used = False
+            
+            if version_config:
+                search_context, search_results_count = self._perform_backend_search(
+                    question, 
+                    version_config
+                )
+                if search_context:
+                    backend_search_used = True
+                    logger.info(
+                        f"✅ 後端搜尋完成: "
+                        f"version={version_config.get('version_code')}, "
+                        f"results={search_results_count}"
+                    )
             
             # 記錄開始時間
             start_time = time.time()
@@ -117,12 +159,12 @@ class DifyAPIClient:
                 'Content-Type': 'application/json'
             }
             
-            # 構建請求 payload
+            # ✅ v1.2: 構建請求 payload（包含後端搜尋上下文）
             payload = {
                 'query': question,
                 'user': user_id,
                 'response_mode': 'blocking',  # 使用 blocking 模式等待完整回應
-                'inputs': {}
+                'inputs': {'context': search_context} if search_context else {}  # ✅ 傳遞搜尋上下文
             }
             
             if conversation_id:
@@ -166,6 +208,7 @@ class DifyAPIClient:
                     f"Dify API 回應成功: "
                     f"answer_length={len(answer)}, "
                     f"retrieved_docs={len(retrieved_documents)}, "
+                    f"backend_search={backend_search_used}, "  # ✅ v1.2 新增
                     f"response_time={response_time:.2f}s"
                 )
                 
@@ -176,7 +219,9 @@ class DifyAPIClient:
                     'conversation_id': conversation_id,
                     'response_time': round(response_time, 2),
                     'retrieved_documents': retrieved_documents,
-                    'tokens': tokens
+                    'tokens': tokens,
+                    'backend_search_used': backend_search_used,  # ✅ v1.2 新增
+                    'search_results_count': search_results_count  # ✅ v1.2 新增
                 }
             else:
                 error_msg = f"HTTP {response.status_code}: {response.text}"
@@ -281,5 +326,88 @@ class DifyAPIClient:
             return {
                 'success': False,
                 'response_time': 0,
-                'message': f"Dify API 連線測試異常: {str(e)}"
+                'message': f'連線測試異常: {str(e)}'
             }
+    
+    def _perform_backend_search(
+        self, 
+        query: str, 
+        version_config: Dict[str, Any]
+    ) -> tuple[Optional[str], int]:
+        """
+        執行後端搜尋並格式化結果為上下文（v1.2 新增）
+        
+        Args:
+            query: 用戶查詢
+            version_config: 版本配置字典
+                {
+                    'version_code': 'v1.2',
+                    'version_name': 'Dify 二階搜尋 v1.2',
+                    'rag_settings': {...}
+                }
+        
+        Returns:
+            tuple: (搜尋上下文字串, 結果數量)
+                - None, 0: 搜尋失敗或無結果
+                - str, int: 格式化的上下文和結果數量
+        """
+        try:
+            from library.protocol_guide.search_service import ProtocolGuideSearchService
+            
+            logger.info(
+                f"🔍 執行後端搜尋: "
+                f"query={query[:50]}..., "
+                f"version={version_config.get('version_code')}"
+            )
+            
+            # 執行搜尋
+            search_service = ProtocolGuideSearchService()
+            results = search_service.search_knowledge(
+                query=query,
+                threshold=0.5,
+                limit=3,
+                use_vector=True,
+                stage='stage1',
+                version_config=version_config  # ✅ 傳遞版本配置
+            )
+            
+            if not results:
+                logger.warning("⚠️ 後端搜尋無結果")
+                return None, 0
+            
+            # 格式化結果為上下文字串
+            context_parts = []
+            for i, result in enumerate(results, 1):
+                title = result.get('title', 'Untitled')
+                content = result.get('content', '')[:500]  # 限制長度
+                score = result.get('score', 0.0) * 100
+                
+                # 檢查是否有 Title Boost
+                boost_flag = ""
+                if result.get('title_boost_applied'):
+                    boost_flag = " 🌟 [Title Boost]"
+                    boost_amount = result.get('boost_amount', 0) * 100
+                    logger.info(
+                        f"  [{i}] Title Boost 加分: "
+                        f"title={title[:30]}..., "
+                        f"bonus=+{boost_amount:.1f}%"
+                    )
+                
+                context_parts.append(
+                    f"[{i}] {title} (相關度: {score:.1f}%){boost_flag}\n"
+                    f"{content}..."
+                )
+            
+            context = "\n\n".join(context_parts)
+            
+            logger.info(
+                f"✅ 後端搜尋完成: "
+                f"results={len(results)}, "
+                f"context_length={len(context)}"
+            )
+            
+            return context, len(results)
+            
+        except Exception as e:
+            logger.error(f"❌ 後端搜尋失敗: {str(e)}", exc_info=True)
+            return None, 0

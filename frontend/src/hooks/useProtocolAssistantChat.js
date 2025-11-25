@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { message } from 'antd';
 
-const useProtocolAssistantChat = (conversationId, setConversationId, setMessages, user, currentUserId) => {
+const useProtocolAssistantChat = (conversationId, setConversationId, setMessages, user, currentUserId, selectedVersion = null) => {
   const [loading, setLoading] = useState(false);
   const [loadingStartTime, setLoadingStartTime] = useState(null);
   const abortControllerRef = useRef(null);
@@ -21,6 +21,7 @@ const useProtocolAssistantChat = (conversationId, setConversationId, setMessages
     console.log('  - userMessage:', userMessage);
     console.log('  - conversationId:', conversationId);
     console.log('  - currentUserId:', currentUserId);
+    console.log('  - selectedVersion:', selectedVersion);  // 🆕 記錄版本資訊
     
     setLoading(true);
     setLoadingStartTime(Date.now());
@@ -32,7 +33,10 @@ const useProtocolAssistantChat = (conversationId, setConversationId, setMessages
         message: userMessage.content,
         conversation_id: conversationId,
         user_id: currentUserId,
-        // search_version: 'v2'  // ❌ 註解掉：後端不使用，與測試腳本保持一致
+        // 🆕 添加 version_code（如果有選擇版本）
+        ...(selectedVersion?.version_code && {
+          version_code: selectedVersion.version_code
+        })
       };
       
       console.log('📤 [Protocol Assistant] 發送請求:', requestBody);
@@ -132,7 +136,7 @@ const useProtocolAssistantChat = (conversationId, setConversationId, setMessages
       setLoadingStartTime(null);
       abortControllerRef.current = null;
     }
-  }, [conversationId, setConversationId, setMessages, currentUserId]);
+  }, [conversationId, setConversationId, setMessages, currentUserId, selectedVersion]);  // 🆕 添加 selectedVersion 依賴
 
   return {
     sendMessage,
