@@ -221,17 +221,39 @@ const TestCasesListPage = () => {
       render: (difficulty) => getDifficultyTag(difficulty),
     },
     {
-      title: '題型',
-      dataIndex: 'question_type',
-      key: 'question_type',
-      width: 120,
-      render: (type) => {
-        const typeMap = {
-          'single_answer': '單一答案',
-          'multiple_answers': '多重答案',
-          'open_ended': '開放式',
-        };
-        return <Tag>{typeMap[type] || type}</Tag>;
+      title: '關鍵字',
+      dataIndex: 'expected_keywords',
+      key: 'expected_keywords',
+      width: 200,
+      render: (keywords) => {
+        if (!Array.isArray(keywords) || keywords.length === 0) {
+          return <Tag color="default">無關鍵字</Tag>;
+        }
+        
+        return (
+          <Tooltip 
+            title={
+              <div>
+                <strong>完整關鍵字列表：</strong>
+                <div>{keywords.join(', ')}</div>
+              </div>
+            }
+            placement="topLeft"
+          >
+            <Space wrap size={[4, 4]}>
+              {keywords.slice(0, 3).map((keyword, idx) => (
+                <Tag key={idx} color="blue" style={{ margin: 0, fontSize: '11px' }}>
+                  {keyword}
+                </Tag>
+              ))}
+              {keywords.length > 3 && (
+                <Tag color="purple" style={{ margin: 0, fontSize: '11px' }}>
+                  +{keywords.length - 3}
+                </Tag>
+              )}
+            </Space>
+          </Tooltip>
+        );
       },
     },
     {
@@ -251,6 +273,69 @@ const TestCasesListPage = () => {
       width: 120,
       align: 'center',
       render: (count) => <Tag color="orange">{count}</Tag>,
+    },
+    {
+      title: '判斷條件',
+      key: 'evaluation_criteria',
+      width: 180,
+      align: 'center',
+      render: (_, record) => {
+        const criteria = [];
+        
+        // 預期文檔 IDs
+        if (Array.isArray(record.expected_document_ids) && record.expected_document_ids.length > 0) {
+          criteria.push(`文檔: ${record.expected_document_ids.length} 個`);
+        }
+        
+        // 最少匹配數
+        if (record.min_required_matches > 0) {
+          criteria.push(`最少匹配: ${record.min_required_matches}`);
+        }
+        
+        // 預期關鍵字
+        if (Array.isArray(record.expected_keywords) && record.expected_keywords.length > 0) {
+          criteria.push(`關鍵字: ${record.expected_keywords.length} 個`);
+        }
+        
+        // 可接受文檔 IDs
+        if (Array.isArray(record.acceptable_document_ids) && record.acceptable_document_ids.length > 0) {
+          criteria.push(`可接受文檔: ${record.acceptable_document_ids.length} 個`);
+        }
+        
+        return (
+          <Tooltip 
+            title={
+              <div>
+                {Array.isArray(record.expected_document_ids) && record.expected_document_ids.length > 0 && (
+                  <div>預期文檔: {record.expected_document_ids.join(', ')}</div>
+                )}
+                {record.min_required_matches > 0 && (
+                  <div>最少匹配數: {record.min_required_matches}</div>
+                )}
+                {Array.isArray(record.expected_keywords) && record.expected_keywords.length > 0 && (
+                  <div>關鍵字: {record.expected_keywords.join(', ')}</div>
+                )}
+                {Array.isArray(record.acceptable_document_ids) && record.acceptable_document_ids.length > 0 && (
+                  <div>可接受文檔: {record.acceptable_document_ids.join(', ')}</div>
+                )}
+                {record.expected_answer_summary && (
+                  <div>答案摘要: {record.expected_answer_summary}</div>
+                )}
+              </div>
+            }
+            placement="left"
+          >
+            <Space direction="vertical" size={0} style={{ width: '100%' }}>
+              {criteria.map((c, idx) => (
+                <Tag key={idx} color="purple" style={{ margin: '2px 0', fontSize: '11px' }}>
+                  {c}
+                </Tag>
+              ))}
+              {criteria.length === 0 && <Tag color="default">無設定</Tag>}
+            </Space>
+          </Tooltip>
+        );
+      },
     },
     {
       title: '狀態',
@@ -392,7 +477,7 @@ const TestCasesListPage = () => {
             defaultPageSize: 20,
             pageSizeOptions: ['10', '20', '50', '100'],
           }}
-          scroll={{ x: 1400, y: 'calc(100vh - 400px)' }}
+          scroll={{ x: 1600, y: 'calc(100vh - 400px)' }}
         />
       </Card>
 
@@ -438,10 +523,76 @@ const TestCasesListPage = () => {
                       {id}
                     </Tag>
                   ))}
+                {(!Array.isArray(selectedTestCase.expected_document_ids) || 
+                  selectedTestCase.expected_document_ids.length === 0) && (
+                  <Tag color="default">無設定</Tag>
+                )}
               </Space>
             </Descriptions.Item>
             <Descriptions.Item label="最少匹配數">
               <Tag color="orange">{selectedTestCase.min_required_matches}</Tag>
+            </Descriptions.Item>
+            <Descriptions.Item label="可接受文檔 ID">
+              <Space wrap>
+                {Array.isArray(selectedTestCase.acceptable_document_ids) &&
+                  selectedTestCase.acceptable_document_ids.map((id) => (
+                    <Tag key={id} color="green">
+                      {id}
+                    </Tag>
+                  ))}
+                {(!Array.isArray(selectedTestCase.acceptable_document_ids) || 
+                  selectedTestCase.acceptable_document_ids.length === 0) && (
+                  <Tag color="default">無設定</Tag>
+                )}
+              </Space>
+            </Descriptions.Item>
+            <Descriptions.Item label="預期關鍵字">
+              <Space wrap>
+                {Array.isArray(selectedTestCase.expected_keywords) &&
+                  selectedTestCase.expected_keywords.map((keyword, idx) => (
+                    <Tag key={idx} color="blue">
+                      {keyword}
+                    </Tag>
+                  ))}
+                {(!Array.isArray(selectedTestCase.expected_keywords) || 
+                  selectedTestCase.expected_keywords.length === 0) && (
+                  <Tag color="default">無設定</Tag>
+                )}
+              </Space>
+            </Descriptions.Item>
+            <Descriptions.Item label="預期答案摘要" span={1}>
+              {selectedTestCase.expected_answer_summary || (
+                <Tag color="default">無設定</Tag>
+              )}
+            </Descriptions.Item>
+            <Descriptions.Item label="判斷條件摘要">
+              <Space direction="vertical" size="small">
+                <div>
+                  <strong>文檔匹配規則：</strong>
+                  {Array.isArray(selectedTestCase.expected_document_ids) && 
+                   selectedTestCase.expected_document_ids.length > 0 ? (
+                    <>
+                      需匹配 {selectedTestCase.expected_document_ids.length} 個預期文檔中的至少 {selectedTestCase.min_required_matches} 個
+                    </>
+                  ) : (
+                    <Tag color="default">無文檔匹配要求</Tag>
+                  )}
+                </div>
+                {Array.isArray(selectedTestCase.expected_keywords) && 
+                 selectedTestCase.expected_keywords.length > 0 && (
+                  <div>
+                    <strong>關鍵字匹配：</strong>
+                    需包含 {selectedTestCase.expected_keywords.length} 個關鍵字
+                  </div>
+                )}
+                {Array.isArray(selectedTestCase.acceptable_document_ids) && 
+                 selectedTestCase.acceptable_document_ids.length > 0 && (
+                  <div>
+                    <strong>可接受範圍：</strong>
+                    {selectedTestCase.acceptable_document_ids.length} 個可接受文檔
+                  </div>
+                )}
+              </Space>
             </Descriptions.Item>
             <Descriptions.Item label="狀態">
               <Tag color={selectedTestCase.is_active ? 'success' : 'default'}>
