@@ -85,16 +85,27 @@ const DifyTestHistoryPage = () => {
   const calculateStatistics = (runs) => {
     const totalTests = runs.length;
     
-    // 計算平均分數（排除 null 值）
-    const validScores = runs.filter(run => run.average_score !== null);
+    // 🔍 Debug: 檢查數據
+    console.log('📊 計算統計資料:', {
+      total_runs: runs.length,
+      sample_run: runs[0],
+      first_3_scores: runs.slice(0, 3).map(r => ({ id: r.id, avg_score: r.average_score, pass_rate: r.pass_rate }))
+    });
+    
+    // 計算平均分數（排除 null 值和 undefined）
+    const validScores = runs.filter(run => run.average_score !== null && run.average_score !== undefined);
+    console.log('✅ Valid scores count:', validScores.length);
+    
     const avgScore = validScores.length > 0
-      ? validScores.reduce((sum, run) => sum + run.average_score, 0) / validScores.length
+      ? validScores.reduce((sum, run) => sum + parseFloat(run.average_score), 0) / validScores.length
       : 0;
     
-    // 計算平均通過率（排除 null 值）
-    const validPassRates = runs.filter(run => run.pass_rate !== null);
+    console.log('📈 Average score calculated:', avgScore);
+    
+    // 計算平均通過率（排除 null 值和 undefined）
+    const validPassRates = runs.filter(run => run.pass_rate !== null && run.pass_rate !== undefined);
     const avgPassRate = validPassRates.length > 0
-      ? validPassRates.reduce((sum, run) => sum + run.pass_rate, 0) / validPassRates.length
+      ? validPassRates.reduce((sum, run) => sum + parseFloat(run.pass_rate), 0) / validPassRates.length
       : 0;
     
     // 計算今日測試數
