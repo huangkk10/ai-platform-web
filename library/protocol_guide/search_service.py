@@ -132,6 +132,11 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
             pattern = re.compile(re.escape(request_word), re.IGNORECASE)
             cleaned_query = pattern.sub('', cleaned_query)
         
+        # ✅ 新增：移除標點符號（避免向量生成問題）
+        PUNCTUATION = ['？', '?', '！', '!', '。', '.', '，', ',', '、', '：', ':', '；', ';']
+        for punct in PUNCTUATION:
+            cleaned_query = cleaned_query.replace(punct, '')
+        
         # 清理多餘空格
         cleaned_query = ' '.join(cleaned_query.split()).strip()
         
