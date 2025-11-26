@@ -3,7 +3,7 @@ import './App.css';
 import axios from 'axios';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Layout, Button } from 'antd';
-import { DeleteOutlined, ArrowLeftOutlined, SaveOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
+import { DeleteOutlined, ArrowLeftOutlined, SaveOutlined, PlusOutlined, ReloadOutlined, ExportOutlined } from '@ant-design/icons';
 import Sidebar from './components/Sidebar';
 import TopHeader from './components/TopHeader';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -176,6 +176,45 @@ function AppLayout() {
         >
           新聊天
         </Button>
+      );
+    }
+
+    // VSA 測試案例管理頁面的按鈕
+    if (pathname === '/benchmark/test-cases' || pathname === '/benchmark/dify/test-cases') {
+      return (
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <Button
+            type="primary"
+            size="large"
+            icon={<PlusOutlined />}
+            onClick={() => {
+              // 觸發自定義事件通知頁面打開新增 Modal
+              window.dispatchEvent(new CustomEvent('vsa-test-case-create'));
+            }}
+          >
+            新增問題
+          </Button>
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={() => {
+              // 觸發自定義事件通知頁面重新載入
+              window.dispatchEvent(new CustomEvent('vsa-test-case-reload'));
+            }}
+            size="large"
+          >
+            重新整理
+          </Button>
+          <Button
+            icon={<ExportOutlined />}
+            onClick={() => {
+              // 觸發自定義事件通知頁面執行匯出
+              window.dispatchEvent(new CustomEvent('vsa-test-case-export'));
+            }}
+            size="large"
+          >
+            匯出
+          </Button>
+        </div>
       );
     }
 

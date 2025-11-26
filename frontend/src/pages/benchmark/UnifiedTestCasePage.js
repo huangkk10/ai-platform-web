@@ -258,6 +258,31 @@ const UnifiedTestCasePage = ({ defaultTab = 'vsa' }) => {
   // 初始化和 Tab 切換時載入資料
   useEffect(() => {
     handleRefresh();
+    
+    // 監聽來自 TopHeader 的重新整理事件
+    const handleReloadEvent = () => {
+      handleRefresh();
+    };
+    
+    // 監聽來自 TopHeader 的匯出事件
+    const handleExportEvent = () => {
+      handleExport();
+    };
+    
+    // 監聽來自 TopHeader 的新增事件
+    const handleCreateEvent = () => {
+      message.info('新增功能開發中...');
+    };
+    
+    window.addEventListener('vsa-test-case-reload', handleReloadEvent);
+    window.addEventListener('vsa-test-case-export', handleExportEvent);
+    window.addEventListener('vsa-test-case-create', handleCreateEvent);
+    
+    return () => {
+      window.removeEventListener('vsa-test-case-reload', handleReloadEvent);
+      window.removeEventListener('vsa-test-case-export', handleExportEvent);
+      window.removeEventListener('vsa-test-case-create', handleCreateEvent);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // 移除 activeTab 依賴，因為固定使用 VSA
 
@@ -414,83 +439,56 @@ const UnifiedTestCasePage = ({ defaultTab = 'vsa' }) => {
 
   // 統計卡片組件
   const StatisticsCards = () => (
-    <>
-      {/* 第一行：基本統計 */}
-      <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="總測試案例"
-              value={statistics.total || 0}
-              prefix={<FileTextOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="啟用中"
-              value={statistics.active || 0}
-              valueStyle={{ color: '#3f8600' }}
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="停用"
-              value={statistics.inactive || 0}
-              valueStyle={{ color: '#999' }}
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="平均分數"
-              value={statistics.average_score || 0}
-              precision={2}
-              suffix="分"
-              valueStyle={{ color: '#1890ff' }}
-            />
-          </Card>
-        </Col>
-      </Row>
-      
-      {/* 第二行：難度分布 */}
-      <Row gutter={16} style={{ marginBottom: 24 }}>
-        <Col span={8}>
-          <Card>
-            <Statistic
-              title="簡單題目"
-              value={statistics.by_difficulty?.easy || 0}
-              valueStyle={{ color: '#52c41a' }}
-              prefix="📗"
-            />
-          </Card>
-        </Col>
-        <Col span={8}>
-          <Card>
-            <Statistic
-              title="中等題目"
-              value={statistics.by_difficulty?.medium || 0}
-              valueStyle={{ color: '#faad14' }}
-              prefix="📙"
-            />
-          </Card>
-        </Col>
-        <Col span={8}>
-          <Card>
-            <Statistic
-              title="困難題目"
-              value={statistics.by_difficulty?.hard || 0}
-              valueStyle={{ color: '#cf1322' }}
-              prefix="📕"
-            />
-          </Card>
-        </Col>
-      </Row>
-    </>
+    <Row gutter={16} style={{ marginBottom: 24 }}>
+      <Col span={4}>
+        <Card>
+          <Statistic
+            title="總測試案例"
+            value={statistics.total || 0}
+            prefix={<FileTextOutlined />}
+          />
+        </Card>
+      </Col>
+      <Col span={4}>
+        <Card>
+          <Statistic
+            title="啟用中"
+            value={statistics.active || 0}
+            valueStyle={{ color: '#3f8600' }}
+          />
+        </Card>
+      </Col>
+      <Col span={5}>
+        <Card>
+          <Statistic
+            title="簡單題目"
+            value={statistics.by_difficulty?.easy || 0}
+            valueStyle={{ color: '#52c41a' }}
+            prefix="📗"
+          />
+        </Card>
+      </Col>
+      <Col span={5}>
+        <Card>
+          <Statistic
+            title="中等題目"
+            value={statistics.by_difficulty?.medium || 0}
+            valueStyle={{ color: '#faad14' }}
+            prefix="📙"
+          />
+        </Card>
+      </Col>
+      <Col span={6}>
+        <Card>
+          <Statistic
+            title="困難題目"
+            value={statistics.by_difficulty?.hard || 0}
+            valueStyle={{ color: '#cf1322' }}
+            prefix="📕"
+          />
+        </Card>
+      </Col>
+    </Row>
   );
 
   // 篩選區域組件
@@ -557,18 +555,6 @@ const UnifiedTestCasePage = ({ defaultTab = 'vsa' }) => {
 
   return (
     <div className="unified-test-case-page">
-      <div className="page-header">
-        <h2>VSA 測試案例管理</h2>
-        <Space>
-          <Button icon={<ReloadOutlined />} onClick={handleRefresh}>
-            重新整理
-          </Button>
-          <Button icon={<ExportOutlined />} onClick={handleExport}>
-            匯出
-          </Button>
-        </Space>
-      </div>
-
       <StatisticsCards />
       <FilterArea />
       
