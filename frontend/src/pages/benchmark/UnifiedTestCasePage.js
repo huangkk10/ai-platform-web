@@ -246,6 +246,22 @@ const UnifiedTestCasePage = ({ defaultTab = 'vsa' }) => {
     // VSA 專用欄位
     const vsaColumns = [
       {
+        title: 'Keyword 判斷條件',
+        dataIndex: 'answer_keywords',
+        key: 'answer_keywords',
+        width: 300,
+        render: (keywords) => {
+          if (!keywords || keywords.length === 0) return '-';
+          return (
+            <Space size={[0, 4]} wrap>
+              {keywords.map((keyword, index) => (
+                <Tag key={index} color="purple">{keyword}</Tag>
+              ))}
+            </Space>
+          );
+        },
+      },
+      {
         title: '標籤',
         dataIndex: 'tags',
         key: 'tags',
@@ -493,7 +509,7 @@ const UnifiedTestCasePage = ({ defaultTab = 'vsa' }) => {
         dataSource={testCases}
         rowKey="id"
         loading={loading}
-        scroll={{ x: 1800, y: 'calc(100vh - 480px)' }}
+        scroll={{ x: 2100, y: 'calc(100vh - 480px)' }}
         pagination={{
           showSizeChanger: true,
           showQuickJumper: true,
@@ -517,8 +533,34 @@ const UnifiedTestCasePage = ({ defaultTab = 'vsa' }) => {
             <p><strong>測試類別：</strong>{selectedCase.test_class_name}</p>
             <p><strong>難度：</strong>{selectedCase.difficulty_level}</p>
             <p><strong>期望答案：</strong>{selectedCase.expected_answer}</p>
-            <p><strong>答案關鍵字：</strong>{JSON.stringify(selectedCase.answer_keywords)}</p>
-            <p><strong>滿分：</strong>{selectedCase.max_score}</p>
+            
+            {/* Keyword 判斷條件詳細資訊 */}
+            <div style={{ 
+              marginTop: '16px', 
+              padding: '12px', 
+              background: '#f0f5ff', 
+              borderLeft: '4px solid #1890ff',
+              borderRadius: '4px'
+            }}>
+              <p style={{ margin: '0 0 8px 0' }}>
+                <strong style={{ color: '#1890ff' }}>🔑 Keyword 判斷條件：</strong>
+              </p>
+              <p style={{ margin: '4px 0' }}>
+                <strong>條件摘要：</strong>{selectedCase.criteria_summary}
+              </p>
+              <p style={{ margin: '4px 0' }}>
+                <strong>答案關鍵字：</strong>
+                {selectedCase.answer_keywords && selectedCase.answer_keywords.length > 0 ? (
+                  <Space size={[0, 4]} wrap style={{ marginLeft: '8px' }}>
+                    {selectedCase.answer_keywords.map((keyword, index) => (
+                      <Tag key={index} color="blue">{keyword}</Tag>
+                    ))}
+                  </Space>
+                ) : ' 無'}
+              </p>
+            </div>
+            
+            <p style={{ marginTop: '12px' }}><strong>滿分：</strong>{selectedCase.max_score}</p>
           </div>
         )}
       </Modal>
