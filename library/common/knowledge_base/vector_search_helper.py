@@ -195,6 +195,7 @@ def search_with_vectors_generic(
             vector_results=vector_results,
             items_dict=items_dict,
             model_class=model_class,
+            source_table=source_table,  # ✅ 傳遞 source_table 參數
             content_formatter=content_formatter
         )
         
@@ -255,6 +256,7 @@ def format_vector_results(
     vector_results: List[Dict],
     items_dict: Dict[int, models.Model],
     model_class: Type[models.Model],
+    source_table: str,  # ✅ 添加 source_table 參數
     content_formatter: Optional[Callable] = None
 ) -> List[Dict[str, Any]]:
     """
@@ -314,12 +316,17 @@ def format_vector_results(
             )
         
         # 組裝結果
+        similarity_score = float(vector_result['similarity_score'])
         formatted_results.append({
             'content': content,
-            'score': float(vector_result['similarity_score']),
+            'score': similarity_score,
+            'final_score': similarity_score,  # ✅ 初始化 final_score（Title Boost 會修改此欄位）
+            'similarity_score': similarity_score,  # ✅ 初始化 similarity_score（向後兼容）
             'title': getattr(item, 'title', str(item)),
+            'source_id': item.id,  # ✅ 添加 source_id（用於文檔擴展）
             'metadata': {
                 'id': item.id,
+                'source_table': source_table,  # ✅ 添加 source_table
                 'created_at': item.created_at.isoformat() if hasattr(item, 'created_at') else None,
                 'updated_at': item.updated_at.isoformat() if hasattr(item, 'updated_at') else None,
             }

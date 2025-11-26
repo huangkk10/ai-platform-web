@@ -199,7 +199,14 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
         if not results:
             return []
         
-        # 🔧 修正：從 source_id 查找 document_id
+        # � 診斷：輸出前 2 個結果的完整結構
+        logger.info(f"🔍 _expand_to_full_document 收到 {len(results)} 個結果，前 2 個結構：")
+        for idx, result in enumerate(results[:2], 1):
+            logger.info(f"   結果 {idx}: keys={list(result.keys())}")
+            logger.info(f"   結果 {idx}: metadata={result.get('metadata', {})}")
+            logger.info(f"   結果 {idx}: score={result.get('score')}, final_score={result.get('final_score')}, similarity_score={result.get('similarity_score')}")
+        
+        # �🔧 修正：從 source_id 查找 document_id
         # 先從 source_id 找出對應的 document_ids
         source_ids = set()
         for result in results:
@@ -270,16 +277,24 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
                 full_content = "\n".join(full_content_parts)
                 
                 # 創建文檔級結果
+                # ✅ 修正：使用 final_score（Title Boost 加分後的分數），如果沒有則回退到 score
+                first_result_score = results[0].get('final_score') or results[0].get('similarity_score') or results[0].get('score', 0.0)
+                
                 full_documents.append({
                     'content': full_content,
-                    'score': results[0].get('score', 0.0),  # 使用第一個結果的分數
+                    'score': first_result_score,  # ✅ 使用 Title Boost 加分後的分數
+                    'final_score': first_result_score,  # ✅ 保留 final_score
+                    'similarity_score': first_result_score,  # ✅ 保留 similarity_score
                     'title': document_title,  # ✅ 添加 title 欄位（Dify 顯示引用來源）
                     'metadata': {
                         'source_table': self.source_table,
                         'document_id': doc_id,
                         'document_title': document_title,
                         'is_full_document': True,
-                        'sections_count': len(sections)
+                        'sections_count': len(sections),
+                        'original_score': results[0].get('original_score'),  # ✅ 從頂層讀取
+                        'title_boost_applied': results[0].get('title_boost_applied', False),  # ✅ 從頂層讀取
+                        'title_boost_value': results[0].get('title_boost_value', 0)  # ✅ 正確欄位名
                     }
                 })
                 
@@ -392,14 +407,17 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
                 for result in vector_results:
                     results.append({
                         'content': result.get('content', ''),
-                        'score': result.get('final_score', 0.0),
+                        'score': result.get('final_score') or result.get('similarity_score') or result.get('score', 0.0),  # ✅ 優先使用 final_score
                         'title': result.get('title', ''),
                         'source_id': result.get('source_id'),
+                        'title_boost_applied': result.get('title_boost_applied', False),  # ✅ 頂層欄位
+                        'original_score': result.get('original_score'),  # ✅ 頂層欄位
+                        'title_boost_value': result.get('title_boost_value', 0),  # ✅ 正確欄位名
+                        'final_score': result.get('final_score'),  # ✅ 保留 final_score
+                        'similarity_score': result.get('similarity_score'),  # ✅ 保留 similarity_score
                         'metadata': {
                             'source_table': self.source_table,
-                            'title_boost_applied': result.get('title_boost_applied', False),
-                            'original_score': result.get('original_score'),
-                            'boost_amount': result.get('boost_amount', 0)
+                            # ⚠️ 已將 Title Boost 相關欄位移至頂層
                         }
                     })
                 

@@ -384,6 +384,28 @@ def dify_knowledge_search(request):
                         f"⚠️ ThresholdManager 失敗，使用硬編碼預設值 0.7: {e}"
                     )
             
+            # 🆕 載入版本配置（支援 Title Boost）
+            version_config = None
+            version_code = inputs.get('version_code', 'dify-two-tier-v1.2.1')  # 預設使用 v1.2.1
+            
+            try:
+                from api.models import DifyConfigVersion
+                version = DifyConfigVersion.objects.get(
+                    version_code=version_code,
+                    is_active=True
+                )
+                version_config = {
+                    'version_code': version.version_code,
+                    'version_name': version.version_name,
+                    'rag_settings': version.rag_settings,
+                    'model_config': version.model_config
+                }
+                logger.info(f"✅ 載入版本配置: {version_code} (Title Boost Stage1={version.rag_settings.get('stage1', {}).get('title_match_bonus', 0)}%, Stage2={version.rag_settings.get('stage2', {}).get('title_match_bonus', 0)}%)")
+            except DifyConfigVersion.DoesNotExist:
+                logger.warning(f"⚠️ 找不到版本: {version_code}，使用預設配置（無 Title Boost）")
+            except Exception as e:
+                logger.error(f"❌ 載入版本配置失敗: {str(e)}")
+            
             # 執行搜索（threshold、search_mode 和 stage 會一路傳遞到 SQL 查詢）
             result = handler.search(
                 knowledge_id=knowledge_id,
@@ -391,7 +413,8 @@ def dify_knowledge_search(request):
                 top_k=retrieval_setting.get('top_k', 5),
                 score_threshold=score_threshold,  # ✅ 傳遞 Dify 的 threshold
                 search_mode=search_mode,  # ✅ 傳遞 search_mode
-                stage=stage  # ✅ 傳遞 stage 參數
+                stage=stage,  # ✅ 傳遞 stage 參數
+                version_config=version_config  # 🆕 傳遞版本配置（啟用 Title Boost）
             )
             
             logger.info(f"✅ 知識庫搜索成功: {knowledge_id}, query='{query}', mode='{search_mode}', stage={stage}, results={len(result.get('records', []))}")

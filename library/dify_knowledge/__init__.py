@@ -274,7 +274,7 @@ class DifyKnowledgeSearchHandler:
         self.logger.info(f"Knowledge ID 標準化: '{knowledge_id}' -> '{normalized}'")
         return normalized
     
-    def search_knowledge_by_type(self, knowledge_type, query, limit=5, threshold=0.7, search_mode='auto', stage=1):
+    def search_knowledge_by_type(self, knowledge_type, query, limit=5, threshold=0.7, search_mode='auto', stage=1, version_config=None):
         """
         根據知識類型執行搜索（支援顯式 search_mode 和兩階段權重配置）
         
@@ -288,11 +288,12 @@ class DifyKnowledgeSearchHandler:
                 - 'section_only': 只搜索段落
                 - 'document_only': 只搜索文檔
             stage: 搜尋階段 (1=段落搜尋, 2=全文搜尋)
+            version_config: 版本配置（支援 Title Boost 等功能）
             
         Returns:
             list: 搜索結果列表
         """
-        self.logger.info(f"執行搜索: type={knowledge_type}, query='{query}', limit={limit}, threshold={threshold}, mode='{search_mode}', stage={stage}")
+        self.logger.info(f"執行搜索: type={knowledge_type}, query='{query}', limit={limit}, threshold={threshold}, mode='{search_mode}', stage={stage}, version_config={'有' if version_config else '無'}")
         
         try:
             if knowledge_type == 'know_issue':
@@ -333,13 +334,14 @@ class DifyKnowledgeSearchHandler:
                     return results
                     
             elif knowledge_type == 'protocol_guide':
-                # ✅ Protocol Guide 傳遞 threshold、search_mode 和 stage
+                # ✅ Protocol Guide 傳遞 threshold、search_mode、stage 和 version_config
                 results = self.search_protocol_guide_knowledge(
                     query, 
                     limit=limit, 
                     threshold=threshold,
                     search_mode=search_mode,  # ✅ 傳遞 search_mode
-                    stage=stage               # ✅ 傳遞 stage 參數
+                    stage=stage,              # ✅ 傳遞 stage 參數
+                    version_config=version_config  # 🆕 傳遞版本配置（啟用 Title Boost）
                 )
                 self.logger.info(f"Protocol Guide 搜索結果: {len(results)} 條 (stage={stage})")
                 return results
@@ -366,13 +368,21 @@ class DifyKnowledgeSearchHandler:
         """根據分數閾值過濾結果"""
         if score_threshold <= 0:
             return results
+        
+        # 🔍 詳細記錄每個結果的分數（診斷用）
+        self.logger.info(f"📊 分數過濾診斷（threshold={score_threshold}）:")
+        for idx, result in enumerate(results, 1):
+            score = result.get('score', 0)
+            title = result.get('title', 'N/A')[:50]
+            pass_filter = "✅通過" if score >= score_threshold else "❌過濾"
+            self.logger.info(f"  [{idx}] {pass_filter} | score={score:.4f} | title='{title}...'")
             
         filtered_results = [
             result for result in results 
             if result.get('score', 0) >= score_threshold
         ]
         
-        self.logger.info(f"分數過濾: {len(results)} -> {len(filtered_results)} (threshold: {score_threshold})")
+        self.logger.info(f"🎯 分數過濾結果: {len(results)} -> {len(filtered_results)} (threshold: {score_threshold})")
         return filtered_results
     
     def format_dify_response(self, results):
@@ -390,7 +400,7 @@ class DifyKnowledgeSearchHandler:
         
         return {'records': records}
     
-    def search(self, knowledge_id, query, top_k=5, score_threshold=0.7, search_mode='auto', metadata_condition=None, stage=1):
+    def search(self, knowledge_id, query, top_k=5, score_threshold=0.7, search_mode='auto', metadata_condition=None, stage=1, version_config=None):
         """
         統一搜索接口（支援顯式 search_mode 和兩階段權重配置）
         
@@ -405,26 +415,28 @@ class DifyKnowledgeSearchHandler:
                 - 'document_only': 只搜索文檔
             metadata_condition: 元數據條件（可選）
             stage: 搜尋階段 (1=段落搜尋, 2=全文搜尋)
+            version_config: 版本配置（支援 Title Boost 等功能）
             
         Returns:
             dict: Dify 格式的回應
         """
         try:
-            # ✅ 顯示完整參數流（包含 search_mode 和 stage）
+            # ✅ 顯示完整參數流（包含 search_mode、stage 和 version_config）
             self.logger.info(f"🔍 [Stage 6] DifyKnowledgeSearchHandler.search() 接收參數:")
-            self.logger.info(f"   knowledge_id={knowledge_id}, query='{query}', top_k={top_k}, threshold={score_threshold}, search_mode='{search_mode}', stage={stage}")
+            self.logger.info(f"   knowledge_id={knowledge_id}, query='{query}', top_k={top_k}, threshold={score_threshold}, search_mode='{search_mode}', stage={stage}, version_config={'有' if version_config else '無'}")
             
             # 標準化知識庫 ID
             knowledge_type = self.normalize_knowledge_id(knowledge_id)
             
-            # ✅ 執行搜索（傳遞 threshold、search_mode 和 stage 到底層搜索服務）
+            # ✅ 執行搜索（傳遞 threshold、search_mode、stage 和 version_config 到底層搜索服務）
             search_results = self.search_knowledge_by_type(
                 knowledge_type, 
                 query, 
                 limit=top_k,
                 threshold=score_threshold,  # ✅ 傳遞 threshold
                 search_mode=search_mode,    # ✅ 傳遞 search_mode
-                stage=stage                 # ✅ 傳遞 stage 參數
+                stage=stage,                # ✅ 傳遞 stage 參數
+                version_config=version_config  # 🆕 傳遞版本配置（啟用 Title Boost）
             )
             self.logger.info(f"📊 [Stage 10] 搜索返回 {len(search_results)} 條原始結果")
             
