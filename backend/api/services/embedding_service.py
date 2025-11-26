@@ -267,9 +267,14 @@ class OpenSourceEmbeddingService:
             sql_parts = []
             params = []
             
+            # ✅ 修正：添加 NOT NULL 過濾，避免 NoneType 比較錯誤
+            base_conditions = ["de.embedding IS NOT NULL"]
+            
             if source_table:
-                sql_parts.append("WHERE de.source_table = %s")
+                base_conditions.append("de.source_table = %s")
                 params.append(source_table)
+            
+            sql_parts_str = " AND ".join(base_conditions)
             
             sql = f"""
                 SELECT 
@@ -279,7 +284,7 @@ class OpenSourceEmbeddingService:
                     de.created_at,
                     de.updated_at
                 FROM {target_table} de
-                {' '.join(sql_parts)}
+                WHERE {sql_parts_str}
                 ORDER BY de.embedding <=> %s
                 LIMIT %s
             """
@@ -412,9 +417,14 @@ class OpenSourceEmbeddingService:
             sql_parts = []
             params = []
             
+            # ✅ 修正：添加 NOT NULL 過濾，避免 NoneType 比較錯誤
+            base_conditions = ["de.title_embedding IS NOT NULL", "de.content_embedding IS NOT NULL"]
+            
             if source_table:
-                sql_parts.append("WHERE de.source_table = %s")
+                base_conditions.append("de.source_table = %s")
                 params.append(source_table)
+            
+            sql_parts_str = " AND ".join(base_conditions)
             
             sql = f"""
                 SELECT 
@@ -430,7 +440,7 @@ class OpenSourceEmbeddingService:
                     de.created_at,
                     de.updated_at
                 FROM document_embeddings de
-                {' '.join(sql_parts)}
+                WHERE {sql_parts_str}
                 ORDER BY final_score DESC
                 LIMIT %s
             """
