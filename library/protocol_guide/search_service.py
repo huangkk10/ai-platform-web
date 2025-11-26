@@ -383,28 +383,72 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
             return results
         
         # 步驟 2: 使用清理後的查詢執行搜尋（提升向量語義準確度）
-        # 🆕 如果啟用 Title Boost，使用增強版搜尋助手
+        # 🔧 修正：Title Boost 應該在段落搜尋結果上應用，而不是使用全文向量
         if enable_title_boost and use_vector:
             try:
-                from library.common.knowledge_base.enhanced_search_helper import search_with_vectors_generic_v2
                 from library.common.knowledge_base.title_boost import TitleBoostProcessor
                 
-                logger.info(f"🔍 使用 Title Boost 增強搜尋: query='{cleaned_query}'")
+                logger.info(f"🔍 Title Boost 啟用: 先執行段落搜尋，然後應用標題加分")
                 
-                # 使用增強版搜尋（內建 Title Boost）
-                vector_results = search_with_vectors_generic_v2(
+                # ✅ 步驟 1: 使用標準段落搜尋（與 v1.1.1 相同）
+                logger.info(f"📍 步驟 1/2: 執行段落搜尋")
+                section_results = super().search_knowledge(
                     query=cleaned_query,
-                    model_class=self.model_class,  # 🆕 添加 model_class
-                    source_table=self.source_table,
-                    limit=limit,  # ✅ 修正：使用 limit 而非 top_k
+                    limit=limit,
+                    use_vector=use_vector,
                     threshold=threshold,
-                    enable_title_boost=True,
-                    title_boost_config=title_boost_config
+                    search_mode=search_mode,
+                    stage=stage
                 )
+                
+                logger.info(f"✅ 段落搜尋完成: {len(section_results)} 個結果")
+                
+                # ✅ 步驟 2: 在段落結果上應用 Title Boost
+                logger.info(f"📍 步驟 2/2: 應用 Title Boost (bonus={title_boost_config.get('title_match_bonus', 0.2):.0%})")
+                
+                processor = TitleBoostProcessor(
+                    title_match_bonus=title_boost_config.get('title_match_bonus', 0.20),
+                    min_keyword_length=title_boost_config.get('min_keyword_length', 2)
+                )
+                
+                boosted_results = processor.apply_title_boost(
+                    query=cleaned_query,
+                    vector_results=section_results,
+                    title_field='title'
+                )
+                
+                # 統計資訊
+                boosted_count = sum(1 for r in boosted_results if r.get('title_boost_applied', False))
+                logger.info(
+                    f"✅ Title Boost 完成: {len(boosted_results)} 個段落結果, "
+                    f"{boosted_count} 個獲得標題加分"
+                )
+                
+                # 🔍 Debug: 顯示每個結果的分數
+                for idx, r in enumerate(boosted_results, 1):
+                    logger.info(
+                        f"  [{idx}] final_score={r.get('final_score', 'N/A')}, "
+                        f"score={r.get('score', 'N/A')}, "
+                        f"title={r.get('title', 'Unknown')[:30]}..."
+                    )
+                
+                # 🔧 二次過濾：移除加分後仍低於 threshold 的結果（在轉換格式之前）
+                filtered_boosted_results = boosted_results
+                if threshold > 0:
+                    original_count = len(boosted_results)
+                    # ✅ 使用 final_score 或 score 來過濾
+                    filtered_boosted_results = [
+                        r for r in boosted_results 
+                        if r.get('final_score', r.get('score', 0)) >= threshold
+                    ]
+                    if len(filtered_boosted_results) < original_count:
+                        logger.info(
+                            f"🎯 Title Boost 後過濾: {original_count} → {len(filtered_boosted_results)} (threshold={threshold})"
+                        )
                 
                 # 轉換為標準格式（與基類返回格式一致）
                 results = []
-                for result in vector_results:
+                for result in filtered_boosted_results:
                     results.append({
                         'content': result.get('content', ''),
                         'score': result.get('final_score') or result.get('similarity_score') or result.get('score', 0.0),  # ✅ 優先使用 final_score
@@ -420,8 +464,6 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
                             # ⚠️ 已將 Title Boost 相關欄位移至頂層
                         }
                     })
-                
-                logger.info(f"✅ Title Boost 搜尋完成: 返回 {len(results)} 個結果")
                 
             except Exception as e:
                 logger.error(f"❌ Title Boost 搜尋失敗，降級為標準搜尋: {e}", exc_info=True)

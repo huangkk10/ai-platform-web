@@ -155,7 +155,27 @@ def search_with_vectors_generic_v2(
             f"(平均加分: {stats['average_boost']:.2%})"
         )
         
+        # 🔧 Title Boost 後二次過濾：移除加分後仍低於 threshold 的結果
+        if threshold > 0 and boosted_results:
+            original_count = len(boosted_results)
+            
+            # 使用 final_score（如果存在）或 score 來過濾
+            filtered_results = [
+                r for r in boosted_results 
+                if r.get('final_score', r.get('score', 0)) >= threshold
+            ]
+            
+            filtered_count = len(filtered_results)
+            if original_count > filtered_count:
+                logger.info(
+                    f"🎯 Title Boost 後二次過濾: {original_count} → {filtered_count} "
+                    f"(threshold={threshold:.2f}, 移除 {original_count - filtered_count} 條)"
+                )
+            
+            return filtered_results
+        
         return boosted_results
+
         
     except Exception as e:
         logger.error(f"❌ Title Boost 應用失敗: {str(e)}", exc_info=True)

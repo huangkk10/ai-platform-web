@@ -30,6 +30,64 @@ from django.db import models
 
 logger = logging.getLogger(__name__)
 
+# 🆕 Baseline 版本緩存（模組級別）
+_baseline_version_cache = {
+    'version_code': None,
+    'last_updated': None
+}
+
+def get_baseline_version_code():
+    """
+    獲取當前 Baseline 版本代碼（帶緩存）
+    
+    緩存策略：
+    - 第一次調用時從資料庫讀取並緩存
+    - 後續調用直接返回緩存值
+    - VSA 切換版本時會清除緩存（通過 set_baseline API）
+    
+    Returns:
+        str: Baseline 版本代碼（如 'dify-two-tier-v1.1.1'）
+    """
+    from api.models import DifyConfigVersion
+    
+    # 檢查緩存
+    if _baseline_version_cache['version_code']:
+        logger.debug(f"📦 使用緩存的 Baseline 版本: {_baseline_version_cache['version_code']}")
+        return _baseline_version_cache['version_code']
+    
+    # 從資料庫查詢
+    try:
+        baseline_version = DifyConfigVersion.objects.filter(
+            is_baseline=True,
+            is_active=True
+        ).first()
+        
+        if baseline_version:
+            version_code = baseline_version.version_code
+            # 更新緩存
+            _baseline_version_cache['version_code'] = version_code
+            _baseline_version_cache['last_updated'] = __import__('datetime').datetime.now()
+            logger.info(f"✅ 載入並緩存 Baseline 版本: {version_code}")
+            return version_code
+        else:
+            logger.warning("⚠️ 找不到 Baseline 版本，返回預設值 v1.2.1")
+            return 'dify-two-tier-v1.2.1'
+    except Exception as e:
+        logger.error(f"❌ 查詢 Baseline 版本失敗: {str(e)}")
+        return 'dify-two-tier-v1.2.1'
+
+def clear_baseline_version_cache():
+    """
+    清除 Baseline 版本緩存
+    
+    應該在以下情況調用：
+    - VSA 切換版本時（set_baseline API）
+    - 手動重置時
+    """
+    _baseline_version_cache['version_code'] = None
+    _baseline_version_cache['last_updated'] = None
+    logger.info("🗑️ Baseline 版本緩存已清除")
+
 # 導入 Library 服務
 try:
     from library.dify_knowledge import (
@@ -385,9 +443,20 @@ def dify_knowledge_search(request):
                     )
             
             # 🆕 載入版本配置（支援 Title Boost）
+            # 方案 B：動態讀取 Baseline 版本（帶緩存優化）
             version_config = None
-            version_code = inputs.get('version_code', 'dify-two-tier-v1.2.1')  # 預設使用 v1.2.1
             
+            # 步驟 1：嘗試從 inputs 中讀取 version_code（優先級最高）
+            version_code = inputs.get('version_code')
+            
+            # 步驟 2：如果沒有指定，則使用緩存的 Baseline 版本
+            if not version_code:
+                version_code = get_baseline_version_code()  # ✅ 使用帶緩存的函數
+                logger.info(f"🎯 使用 Baseline 版本: {version_code}")
+            else:
+                logger.info(f"📌 使用指定版本: {version_code} (來自 Dify inputs)")
+            
+            # 步驟 3：載入版本配置
             try:
                 from api.models import DifyConfigVersion
                 version = DifyConfigVersion.objects.get(

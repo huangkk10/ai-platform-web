@@ -108,6 +108,7 @@ class DifyConfigVersionViewSet(viewsets.ModelViewSet):
         2. 設定選定版本為 Baseline
         3. 記錄操作日誌
         4. 如果是動態版本，刷新 Threshold 快取
+        5. 🆕 清除 Dify 外部知識庫 API 的 Baseline 版本緩存
         
         權限：僅管理員
         """
@@ -123,6 +124,14 @@ class DifyConfigVersionViewSet(viewsets.ModelViewSet):
             # 設定當前版本為 baseline
             version.is_baseline = True
             version.save()
+            
+            # 🆕 清除 Dify 外部知識庫 API 的 Baseline 版本緩存
+            try:
+                from api.views.dify_knowledge_views import clear_baseline_version_cache
+                clear_baseline_version_cache()
+                logger.info(f"🗑️ Dify 外部知識庫 Baseline 版本緩存已清除")
+            except Exception as e:
+                logger.error(f"清除 Baseline 版本緩存失敗: {str(e)}")
             
             # 🆕 如果是動態版本，刷新 Threshold 快取
             is_dynamic = DynamicThresholdLoader.is_dynamic_version(version.rag_settings)

@@ -112,8 +112,8 @@ class TitleBoostProcessor:
                     # 固定加分
                     actual_bonus = self.title_match_bonus
                 
-                # 計算加分後的分數
-                original_score = boosted_result.get('final_score', 0.0)
+                # 計算加分後的分數（支援 final_score 或 score 欄位）
+                original_score = boosted_result.get('final_score') or boosted_result.get('score', 0.0)
                 boosted_score = min(original_score + actual_bonus, 1.0)
                 
                 # 更新分數
