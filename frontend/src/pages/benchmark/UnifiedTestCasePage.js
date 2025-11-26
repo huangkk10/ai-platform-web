@@ -6,17 +6,17 @@
 import React, { useState, useEffect } from 'react';
 import {
   Table, Button, Space, Tag, Tooltip, message, Modal, 
-  Card, Statistic, Row, Col, Input, Select, Popconfirm
+  Card, Statistic, Row, Col, Input, Select, Popconfirm, Form, Switch
 } from 'antd';
 import {
   FileTextOutlined, EditOutlined,
   DeleteOutlined, EyeOutlined, ReloadOutlined, ExportOutlined,
-  SearchOutlined, FilterOutlined
+  SearchOutlined, FilterOutlined, PlusOutlined, CloseOutlined
 } from '@ant-design/icons';
 import unifiedBenchmarkApi from '../../services/unifiedBenchmarkApi';
 import './UnifiedTestCasePage.css';
 
-const { Search } = Input;
+const { Search, TextArea } = Input;
 const { Option } = Select;
 
 const UnifiedTestCasePage = ({ defaultTab = 'vsa' }) => {
@@ -34,7 +34,13 @@ const UnifiedTestCasePage = ({ defaultTab = 'vsa' }) => {
   
   // Modal 控制
   const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
   const [selectedCase, setSelectedCase] = useState(null);
+  const [editForm] = Form.useForm();
+  
+  // Keyword 管理
+  const [keywordInput, setKeywordInput] = useState('');
+  const [keywords, setKeywords] = useState([]);
   
   // 分類列表（VSA 不需要 categories，但保留變數避免錯誤）
   const [testClasses, setTestClasses] = useState([]);
@@ -103,11 +109,97 @@ const UnifiedTestCasePage = ({ defaultTab = 'vsa' }) => {
     setDetailModalVisible(true);
   };
 
-  // 編輯（暫時使用詳情 Modal，未來可實作編輯功能）
+  // 編輯
   const handleEdit = (record) => {
     setSelectedCase(record);
-    setDetailModalVisible(true);
-    message.info('編輯功能開發中，目前顯示詳情');
+    // 設置 keywords state
+    setKeywords(record.answer_keywords || []);
+    // 設置表單初始值
+    editForm.setFieldsValue({
+      question: record.question,
+      difficulty_level: record.difficulty_level,
+      is_active: record.is_active,
+    });
+    setEditModalVisible(true);
+  };
+
+  // 添加關鍵字
+  const handleAddKeyword = () => {
+    const trimmedKeyword = keywordInput.trim();
+    if (!trimmedKeyword) {
+      message.warning('請輸入關鍵字');
+      return;
+    }
+    if (keywords.includes(trimmedKeyword)) {
+      message.warning('此關鍵字已存在');
+      return;
+    }
+    setKeywords([...keywords, trimmedKeyword]);
+    setKeywordInput('');
+  };
+
+  // 刪除關鍵字
+  const handleRemoveKeyword = (keywordToRemove) => {
+    setKeywords(keywords.filter(k => k !== keywordToRemove));
+  };
+
+  // 清空所有關鍵字
+  const handleClearAllKeywords = () => {
+    Modal.confirm({
+      title: '確認清空',
+      content: '確定要清空所有關鍵字嗎？',
+      onOk: () => {
+        setKeywords([]);
+        message.success('已清空所有關鍵字');
+      },
+    });
+  };
+
+  // 保存編輯
+  const handleSaveEdit = async () => {
+    try {
+      // 驗證關鍵字
+      if (keywords.length === 0) {
+        message.error('請至少添加一個關鍵字');
+        return;
+      }
+
+      const values = await editForm.validateFields();
+      
+      // 準備更新數據
+      const updateData = {
+        question: values.question,
+        answer_keywords: keywords, // 使用 keywords state
+        difficulty_level: values.difficulty_level,
+        is_active: values.is_active,
+      };
+
+      // 調用 API 更新（使用 PATCH 只更新指定欄位）
+      await unifiedBenchmarkApi.patchTestCase(selectedCase.id, updateData);
+      
+      message.success('更新成功');
+      setEditModalVisible(false);
+      editForm.resetFields();
+      setKeywords([]); // 清空 keywords
+      setKeywordInput(''); // 清空輸入框
+      loadTestCases();
+      loadStatistics();
+    } catch (error) {
+      console.error('更新失敗:', error);
+      if (error.errorFields) {
+        message.error('請檢查表單填寫');
+      } else {
+        message.error('更新失敗');
+      }
+    }
+  };
+
+  // 取消編輯
+  const handleCancelEdit = () => {
+    setEditModalVisible(false);
+    editForm.resetFields();
+    setKeywords([]); // 清空 keywords
+    setKeywordInput(''); // 清空輸入框
   };
 
   // 刪除
@@ -563,6 +655,214 @@ const UnifiedTestCasePage = ({ defaultTab = 'vsa' }) => {
             <p style={{ marginTop: '12px' }}><strong>滿分：</strong>{selectedCase.max_score}</p>
           </div>
         )}
+      </Modal>
+
+      {/* 編輯 Modal */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <EditOutlined style={{ marginRight: 8, color: '#1890ff' }} />
+            <span>編輯測試案例 #{selectedCase?.id}</span>
+          </div>
+        }
+        visible={editModalVisible}
+        onOk={handleSaveEdit}
+        onCancel={handleCancelEdit}
+        width={800}
+        okText="保存修改"
+        cancelText="取消"
+        destroyOnClose
+      >
+        <Form
+          form={editForm}
+          layout="vertical"
+        >
+          {/* 問題 */}
+          <Form.Item
+            label={
+              <span>
+                <span style={{ color: 'red' }}>* </span>
+                問題內容
+              </span>
+            }
+            name="question"
+            rules={[{ required: true, message: '請輸入問題' }]}
+            tooltip="測試案例的問題描述"
+          >
+            <TextArea
+              rows={4}
+              placeholder="請輸入測試問題"
+              showCount
+              maxLength={1000}
+            />
+          </Form.Item>
+
+          {/* Keyword 判斷條件 - 新版介面 */}
+          <Form.Item
+            label={
+              <span>
+                <span style={{ color: 'red' }}>* </span>
+                Keyword 判斷條件
+              </span>
+            }
+            tooltip="添加測試案例需要匹配的關鍵字"
+          >
+            {/* 輸入區域 */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <Input
+                value={keywordInput}
+                onChange={(e) => setKeywordInput(e.target.value)}
+                onPressEnter={handleAddKeyword}
+                placeholder="輸入關鍵字後按 Enter 或點擊添加..."
+                style={{ flex: 1 }}
+              />
+              <Button 
+                type="primary" 
+                icon={<PlusOutlined />} 
+                onClick={handleAddKeyword}
+              >
+                添加
+              </Button>
+            </div>
+            
+            {/* 關鍵字展示區域 */}
+            <div style={{ 
+              padding: '12px', 
+              background: '#fafafa', 
+              borderRadius: '6px',
+              border: '1px solid #d9d9d9',
+              minHeight: '80px'
+            }}>
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                marginBottom: keywords.length > 0 ? '12px' : '0'
+              }}>
+                <span style={{ color: '#666', fontSize: '13px' }}>
+                  已添加的關鍵字 ({keywords.length})：
+                </span>
+                {keywords.length > 0 && (
+                  <Button 
+                    type="link" 
+                    danger 
+                    size="small"
+                    onClick={handleClearAllKeywords}
+                    icon={<DeleteOutlined />}
+                  >
+                    清空全部
+                  </Button>
+                )}
+              </div>
+              
+              {keywords.length > 0 ? (
+                <Space size={[8, 8]} wrap>
+                  {keywords.map((keyword, index) => (
+                    <Tag 
+                      key={index} 
+                      closable 
+                      onClose={() => handleRemoveKeyword(keyword)}
+                      color="purple"
+                      style={{ 
+                        fontSize: '14px', 
+                        padding: '6px 10px',
+                        marginBottom: 0
+                      }}
+                    >
+                      {keyword}
+                    </Tag>
+                  ))}
+                </Space>
+              ) : (
+                <div style={{ 
+                  textAlign: 'center', 
+                  color: '#bfbfbf',
+                  padding: '20px 0',
+                  fontSize: '13px'
+                }}>
+                  尚未添加關鍵字
+                </div>
+              )}
+            </div>
+            
+            {/* 提示文字 */}
+            <div style={{ 
+              marginTop: '8px', 
+              color: '#8c8c8c', 
+              fontSize: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}>
+              💡 提示：輸入關鍵字後按 <Tag style={{ margin: '0 4px' }}>Enter</Tag> 也可快速添加
+            </div>
+          </Form.Item>
+
+          {/* 難度 */}
+          <Form.Item
+            label={
+              <span>
+                <span style={{ color: 'red' }}>* </span>
+                難度等級
+              </span>
+            }
+            name="difficulty_level"
+            rules={[{ required: true, message: '請選擇難度' }]}
+          >
+            <Select placeholder="選擇難度等級">
+              <Option value="easy">
+                <Tag color="green">簡單</Tag> - 基礎問題
+              </Option>
+              <Option value="medium">
+                <Tag color="orange">中等</Tag> - 進階問題
+              </Option>
+              <Option value="hard">
+                <Tag color="red">困難</Tag> - 複雜問題
+              </Option>
+            </Select>
+          </Form.Item>
+
+          {/* 是否啟用 */}
+          <Form.Item
+            label="測試案例狀態"
+            name="is_active"
+            valuePropName="checked"
+            tooltip="停用的測試案例不會被執行"
+          >
+            <Switch
+              checkedChildren="啟用"
+              unCheckedChildren="停用"
+            />
+          </Form.Item>
+
+          {/* 刪除區域 */}
+          <div style={{ 
+            marginTop: '32px',
+            paddingTop: '16px',
+            borderTop: '1px solid #f0f0f0'
+          }}>
+            <p style={{ color: '#999', marginBottom: '12px' }}>
+              ⚠️ 危險操作：刪除後無法恢復
+            </p>
+            <Form.Item style={{ marginBottom: 0 }}>
+              <Popconfirm
+                title="確定要刪除此測試案例嗎？"
+                description="此操作無法恢復，請確認是否繼續。"
+                onConfirm={() => {
+                  handleDelete(selectedCase.id);
+                  handleCancelEdit();
+                }}
+                okText="確定刪除"
+                cancelText="取消"
+                okButtonProps={{ danger: true }}
+              >
+                <Button danger icon={<DeleteOutlined />} block>
+                  刪除此測試案例
+                </Button>
+              </Popconfirm>
+            </Form.Item>
+          </div>
+        </Form>
       </Modal>
     </div>
   );
