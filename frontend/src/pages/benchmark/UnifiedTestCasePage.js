@@ -296,14 +296,6 @@ const UnifiedTestCasePage = ({ defaultTab = 'vsa' }) => {
         ),
       },
       {
-        title: '測試類別',
-        dataIndex: 'test_class_name',
-        key: 'test_class_name',
-        width: 150,
-        filters: testClasses.map(tc => ({ text: tc, value: tc })),
-        onFilter: (value, record) => record.test_class_name === value,
-      },
-      {
         title: '難度',
         dataIndex: 'difficulty_level',
         key: 'difficulty_level',
@@ -348,22 +340,6 @@ const UnifiedTestCasePage = ({ defaultTab = 'vsa' }) => {
             <Space size={[0, 4]} wrap>
               {keywords.map((keyword, index) => (
                 <Tag key={index} color="purple">{keyword}</Tag>
-              ))}
-            </Space>
-          );
-        },
-      },
-      {
-        title: '標籤',
-        dataIndex: 'tags',
-        key: 'tags',
-        width: 200,
-        render: (tags) => {
-          if (!tags || tags.length === 0) return '-';
-          return (
-            <Space size={[0, 4]} wrap>
-              {tags.map((tag, index) => (
-                <Tag key={index} color="blue">{tag}</Tag>
               ))}
             </Space>
           );
@@ -601,7 +577,7 @@ const UnifiedTestCasePage = ({ defaultTab = 'vsa' }) => {
         dataSource={testCases}
         rowKey="id"
         loading={loading}
-        scroll={{ x: 2100, y: 'calc(100vh - 480px)' }}
+        scroll={{ x: 1750, y: 'calc(100vh - 480px)' }}
         pagination={{
           showSizeChanger: true,
           showQuickJumper: true,
