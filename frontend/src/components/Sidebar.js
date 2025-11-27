@@ -220,12 +220,6 @@ const Sidebar = ({ collapsed, onCollapse }) => {
           label: 'Protocol Assistant',
           onClick: () => navigate('/knowledge/protocol-log')
         });
-        items.push({
-          key: 'protocol-versions',
-          icon: <ToolOutlined />,
-          label: 'Protocol 版本管理',
-          onClick: () => navigate('/protocol/versions')
-        });
       }
 
       return items;
