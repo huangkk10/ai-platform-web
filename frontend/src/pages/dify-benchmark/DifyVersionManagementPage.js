@@ -440,6 +440,11 @@ const DifyVersionManagementPage = () => {
       dataIndex: 'version_name',
       key: 'version_name',
       width: 220,
+      sorter: (a, b) => {
+        // 使用 localeCompare 進行中文排序
+        return a.version_name.localeCompare(b.version_name, 'zh-TW');
+      },
+      defaultSortOrder: 'ascend',
       render: (text, record) => {
         const isDynamic = record.rag_settings?.stage1?.use_dynamic_threshold || 
                          record.rag_settings?.stage2?.use_dynamic_threshold;
