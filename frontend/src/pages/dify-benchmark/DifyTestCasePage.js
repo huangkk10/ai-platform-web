@@ -64,6 +64,10 @@ const DifyTestCasePage = () => {
   const [selectedTestCase, setSelectedTestCase] = useState(null);
   const [isEditMode, setIsEditMode] = useState(false);
   
+  // 關鍵字管理 state
+  const [keywordInput, setKeywordInput] = useState('');
+  const [keywords, setKeywords] = useState([]);
+  
   const [form] = Form.useForm();
 
   // 統計資料
@@ -138,6 +142,52 @@ const DifyTestCasePage = () => {
 
   useEffect(() => {
     loadTestCases();
+    
+    // 監聽來自 App.js 頂部按鈕的自定義事件
+    const handleCreateEvent = () => {
+      console.log('收到新增問題事件 - 打開新增 Modal');
+      showAddModal();
+    };
+    
+    const handleReloadEvent = () => {
+      console.log('收到重新整理事件');
+      loadTestCases();
+    };
+    
+    const handleExportEvent = async () => {
+      console.log('收到匯出事件');
+      try {
+        const blob = await difyBenchmarkApi.bulkExportDifyTestCases();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `dify_test_cases_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        message.success('匯出成功');
+      } catch (error) {
+        console.error('匯出失敗:', error);
+        message.error(`匯出失敗: ${error.response?.data?.detail || error.message}`);
+      }
+    };
+    
+    // 註冊事件監聽器
+    window.addEventListener('vsa-test-case-create', handleCreateEvent);
+    window.addEventListener('vsa-test-case-reload', handleReloadEvent);
+    window.addEventListener('vsa-test-case-export', handleExportEvent);
+    
+    console.log('✅ VSA 測試案例頁面事件監聽器已註冊');
+    
+    // 清理函數：移除事件監聽器
+    return () => {
+      window.removeEventListener('vsa-test-case-create', handleCreateEvent);
+      window.removeEventListener('vsa-test-case-reload', handleReloadEvent);
+      window.removeEventListener('vsa-test-case-export', handleExportEvent);
+      console.log('🧹 VSA 測試案例頁面事件監聽器已清理');
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 篩選和搜尋
@@ -171,6 +221,8 @@ const DifyTestCasePage = () => {
   const showAddModal = () => {
     setIsEditMode(false);
     setSelectedTestCase(null);
+    setKeywords([]);
+    setKeywordInput('');
     form.resetFields();
     setEditModalVisible(true);
   };
@@ -179,7 +231,14 @@ const DifyTestCasePage = () => {
   const showEditModal = (testCase) => {
     setIsEditMode(true);
     setSelectedTestCase(testCase);
-    form.setFieldsValue({
+    
+    // 載入關鍵字到 state
+    const loadedKeywords = testCase.answer_keywords || [];
+    setKeywords(Array.isArray(loadedKeywords) ? loadedKeywords : []);
+    setKeywordInput('');
+    
+    // 處理陣列欄位的格式轉換
+    const formData = {
       question: testCase.question,
       expected_answer: testCase.expected_answer,
       category: testCase.category,
@@ -187,7 +246,20 @@ const DifyTestCasePage = () => {
       tags: testCase.tags || [],
       notes: testCase.notes,
       is_active: testCase.is_active,
-    });
+      
+      // VSA 專用欄位
+      max_score: testCase.max_score || 100,
+      
+      // 進階欄位
+      test_class_name: testCase.test_class_name,
+      question_type: testCase.question_type,
+      source: testCase.source,
+      test_type: testCase.test_type || 'vsa',
+    };
+    
+    console.log('載入編輯資料:', formData);
+    
+    form.setFieldsValue(formData);
     setEditModalVisible(true);
   };
 
@@ -197,10 +269,82 @@ const DifyTestCasePage = () => {
     setDetailModalVisible(true);
   };
 
+  // ========== 關鍵字管理函數 ========== 
+  
+  // 添加關鍵字
+  const handleAddKeyword = () => {
+    const trimmedKeyword = keywordInput.trim();
+    if (!trimmedKeyword) {
+      message.warning('請輸入關鍵字');
+      return;
+    }
+    if (keywords.includes(trimmedKeyword)) {
+      message.warning('此關鍵字已存在');
+      return;
+    }
+    setKeywords([...keywords, trimmedKeyword]);
+    setKeywordInput('');
+    message.success(`已添加關鍵字: ${trimmedKeyword}`);
+  };
+
+  // 刪除關鍵字
+  const handleRemoveKeyword = (keywordToRemove) => {
+    setKeywords(keywords.filter(k => k !== keywordToRemove));
+    message.success('已刪除關鍵字');
+  };
+
+  // 清空所有關鍵字
+  const handleClearAllKeywords = () => {
+    Modal.confirm({
+      title: '確認清空',
+      content: '確定要清空所有關鍵字嗎？',
+      onOk: () => {
+        setKeywords([]);
+        message.success('已清空所有關鍵字');
+      },
+    });
+  };
+
   // 處理表單提交
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
+      
+      // 驗證關鍵字
+      if (keywords.length === 0) {
+        message.error('請至少添加一個關鍵字');
+        return;
+      }
+      
+      // ===== 資料格式轉換處理 =====
+      
+      // 1. 處理 category（從陣列轉為字串）
+      if (Array.isArray(values.category) && values.category.length > 0) {
+        values.category = values.category[0];
+      }
+      
+      // 2. 使用 keywords state（不再從 form 取值）
+      values.answer_keywords = keywords;
+      
+      // 3. 處理 tags（確保為陣列）
+      if (!values.tags || !Array.isArray(values.tags)) {
+        values.tags = [];
+      }
+      
+      // 4. 確保 max_score 為數字
+      if (values.max_score) {
+        values.max_score = Number(values.max_score);
+      }
+      
+      // 5. 固定 test_type 為 vsa
+      values.test_type = 'vsa';
+      
+      // 6. 初始化 VSA 專用欄位（如果為空）
+      if (!values.evaluation_criteria) {
+        values.evaluation_criteria = {};
+      }
+      
+      console.log('準備提交的資料:', values);
       
       setLoading(true);
       
@@ -215,6 +359,9 @@ const DifyTestCasePage = () => {
       }
       
       setEditModalVisible(false);
+      form.resetFields();
+      setKeywords([]); // 清空關鍵字
+      setKeywordInput('');
       loadTestCases();
     } catch (error) {
       console.error('保存失敗:', error);
@@ -627,10 +774,11 @@ const DifyTestCasePage = () => {
         open={editModalVisible}
         onOk={handleSubmit}
         onCancel={() => setEditModalVisible(false)}
-        width={800}
+        width={900}
         confirmLoading={loading}
         okText="儲存"
         cancelText="取消"
+        style={{ top: 20 }}
       >
         <Form
           form={form}
@@ -638,76 +786,181 @@ const DifyTestCasePage = () => {
           initialValues={{
             difficulty_level: 'medium',
             is_active: true,
+            max_score: 100,
+            test_type: 'vsa',
           }}
         >
+          {/* ========== 基本資訊區塊 ========== */}
+          <Divider orientation="left" style={{ marginTop: 0 }}>基本資訊</Divider>
+          
           <Form.Item
             name="question"
             label="測試問題"
             rules={[{ required: true, message: '請輸入測試問題' }]}
           >
             <TextArea
-              rows={3}
-              placeholder="請輸入要測試的問題內容..."
+              rows={4}
+              placeholder="輸入測試問題內容..."
               maxLength={1000}
               showCount
             />
           </Form.Item>
 
           <Form.Item
+            name="difficulty_level"
+            label="難度等級"
+            rules={[{ required: true, message: '請選擇難度等級' }]}
+          >
+            <Select placeholder="選擇難度">
+              <Option value="easy">簡單</Option>
+              <Option value="medium">中等</Option>
+              <Option value="hard">困難</Option>
+            </Select>
+          </Form.Item>
+
+          {/* ========== VSA 專用欄位 ========== */}
+          <Divider orientation="left">VSA 測試配置</Divider>
+          
+          <Form.Item
             name="expected_answer"
             label="期望答案"
+            tooltip="定義標準答案或答案範例，用於評估 AI 回應品質"
             rules={[{ required: true, message: '請輸入期望答案' }]}
           >
             <TextArea
-              rows={4}
-              placeholder="請輸入期望的答案內容..."
+              rows={6}
+              placeholder="輸入期望的答案內容..."
               maxLength={2000}
               showCount
             />
           </Form.Item>
 
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="category"
-                label="分類"
-                rules={[{ required: true, message: '請選擇或輸入分類' }]}
+          {/* ========== 關鍵字管理 - 新版互動式 UI ========== */}
+          <Form.Item
+            label={
+              <span>
+                <span style={{ color: 'red' }}>* </span>
+                答案關鍵字
+              </span>
+            }
+            tooltip="用於評分的關鍵字，輸入後點擊添加或按 Enter"
+          >
+            {/* 輸入區域 */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <Input
+                value={keywordInput}
+                onChange={(e) => setKeywordInput(e.target.value)}
+                onPressEnter={handleAddKeyword}
+                placeholder="輸入關鍵字後按 Enter 或點擊添加..."
+                style={{ flex: 1 }}
+              />
+              <Button 
+                type="primary" 
+                icon={<PlusOutlined />} 
+                onClick={handleAddKeyword}
               >
-                <Select
-                  placeholder="選擇或輸入分類"
-                  mode="tags"
-                  maxCount={1}
-                >
-                  {categories.map(cat => (
-                    <Option key={cat} value={cat}>{cat}</Option>
+                添加
+              </Button>
+            </div>
+            
+            {/* 關鍵字展示區域 */}
+            <div style={{ 
+              padding: '12px', 
+              background: '#fafafa', 
+              borderRadius: '6px',
+              border: '1px solid #d9d9d9',
+              minHeight: '80px'
+            }}>
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                marginBottom: keywords.length > 0 ? '12px' : '0'
+              }}>
+                <span style={{ color: '#666', fontSize: '13px' }}>
+                  已添加的關鍵字 ({keywords.length})：
+                </span>
+                {keywords.length > 0 && (
+                  <Button 
+                    type="link" 
+                    danger 
+                    size="small"
+                    onClick={handleClearAllKeywords}
+                    icon={<DeleteOutlined />}
+                  >
+                    清空全部
+                  </Button>
+                )}
+              </div>
+              
+              {keywords.length > 0 ? (
+                <Space size={[8, 8]} wrap>
+                  {keywords.map((keyword, index) => (
+                    <Tag 
+                      key={index} 
+                      closable 
+                      onClose={() => handleRemoveKeyword(keyword)}
+                      color="purple"
+                      style={{ 
+                        fontSize: '14px', 
+                        padding: '6px 10px',
+                        marginBottom: 0
+                      }}
+                    >
+                      {keyword}
+                    </Tag>
                   ))}
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="difficulty_level"
-                label="難度"
-                rules={[{ required: true, message: '請選擇難度' }]}
-              >
-                <Select placeholder="選擇難度">
-                  <Option value="easy">簡單</Option>
-                  <Option value="medium">中等</Option>
-                  <Option value="hard">困難</Option>
-                </Select>
-              </Form.Item>
-            </Col>
-          </Row>
+                </Space>
+              ) : (
+                <div style={{ 
+                  textAlign: 'center', 
+                  color: '#bfbfbf',
+                  padding: '20px 0',
+                  fontSize: '13px'
+                }}>
+                  尚未添加關鍵字
+                </div>
+              )}
+            </div>
+            
+            {/* 提示文字 */}
+            <div style={{ 
+              marginTop: '8px', 
+              color: '#8c8c8c', 
+              fontSize: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}>
+              💡 提示：輸入關鍵字後按 <Tag style={{ margin: '0 4px' }}>Enter</Tag> 也可快速添加
+            </div>
+          </Form.Item>
+
+          <Form.Item
+            name="max_score"
+            label="滿分"
+            tooltip="測試案例的最高分數"
+          >
+            <Input type="number" min={1} max={1000} style={{ width: '100%' }} />
+          </Form.Item>
+
+          {/* ========== 進階選項 ========== */}
+          <Divider orientation="left">進階選項</Divider>
 
           <Form.Item
             name="tags"
             label="標籤"
+            tooltip="多個標籤可用逗號分隔或按 Enter 新增"
           >
             <Select
               mode="tags"
-              placeholder="輸入標籤並按 Enter"
+              placeholder="輸入標籤（例如：Kingston, Linux, 葉卡）"
               tokenSeparators={[',']}
             />
+          </Form.Item>
+
+          <Form.Item label="來源" name="source">
+            <Input placeholder="例如：實際測試案例、文檔範例、客戶反饋" />
           </Form.Item>
 
           <Form.Item
@@ -715,8 +968,8 @@ const DifyTestCasePage = () => {
             label="備註"
           >
             <TextArea
-              rows={2}
-              placeholder="選填：測試案例的額外說明..."
+              rows={3}
+              placeholder="其他說明或注意事項..."
               maxLength={500}
               showCount
             />

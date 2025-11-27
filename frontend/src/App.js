@@ -434,12 +434,12 @@ function AppLayout() {
                 <UnifiedTestCasePage />
               </ProtectedRoute>
             } />
-            {/* VSA Test Cases - 統一路由 */}
-            <Route path="/benchmark/dify/test-cases" element={
+            {/* ❌ 舊路由已註解，改用下方的 DifyTestCasePage（支援完整 CRUD）*/}
+            {/* <Route path="/benchmark/dify/test-cases" element={
               <ProtectedRoute permission="isStaff" fallbackTitle="Benchmark 系統存取受限">
                 <UnifiedTestCasePage />
               </ProtectedRoute>
-            } />
+            } /> */}
             {/* ✅ Test Execution 路由已移除，統一使用 Batch Test */}
             {/* <Route path="/benchmark/test-execution" element={
               <ProtectedRoute permission="isStaff" fallbackTitle="Benchmark 系統存取受限">
