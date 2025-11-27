@@ -6,11 +6,16 @@ import { useState, useCallback } from 'react';
  * 
  * @param {Object} editorRef - Markdown 編輯器的 ref 對象
  * @param {Function} setFormData - 更新表單資料的函數
+ * @param {Array} externalImages - 外部傳入的圖片列表（來自 useContentEditor）
+ * @param {Function} setExternalImages - 外部圖片列表的更新函數（來自 useContentEditor）
  * @returns {Object} 圖片管理相關的狀態和方法
  */
-const useImageManager = (editorRef, setFormData) => {
+const useImageManager = (editorRef, setFormData, externalImages, setExternalImages) => {
   const [drawerVisible, setDrawerVisible] = useState(false);
-  const [images, setImages] = useState([]);
+  
+  // ✅ 使用外部傳入的 images 和 setImages，不再維護內部 state
+  const images = externalImages;
+  const setImages = setExternalImages;
 
   /**
    * 處理圖片列表變更
@@ -18,8 +23,8 @@ const useImageManager = (editorRef, setFormData) => {
    */
   const handleImagesChange = useCallback((newImages) => {
     setImages(newImages);
-    console.log('圖片列表已更新:', newImages);
-  }, []);
+    console.log('✅ 圖片列表已更新 (useImageManager):', newImages);
+  }, [setImages]);
 
   /**
    * 處理內容更新 (當圖片操作導致內容變化時)

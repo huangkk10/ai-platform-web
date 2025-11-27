@@ -305,6 +305,7 @@ const MarkdownEditorLayout = ({
     // saving, // 未使用，註釋掉避免警告
     formData,
     images,
+    setImages,  // ✅ 接收 setImages
     isEditMode,
     loadData,
     saveData,
@@ -314,13 +315,13 @@ const MarkdownEditorLayout = ({
     setSaving
   } = useContentEditor(contentType, contentId, navigate, customConfig);
 
-  // 使用圖片管理 Hook
+  // 使用圖片管理 Hook（傳入 images 和 setImages）
   const {
     drawerVisible,
     toggleDrawer,
     handleImagesChange: handleImageManagerChange,
     handleContentUpdate,
-  } = useImageManager(mdEditorRef, setFormData);
+  } = useImageManager(mdEditorRef, setFormData, images, setImages);  // ✅ 傳入 images 和 setImages
 
   // 組合圖片變更處理
   const handleImagesChange = (newImages) => {
@@ -604,36 +605,33 @@ const MarkdownEditorLayout = ({
 
         message.success(`✅ 圖片上傳成功！ID: ${imageData.id}`);
         
-        // 🆕 更新圖片列表（讓圖片管理面板能看到新圖片）
-        // 使用 handleImagesChange 而不是 handleContentUpdate，這樣不會覆蓋編輯器內容
-        if (handleImageManagerChange && contentId) {
-          // 重新載入圖片列表的簡單方法：調用 API 獲取圖片列表
+        // ✅ 更新圖片列表（方案 2：直接使用 setImages 更新）
+        if (setImages && contentId) {
+          // 方法 1：立即添加新圖片到列表（快速反應）
+          setImages(prev => [...prev, imageData]);
+          console.log('✅ 圖片已添加到列表 (立即更新)');
+          
+          // 方法 2：可選 - 500ms 後重新查詢完整列表（確保資料完整）
           setTimeout(async () => {
             try {
-              // 從 API 重新獲取圖片列表（與 useContentEditor 使用相同的端點）
               const response = await axios.get('/api/content-images/', {
                 params: {
-                  content_type: contentType,  // 如 'protocol-guide'
-                  content_id: contentId       // 內容 ID
+                  content_type: contentType,
+                  content_id: contentId
                 }
               });
               
-              console.log('📷 API 回應:', response.data);
-              
-              // 處理回應格式（可能是 {results: []} 或直接是陣列）
               const imageList = response.data.results || response.data;
               
               if (Array.isArray(imageList)) {
-                handleImageManagerChange(imageList);
-                console.log('✅ 圖片列表已更新，共', imageList.length, '張圖片');
-              } else {
-                console.warn('⚠️ 圖片列表格式不正確:', response.data);
+                setImages(imageList);
+                console.log('✅ 圖片列表已完整更新，共', imageList.length, '張圖片');
               }
             } catch (error) {
-              console.log('⚠️ 無法刷新圖片列表:', error.message);
-              // 靜默失敗，不影響用戶體驗
+              console.warn('⚠️ 無法刷新完整圖片列表:', error.message);
+              // 靜默失敗，不影響用戶體驗（已有立即添加的圖片）
             }
-          }, 500); // 延遲 500ms 確保後端已處理完成
+          }, 500);
         }
 
       } else {
