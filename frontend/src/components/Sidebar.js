@@ -97,6 +97,9 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       case 'protocol-log':
         navigate('/knowledge/protocol-log');
         break;
+      case 'protocol-versions':
+        navigate('/protocol/versions');
+        break;
       case 'ocr-storage-benchmark':
         navigate('/knowledge/ocr-storage-benchmark');
         break;
@@ -216,6 +219,12 @@ const Sidebar = ({ collapsed, onCollapse }) => {
           icon: <ToolOutlined />,
           label: 'Protocol Assistant',
           onClick: () => navigate('/knowledge/protocol-log')
+        });
+        items.push({
+          key: 'protocol-versions',
+          icon: <ToolOutlined />,
+          label: 'Protocol 版本管理',
+          onClick: () => navigate('/protocol/versions')
         });
       }
 

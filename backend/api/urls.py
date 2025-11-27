@@ -76,6 +76,10 @@ urlpatterns = [
     path('dify/chat-with-file/', views.dify_chat_with_file, name='dify_chat_with_file'),
     path('dify/config/', views.dify_config_info, name='dify_config_info'),
     
+    # Dify Baseline 版本管理 API
+    path('dify/versions/<int:version_id>/set_baseline/', views.set_baseline_version, name='set_baseline_version'),
+    path('dify/versions/baseline/', views.get_baseline_version_info, name='get_baseline_version_info'),
+    
     # Dify OCR Chat API - 專門用於 AI OCR 系統
     path('dify/ocr/chat/', views.dify_ocr_chat, name='dify_ocr_chat'),
     

@@ -56,14 +56,15 @@ class ProtocolChatHandler:
             data = request.data
             message = data.get('message', '').strip()
             conversation_id = data.get('conversation_id', '')
-            version_code = data.get('version_code', None)  # 🆕 接收版本代碼
+            version_code = data.get('version_code', None)  # 🆕 接收版本代碼（可選）
             
             # 驗證輸入
             validation_response = self._validate_input(message)
             if validation_response:
                 return validation_response
             
-            # 🆕 讀取版本配置（如果提供了 version_code）
+            # 🆕 讀取版本配置（優先使用 Baseline 版本）
+            # 如果提供了 version_code，使用指定版本；否則使用 Baseline
             version_config = self._load_version_config(version_code)
             
             # 獲取 Dify 配置
@@ -104,28 +105,55 @@ class ProtocolChatHandler:
         
         return None
     
-    def _load_version_config(self, version_code):
+    def _load_version_config(self, version_code=None):
         """
-        🆕 從資料庫載入版本配置
+        🆕 從資料庫載入版本配置（優先使用 Baseline 版本）
+        
+        優先順序：
+        1. 如果提供了 version_code，使用指定版本
+        2. 否則，使用 Baseline 版本（is_baseline=True）
+        3. 如果沒有 Baseline，使用預設搜尋模式
         
         Args:
-            version_code: 版本代碼（例如 'dify-two-tier-v1.2'）
+            version_code: 版本代碼（可選，例如 'dify-two-tier-v1.2'）
             
         Returns:
             版本配置字典或 None
         """
-        if not version_code:
-            logger.debug("未提供 version_code，使用預設搜尋模式")
-            return None
-        
         try:
             from api.models import DifyConfigVersion
             
-            version = DifyConfigVersion.objects.get(
-                version_code=version_code,
-                is_active=True
-            )
+            # 步驟 1：如果提供了 version_code，使用指定版本
+            if version_code:
+                try:
+                    version = DifyConfigVersion.objects.get(
+                        version_code=version_code,
+                        is_active=True
+                    )
+                    logger.info(f"📌 使用指定版本: {version.version_name}")
+                except DifyConfigVersion.DoesNotExist:
+                    logger.warning(f"⚠️ 找不到指定版本: {version_code}，嘗試使用 Baseline")
+                    version_code = None
             
+            # 步驟 2：如果沒有指定 version_code，使用 Baseline 版本
+            if not version_code:
+                try:
+                    version = DifyConfigVersion.objects.filter(
+                        is_baseline=True,
+                        is_active=True
+                    ).first()
+                    
+                    if version:
+                        logger.info(f"✅ 使用 Baseline 版本: {version.version_name} ({version.version_code})")
+                    else:
+                        logger.warning("⚠️ 找不到 Baseline 版本，使用預設搜尋模式")
+                        return None
+                        
+                except Exception as e:
+                    logger.error(f"❌ 查詢 Baseline 版本失敗: {e}")
+                    return None
+            
+            # 步驟 3：構建版本配置
             version_config = {
                 'version_code': version.version_code,
                 'version_name': version.version_name,
@@ -133,15 +161,22 @@ class ProtocolChatHandler:
                 'retrieval_mode': version.rag_settings.get('retrieval_mode', 'two_stage')
             }
             
+            # 記錄詳細配置資訊
+            stage1_config = version.rag_settings.get('stage1', {})
+            use_hybrid = stage1_config.get('use_hybrid_search', False)
+            title_bonus = stage1_config.get('title_match_bonus', 0)
+            
             logger.info(
-                f"✅ 載入版本配置成功: {version.version_name} "
-                f"(retrieval_mode={version_config['retrieval_mode']})"
+                f"✅ 版本配置已載入: {version.version_name} | "
+                f"retrieval_mode={version_config['retrieval_mode']} | "
+                f"hybrid_search={use_hybrid} | "
+                f"title_boost={title_bonus}%"
             )
             
             return version_config
             
         except Exception as e:
-            logger.warning(f"⚠️ 無法載入版本配置 ({version_code}): {e}")
+            logger.error(f"❌ 載入版本配置時發生錯誤: {e}")
             return None
     
     def _perform_backend_search(self, query, version_config):

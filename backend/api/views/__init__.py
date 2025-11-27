@@ -70,6 +70,10 @@ from .dify_knowledge_views import (
     dify_rvt_guide_search,           # 舊版 API（向後兼容）
     dify_protocol_guide_search,      # 舊版 API（向後兼容）
     
+    # Baseline 版本管理 API
+    set_baseline_version,            # 設定 Baseline 版本
+    get_baseline_version_info,       # 獲取 Baseline 版本資訊
+    
     # 依賴注入工具（高級用法）
     get_search_functions_registry,
     create_dify_search_handler,

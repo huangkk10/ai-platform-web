@@ -663,6 +663,199 @@ def dify_protocol_guide_search(request):
         return Response({'error': str(e)}, status=500)
 
 
+# ============= Baseline 版本管理 API =============
+
+@api_view(['POST'])
+@csrf_exempt
+def set_baseline_version(request, version_id):
+    """
+    設定指定版本為 Baseline 版本
+    
+    URL: POST /api/dify/versions/<version_id>/set_baseline/
+    
+    功能：
+    1. 驗證版本存在且 is_active=True
+    2. 將所有版本的 is_baseline 設為 False
+    3. 將指定版本的 is_baseline 設為 True
+    4. 清除 Baseline 版本快取
+    
+    Args:
+        request: Django request 物件
+        version_id (int): 版本 ID
+    
+    Returns:
+        Response:
+            成功 (200):
+                {
+                    "success": true,
+                    "message": "已成功設定 Baseline 版本",
+                    "baseline_version": {
+                        "id": 3,
+                        "version_code": "dify-two-tier-v1.2.2",
+                        "version_name": "Dify 二階搜尋 v1.2.2 (Hybrid Search + Title Boost)",
+                        "description": "...",
+                        "is_baseline": true,
+                        "is_active": true
+                    }
+                }
+            失敗 (400/404/500):
+                {
+                    "success": false,
+                    "error": "錯誤訊息"
+                }
+    
+    Example:
+        curl -X POST "http://localhost/api/dify/versions/3/set_baseline/" \
+             -H "Content-Type: application/json"
+    
+    Created: 2025-11-27
+    Author: AI Platform Team
+    """
+    from api.models import DifyConfigVersion
+    from django.db import transaction
+    
+    try:
+        # 步驟 1: 驗證版本存在且啟用
+        try:
+            target_version = DifyConfigVersion.objects.get(id=version_id)
+        except DifyConfigVersion.DoesNotExist:
+            logger.warning(f"⚠️ 版本 ID {version_id} 不存在")
+            return Response({
+                'success': False,
+                'error': f'版本 ID {version_id} 不存在'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        # 檢查版本是否啟用
+        if not target_version.is_active:
+            logger.warning(f"⚠️ 版本 {target_version.version_code} 未啟用，無法設為 Baseline")
+            return Response({
+                'success': False,
+                'error': f'版本「{target_version.version_name}」未啟用，請先啟用該版本'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # 步驟 2 & 3: 使用事務更新資料庫（原子操作）
+        with transaction.atomic():
+            # 將所有版本的 is_baseline 設為 False
+            updated_count = DifyConfigVersion.objects.filter(
+                is_baseline=True
+            ).update(is_baseline=False)
+            
+            logger.info(f"🔄 已將 {updated_count} 個舊 Baseline 版本取消")
+            
+            # 將目標版本設為 Baseline
+            target_version.is_baseline = True
+            target_version.save()
+            
+            logger.info(f"✅ 已設定新 Baseline: {target_version.version_code}")
+        
+        # 步驟 4: 清除快取
+        clear_baseline_version_cache()
+        logger.info("🗑️ Baseline 快取已清除")
+        
+        # 返回成功回應
+        return Response({
+            'success': True,
+            'message': '已成功設定 Baseline 版本',
+            'baseline_version': {
+                'id': target_version.id,
+                'version_code': target_version.version_code,
+                'version_name': target_version.version_name,
+                'description': target_version.description,
+                'retrieval_mode': target_version.retrieval_mode,
+                'is_baseline': target_version.is_baseline,
+                'is_active': target_version.is_active,
+                'created_at': target_version.created_at.isoformat() if target_version.created_at else None,
+                'updated_at': target_version.updated_at.isoformat() if target_version.updated_at else None
+            }
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"❌ 設定 Baseline 版本失敗: {str(e)}", exc_info=True)
+        return Response({
+            'success': False,
+            'error': f'設定 Baseline 版本時發生錯誤: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+def get_baseline_version_info(request):
+    """
+    獲取當前 Baseline 版本詳細資訊
+    
+    URL: GET /api/dify/versions/baseline/
+    
+    Returns:
+        Response:
+            成功 (200):
+                {
+                    "success": true,
+                    "baseline_version": {
+                        "id": 3,
+                        "version_code": "dify-two-tier-v1.2.2",
+                        "version_name": "...",
+                        "is_baseline": true,
+                        "is_active": true,
+                        "rag_settings": {...}
+                    },
+                    "cached": false
+                }
+            失敗 (404):
+                {
+                    "success": false,
+                    "error": "找不到 Baseline 版本"
+                }
+    
+    Example:
+        curl -X GET "http://localhost/api/dify/versions/baseline/"
+    
+    Created: 2025-11-27
+    Author: AI Platform Team
+    """
+    from api.models import DifyConfigVersion
+    
+    try:
+        # 查詢 Baseline 版本
+        baseline_version = DifyConfigVersion.objects.filter(
+            is_baseline=True,
+            is_active=True
+        ).first()
+        
+        if not baseline_version:
+            logger.warning("⚠️ 找不到 Baseline 版本")
+            return Response({
+                'success': False,
+                'error': '找不到 Baseline 版本'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        # 檢查是否使用快取
+        using_cache = bool(_baseline_version_cache.get('version_code'))
+        
+        return Response({
+            'success': True,
+            'baseline_version': {
+                'id': baseline_version.id,
+                'version_code': baseline_version.version_code,
+                'version_name': baseline_version.version_name,
+                'description': baseline_version.description,
+                'retrieval_mode': baseline_version.retrieval_mode,
+                'is_baseline': baseline_version.is_baseline,
+                'is_active': baseline_version.is_active,
+                'rag_settings': baseline_version.rag_settings,
+                'model_config': baseline_version.model_config,
+                'created_at': baseline_version.created_at.isoformat() if baseline_version.created_at else None,
+                'updated_at': baseline_version.updated_at.isoformat() if baseline_version.updated_at else None
+            },
+            'cached': using_cache
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"❌ 獲取 Baseline 版本失敗: {str(e)}", exc_info=True)
+        return Response({
+            'success': False,
+            'error': f'獲取 Baseline 版本時發生錯誤: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 # ============= 向後兼容導出 =============
 
 __all__ = [
@@ -678,6 +871,10 @@ __all__ = [
     'dify_ocr_storage_benchmark_search',
     'dify_rvt_guide_search',
     'dify_protocol_guide_search',
+    
+    # Baseline 版本管理 API
+    'set_baseline_version',
+    'get_baseline_version_info',
     
     # 依賴注入工具
     'get_search_functions_registry',

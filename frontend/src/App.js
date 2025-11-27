@@ -43,6 +43,9 @@ import DifyVersionManagementPage from './pages/dify-benchmark/DifyVersionManagem
 import DifyTestCasePage from './pages/dify-benchmark/DifyTestCasePage';
 import DifyTestHistoryPage from './pages/benchmark/DifyTestHistoryPage';
 
+// Protocol 版本管理頁面
+import ProtocolVersionManagementPage from './pages/protocol/ProtocolVersionManagementPage';
+
 const { Content } = Layout;
 
 // 配置 axios
@@ -124,6 +127,9 @@ function AppLayout() {
       case '/benchmark/dify/versions':
       case '/dify-benchmark/versions':
         return 'VSA 版本管理';
+      case '/protocol/versions':
+      case '/knowledge/protocol-versions':
+        return 'Protocol 版本管理';
       case '/benchmark/dify/test-cases':
       case '/dify-benchmark/test-cases':
         return 'VSA 測試案例';
@@ -465,6 +471,18 @@ function AppLayout() {
             <Route path="/benchmark/dify/versions" element={
               <ProtectedRoute permission="isStaff" fallbackTitle="Dify Benchmark 系統存取受限">
                 <DifyVersionManagementPage />
+              </ProtectedRoute>
+            } />
+
+            {/* Protocol 版本管理（需要 Protocol Assistant 權限） */}
+            <Route path="/protocol/versions" element={
+              <ProtectedRoute permission="kbProtocolAssistant" fallbackTitle="Protocol 版本管理存取受限">
+                <ProtocolVersionManagementPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/knowledge/protocol-versions" element={
+              <ProtectedRoute permission="kbProtocolAssistant" fallbackTitle="Protocol 版本管理存取受限">
+                <ProtocolVersionManagementPage />
               </ProtectedRoute>
             } />
 

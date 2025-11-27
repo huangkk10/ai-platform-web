@@ -302,6 +302,282 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
         
         return full_documents
     
+    # ============================================================
+    # 🆕 混合搜尋方法（v1.2.2）
+    # ============================================================
+    
+    def _keyword_search(self, query: str, limit: int = 10, source_table: str = None) -> list:
+        """
+        LIKE 模糊匹配關鍵字搜尋（修復版）
+        
+        策略：使用 ILIKE 模糊匹配（不區分大小寫）
+        - 支援中英文混合查詢
+        - 支援多關鍵字 AND 邏輯
+        - 不依賴 PostgreSQL 全文搜尋（避免中文分詞問題）
+        
+        Args:
+            query: 搜尋查詢
+            limit: 返回結果數量
+            source_table: 來源表名（預設使用 self.source_table）
+            
+        Returns:
+            List[Dict]: 關鍵字搜尋結果
+                - source_id: 來源記錄 ID
+                - title: 標題（heading_text 或 document_title）
+                - content: 內容
+                - rank: 搜尋分數（固定為 1.0）
+                - document_id: 文檔 ID
+        """
+        if source_table is None:
+            source_table = self.source_table
+        
+        try:
+            # 將查詢拆分為關鍵字（空格分隔）
+            keywords = query.split()
+            
+            if not keywords:
+                logger.warning(f"⚠️ 關鍵字搜尋: 查詢為空")
+                return []
+            
+            # 構建 ILIKE 條件（所有關鍵字都要匹配）
+            like_conditions = []
+            params = [source_table]
+            
+            for keyword in keywords:
+                like_conditions.append("""
+                    (heading_text ILIKE %s OR 
+                     document_title ILIKE %s OR 
+                     content ILIKE %s)
+                """)
+                like_pattern = f'%{keyword}%'
+                params.extend([like_pattern, like_pattern, like_pattern])
+            
+            where_clause = " AND ".join(like_conditions)
+            params.append(limit)
+            
+            # 執行查詢
+            with connection.cursor() as cursor:
+                cursor.execute(f"""
+                    SELECT 
+                        source_id,
+                        COALESCE(heading_text, document_title) as title,
+                        content,
+                        document_id,
+                        document_title,
+                        1.0 as rank
+                    FROM document_section_embeddings
+                    WHERE source_table = %s
+                        AND {where_clause}
+                    LIMIT %s
+                """, params)
+                
+                rows = cursor.fetchall()
+                
+                results = []
+                for row in rows:
+                    results.append({
+                        'source_id': row[0],
+                        'title': row[1],
+                        'content': row[2],
+                        'document_id': row[3],
+                        'document_title': row[4],
+                        'rank': float(row[5])
+                    })
+                
+                logger.info(f"🔍 LIKE 模糊匹配: '{query}' → {len(results)} 個結果")
+                return results
+                
+        except Exception as e:
+            logger.error(f"❌ 關鍵字搜尋失敗: {e}", exc_info=True)
+            return []
+    
+    def _get_doc_identifier(self, result: dict) -> str:
+        """
+        獲取文檔唯一識別符（用於 RRF 融合去重）
+        
+        Args:
+            result: 搜尋結果字典
+            
+        Returns:
+            str: 文檔唯一識別符（格式：source_table:source_id）
+        """
+        source_table = result.get('metadata', {}).get('source_table', self.source_table)
+        source_id = result.get('source_id') or result.get('metadata', {}).get('source_id', 'unknown')
+        return f"{source_table}:{source_id}"
+    
+    def _merge_with_rrf(self, vector_results: list, keyword_results: list, k: int = 60) -> list:
+        """
+        使用 RRF (Reciprocal Rank Fusion) 融合向量搜尋和關鍵字搜尋結果
+        
+        RRF 算法：
+            RRF_score = 1 / (k + rank)
+            
+        其中：
+        - k: 常數（通常為 60，業界標準）
+        - rank: 結果在各自列表中的排名（從 1 開始）
+        
+        優勢：
+        - 不需要分數正規化（不同搜尋方法的分數範圍不同）
+        - 對排名穩定（不受極端分數影響）
+        - 簡單高效
+        
+        Args:
+            vector_results: 向量搜尋結果列表
+            keyword_results: 關鍵字搜尋結果列表
+            k: RRF 常數（預設 60）
+            
+        Returns:
+            List[Dict]: 融合後的結果列表（按 rrf_score 降序排列）
+        """
+        rrf_scores = {}
+        document_data = {}
+        
+        # 處理向量搜尋結果
+        for rank, result in enumerate(vector_results, start=1):
+            doc_id = self._get_doc_identifier(result)
+            rrf_score = 1.0 / (k + rank)
+            
+            if doc_id not in rrf_scores:
+                rrf_scores[doc_id] = {
+                    'vector_score': 0.0,
+                    'keyword_score': 0.0,
+                    'vector_rank': None,
+                    'keyword_rank': None
+                }
+                document_data[doc_id] = result
+            
+            rrf_scores[doc_id]['vector_score'] = rrf_score
+            rrf_scores[doc_id]['vector_rank'] = rank
+        
+        # 處理關鍵字搜尋結果
+        for rank, result in enumerate(keyword_results, start=1):
+            # 從關鍵字結果構造 doc_id
+            doc_id = f"{self.source_table}:{result['source_id']}"
+            rrf_score = 1.0 / (k + rank)
+            
+            if doc_id not in rrf_scores:
+                rrf_scores[doc_id] = {
+                    'vector_score': 0.0,
+                    'keyword_score': 0.0,
+                    'vector_rank': None,
+                    'keyword_rank': None
+                }
+                # 從關鍵字結果創建標準格式
+                document_data[doc_id] = {
+                    'content': result['content'],
+                    'title': result['title'],
+                    'source_id': result['source_id'],
+                    'score': result['rank'],  # 使用 PostgreSQL ts_rank
+                    'metadata': {
+                        'source_table': self.source_table,
+                        'source_id': result['source_id'],
+                        'document_id': result.get('document_id'),
+                        'document_title': result.get('document_title')
+                    }
+                }
+            
+            rrf_scores[doc_id]['keyword_score'] = rrf_score
+            rrf_scores[doc_id]['keyword_rank'] = rank
+        
+        # 計算最終 RRF 分數並排序
+        merged_results = []
+        for doc_id, scores in rrf_scores.items():
+            final_rrf_score = scores['vector_score'] + scores['keyword_score']
+            
+            result = document_data[doc_id].copy()
+            result['rrf_score'] = final_rrf_score
+            result['vector_rank'] = scores['vector_rank']
+            result['keyword_rank'] = scores['keyword_rank']
+            result['original_vector_score'] = scores['vector_score']
+            result['original_keyword_score'] = scores['keyword_score']
+            
+            # 使用 rrf_score 作為最終分數
+            result['score'] = final_rrf_score
+            result['final_score'] = final_rrf_score
+            
+            merged_results.append(result)
+        
+        # 按 RRF 分數降序排列
+        merged_results.sort(key=lambda x: x['rrf_score'], reverse=True)
+        
+        logger.info(
+            f"🔄 RRF 融合完成: "
+            f"向量 {len(vector_results)} + 關鍵字 {len(keyword_results)} = "
+            f"合併 {len(merged_results)} (k={k})"
+        )
+        
+        return merged_results
+    
+    def _normalize_rrf_scores(self, results: list) -> list:
+        """
+        將 RRF 分數正規化到 0.5-1.0 範圍（方案 B1）
+        
+        RRF 分數範圍：[0, ~0.033]（k=60 時，最高分約為 1/60 = 0.0167）
+        正規化方法：使用 Min-Max Normalization + 0.5 基準線
+        
+        Formula:
+            normalized_score_01 = (score - min_score) / (max_score - min_score)
+            scaled_score = 0.5 + (normalized_score_01 × 0.5)
+        
+        範圍解釋：
+        - 0.5 (50%): 最低分，表示「勉強及格」
+        - 1.0 (100%): 最高分，表示「完美匹配」
+        - 語義：所有通過檢索的文檔至少 50% 相關
+        
+        Args:
+            results: RRF 融合後的結果列表（包含 rrf_score）
+            
+        Returns:
+            List[Dict]: 正規化後的結果列表（score 欄位更新為 0.5-1.0 範圍）
+        """
+        if not results:
+            return results
+        
+        # 提取所有 RRF 分數
+        rrf_scores = [r.get('rrf_score', 0) for r in results]
+        
+        if not rrf_scores:
+            logger.warning("⚠️ 沒有 RRF 分數可正規化")
+            return results
+        
+        max_score = max(rrf_scores)
+        min_score = min(rrf_scores)
+        
+        # 防止除以零
+        if max_score == min_score:
+            # 方案 B1: 所有分數相同時設為 0.75（中間值）
+            logger.warning(f"⚠️ 所有 RRF 分數相同 ({max_score:.4f})，設定為 0.75（方案 B1）")
+            for result in results:
+                result['score'] = 0.75
+                result['final_score'] = 0.75
+                result['original_rrf_score'] = result.get('rrf_score', 0)
+            return results
+        
+        # Min-Max 正規化到 0.5-1.0 範圍（方案 B1）
+        for result in results:
+            rrf_score = result.get('rrf_score', 0)
+            
+            # 步驟 1: 先正規化到 0-1
+            normalized_score_01 = (rrf_score - min_score) / (max_score - min_score)
+            
+            # 步驟 2: 縮放到 0.5-1.0 範圍
+            scaled_score = 0.5 + (normalized_score_01 * 0.5)
+            
+            # 保留原始 RRF 分數
+            result['original_rrf_score'] = rrf_score
+            
+            # 更新為縮放後分數
+            result['score'] = scaled_score
+            result['final_score'] = scaled_score
+        
+        logger.info(
+            f"✅ RRF 分數正規化（方案 B1）: "
+            f"原始範圍 [{min_score:.4f}, {max_score:.4f}] → "
+            f"正規化範圍 [0.5, 1.0]"
+        )
+        
+        return results
+    
     def search_knowledge(self, query: str, limit: int = 5, use_vector: bool = True, 
                         threshold: float = 0.7, search_mode: str = 'auto', stage: int = 1,
                         version_config: dict = None) -> list:
@@ -337,10 +613,109 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
         Returns:
             搜尋結果列表（section 或 document 級）
         """
+        # 步驟 0: 檢查是否啟用混合搜尋（v1.2.2）
+        enable_hybrid_search = False
+        rrf_k = 60  # RRF 預設常數
+        
+        if version_config:
+            rag_settings = version_config.get('rag_settings', {})
+            stage_config = rag_settings.get(f'stage{stage}', {})
+            enable_hybrid_search = stage_config.get('use_hybrid_search', False)
+            rrf_k = stage_config.get('rrf_k', 60)
+            
+            if enable_hybrid_search:
+                logger.info(f"🔄 混合搜尋已啟用 (Stage {stage}): RRF k={rrf_k}")
+        
         # 步驟 1: 分類查詢 + 清理關鍵字
         query_type, cleaned_query = self._classify_and_clean_query(query)
         
-        # 🆕 步驟 1.5: 解析 Title Boost 配置
+        # 🆕 步驟 1.5: 檢查混合搜尋模式（v1.2.2）
+        if enable_hybrid_search and use_vector:
+            logger.info(f"🚀 執行混合搜尋: '{cleaned_query}'")
+            
+            try:
+                # 步驟 A: 向量搜尋
+                logger.info("📍 步驟 1/3: 執行向量搜尋")
+                vector_results = super().search_knowledge(
+                    query=cleaned_query,
+                    limit=limit * 2,  # 多取一些結果用於融合
+                    use_vector=True,
+                    threshold=threshold * 0.8,  # 降低閾值以獲取更多候選
+                    search_mode=search_mode,
+                    stage=stage
+                )
+                logger.info(f"✅ 向量搜尋完成: {len(vector_results)} 個結果")
+                
+                # 步驟 B: 關鍵字搜尋
+                logger.info("📍 步驟 2/3: 執行關鍵字搜尋")
+                keyword_results = self._keyword_search(
+                    query=cleaned_query,
+                    limit=limit * 2
+                )
+                logger.info(f"✅ 關鍵字搜尋完成: {len(keyword_results)} 個結果")
+                
+                # 步驟 C: RRF 融合
+                logger.info(f"📍 步驟 3/6: RRF 融合 (k={rrf_k})")
+                results = self._merge_with_rrf(
+                    vector_results=vector_results,
+                    keyword_results=keyword_results,
+                    k=rrf_k
+                )
+                logger.info(f"✅ RRF 融合完成: {len(results)} 個結果")
+                
+                # 🆕 步驟 D: 正規化 RRF 分數到 0-1 範圍
+                logger.info("📍 步驟 4/6: 正規化 RRF 分數")
+                results = self._normalize_rrf_scores(results)
+                highest_score = results[0]['score'] if results else 0
+                logger.info(f"✅ 分數正規化完成: 最高分={highest_score:.4f}")
+                
+                # 🆕 步驟 E: 應用 Title Boost（如果啟用）
+                if version_config:
+                    try:
+                        from library.common.knowledge_base.title_boost import TitleBoostConfig, TitleBoostProcessor
+                        
+                        rag_settings = version_config.get('rag_settings', {})
+                        title_boost_config = TitleBoostConfig.from_rag_settings(rag_settings, stage=stage)
+                        enable_title_boost = title_boost_config.get('enabled', False)
+                        
+                        if enable_title_boost and results:
+                            logger.info(f"📍 步驟 5/6: 應用 Title Boost (bonus={title_boost_config.get('title_match_bonus', 0.15):.0%})")
+                            
+                            processor = TitleBoostProcessor(
+                                title_match_bonus=title_boost_config.get('title_match_bonus', 0.15),
+                                min_keyword_length=title_boost_config.get('min_keyword_length', 2)
+                            )
+                            
+                            # ✅ 修正：正確的參數名稱是 vector_results，不是 results
+                            results = processor.apply_title_boost(
+                                query=cleaned_query,
+                                vector_results=results,
+                                title_field='title'
+                            )
+                            
+                            boosted_count = sum(1 for r in results if r.get('title_boost_applied', False))
+                            logger.info(f"✅ Title Boost 完成: {boosted_count}/{len(results)} 個結果獲得加分")
+                    except Exception as e:
+                        logger.warning(f"⚠️ Title Boost 應用失敗，繼續使用正規化後的分數: {e}")
+                
+                # 步驟 F: 按最終分數重新排序並限制返回數量
+                logger.info("📍 步驟 6/6: 最終排序")
+                results = sorted(results, key=lambda x: x.get('score', 0), reverse=True)
+                results = results[:limit]
+                logger.info(f"✅ 混合搜尋完成: 返回 {len(results)} 個結果")
+                
+                # 如果是文檔級查詢，擴展為完整文檔
+                if query_type == 'document' and results:
+                    logger.info(f"🔄 將 {len(results)} 個混合搜尋結果擴展為完整文檔")
+                    results = self._expand_to_full_document(results)
+                
+                return results
+                
+            except Exception as e:
+                logger.error(f"❌ 混合搜尋失敗，降級為標準搜尋: {e}", exc_info=True)
+                # 降級為標準搜尋（繼續下方邏輯）
+        
+        # 🆕 步驟 1.6: 解析 Title Boost 配置
         enable_title_boost = False
         title_boost_config = None
         
