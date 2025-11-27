@@ -568,9 +568,16 @@ const MarkdownEditorLayout = ({
         formData.append('content_type', contentType);
         formData.append('content_id', contentId);  // ✅ 修正：使用 content_id 而非 object_id
         
-        // 生成檔名（保留原始副檔名）
+        // ✅ 生成檔名：YYYY-MM-DD_HHMMSS 格式（與截圖工具一致）
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
         const fileExtension = file.name.split('.').pop() || 'png';
-        const filename = `paste_${timestamp}.${fileExtension}`;
+        const filename = `${year}-${month}-${day}_${hours}${minutes}${seconds}.${fileExtension}`;
         formData.append('filename', filename);
 
         // 上傳圖片
@@ -582,10 +589,10 @@ const MarkdownEditorLayout = ({
 
         const imageData = response.data;
         
-        // 生成圖片引用語法（使用與上傳按鈕完全相同的格式）
-        // 格式：🖼️ [IMG:ID] filename (📌 標記, 標題: filename)
+        // ✅ 生成圖片引用語法（簡潔格式，移除「剪貼簿貼上」標記）
+        // 格式：🖼️ [IMG:ID] filename (標題: filename)
         // 這個格式會被 ContentImageManager 組件解析並轉換成圖片
-        const imageReference = `🖼️ [IMG:${imageData.id}] ${filename} (📌 剪貼簿貼上, 標題: ${filename})`;
+        const imageReference = `🖼️ [IMG:${imageData.id}] ${filename} (標題: ${filename})`;
         
         // 替換佔位符為實際圖片引用（使用編輯器的 API）
         if (mdEditorRef.current) {
