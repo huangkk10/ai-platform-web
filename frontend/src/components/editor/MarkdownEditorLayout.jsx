@@ -10,12 +10,13 @@
  * />
  */
 
-import React, { useEffect, useRef, useCallback } from 'react';
-import { Input, Spin, Card, Drawer, Tooltip, Button, Modal } from 'antd';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
+import { Input, Spin, Card, Drawer, Tooltip, Button, Modal, message } from 'antd';
 import { PictureOutlined, CloseOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import MdEditor from 'react-markdown-editor-lite';
 import MarkdownIt from 'markdown-it';
 import 'react-markdown-editor-lite/lib/index.css';
+import axios from 'axios';
 
 // 組件導入
 import ContentImageManager from '../ContentImageManager';
@@ -341,17 +342,25 @@ const MarkdownEditorLayout = ({
     // toggleFullScreen // 未使用，註釋掉避免警告
   } = useFullScreenDetection();
 
+  // 🆕 圖片上傳狀態管理
+  const [pasteUploading, setPasteUploading] = useState(false);
+
   // 調試：確認 toggleDrawer 函數
   useEffect(() => {
     console.log('🔧 MarkdownEditorLayout 初始化');
     console.log('📷 toggleDrawer 函數:', typeof toggleDrawer);
-    console.log('📂 drawerVisible:', drawerVisible);
+    console.log('� toggleDrawer 值:', toggleDrawer);
+    console.log('�📂 drawerVisible:', drawerVisible);
     console.log('📝 contentType:', contentType);
     console.log('🎨 isEditMode:', isEditMode);
 
     // 設置全局圖片管理處理函數
-    globalImageManagerHandler = toggleDrawer;
-    console.log('✅ 已設置 globalImageManagerHandler');
+    if (typeof toggleDrawer === 'function') {
+      globalImageManagerHandler = toggleDrawer;
+      console.log('✅ 已設置 globalImageManagerHandler');
+    } else {
+      console.error('❌ toggleDrawer 不是函數！', typeof toggleDrawer);
+    }
 
     // 清理函數
     return () => {
@@ -496,6 +505,196 @@ const MarkdownEditorLayout = ({
     handleSaveRef.current = handleSave;
   }, [handleSave]);
 
+  // 🆕 處理剪貼簿貼上圖片
+  const handlePasteImage = useCallback(async (file) => {
+    try {
+      // 驗證檔案類型
+      const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        message.error('僅支援 PNG、JPEG、GIF、WebP 格式的圖片');
+        return false;
+      }
+
+      // 驗證檔案大小（預設 5MB）
+      const maxSizeMB = config.imageConfig?.maxSizeMB || 5;
+      const maxSizeBytes = maxSizeMB * 1024 * 1024;
+      if (file.size > maxSizeBytes) {
+        message.error(`圖片大小不能超過 ${maxSizeMB}MB`);
+        return false;
+      }
+
+      // 在游標位置插入「上傳中」的佔位符
+      const timestamp = Date.now();
+      const placeholderId = `uploading_${timestamp}`;
+      const placeholder = `![圖片上傳中...](${placeholderId})`;
+      
+      // 使用編輯器 API 在游標位置插入佔位符
+      if (mdEditorRef.current) {
+        const editor = mdEditorRef.current;
+        const currentContent = editor.getMdValue();
+        console.log('📝 當前內容長度:', currentContent.length);
+        console.log('📝 當前內容:', currentContent);
+        
+        const selection = editor.getSelection();
+        console.log('🎯 游標位置:', selection);
+        
+        // 在選取位置插入佔位符
+        const beforeText = currentContent.substring(0, selection.start);
+        const afterText = currentContent.substring(selection.end);
+        const newContent = beforeText + placeholder + afterText;
+        
+        console.log('📝 新內容長度:', newContent.length);
+        console.log('📝 新內容:', newContent);
+        
+        editor.setText(newContent);
+        
+        // 設置游標到佔位符之後
+        const newCursorPos = selection.start + placeholder.length;
+        editor.setSelection({
+          start: newCursorPos,
+          end: newCursorPos
+        });
+        console.log('✅ 已插入佔位符，新游標位置:', newCursorPos);
+      }
+
+      setPasteUploading(true);
+
+      // 如果是編輯模式，直接上傳到伺服器
+      if (isEditMode && contentId) {
+        // 準備 FormData
+        const formData = new FormData();
+        formData.append('image', file);
+        formData.append('content_type', contentType);
+        formData.append('content_id', contentId);  // ✅ 修正：使用 content_id 而非 object_id
+        
+        // 生成檔名（保留原始副檔名）
+        const fileExtension = file.name.split('.').pop() || 'png';
+        const filename = `paste_${timestamp}.${fileExtension}`;
+        formData.append('filename', filename);
+
+        // 上傳圖片
+        const response = await axios.post('/api/content-images/', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+
+        const imageData = response.data;
+        
+        // 生成圖片引用語法（使用與上傳按鈕完全相同的格式）
+        // 格式：🖼️ [IMG:ID] filename (📌 標記, 標題: filename)
+        // 這個格式會被 ContentImageManager 組件解析並轉換成圖片
+        const imageReference = `🖼️ [IMG:${imageData.id}] ${filename} (📌 剪貼簿貼上, 標題: ${filename})`;
+        
+        // 替換佔位符為實際圖片引用（使用編輯器的 API）
+        if (mdEditorRef.current) {
+          const currentContent = mdEditorRef.current.getMdValue();
+          console.log('🔄 準備替換佔位符');
+          console.log('📝 當前內容:', currentContent);
+          console.log('🔍 佔位符:', `![圖片上傳中...](${placeholderId})`);
+          console.log('✨ 圖片引用:', imageReference);
+          
+          const updatedContent = currentContent.replace(`![圖片上傳中...](${placeholderId})`, imageReference);
+          console.log('📝 替換後內容:', updatedContent);
+          console.log('🔢 替換前後長度:', currentContent.length, '→', updatedContent.length);
+          
+          mdEditorRef.current.setText(updatedContent);
+          console.log('✅ 已替換佔位符為圖片引用');
+        }
+
+        message.success(`✅ 圖片上傳成功！ID: ${imageData.id}`);
+        
+        // 🆕 更新圖片列表（讓圖片管理面板能看到新圖片）
+        // 使用 handleImagesChange 而不是 handleContentUpdate，這樣不會覆蓋編輯器內容
+        if (handleImageManagerChange && contentId) {
+          // 重新載入圖片列表的簡單方法：調用 API 獲取圖片列表
+          setTimeout(async () => {
+            try {
+              // 從 API 重新獲取圖片列表（與 useContentEditor 使用相同的端點）
+              const response = await axios.get('/api/content-images/', {
+                params: {
+                  content_type: contentType,  // 如 'protocol-guide'
+                  content_id: contentId       // 內容 ID
+                }
+              });
+              
+              console.log('📷 API 回應:', response.data);
+              
+              // 處理回應格式（可能是 {results: []} 或直接是陣列）
+              const imageList = response.data.results || response.data;
+              
+              if (Array.isArray(imageList)) {
+                handleImageManagerChange(imageList);
+                console.log('✅ 圖片列表已更新，共', imageList.length, '張圖片');
+              } else {
+                console.warn('⚠️ 圖片列表格式不正確:', response.data);
+              }
+            } catch (error) {
+              console.log('⚠️ 無法刷新圖片列表:', error.message);
+              // 靜默失敗，不影響用戶體驗
+            }
+          }, 500); // 延遲 500ms 確保後端已處理完成
+        }
+
+      } else {
+        // 新建模式：使用暫存模式
+        // 將圖片轉換為 Base64（供暫存使用）
+        const reader = new FileReader();
+        
+        await new Promise((resolve, reject) => {
+          reader.onload = () => {
+            const base64Data = reader.result;
+            const stagingId = `staging_${timestamp}`;
+            
+            // 生成暫存圖片引用
+            const imageReference = `\n![暫存圖片](${stagingId})\n`;
+            
+            // 替換佔位符
+            setFormData(prev => ({
+              ...prev,
+              content: prev.content.replace(`![圖片上傳中...](${placeholderId})`, imageReference)
+            }));
+
+            message.info('📦 圖片已暫存，儲存文檔時將自動上傳');
+            
+            // 通知圖片管理器（如果需要）
+            if (handleImageManagerChange) {
+              // 這裡可以添加暫存圖片到圖片管理器
+            }
+
+            resolve();
+          };
+          
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
+
+      return true;
+
+    } catch (error) {
+      console.error('❌ 圖片上傳失敗:', error);
+      message.error(`圖片上傳失敗: ${error.response?.data?.error || error.message}`);
+      
+      // 移除佔位符
+      setFormData(prev => ({
+        ...prev,
+        content: prev.content.replace(/!\[圖片上傳中\.\.\.\]\(uploading_\d+\)/g, '')
+      }));
+
+      return false;
+    } finally {
+      setPasteUploading(false);
+    }
+  }, [
+    config.imageConfig,
+    isEditMode,
+    contentId,
+    contentType,
+    setFormData,
+    handleImageManagerChange
+  ]);
+
   // 監聽來自 TopHeader 的保存事件
   useEffect(() => {
     const eventName = config.saveEventName || 'topheader-save';
@@ -565,6 +764,68 @@ const MarkdownEditorLayout = ({
       window.removeEventListener('check-markdown-format', handleCheckFormatEvent);
     };
   }, [formData.content, contentType]);
+
+  // 🆕 監聽剪貼簿貼上事件（Ctrl+V 貼上圖片）
+  useEffect(() => {
+    const handlePaste = async (event) => {
+      // 確保事件來自編輯器區域
+      const target = event.target;
+      const isInEditor = target.closest('.rc-md-editor') || 
+                         target.classList.contains('sec-md') ||
+                         target.classList.contains('custom-md-editor');
+      
+      if (!isInEditor) {
+        console.log('🔇 paste 事件不在編輯器內，忽略');
+        return;
+      }
+
+      console.log('📋 偵測到 paste 事件');
+
+      const items = event.clipboardData?.items;
+      if (!items || items.length === 0) {
+        console.log('🔇 剪貼簿中沒有內容');
+        return;
+      }
+
+      // 檢查是否有圖片
+      let hasImage = false;
+      const imageFiles = [];
+
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        console.log(`📦 剪貼簿項目 ${i}:`, item.type);
+
+        if (item.type.indexOf('image') !== -1) {
+          hasImage = true;
+          const file = item.getAsFile();
+          if (file) {
+            imageFiles.push(file);
+            console.log(`🖼️ 找到圖片: ${file.name}, 類型: ${file.type}, 大小: ${(file.size / 1024).toFixed(2)}KB`);
+          }
+        }
+      }
+
+      // 如果有圖片，處理上傳
+      if (hasImage && imageFiles.length > 0) {
+        event.preventDefault(); // 阻止預設的貼上行為（避免貼上 base64）
+        console.log(`✅ 準備上傳 ${imageFiles.length} 張圖片`);
+
+        // 依序上傳每張圖片
+        for (const file of imageFiles) {
+          await handlePasteImage(file);
+        }
+      }
+    };
+
+    // 監聽全局 paste 事件
+    document.addEventListener('paste', handlePaste);
+    console.log('✅ 剪貼簿貼上監聽器已註冊');
+
+    return () => {
+      document.removeEventListener('paste', handlePaste);
+      console.log('🧹 剪貼簿貼上監聽器已移除');
+    };
+  }, [handlePasteImage]);
 
   // 處理預覽面板中的圖片加載（客戶端）
   useEffect(() => {
@@ -795,6 +1056,38 @@ const MarkdownEditorLayout = ({
               color: '#389e0d'
             }}>
               {config.hints.markdown}
+            </div>
+
+            {/* 🆕 圖片上傳中提示 */}
+            {pasteUploading && (
+              <div style={{
+                marginTop: '8px',
+                padding: '8px 12px',
+                backgroundColor: '#e6f7ff',
+                border: '1px solid #91d5ff',
+                borderRadius: '6px',
+                fontSize: '14px',
+                color: '#0050b3',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                <Spin size="small" />
+                <span>📤 圖片上傳中，請稍候...</span>
+              </div>
+            )}
+
+            {/* 🆕 使用提示：剪貼簿貼上功能 */}
+            <div style={{
+              marginTop: '8px',
+              padding: '8px 12px',
+              backgroundColor: '#fff7e6',
+              border: '1px solid #ffd591',
+              borderRadius: '6px',
+              fontSize: '13px',
+              color: '#ad6800'
+            }}>
+              💡 <strong>新功能：</strong>支援截圖後直接貼上（Ctrl+V）上傳圖片
             </div>
           </Card>
         </div>
