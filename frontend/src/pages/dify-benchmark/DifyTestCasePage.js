@@ -11,6 +11,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom'; // 🆕 添加 useNavigate
 import {
   Card,
   Table,
@@ -49,6 +50,7 @@ const { Option } = Select;
 const { TextArea } = Input;
 
 const DifyTestCasePage = () => {
+  const navigate = useNavigate(); // 🆕 初始化 navigate
   const [loading, setLoading] = useState(false);
   const [testCases, setTestCases] = useState([]);
   const [filteredTestCases, setFilteredTestCases] = useState([]);
@@ -145,8 +147,8 @@ const DifyTestCasePage = () => {
     
     // 監聽來自 App.js 頂部按鈕的自定義事件
     const handleCreateEvent = () => {
-      console.log('收到新增問題事件 - 打開新增 Modal');
-      showAddModal();
+      console.log('收到新增問題事件 - 導航到新增頁面');
+      navigate('/benchmark/dify/test-cases/create');
     };
     
     const handleReloadEvent = () => {
@@ -217,14 +219,11 @@ const DifyTestCasePage = () => {
     setFilteredTestCases(filtered);
   }, [testCases, searchText, selectedDifficulty, selectedCategory]);
 
-  // 顯示新增 Modal
+  // 顯示新增 Modal（已改為獨立頁面，保留此函數以防其他地方使用）
+  // eslint-disable-next-line no-unused-vars
   const showAddModal = () => {
-    setIsEditMode(false);
-    setSelectedTestCase(null);
-    setKeywords([]);
-    setKeywordInput('');
-    form.resetFields();
-    setEditModalVisible(true);
+    // 已改為導航到獨立頁面
+    navigate('/benchmark/dify/test-cases/create');
   };
 
   // 顯示編輯 Modal
@@ -703,7 +702,7 @@ const DifyTestCasePage = () => {
             <Button
               type="primary"
               icon={<PlusOutlined />}
-              onClick={showAddModal}
+              onClick={() => navigate('/benchmark/dify/test-cases/create')}
             >
               新增測試案例
             </Button>

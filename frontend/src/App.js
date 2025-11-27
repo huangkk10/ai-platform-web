@@ -41,6 +41,7 @@ import UnifiedTestCasePage from './pages/benchmark/UnifiedTestCasePage';
 // Dify Benchmark 頁面
 import DifyVersionManagementPage from './pages/dify-benchmark/DifyVersionManagementPage';
 import DifyTestCasePage from './pages/dify-benchmark/DifyTestCasePage';
+import DifyTestCaseCreatePage from './pages/dify-benchmark/DifyTestCaseCreatePage'; // 🆕 新增測試案例頁面
 import DifyTestHistoryPage from './pages/benchmark/DifyTestHistoryPage';
 
 // Protocol 版本管理頁面
@@ -133,6 +134,9 @@ function AppLayout() {
       case '/benchmark/dify/test-cases':
       case '/dify-benchmark/test-cases':
         return 'VSA 測試案例';
+      case '/benchmark/dify/test-cases/create':
+      case '/dify-benchmark/test-cases/create':
+        return '新增 VSA 測試案例'; // 🆕 新增頁面標題
       case '/benchmark/dify/batch-test':
       case '/dify-benchmark/batch-test':
         return 'VSA 批量測試';
@@ -219,6 +223,34 @@ function AppLayout() {
             size="large"
           >
             匯出
+          </Button>
+        </div>
+      );
+    }
+
+    // 🆕 VSA 測試案例新增/編輯頁面的按鈕
+    if (pathname === '/benchmark/dify/test-cases/create' || 
+        pathname === '/dify-benchmark/test-cases/create' ||
+        pathname.startsWith('/benchmark/dify/test-cases/edit/') ||
+        pathname.startsWith('/dify-benchmark/test-cases/edit/')) {
+      return (
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <Button
+            icon={<ArrowLeftOutlined />}
+            onClick={() => navigate('/benchmark/dify/test-cases')}
+            size="large"
+          >
+            返回列表
+          </Button>
+          <Button
+            type="primary"
+            size="large"
+            icon={<SaveOutlined />}
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent('test-case-form-save'));
+            }}
+          >
+            儲存測試案例
           </Button>
         </div>
       );
@@ -494,6 +526,18 @@ function AppLayout() {
             <Route path="/benchmark/dify/test-cases" element={
               <ProtectedRoute permission="isStaff" fallbackTitle="Dify Benchmark 系統存取受限">
                 <DifyTestCasePage />
+              </ProtectedRoute>
+            } />
+
+            {/* 🆕 VSA 測試案例新增頁面 */}
+            <Route path="/dify-benchmark/test-cases/create" element={
+              <ProtectedRoute permission="isStaff" fallbackTitle="Dify Benchmark 系統存取受限">
+                <DifyTestCaseCreatePage />
+              </ProtectedRoute>
+            } />
+            <Route path="/benchmark/dify/test-cases/create" element={
+              <ProtectedRoute permission="isStaff" fallbackTitle="Dify Benchmark 系統存取受限">
+                <DifyTestCaseCreatePage />
               </ProtectedRoute>
             } />
 
