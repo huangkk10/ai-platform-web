@@ -439,7 +439,7 @@ const DifyVersionManagementPage = () => {
       title: '版本名稱',
       dataIndex: 'version_name',
       key: 'version_name',
-      width: 220,
+      width: 350,
       sorter: (a, b) => {
         // 使用 localeCompare 進行中文排序
         return a.version_name.localeCompare(b.version_name, 'zh-TW');
