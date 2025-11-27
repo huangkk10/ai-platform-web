@@ -56,8 +56,6 @@ const DifyTestCasePage = () => {
   const [filteredTestCases, setFilteredTestCases] = useState([]);
   const [searchText, setSearchText] = useState('');
   const [selectedDifficulty, setSelectedDifficulty] = useState('all');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [categories, setCategories] = useState([]);
   
   // Modal 狀態
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -101,10 +99,6 @@ const DifyTestCasePage = () => {
       setTestCases(cases);
       setFilteredTestCases(cases);
 
-      // 提取所有類別
-      const uniqueCategories = [...new Set(cases.map(c => c.category).filter(Boolean))];
-      setCategories(uniqueCategories);
-
       // 計算統計
       const stats = {
         total: cases.length,
@@ -113,7 +107,6 @@ const DifyTestCasePage = () => {
         easy: cases.filter(c => c.difficulty_level === 'easy').length,
         medium: cases.filter(c => c.difficulty_level === 'medium').length,
         hard: cases.filter(c => c.difficulty_level === 'hard').length,
-        categories: uniqueCategories.length,
       };
       setStatistics(stats);
 
@@ -201,23 +194,17 @@ const DifyTestCasePage = () => {
       filtered = filtered.filter(tc => tc.difficulty_level === selectedDifficulty);
     }
 
-    // 類別篩選
-    if (selectedCategory !== 'all') {
-      filtered = filtered.filter(tc => tc.category === selectedCategory);
-    }
-
     // 搜尋
     if (searchText) {
       const searchLower = searchText.toLowerCase();
       filtered = filtered.filter(tc =>
         tc.question?.toLowerCase().includes(searchLower) ||
-        tc.category?.toLowerCase().includes(searchLower) ||
         tc.expected_answer?.toLowerCase().includes(searchLower)
       );
     }
 
     setFilteredTestCases(filtered);
-  }, [testCases, searchText, selectedDifficulty, selectedCategory]);
+  }, [testCases, searchText, selectedDifficulty]);
 
   // 顯示新增 Modal（已改為獨立頁面，保留此函數以防其他地方使用）
   // eslint-disable-next-line no-unused-vars
@@ -490,15 +477,6 @@ const DifyTestCasePage = () => {
       ),
     },
     {
-      title: '分類',
-      dataIndex: 'category',
-      key: 'category',
-      width: 120,
-      filters: categories.map(cat => ({ text: cat, value: cat })),
-      onFilter: (value, record) => record.category === value,
-      render: (text) => <Tag color="blue">{text || '未分類'}</Tag>,
-    },
-    {
       title: '難度',
       dataIndex: 'difficulty_level',
       key: 'difficulty_level',
@@ -511,24 +489,6 @@ const DifyTestCasePage = () => {
       ],
       onFilter: (value, record) => record.difficulty_level === value,
       render: (difficulty) => getDifficultyTag(difficulty),
-    },
-    {
-      title: '標籤',
-      dataIndex: 'tags',
-      key: 'tags',
-      width: 150,
-      render: (tags) => (
-        <>
-          {Array.isArray(tags) && tags.slice(0, 2).map((tag, index) => (
-            <Tag key={index} color="cyan" style={{ marginBottom: '4px' }}>
-              {tag}
-            </Tag>
-          ))}
-          {Array.isArray(tags) && tags.length > 2 && (
-            <Tag color="default">+{tags.length - 2}</Tag>
-          )}
-        </>
-      ),
     },
     {
       title: '狀態',
@@ -728,16 +688,6 @@ const DifyTestCasePage = () => {
             <Option value="easy">簡單</Option>
             <Option value="medium">中等</Option>
             <Option value="hard">困難</Option>
-          </Select>
-          <Select
-            value={selectedCategory}
-            onChange={setSelectedCategory}
-            style={{ width: 150 }}
-          >
-            <Option value="all">所有分類</Option>
-            {categories.map(cat => (
-              <Option key={cat} value={cat}>{cat}</Option>
-            ))}
           </Select>
           <Button
             icon={<ReloadOutlined />}
@@ -1050,25 +1000,11 @@ const DifyTestCasePage = () => {
             </div>
 
             <Row gutter={16} style={{ marginBottom: '16px' }}>
-              <Col span={8}>
-                <strong>分類：</strong>
-                <Tag color="blue" style={{ marginLeft: '8px' }}>
-                  {selectedTestCase.category || '未分類'}
-                </Tag>
-              </Col>
-              <Col span={8}>
+              <Col span={12}>
                 <strong>難度：</strong>
                 <span style={{ marginLeft: '8px' }}>
                   {getDifficultyTag(selectedTestCase.difficulty_level)}
                 </span>
-              </Col>
-              <Col span={8}>
-                <strong>標籤：</strong>
-                {Array.isArray(selectedTestCase.tags) && selectedTestCase.tags.map((tag, index) => (
-                  <Tag key={index} color="cyan" style={{ marginLeft: '8px' }}>
-                    {tag}
-                  </Tag>
-                ))}
               </Col>
             </Row>
 
