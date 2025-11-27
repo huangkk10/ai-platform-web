@@ -241,6 +241,72 @@ const ContentImageManager = ({
   };
   
   // 刪除圖片 (支援雙模式)
+  /**
+   * 生成一個用於移除指定圖片引用的內容更新函數
+   * 支援多種圖片引用格式：
+   * 1. 🖼️ [IMG:ID] filename (標題: title)
+   * 2. ![IMG:ID](url)
+   * 3. ![title](url/content-images/ID/)
+   * 
+   * @param {number|string} imageId - 要移除的圖片 ID
+   * @returns {Function} 接收舊內容並返回新內容的更新函數
+   */
+  const createRemoveImageReferenceFunction = (imageId) => {
+    return (currentContent) => {
+      console.log('🗑️ [移除圖片引用] 開始處理, ID:', imageId);
+      console.log('📝 原始內容長度:', currentContent?.length || 0);
+      
+      if (!currentContent || typeof currentContent !== 'string') {
+        console.error('❌ 無效的內容:', typeof currentContent);
+        return currentContent;
+      }
+      
+      // 定義多種可能的圖片引用格式的正則表達式
+      const patterns = [
+        // 格式 1: 🖼️ [IMG:32] filename.png (標題: My Image)
+        // 匹配整行，包含前後的換行符
+        new RegExp(`\\n?🖼️\\s*\\[IMG:${imageId}\\][^\\n]*\\n?`, 'g'),
+        
+        // 格式 2: ![IMG:32](http://...)
+        new RegExp(`!\\[IMG:${imageId}\\]\\([^)]*\\)`, 'g'),
+        
+        // 格式 3: ![title](http://.../api/content-images/32/)
+        new RegExp(`!\\[[^\\]]*\\]\\([^)]*\\/content-images\\/${imageId}\\/[^)]*\\)`, 'g'),
+        
+        // 格式 4: <img src="...content-images/32/..." ...>
+        new RegExp(`<img[^>]*\\/content-images\\/${imageId}\\/[^>]*>`, 'g'),
+        
+        // 格式 5: 行首的圖片引用（避免留下空行）
+        new RegExp(`^🖼️\\s*\\[IMG:${imageId}\\][^\\n]*\\n?`, 'gm'),
+      ];
+      
+      // 逐一應用每個正則表達式移除匹配的引用
+      let updatedContent = currentContent;
+      let totalRemoved = 0;
+      
+      patterns.forEach((pattern, index) => {
+        const matches = updatedContent.match(pattern);
+        if (matches) {
+          console.log(`✅ 格式 ${index + 1} 找到 ${matches.length} 個匹配:`, matches);
+          updatedContent = updatedContent.replace(pattern, '');
+          totalRemoved += matches.length;
+        }
+      });
+      
+      // 清理可能產生的多餘空行（連續 3 個以上換行符縮減為 2 個）
+      updatedContent = updatedContent.replace(/\n{3,}/g, '\n\n');
+      
+      // 清理開頭和結尾的多餘空行
+      updatedContent = updatedContent.trim();
+      
+      console.log(`🧹 共移除 ${totalRemoved} 個圖片引用`);
+      console.log('📝 更新後內容長度:', updatedContent.length);
+      console.log('📊 內容變化:', currentContent.length - updatedContent.length, '字元');
+      
+      return updatedContent;
+    };
+  };
+
   const handleDelete = async (imageId) => {
     if (readonly) {
       message.warning('唯讀模式下無法刪除圖片');
@@ -263,10 +329,21 @@ const ContentImageManager = ({
       setImageList(updatedList);
       onImagesChange && onImagesChange(updatedList);
       
-      // 圖片刪除時仍使用舊方法更新整個文檔 (因為需要移除現有引用)
-      await updateContentWithImages();
+      // ✅ 新增：自動移除內容中的圖片引用字串
+      if (onContentUpdate && typeof onContentUpdate === 'function') {
+        console.log('🔄 開始自動移除圖片引用字串...');
+        
+        // 創建移除圖片引用的更新函數
+        const removeReferenceFunction = createRemoveImageReferenceFunction(imageId);
+        
+        // 使用函數式更新（讓 handleContentUpdate 獲取當前內容並應用更新）
+        onContentUpdate(removeReferenceFunction);
+        console.log('✅ 圖片引用字串已自動移除');
+      } else {
+        console.warn('⚠️ onContentUpdate 未定義，無法自動移除圖片引用');
+      }
       
-      message.success('圖片刪除成功，已更新內容引用');
+      message.success('圖片刪除成功，已自動移除內容中的引用');
     } catch (error) {
       console.error('Delete error:', error);
       const errorMessage = error.response?.data?.detail || 

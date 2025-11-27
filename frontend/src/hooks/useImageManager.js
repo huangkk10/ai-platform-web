@@ -28,21 +28,63 @@ const useImageManager = (editorRef, setFormData, externalImages, setExternalImag
 
   /**
    * 處理內容更新 (當圖片操作導致內容變化時)
-   * @param {string} updatedContent - 更新後的內容
+   * ✅ 支援兩種模式：
+   * 1. 直接傳入新內容字串：handleContentUpdate("new content")
+   * 2. 傳入函數（函數式更新）：handleContentUpdate((oldContent) => newContent)
+   * 
+   * @param {string|Function} updatedContentOrFunction - 更新後的內容或更新函數
    */
-  const handleContentUpdate = useCallback((updatedContent) => {
+  const handleContentUpdate = useCallback((updatedContentOrFunction) => {
+    console.log('🔄 [handleContentUpdate] 收到更新請求');
+    console.log('📦 參數類型:', typeof updatedContentOrFunction);
+    
+    // 如果傳入的是函數，先執行函數獲取新內容
+    let updatedContent;
+    
+    if (typeof updatedContentOrFunction === 'function') {
+      console.log('✅ 使用函數式更新模式');
+      
+      // 獲取當前內容
+      let currentContent = '';
+      if (editorRef?.current) {
+        currentContent = editorRef.current.getMdValue();
+        console.log('📝 從編輯器獲取當前內容，長度:', currentContent.length);
+      }
+      
+      // 執行更新函數
+      updatedContent = updatedContentOrFunction(currentContent);
+      console.log('📝 函數執行後的新內容長度:', updatedContent?.length);
+      
+    } else if (typeof updatedContentOrFunction === 'string') {
+      console.log('✅ 使用直接字串模式');
+      updatedContent = updatedContentOrFunction;
+    } else {
+      console.error('❌ 無效的參數類型:', typeof updatedContentOrFunction);
+      return;
+    }
+    
+    // 驗證內容
+    if (typeof updatedContent !== 'string') {
+      console.error('❌ 更新後的內容不是字串:', typeof updatedContent);
+      return;
+    }
+    
     // 更新表單資料
     setFormData(prev => ({
       ...prev,
       content: updatedContent
     }));
+    console.log('✅ 表單資料已更新');
     
     // 更新編輯器內容
     if (editorRef?.current) {
       editorRef.current.setText(updatedContent);
+      console.log('✅ 編輯器內容已更新');
+    } else {
+      console.warn('⚠️ 編輯器 ref 未定義');
     }
     
-    console.log('內容已自動更新圖片引用');
+    console.log('✅ 內容已自動更新');
   }, [editorRef, setFormData]);
 
   /**
