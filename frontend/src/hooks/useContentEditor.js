@@ -11,6 +11,7 @@ import { useState, useCallback } from 'react';
 import { message } from 'antd';
 import axios from 'axios';
 import { getEditorConfig } from '../config/editorConfig';
+import { extractImageIds } from '../utils/imageReferenceConverter';
 
 /**
  * 通用內容編輯器 Hook
@@ -247,6 +248,73 @@ const useContentEditor = (contentType, contentId, navigate, customConfig = {}) =
     };
   }, [formData]);
 
+  /**
+   * 🆕 刪除單張圖片
+   * @param {number} imageId - 圖片 ID
+   * @returns {Promise<boolean>} 刪除成功返回 true
+   */
+  const deleteImage = useCallback(async (imageId) => {
+    try {
+      await axios.delete(`${config.imageEndpoint}${imageId}/`);
+      console.log(`✅ 圖片 ${imageId} 刪除成功`);
+      return true;
+    } catch (error) {
+      console.error(`❌ 圖片 ${imageId} 刪除失敗:`, error);
+      return false;
+    }
+  }, [config.imageEndpoint]);
+
+  /**
+   * 🆕 批量刪除圖片
+   * @param {Array<number>} imageIds - 圖片 ID 陣列
+   * @returns {Promise<{success: number, failed: number}>} 刪除結果統計
+   */
+  const deleteMultipleImages = useCallback(async (imageIds) => {
+    if (!imageIds || imageIds.length === 0) {
+      return { success: 0, failed: 0 };
+    }
+
+    console.log(`🗑️ 準備刪除 ${imageIds.length} 張圖片:`, imageIds);
+    
+    const results = await Promise.allSettled(
+      imageIds.map(id => deleteImage(id))
+    );
+    
+    const success = results.filter(r => r.status === 'fulfilled' && r.value).length;
+    const failed = results.length - success;
+    
+    console.log(`📊 刪除結果: 成功 ${success}, 失敗 ${failed}`);
+    
+    // 更新本地圖片列表
+    if (success > 0) {
+      setImages(prev => prev.filter(img => !imageIds.includes(img.id)));
+    }
+    
+    return { success, failed };
+  }, [deleteImage]);
+
+  /**
+   * 🆕 找出未在內容中使用的圖片
+   * @param {string} content - 內容文字
+   * @returns {Array<Object>} 未使用的圖片陣列
+   */
+  const findUnusedImages = useCallback((content) => {
+    // 提取內容中引用的圖片 ID
+    const usedImageIds = extractImageIds(content || formData.content);
+    
+    // 找出圖片管理器中未被引用的圖片
+    const unusedImages = images.filter(img => !usedImageIds.includes(img.id));
+    
+    console.log('🔍 圖片使用分析:', {
+      totalImages: images.length,
+      usedIds: usedImageIds,
+      unusedCount: unusedImages.length,
+      unusedImages: unusedImages.map(img => ({ id: img.id, filename: img.filename }))
+    });
+    
+    return unusedImages;
+  }, [formData.content, images]);
+
   return {
     // 配置
     config,
@@ -271,6 +339,11 @@ const useContentEditor = (contentType, contentId, navigate, customConfig = {}) =
     // 工具方法
     hasChanges,
     validateFormData,
+    
+    // 🆕 圖片管理方法
+    deleteImage,
+    deleteMultipleImages,
+    findUnusedImages,
     
     // 狀態設定器 (如果需要直接控制)
     setFormData,

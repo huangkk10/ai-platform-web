@@ -312,7 +312,10 @@ const MarkdownEditorLayout = ({
     handleTitleChange,
     handleContentChange,
     setFormData,
-    setSaving
+    setSaving,
+    // 🆕 圖片管理方法
+    deleteMultipleImages,
+    findUnusedImages
   } = useContentEditor(contentType, contentId, navigate, customConfig);
 
   // 使用圖片管理 Hook（傳入 images 和 setImages）
@@ -380,6 +383,117 @@ const MarkdownEditorLayout = ({
   // 處理儲存 - 支援暫存圖片上傳
   const handleSave = useCallback(async () => {
     try {
+      // 🆕 步驟 0：檢查未使用的圖片（僅在編輯模式且有圖片時檢查）
+      console.log('📝 handleSave 開始執行');
+      console.log('📊 isEditMode:', isEditMode);
+      console.log('📊 images.length:', images.length);
+      console.log('📊 images:', images);
+      console.log('📊 formData.content 長度:', formData.content?.length);
+      
+      if (isEditMode && images.length > 0) {
+        console.log('🔍 開始檢查未使用的圖片...');
+        const unusedImages = findUnusedImages(formData.content);
+        console.log('📊 findUnusedImages 結果:', unusedImages);
+        if (unusedImages.length > 0) {
+          console.log('🔍 發現未使用的圖片:', unusedImages);
+          
+          // 顯示確認對話框
+          const shouldDeleteImages = await new Promise((resolve) => {
+            Modal.confirm({
+              title: '🖼️ 發現未使用的圖片',
+              width: 550,
+              icon: <ExclamationCircleOutlined style={{ color: '#fa8c16' }} />,
+              content: (
+                <div>
+                  <p style={{ marginBottom: '12px' }}>
+                    以下 <strong>{unusedImages.length}</strong> 張圖片已從內容中移除，是否同時刪除這些圖片？
+                  </p>
+                  <div style={{ 
+                    maxHeight: '200px', 
+                    overflowY: 'auto',
+                    border: '1px solid #d9d9d9',
+                    borderRadius: '6px',
+                    padding: '8px'
+                  }}>
+                    {unusedImages.map((img, index) => (
+                      <div 
+                        key={img.id} 
+                        style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '12px',
+                          padding: '8px',
+                          borderBottom: index < unusedImages.length - 1 ? '1px solid #f0f0f0' : 'none'
+                        }}
+                      >
+                        {img.data_url ? (
+                          <img 
+                            src={img.data_url} 
+                            alt={img.filename}
+                            style={{ 
+                              width: '50px', 
+                              height: '50px', 
+                              objectFit: 'cover',
+                              borderRadius: '4px',
+                              border: '1px solid #d9d9d9'
+                            }}
+                          />
+                        ) : (
+                          <div style={{ 
+                            width: '50px', 
+                            height: '50px', 
+                            backgroundColor: '#f5f5f5',
+                            borderRadius: '4px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '20px'
+                          }}>
+                            🖼️
+                          </div>
+                        )}
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 500, fontSize: '14px' }}>
+                            {img.filename || `圖片 ${img.id}`}
+                          </div>
+                          <div style={{ color: '#888', fontSize: '12px' }}>
+                            ID: {img.id}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <p style={{ marginTop: '12px', color: '#666', fontSize: '13px' }}>
+                    💡 提示：刪除的圖片將無法恢復
+                  </p>
+                </div>
+              ),
+              okText: '🗑️ 刪除圖片並儲存',
+              okButtonProps: { danger: true },
+              cancelText: '📦 保留圖片並儲存',
+              centered: true,
+              onOk: () => resolve(true),
+              onCancel: () => resolve(false)
+            });
+          });
+          
+          // 如果用戶選擇刪除圖片
+          if (shouldDeleteImages) {
+            const imageIds = unusedImages.map(img => img.id);
+            const result = await deleteMultipleImages(imageIds);
+            
+            if (result.success > 0) {
+              message.success(`已刪除 ${result.success} 張未使用的圖片`);
+            }
+            if (result.failed > 0) {
+              message.warning(`${result.failed} 張圖片刪除失敗`);
+            }
+          } else {
+            console.log('ℹ️ 用戶選擇保留未使用的圖片');
+          }
+        }
+      }
+
       // 🆕 步驟 1：驗證 Markdown 格式（僅針對 Protocol Guide）
       if (contentType === 'protocol-guide') {
         console.log('🔍 開始驗證 Protocol Guide Markdown 格式...');
@@ -497,7 +611,7 @@ const MarkdownEditorLayout = ({
       setSaving(false);
       if (onSavingChange) onSavingChange(false);
     }
-  }, [formData, onBeforeSave, onSavingChange, saveData, config.listRoute, isEditMode, getStagedImagesRef, contentType, config.imageEndpoint, setSaving, onAfterSave, navigate]);
+  }, [formData, onBeforeSave, onSavingChange, saveData, config.listRoute, isEditMode, getStagedImagesRef, contentType, config.imageEndpoint, setSaving, onAfterSave, navigate, images, findUnusedImages, deleteMultipleImages]);
 
   // 使用 ref 保存最新的 handleSave 函數
   const handleSaveRef = useRef(handleSave);
