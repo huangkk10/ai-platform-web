@@ -1,29 +1,100 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Button, Space, Spin, Alert, Card } from 'antd';
+import { Button, Space, Spin, Alert, Card, Image } from 'antd';
 import { ArrowLeftOutlined, EditOutlined } from '@ant-design/icons';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeRaw from 'rehype-raw';
-import rehypeHighlight from 'rehype-highlight';
+import MarkdownIt from 'markdown-it';
 
 import TopHeader from '../../components/TopHeader';
 import { knowledgeBaseConfigs } from '../../config/knowledgeBaseConfig';
 import useGuidePreview from '../../hooks/useGuidePreview';
 import { fixAllMarkdownTables } from '../../utils/markdownTableFixer';
 import { convertImageReferencesToMarkdown } from '../../utils/imageReferenceConverter';
-import ContentRenderer from '../../components/ContentRenderer';
 
 import '../../components/markdown/ReactMarkdown.css';
 import './GuidePreviewPage.css';
+
+// 初始化 Markdown 解析器（與 MarkdownEditorLayout 一致）
+const mdParser = new MarkdownIt({
+  html: true,
+  breaks: true,
+  linkify: true,
+  typographer: true
+});
+
+/**
+ * 自定義 renderHTML 函數（支援圖片預覽）
+ * 與 MarkdownEditorLayout 的 renderMarkdownWithImages 一致
+ */
+const renderMarkdownWithImages = (text) => {
+  try {
+    // 步驟 1：修復表格格式
+    let processed = fixAllMarkdownTables(text);
+    
+    // 步驟 2：將 [IMG:ID] 轉換為 Markdown 圖片格式
+    processed = convertImageReferencesToMarkdown(processed);
+    
+    // 步驟 3：使用 markdown-it 渲染
+    let htmlString = mdParser.render(processed);
+    
+    // 步驟 4：後處理圖片 HTML（添加 data 屬性供異步載入）
+    htmlString = htmlString.replace(
+      /<img src="http:\/\/[^"]+\/api\/content-images\/(\d+)\/" alt="([^"]*)"[^>]*>/g,
+      (match, imageId, altText) => {
+        return `<img 
+          class="content-image-preview" 
+          data-image-id="${imageId}" 
+          alt="${altText}"
+          src="http://10.10.172.127/api/content-images/${imageId}/"
+          style="max-width: 100px; height: auto; border: 1px solid #d9d9d9; border-radius: 4px; margin: 0 4px; padding: 4px; background-color: #fafafa; display: inline-block; vertical-align: middle; cursor: pointer;"
+        />`;
+      }
+    );
+    
+    return htmlString;
+  } catch (error) {
+    console.error('❌ Markdown 渲染錯誤:', error);
+    return mdParser.render(text);
+  }
+};
+
+// 圖片預覽樣式
+const imagePreviewStyles = `
+  .guide-preview-content img.content-image-preview {
+    max-width: 100px !important;
+    height: auto !important;
+    display: inline-block !important;
+    margin: 0 4px !important;
+    vertical-align: middle !important;
+    border: 1px solid #d9d9d9 !important;
+    border-radius: 4px !important;
+    padding: 4px !important;
+    background-color: #fafafa !important;
+    cursor: pointer !important;
+    object-fit: contain !important;
+    transition: all 0.3s ease !important;
+  }
+  
+  .guide-preview-content img.content-image-preview:hover {
+    border-color: #1890ff !important;
+    box-shadow: 0 2px 8px rgba(24, 144, 255, 0.3) !important;
+  }
+  
+  .guide-preview-content img.content-image-preview.loaded {
+    border-color: #52c41a !important;
+  }
+  
+  .guide-preview-content img.content-image-preview.failed {
+    border-color: #ff4d4f !important;
+  }
+`;
 
 /**
  * Guide 預覽頁面（整頁模式）
  * 
  * 功能：
  * - 整頁顯示 Markdown 內容
- * - 使用 ReactMarkdown 渲染（與 RVT Assistant Chat 一致）
- * - 支持圖片顯示（使用 ContentRenderer 邏輯）
+ * - 使用 MarkdownIt 渲染（與編輯器預覽一致）
+ * - 支持圖片顯示和點擊放大
  * - 提供返回和編輯按鈕
  * 
  * 路由：/knowledge/rvt-guide/preview/:id
@@ -32,6 +103,11 @@ const GuidePreviewPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = window.location || { pathname: '' };
+  const contentRef = useRef(null);
+  const [imageDataMap, setImageDataMap] = useState({});
+  const [loadingImages, setLoadingImages] = useState(new Set());
+  const [previewVisible, setPreviewVisible] = useState(false);
+  const [previewImage, setPreviewImage] = useState('');
 
   // 🎯 根據 URL 路徑自動識別配置
   const isProtocolGuide = location.pathname?.includes('/protocol-guide/');
@@ -41,119 +117,96 @@ const GuidePreviewPage = () => {
   // 使用 Hook 載入數據
   const { guide, loading, error } = useGuidePreview(id, config);
 
-  /**
-   * 自定義圖片組件
-   * 整合 ContentRenderer 的圖片處理邏輯
-   */
-  const CustomImage = ({ src, alt, ...props }) => {
-    // 檢測是否為 IMG:ID 格式
-    const imgIdMatch = (src || alt || '').match(/IMG:(\d+)/);
-
-    if (imgIdMatch) {
-      const imageId = imgIdMatch[1];
-      console.log(`🖼️ 檢測到圖片引用: IMG:${imageId}`);
-
-      // 使用 ContentRenderer 的圖片處理邏輯
-      // 注意：ContentRenderer 期望接收完整的內容字符串
-      // 這裡我們只渲染單個圖片標記
-      return (
-        <div style={{ margin: '16px 0' }}>
-          <ContentRenderer
-            content={`[IMG:${imageId}]`}
-            showImageTitles={true}
-            showImageDescriptions={true}
-            imageMaxWidth={600}
-            imageMaxHeight={400}
-          />
-        </div>
-      );
-    }
-
-    // 普通圖片（標準 URL）
-    return (
-      <img
-        src={src}
-        alt={alt}
-        style={{
-          maxWidth: '100%',
-          height: 'auto',
-          borderRadius: '8px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-          margin: '16px 0'
-        }}
-        {...props}
-      />
-    );
-  };
-
-  /**
-   * ReactMarkdown 配置
-   * 參考 MessageFormatter.jsx 的配置
-   */
-  const markdownConfig = {
-    remarkPlugins: [remarkGfm],
-    rehypePlugins: [rehypeRaw, rehypeHighlight],
-    components: {
-      // 自定義圖片渲染
-      img: CustomImage,
-
-      // 自定義表格渲染
-      table: ({ node, ...props }) => (
-        <table className="markdown-table" {...props} />
-      ),
-
-      // 自定義代碼塊渲染
-      code: ({ node, inline, className, children, ...props }) => {
-        if (inline) {
-          return <code className="inline-code" {...props}>{children}</code>;
+  // 處理預覽面板中的圖片異步加載（與 MarkdownEditorLayout 一致）
+  useEffect(() => {
+    if (!guide?.content || !contentRef.current) return;
+    
+    // 延遲執行，確保 HTML 已渲染
+    const timer = setTimeout(async () => {
+      const container = contentRef.current;
+      if (!container) return;
+      
+      // 找到所有需要載入的圖片
+      let images = container.querySelectorAll('img.content-image-preview[data-image-id]');
+      
+      if (images.length === 0) {
+        // 備用：找所有包含 content-images URL 的圖片
+        images = container.querySelectorAll('img[src*="content-images"]');
+        console.log('� [GuidePreviewPage] 使用備用選擇器，找到圖片數:', images.length);
+      } else {
+        console.log('🎯 [GuidePreviewPage] 找到圖片數:', images.length);
+      }
+      
+      // 異步載入每張圖片
+      images.forEach(async (img) => {
+        let imageId = img.getAttribute('data-image-id');
+        
+        // 如果沒有 data-image-id，從 src 中提取
+        if (!imageId) {
+          const srcMatch = img.src.match(/content-images\/(\d+)/);
+          imageId = srcMatch ? srcMatch[1] : null;
         }
-        return (
-          <pre className="code-block">
-            <code className={className} {...props}>
-              {children}
-            </code>
-          </pre>
-        );
-      },
-
-      // 自定義標題渲染（添加錨點）
-      h1: ({ node, children, ...props }) => (
-        <h1 id={String(children).toLowerCase().replace(/\s+/g, '-')} {...props}>
-          {children}
-        </h1>
-      ),
-      h2: ({ node, children, ...props }) => (
-        <h2 id={String(children).toLowerCase().replace(/\s+/g, '-')} {...props}>
-          {children}
-        </h2>
-      ),
-    }
-  };
-
-  /**
-   * 處理內容
-   * 修復表格、轉換圖片引用
-   */
-  const processContent = (content) => {
-    if (!content) return '';
-
-    let processed = content;
-
-    // 修復表格分隔線格式
-    processed = fixAllMarkdownTables(processed);
-
-    // 🎯 關鍵：將 [IMG:ID] 轉換為 Markdown 圖片格式 ![IMG:ID](IMG:ID)
-    // 這樣 ReactMarkdown 才會調用 CustomImage 組件
-    processed = convertImageReferencesToMarkdown(processed);
-
-    console.log('📝 內容處理完成', {
-      original: content.length,
-      processed: processed.length,
-      hasImages: processed.includes('![IMG:')
-    });
-
-    return processed;
-  };
+        
+        if (!imageId) return;
+        
+        // 避免重複載入
+        if (loadingImages.has(imageId) || imageDataMap[imageId]) {
+          if (imageDataMap[imageId]) {
+            img.src = imageDataMap[imageId].data_url;
+            img.classList.add('loaded');
+          }
+          return;
+        }
+        
+        setLoadingImages(prev => new Set(prev).add(imageId));
+        
+        try {
+          const response = await fetch(`http://10.10.172.127/api/content-images/${imageId}/`, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' }
+          });
+          
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          
+          const imageData = await response.json();
+          
+          if (imageData.data_url) {
+            // 更新圖片
+            img.src = imageData.data_url;
+            img.title = imageData.title || imageData.filename || `Image ${imageId}`;
+            img.alt = imageData.title || imageData.filename || `Image ${imageId}`;
+            img.classList.add('loaded');
+            
+            // 緩存圖片數據
+            setImageDataMap(prev => ({
+              ...prev,
+              [imageId]: imageData
+            }));
+            
+            // 添加點擊事件（放大預覽）
+            img.onclick = () => {
+              setPreviewImage(imageData.data_url);
+              setPreviewVisible(true);
+            };
+            
+            console.log(`✅ [GuidePreviewPage] 圖片 ${imageId} 載入成功`);
+          }
+        } catch (error) {
+          console.error(`❌ [GuidePreviewPage] 圖片 ${imageId} 載入失敗:`, error);
+          img.alt = `⊗ [圖片載入失敗: ${imageId}]`;
+          img.classList.add('failed');
+        } finally {
+          setLoadingImages(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(imageId);
+            return newSet;
+          });
+        }
+      });
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }, [guide?.content, imageDataMap, loadingImages]);
 
   /**
    * 處理返回
@@ -255,27 +308,30 @@ const GuidePreviewPage = () => {
   }
 
   // 處理內容
-  const processedContent = processContent(guide.content);
+  const processedContent = guide ? renderMarkdownWithImages(guide.content) : '';
 
   // 正常顯示
   return (
     <div className="guide-preview-container">
+      {/* 注入樣式 */}
+      <style>{imagePreviewStyles}</style>
+      
       <TopHeader
-        pageTitle={guide.title || '文檔預覽'}
+        pageTitle={guide?.title || '文檔預覽'}
         extraActions={extraActions}
       />
 
       <div className="guide-preview-wrapper">
         <Card className="guide-preview-card">
           {/* 文檔元信息 */}
-          {guide.full_category_name && (
+          {guide?.full_category_name && (
             <div className="guide-preview-meta">
               <span className="meta-label">分類：</span>
               <span className="meta-value">{guide.full_category_name}</span>
             </div>
           )}
 
-          {guide.created_at && (
+          {guide?.created_at && (
             <div className="guide-preview-meta">
               <span className="meta-label">建立時間：</span>
               <span className="meta-value">
@@ -285,13 +341,38 @@ const GuidePreviewPage = () => {
           )}
 
           {/* Markdown 內容 */}
-          <div className="guide-preview-content markdown-content">
-            <ReactMarkdown {...markdownConfig}>
-              {processedContent}
-            </ReactMarkdown>
-          </div>
+          <div 
+            ref={contentRef}
+            className="guide-preview-content markdown-content"
+            dangerouslySetInnerHTML={{ __html: processedContent }}
+          />
+          
+          {/* 載入中提示 */}
+          {loadingImages.size > 0 && (
+            <div style={{ 
+              marginTop: '8px', 
+              color: '#1890ff', 
+              fontSize: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <Spin size="small" />
+              <span>正在載入 {loadingImages.size} 張圖片...</span>
+            </div>
+          )}
         </Card>
       </div>
+      
+      {/* 圖片預覽 Modal（Ant Design Image 組件） */}
+      <Image
+        style={{ display: 'none' }}
+        preview={{
+          visible: previewVisible,
+          src: previewImage,
+          onVisibleChange: (visible) => setPreviewVisible(visible),
+        }}
+      />
     </div>
   );
 };
