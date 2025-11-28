@@ -4,7 +4,7 @@ import {
   Table,
   message
 } from 'antd';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { useAuth } from '../../contexts/AuthContext';
 import useKnowledgeBaseList from '../../hooks/useKnowledgeBaseList';
@@ -47,6 +47,22 @@ const KnowledgeBasePage = ({
 
   const { user, isAuthenticated, loading: authLoading, initialized } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // 🆕 從 URL 讀取分頁參數（支援刷新後保持狀態）
+  const getInitialPagination = useCallback(() => {
+    const pageFromUrl = parseInt(searchParams.get('page'), 10);
+    const pageSizeFromUrl = parseInt(searchParams.get('pageSize'), 10);
+    const defaultPageSize = config.table?.pagination?.defaultPageSize || 10;
+    
+    return {
+      current: pageFromUrl > 0 ? pageFromUrl : 1,
+      pageSize: pageSizeFromUrl > 0 ? pageSizeFromUrl : defaultPageSize
+    };
+  }, [searchParams, config.table?.pagination?.defaultPageSize]);
+  
+  // 🆕 分頁狀態管理
+  const [pagination, setPagination] = useState(getInitialPagination);
   
   // 使用通用 Hook 管理數據
   const { 
@@ -63,6 +79,27 @@ const KnowledgeBasePage = ({
     item: null
   });
 
+  // 🆕 當分頁變化時，更新 URL
+  const handleTableChange = useCallback((newPagination) => {
+    const { current, pageSize } = newPagination;
+    
+    // 更新本地狀態
+    setPagination({
+      current,
+      pageSize
+    });
+    
+    // 更新 URL 參數（保留現有的其他參數）
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('page', current.toString());
+    newParams.set('pageSize', pageSize.toString());
+    
+    // 使用 replace 避免在歷史記錄中產生太多條目
+    setSearchParams(newParams, { replace: true });
+    
+    console.log(`📄 分頁變更: 第 ${current} 頁, 每頁 ${pageSize} 筆`);
+  }, [searchParams, setSearchParams]);
+
   // 初始載入數據
   useEffect(() => {
     if (initialized && isAuthenticated) {
@@ -70,7 +107,7 @@ const KnowledgeBasePage = ({
     }
   }, [initialized, isAuthenticated, fetchItems]);
 
-  // 監聽來自 TopHeader 的重新整理事件
+  // 監聯來自 TopHeader 的重新整理事件
   useEffect(() => {
     const handleReload = () => {
       console.log(`🔄 收到重新整理事件: ${config.events.reload}`);
@@ -85,6 +122,29 @@ const KnowledgeBasePage = ({
       window.removeEventListener(eventName, handleReload);
     };
   }, [config.events.reload, fetchItems]);
+
+  // 🆕 當資料載入後，檢查當前頁是否超出範圍
+  useEffect(() => {
+    if (items.length > 0) {
+      const totalPages = Math.ceil(items.length / pagination.pageSize);
+      
+      // 如果當前頁超出總頁數，自動跳回最後一頁或第一頁
+      if (pagination.current > totalPages) {
+        const newPage = Math.max(1, totalPages);
+        console.log(`⚠️ 當前頁 ${pagination.current} 超出總頁數 ${totalPages}，自動跳轉到第 ${newPage} 頁`);
+        
+        setPagination(prev => ({
+          ...prev,
+          current: newPage
+        }));
+        
+        // 同步更新 URL
+        const newParams = new URLSearchParams(searchParams);
+        newParams.set('page', newPage.toString());
+        setSearchParams(newParams, { replace: true });
+      }
+    }
+  }, [items.length, pagination.current, pagination.pageSize, searchParams, setSearchParams]);
 
   // 處理查看詳細內容
   const handleViewDetail = useCallback(async (record) => {
@@ -193,7 +253,13 @@ const KnowledgeBasePage = ({
             rowKey="id"
             loading={loading}
             scroll={config.table.scroll}
-            pagination={config.table.pagination}
+            pagination={{
+              ...config.table.pagination,
+              current: pagination.current,
+              pageSize: pagination.pageSize,
+              total: items.length,  // 前端分頁，total 等於總資料數
+            }}
+            onChange={handleTableChange}
             size="middle"
             {...extraTableProps}
           />

@@ -210,9 +210,16 @@ const GuidePreviewPage = () => {
 
   /**
    * 處理返回
+   * 🆕 優先使用瀏覽器歷史記錄返回，以保留分頁狀態
    */
   const handleBack = () => {
-    navigate(config.routes.list);
+    // 檢查是否有歷史記錄可以返回
+    if (window.history.length > 1) {
+      navigate(-1);  // 返回上一頁，保留分頁狀態
+    } else {
+      // 沒有歷史記錄時，導航到列表頁
+      navigate(config.routes.list);
+    }
   };
 
   /**
