@@ -629,11 +629,43 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
         # 步驟 1: 分類查詢 + 清理關鍵字
         query_type, cleaned_query = self._classify_and_clean_query(query)
         
-        # 🆕 步驟 1.5: 檢查混合搜尋模式（v1.2.2）
+        # 🆕 步驟 1.5: 檢查混合搜尋模式（v1.2.2）+ 初始化算分日誌
+        scoring_logger = None
         if enable_hybrid_search and use_vector:
+            # 🆕 初始化 VSA 算分日誌記錄器
+            try:
+                from library.dify_knowledge.scoring_logger import VSAScoringLogger, should_log_scoring
+                
+                if should_log_scoring(version_config):
+                    version_name = version_config.get('name', 'Unknown Version')
+                    scoring_logger = VSAScoringLogger(
+                        query=query,
+                        version_name=version_name,
+                        conversation_id=None  # TODO: 從上下文獲取
+                    )
+                    scoring_logger.log_search_start()
+                    scoring_logger.log_query_classification(
+                        original_query=query,
+                        cleaned_query=cleaned_query,
+                        query_type=query_type
+                    )
+            except Exception as e:
+                logger.warning(f"⚠️ 無法初始化算分日誌: {e}")
+                scoring_logger = None
+            
             logger.info(f"🚀 執行混合搜尋: '{cleaned_query}'")
             
             try:
+                # 記錄 Stage 1 開始
+                if scoring_logger:
+                    scoring_logger.log_stage1_start(
+                        search_mode=search_mode,
+                        top_k=limit,
+                        threshold=threshold,
+                        use_hybrid=True,
+                        rrf_k=rrf_k
+                    )
+                
                 # 步驟 A: 向量搜尋
                 logger.info("📍 步驟 1/3: 執行向量搜尋")
                 vector_results = super().search_knowledge(
@@ -646,6 +678,10 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
                 )
                 logger.info(f"✅ 向量搜尋完成: {len(vector_results)} 個結果")
                 
+                # 記錄向量搜尋結果
+                if scoring_logger:
+                    scoring_logger.log_stage1_vector_search(vector_results)
+                
                 # 步驟 B: 關鍵字搜尋
                 logger.info("📍 步驟 2/3: 執行關鍵字搜尋")
                 keyword_results = self._keyword_search(
@@ -653,6 +689,10 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
                     limit=limit * 2
                 )
                 logger.info(f"✅ 關鍵字搜尋完成: {len(keyword_results)} 個結果")
+                
+                # 記錄關鍵字搜尋結果
+                if scoring_logger:
+                    scoring_logger.log_stage1_keyword_search(keyword_results)
                 
                 # 步驟 C: RRF 融合
                 logger.info(f"📍 步驟 3/6: RRF 融合 (k={rrf_k})")
@@ -663,11 +703,26 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
                 )
                 logger.info(f"✅ RRF 融合完成: {len(results)} 個結果")
                 
+                # 記錄 RRF 融合結果
+                if scoring_logger:
+                    scoring_logger.log_stage1_rrf_fusion(results, rrf_k=rrf_k)
+                
                 # 🆕 步驟 D: 正規化 RRF 分數到 0-1 範圍
                 logger.info("📍 步驟 4/6: 正規化 RRF 分數")
+                
+                # 記錄正規化前的分數範圍
+                if scoring_logger and results:
+                    rrf_scores = [r.get('rrf_score', 0) for r in results]
+                    min_score = min(rrf_scores) if rrf_scores else 0
+                    max_score = max(rrf_scores) if rrf_scores else 0
+                
                 results = self._normalize_rrf_scores(results)
                 highest_score = results[0]['score'] if results else 0
                 logger.info(f"✅ 分數正規化完成: 最高分={highest_score:.4f}")
+                
+                # 記錄正規化
+                if scoring_logger and results:
+                    scoring_logger.log_stage1_score_normalization(min_score, max_score, "0.5-1.0")
                 
                 # 🆕 步驟 E: 應用 Title Boost（如果啟用）
                 if version_config:
@@ -679,10 +734,11 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
                         enable_title_boost = title_boost_config.get('enabled', False)
                         
                         if enable_title_boost and results:
-                            logger.info(f"📍 步驟 5/6: 應用 Title Boost (bonus={title_boost_config.get('title_match_bonus', 0.15):.0%})")
+                            title_bonus = title_boost_config.get('title_match_bonus', 0.15)
+                            logger.info(f"📍 步驟 5/6: 應用 Title Boost (bonus={title_bonus:.0%})")
                             
                             processor = TitleBoostProcessor(
-                                title_match_bonus=title_boost_config.get('title_match_bonus', 0.15),
+                                title_match_bonus=title_bonus,
                                 min_keyword_length=title_boost_config.get('min_keyword_length', 2)
                             )
                             
@@ -695,8 +751,14 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
                             
                             boosted_count = sum(1 for r in results if r.get('title_boost_applied', False))
                             logger.info(f"✅ Title Boost 完成: {boosted_count}/{len(results)} 個結果獲得加分")
+                            
+                            # 記錄 Title Boost
+                            if scoring_logger:
+                                scoring_logger.log_stage1_title_boost(results, boost_factor=title_bonus)
                     except Exception as e:
                         logger.warning(f"⚠️ Title Boost 應用失敗，繼續使用正規化後的分數: {e}")
+                        if scoring_logger:
+                            scoring_logger.log_error("Title Boost", str(e))
                 
                 # 步驟 F: 按最終分數重新排序並限制返回數量
                 logger.info("📍 步驟 6/6: 最終排序")
@@ -704,15 +766,28 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
                 results = results[:limit]
                 logger.info(f"✅ 混合搜尋完成: 返回 {len(results)} 個結果")
                 
+                # 記錄 Stage 1 最終結果
+                if scoring_logger:
+                    scoring_logger.log_stage1_result(results)
+                
                 # 如果是文檔級查詢，擴展為完整文檔
                 if query_type == 'document' and results:
                     logger.info(f"🔄 將 {len(results)} 個混合搜尋結果擴展為完整文檔")
                     results = self._expand_to_full_document(results)
                 
+                # 記錄搜尋完成
+                if scoring_logger:
+                    scoring_logger.log_search_end(
+                        total_results=len(results),
+                        stage1_count=len(results)
+                    )
+                
                 return results
                 
             except Exception as e:
                 logger.error(f"❌ 混合搜尋失敗，降級為標準搜尋: {e}", exc_info=True)
+                if scoring_logger:
+                    scoring_logger.log_fallback("混合搜尋", "標準搜尋", str(e))
                 # 降級為標準搜尋（繼續下方邏輯）
         
         # 🆕 步驟 1.6: 解析 Title Boost 配置

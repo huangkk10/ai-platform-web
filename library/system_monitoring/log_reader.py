@@ -35,6 +35,7 @@ class LogFileReader:
         'api_access.log': 'access',
         'celery.log': 'celery',
         'protocol_analytics.log': 'analytics',
+        'vsa_scoring.log': 'scoring',  # VSA 算分過程日誌
     }
     
     @classmethod

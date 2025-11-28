@@ -288,6 +288,17 @@ LOGGING = {
             'formatter': 'verbose',
             'encoding': 'utf-8',
         },
+        # VSA 算分過程 log（記錄 Hybrid Search + Title Boost 的詳細算分）
+        'vsa_scoring_file': {
+            'level': 'INFO',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': '/app/logs/vsa_scoring.log',
+            'when': 'midnight',
+            'interval': 1,
+            'backupCount': 7,  # 算分日誌保留 7 天
+            'formatter': 'verbose',
+            'encoding': 'utf-8',
+        },
     },
     'loggers': {
         # API Views
@@ -347,6 +358,12 @@ LOGGING = {
         # RVT Guide
         'library.rvt_guide': {
             'handlers': ['console', 'daily_file', 'daily_error_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        # VSA 算分過程
+        'vsa_scoring': {
+            'handlers': ['console', 'vsa_scoring_file', 'daily_error_file'],
             'level': 'INFO',
             'propagate': False,
         },
