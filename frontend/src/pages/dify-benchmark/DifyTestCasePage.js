@@ -44,9 +44,12 @@ import {
   CheckCircleOutlined,
   FileTextOutlined,
   ExperimentOutlined,
+  ClearOutlined,
+  HistoryOutlined,
 } from '@ant-design/icons';
 import * as difyBenchmarkApi from '../../services/difyBenchmarkApi';
 import VersionComparisonModal from '../benchmark/VersionComparisonModal';
+import { useUrlParams } from '../../hooks/useUrlParams'; // 🆕 導入 URL 參數 Hook
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -56,8 +59,35 @@ const DifyTestCasePage = () => {
   const [loading, setLoading] = useState(false);
   const [testCases, setTestCases] = useState([]);
   const [filteredTestCases, setFilteredTestCases] = useState([]);
-  const [searchText, setSearchText] = useState('');
-  const [selectedDifficulty, setSelectedDifficulty] = useState('all');
+  
+  // 🆕 使用 URL 參數管理搜尋狀態（支援 F5 刷新後保持）
+  // 注意：搜尋文字使用 500ms 防抖，避免打字卡頓
+  const { values: urlParams, setParam, clearParams } = useUrlParams({
+    search: '',           // 搜尋文字
+    difficulty: 'all',    // 難度篩選
+    page: 1,              // 當前頁碼
+    pageSize: 20,         // 每頁筆數
+  });
+  
+  // 🆕 本地搜尋文字 state（即時更新 UI，不卡頓）
+  const [localSearchText, setLocalSearchText] = useState(urlParams.search);
+  
+  const searchText = urlParams.search;
+  const selectedDifficulty = urlParams.difficulty;
+  const currentPage = urlParams.page;
+  const pageSize = urlParams.pageSize;
+  
+  // 🆕 當 URL 參數變化時，同步到本地 state（F5 刷新後恢復搜尋條件）
+  useEffect(() => {
+    if (urlParams.search !== localSearchText) {
+      setLocalSearchText(urlParams.search);
+    }
+  }, [urlParams.search]);
+  
+  // 統一的狀態更新函數
+  const setSelectedDifficulty = (value) => setParam('difficulty', value);
+  const setCurrentPage = (value) => setParam('page', value);
+  const setPageSize = (value) => setParam('pageSize', value);
   
   // Modal 狀態
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -140,6 +170,15 @@ const DifyTestCasePage = () => {
 
   useEffect(() => {
     loadTestCases();
+    
+    // 🆕 如果 URL 中有搜尋條件，顯示恢復提示
+    if (searchText || selectedDifficulty !== 'all') {
+      message.info({
+        content: '已恢復上次的搜尋條件',
+        icon: <HistoryOutlined />,
+        duration: 2,
+      });
+    }
     
     // 監聽來自 App.js 頂部按鈕的自定義事件
     const handleCreateEvent = () => {
@@ -391,6 +430,21 @@ const DifyTestCasePage = () => {
       message.error(`操作失敗: ${error.response?.data?.detail || error.message}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 🆕 清除所有篩選條件
+  const handleClearFilters = () => {
+    setLocalSearchText('');  // 清除本地搜尋文字
+    clearParams();
+    message.success('已清除所有篩選條件');
+  };
+
+  // 🆕 處理搜尋（按 Enter 或點擊搜尋按鈕時觸發）
+  const handleSearch = () => {
+    // 只有在文字改變時才更新 URL
+    if (localSearchText !== urlParams.search) {
+      setParam('search', localSearchText);
     }
   };
 
@@ -696,13 +750,25 @@ const DifyTestCasePage = () => {
         {/* 篩選區域 */}
         <Space size="middle" style={{ marginBottom: '16px', width: '100%' }} wrap>
           <Input
-            placeholder="搜尋問題內容..."
+            placeholder="搜尋問題內容（按 Enter 搜尋）..."
             prefix={<SearchOutlined />}
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
+            value={localSearchText}
+            onChange={(e) => setLocalSearchText(e.target.value)}
+            onPressEnter={handleSearch}
             style={{ width: 300 }}
             allowClear
+            onClear={() => {
+              setLocalSearchText('');
+              setParam('search', '');
+            }}
           />
+          <Button
+            type="primary"
+            icon={<SearchOutlined />}
+            onClick={handleSearch}
+          >
+            搜尋
+          </Button>
           <Select
             value={selectedDifficulty}
             onChange={setSelectedDifficulty}
@@ -713,6 +779,17 @@ const DifyTestCasePage = () => {
             <Option value="medium">中等</Option>
             <Option value="hard">困難</Option>
           </Select>
+          
+          {/* 🆕 清除篩選按鈕（只在有篩選條件時顯示） */}
+          {(searchText || selectedDifficulty !== 'all') && (
+            <Button
+              icon={<ClearOutlined />}
+              onClick={handleClearFilters}
+            >
+              清除篩選
+            </Button>
+          )}
+          
           <Button
             icon={<ReloadOutlined />}
             onClick={loadTestCases}
@@ -732,11 +809,18 @@ const DifyTestCasePage = () => {
           loading={loading}
           scroll={{ x: 1650, y: 'calc(100vh - 480px)' }}
           pagination={{
-            defaultPageSize: 20,
+            current: currentPage,
+            pageSize: pageSize,
             showSizeChanger: true,
             showQuickJumper: true,
             showTotal: (total, range) => `第 ${range[0]}-${range[1]} 項，共 ${total} 項`,
             pageSizeOptions: ['10', '20', '50', '100'],
+            onChange: (page, newPageSize) => {
+              setCurrentPage(page);
+              if (newPageSize !== pageSize) {
+                setPageSize(newPageSize);
+              }
+            },
           }}
         />
       </Card>
