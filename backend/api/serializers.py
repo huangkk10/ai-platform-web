@@ -389,6 +389,11 @@ class SearchThresholdSettingSerializer(serializers.ModelSerializer):
             # 🆕 配置策略
             'use_unified_weights',
             
+            # 🆕 Window 擴展配置
+            'context_window',
+            'include_siblings',
+            'context_mode',
+            
             'calculated_thresholds',  # 計算後的所有 threshold
             'description',
             'is_active',

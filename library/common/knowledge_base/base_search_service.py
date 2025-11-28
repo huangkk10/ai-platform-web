@@ -45,6 +45,51 @@ class BaseKnowledgeBaseSearchService(ABC):
         if self.source_table is None:
             raise NotImplementedError(f"{self.__class__.__name__} must define 'source_table' attribute")
     
+    def _get_context_window_settings(self):
+        """
+        獲取 Window 擴展設定（從 SearchThresholdSetting 讀取）
+        
+        Returns:
+            dict: {
+                'context_window': int (0-5),
+                'include_siblings': bool,
+                'context_mode': str ('hierarchical', 'adjacent', 'both')
+            }
+        """
+        try:
+            from api.models import SearchThresholdSetting
+            
+            # 映射表名到助手類型
+            table_to_type = {
+                'protocol_guide': 'protocol_assistant',
+                'rvt_guide': 'rvt_assistant',
+            }
+            
+            assistant_type = table_to_type.get(self.source_table)
+            if not assistant_type:
+                return {'context_window': 0, 'include_siblings': False, 'context_mode': 'hierarchical'}
+            
+            setting = SearchThresholdSetting.objects.get(assistant_type=assistant_type)
+            context_settings = {
+                'context_window': getattr(setting, 'context_window', 0),
+                'include_siblings': getattr(setting, 'include_siblings', False),
+                'context_mode': getattr(setting, 'context_mode', 'hierarchical')
+            }
+            
+            if context_settings['context_window'] > 0:
+                self.logger.info(
+                    f"🔍 載入 Window 擴展配置: {assistant_type} -> "
+                    f"window={context_settings['context_window']}, "
+                    f"siblings={context_settings['include_siblings']}, "
+                    f"mode={context_settings['context_mode']}"
+                )
+            
+            return context_settings
+            
+        except Exception as e:
+            self.logger.warning(f"讀取 Window 擴展配置失敗: {str(e)}，使用預設值")
+            return {'context_window': 0, 'include_siblings': False, 'context_mode': 'hierarchical'}
+
     def search_knowledge(self, query, limit=5, use_vector=True, threshold=0.7, search_mode='auto', stage=1):
         """
         搜索知識庫（支援兩階段權重配置）
@@ -157,13 +202,30 @@ class BaseKnowledgeBaseSearchService(ABC):
                 from .section_search_service import SectionSearchService
                 section_service = SectionSearchService()
                 
-                section_results = section_service.search_sections(
-                    query=query,
-                    source_table=self.source_table,
-                    limit=limit,
-                    threshold=threshold,
-                    stage=stage  # ✅ 傳遞 stage 參數
-                )
+                # 🆕 讀取 Window 擴展設定
+                ctx_settings = self._get_context_window_settings()
+                
+                if ctx_settings['context_window'] > 0:
+                    # ✅ 使用 Window 擴展搜尋
+                    self.logger.info(f"🔍 啟用 Window 擴展搜尋 (window={ctx_settings['context_window']})")
+                    section_results = section_service.search_with_context(
+                        query=query,
+                        source_table=self.source_table,
+                        limit=limit,
+                        threshold=threshold,
+                        include_siblings=ctx_settings['include_siblings'],
+                        context_window=ctx_settings['context_window'],
+                        context_mode=ctx_settings['context_mode']
+                    )
+                else:
+                    # 標準段落搜尋（無 Window 擴展）
+                    section_results = section_service.search_sections(
+                        query=query,
+                        source_table=self.source_table,
+                        limit=limit,
+                        threshold=threshold,
+                        stage=stage
+                    )
                 
                 if section_results:
                     self.logger.info(f"✅ 段落搜索成功: {len(section_results)} 個結果 (stage={stage})")
@@ -181,13 +243,30 @@ class BaseKnowledgeBaseSearchService(ABC):
                     from .section_search_service import SectionSearchService
                     section_service = SectionSearchService()
                     
-                    section_results = section_service.search_sections(
-                        query=query,
-                        source_table=self.source_table,
-                        limit=limit,
-                        threshold=threshold,  # ✅ 使用傳入的 threshold
-                        stage=stage  # ✅ 傳遞 stage 參數
-                    )
+                    # 🆕 讀取 Window 擴展設定
+                    ctx_settings = self._get_context_window_settings()
+                    
+                    if ctx_settings['context_window'] > 0:
+                        # ✅ 使用 Window 擴展搜尋
+                        self.logger.info(f"🔍 啟用 Window 擴展搜尋 (window={ctx_settings['context_window']})")
+                        section_results = section_service.search_with_context(
+                            query=query,
+                            source_table=self.source_table,
+                            limit=limit,
+                            threshold=threshold,
+                            include_siblings=ctx_settings['include_siblings'],
+                            context_window=ctx_settings['context_window'],
+                            context_mode=ctx_settings['context_mode']
+                        )
+                    else:
+                        # 標準段落搜尋（無 Window 擴展）
+                        section_results = section_service.search_sections(
+                            query=query,
+                            source_table=self.source_table,
+                            limit=limit,
+                            threshold=threshold,
+                            stage=stage
+                        )
                     
                     if section_results:
                         self.logger.info(f"✅ 段落向量搜尋成功: {len(section_results)} 個結果 (threshold={threshold}, stage={stage})")
@@ -319,12 +398,28 @@ class BaseKnowledgeBaseSearchService(ABC):
                         content = section.get('content', '')
                         section_id = section.get('section_id', '')
                         
+                        # ✅ 優先使用 search_with_context 返回的 children（如果有）
+                        children_from_context = section.get('children', [])
+                        
+                        if children_from_context:
+                            # 使用已有的 children 數據
+                            self.logger.info(f"  📑 段落 '{heading}' 使用 context 中的 {len(children_from_context)} 個子段落")
+                            if heading:
+                                section_contents.append(f"## {heading}")
+                            for child in children_from_context:
+                                child_heading = child.get('heading_text', '')
+                                child_content = child.get('content', '')
+                                if child_content:
+                                    if child_heading:
+                                        section_contents.append(f"### {child_heading}\n{child_content}")
+                                    else:
+                                        section_contents.append(child_content)
                         # ✅ 修復：如果段落內容為空（章節標題），查詢並展開子段落
-                        if not content and section_id:
+                        elif not content and section_id:
                             try:
                                 from django.db import connection
                                 with connection.cursor() as cursor:
-                                    # 查詢子段落（parent_section_id = 當前 section_id）
+                                    # 方法 1：查詢子段落（parent_section_id = 當前 section_id）
                                     cursor.execute("""
                                         SELECT section_id, heading_text, content
                                         FROM document_section_embeddings
@@ -336,6 +431,24 @@ class BaseKnowledgeBaseSearchService(ABC):
                                     """, [self.source_table, doc_id, section_id])
                                     
                                     children_rows = cursor.fetchall()
+                                    
+                                    # 方法 2：備用查詢 - 如果 parent_section_id 為空，
+                                    # 則查詢同文檔的其他段落（排除自身）
+                                    if not children_rows:
+                                        cursor.execute("""
+                                            SELECT section_id, heading_text, content
+                                            FROM document_section_embeddings
+                                            WHERE source_table = %s 
+                                              AND source_id = %s
+                                              AND section_id != %s
+                                              AND (parent_section_id IS NULL OR parent_section_id = '')
+                                            ORDER BY section_id
+                                            LIMIT 10
+                                        """, [self.source_table, doc_id, section_id])
+                                        
+                                        children_rows = cursor.fetchall()
+                                        if children_rows:
+                                            self.logger.info(f"  📑 使用備用查詢找到 {len(children_rows)} 個子段落")
                                     
                                 if children_rows:
                                     self.logger.info(f"  📑 段落 '{heading}' 無內容，展開 {len(children_rows)} 個子段落")

@@ -14,13 +14,16 @@ import {
   Col,
   Alert,
   Tag,
-  Divider
+  Divider,
+  Checkbox,
+  Radio
 } from 'antd';
 import {
   EditOutlined,
   ReloadOutlined,
   InfoCircleOutlined,
-  StarOutlined
+  StarOutlined,
+  ExpandOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 
@@ -81,7 +84,7 @@ const ThresholdSettingsPage = () => {
     fetchSettings();
   }, []);
 
-  // 開啟編輯 Modal（統一編輯所有 6 個欄位）
+  // 開啟編輯 Modal（統一編輯所有欄位）
   const handleEdit = (record) => {
     setEditingRecord(record);
     form.setFieldsValue({
@@ -92,12 +95,16 @@ const ThresholdSettingsPage = () => {
       // 二階設定
       stage2_threshold: parseFloat(record.stage2_threshold) * 100,
       stage2_title_weight: record.stage2_title_weight,
-      stage2_content_weight: record.stage2_content_weight
+      stage2_content_weight: record.stage2_content_weight,
+      // Window 擴展設定
+      context_window: record.context_window || 0,
+      include_siblings: record.include_siblings || false,
+      context_mode: record.context_mode || 'hierarchical'
     });
     setEditModalVisible(true);
   };
 
-  // 儲存編輯（更新所有 6 個欄位）
+  // 儲存編輯（更新所有欄位）
   const handleSave = async () => {
     try {
       const values = await form.validateFields();
@@ -110,7 +117,11 @@ const ThresholdSettingsPage = () => {
         stage1_content_weight: values.stage1_content_weight,
         stage2_threshold: (values.stage2_threshold / 100).toFixed(2),
         stage2_title_weight: values.stage2_title_weight,
-        stage2_content_weight: values.stage2_content_weight
+        stage2_content_weight: values.stage2_content_weight,
+        // Window 擴展設定
+        context_window: values.context_window,
+        include_siblings: values.include_siblings,
+        context_mode: values.context_mode
       }, { withCredentials: true });
 
       message.success('設定更新成功！');
@@ -262,6 +273,74 @@ const ThresholdSettingsPage = () => {
       ]
     },
     {
+      title: (
+        <Space>
+          <ExpandOutlined style={{ color: '#52c41a' }} />
+          <span style={{ fontWeight: 'bold', color: '#52c41a' }}>Window 擴展</span>
+        </Space>
+      ),
+      children: [
+        {
+          title: (
+            <Space>
+              擴展範圍
+              <Tooltip title="向上下各擴展的段落數量（0 表示不擴展）">
+                <InfoCircleOutlined />
+              </Tooltip>
+            </Space>
+          ),
+          dataIndex: 'context_window',
+          key: 'context_window',
+          width: 100,
+          render: (value) => (
+            <Text style={{ fontSize: '14px', color: '#52c41a' }}>
+              {value === 0 ? '關閉' : `±${value}`}
+            </Text>
+          )
+        },
+        {
+          title: (
+            <Space>
+              擴展模式
+              <Tooltip title="層級結構：同一父節點下的段落；線性視窗：相鄰段落">
+                <InfoCircleOutlined />
+              </Tooltip>
+            </Space>
+          ),
+          dataIndex: 'context_mode',
+          key: 'context_mode',
+          width: 110,
+          render: (value) => {
+            const modeMap = {
+              'hierarchical': { text: '層級', color: 'blue' },
+              'adjacent': { text: '線性', color: 'orange' },
+              'both': { text: '兩者', color: 'purple' }
+            };
+            const mode = modeMap[value] || { text: value, color: 'default' };
+            return <Tag color={mode.color}>{mode.text}</Tag>;
+          }
+        },
+        {
+          title: (
+            <Space>
+              包含同層
+              <Tooltip title="是否包含同一父節點下的兄弟段落">
+                <InfoCircleOutlined />
+              </Tooltip>
+            </Space>
+          ),
+          dataIndex: 'include_siblings',
+          key: 'include_siblings',
+          width: 90,
+          render: (value) => (
+            <Tag color={value ? 'green' : 'default'}>
+              {value ? '是' : '否'}
+            </Tag>
+          )
+        }
+      ]
+    },
+    {
       title: '操作',
       key: 'action',
       width: 100,
@@ -322,7 +401,7 @@ const ThresholdSettingsPage = () => {
           rowKey="id"
           loading={loading}
           pagination={false}
-          scroll={{ x: 1400 }}
+          scroll={{ x: 1700 }}
           bordered
         />
       </Card>
@@ -583,6 +662,98 @@ const ThresholdSettingsPage = () => {
             <Alert
               message="💡 提示：標題權重 + 內容權重 = 100%"
               type="warning"
+              showIcon
+            />
+          </Card>
+
+          <Divider />
+
+          {/* Window 擴展設定 */}
+          <Card 
+            title={
+              <Space>
+                <ExpandOutlined style={{ color: '#52c41a' }} />
+                <span>Window 擴展設定</span>
+              </Space>
+            }
+            size="small"
+          >
+            <Row gutter={16}>
+              <Col span={8}>
+                <Form.Item
+                  label={
+                    <Space>
+                      <span>擴展範圍</span>
+                      <Tooltip title="向上下各擴展的段落數量，0 表示不擴展">
+                        <InfoCircleOutlined />
+                      </Tooltip>
+                    </Space>
+                  }
+                  name="context_window"
+                  rules={[
+                    { required: true, message: '請設定擴展範圍' }
+                  ]}
+                >
+                  <Slider
+                    min={0}
+                    max={5}
+                    step={1}
+                    marks={{
+                      0: '關閉',
+                      1: '1',
+                      2: '2',
+                      3: '3',
+                      5: '5'
+                    }}
+                    tooltip={{
+                      formatter: (value) => value === 0 ? '關閉' : `±${value} 段落`
+                    }}
+                  />
+                </Form.Item>
+              </Col>
+              <Col span={8}>
+                <Form.Item
+                  label={
+                    <Space>
+                      <span>擴展模式</span>
+                      <Tooltip title="層級結構：同一父節點下的段落；線性視窗：相鄰段落">
+                        <InfoCircleOutlined />
+                      </Tooltip>
+                    </Space>
+                  }
+                  name="context_mode"
+                  rules={[
+                    { required: true, message: '請選擇擴展模式' }
+                  ]}
+                >
+                  <Radio.Group>
+                    <Radio.Button value="hierarchical">層級結構</Radio.Button>
+                    <Radio.Button value="adjacent">線性視窗</Radio.Button>
+                    <Radio.Button value="both">兩者兼具</Radio.Button>
+                  </Radio.Group>
+                </Form.Item>
+              </Col>
+              <Col span={8}>
+                <Form.Item
+                  label={
+                    <Space>
+                      <span>包含同層段落</span>
+                      <Tooltip title="是否包含同一父節點下的所有兄弟段落">
+                        <InfoCircleOutlined />
+                      </Tooltip>
+                    </Space>
+                  }
+                  name="include_siblings"
+                  valuePropName="checked"
+                >
+                  <Checkbox>啟用</Checkbox>
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <Alert
+              message="💡 提示：擴展範圍設為 0 表示不進行上下文擴展，直接返回原始搜尋結果"
+              type="info"
               showIcon
             />
           </Card>

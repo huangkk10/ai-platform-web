@@ -395,6 +395,10 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
         """
         獲取文檔唯一識別符（用於 RRF 融合去重）
         
+        支援兩種結果格式：
+        1. 原始段落結果：source_id 在頂層
+        2. 標準化結果：id 在 metadata.id
+        
         Args:
             result: 搜尋結果字典
             
@@ -402,7 +406,15 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
             str: 文檔唯一識別符（格式：source_table:source_id）
         """
         source_table = result.get('metadata', {}).get('source_table', self.source_table)
-        source_id = result.get('source_id') or result.get('metadata', {}).get('source_id', 'unknown')
+        
+        # 優先從 metadata.id 讀取（標準化格式）
+        metadata = result.get('metadata', {})
+        source_id = metadata.get('id')
+        
+        # 回退到頂層 source_id（原始段落格式）
+        if source_id is None:
+            source_id = result.get('source_id', 'unknown')
+        
         return f"{source_table}:{source_id}"
     
     def _merge_with_rrf(self, vector_results: list, keyword_results: list, k: int = 60) -> list:

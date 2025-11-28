@@ -380,9 +380,16 @@ class SectionSearchService:
         source_id: int,
         parent_section_id: str
     ) -> List[Dict[str, Any]]:
-        """獲取子段落"""
+        """
+        獲取子段落
+        
+        支援兩種查詢方式：
+        1. 使用 parent_section_id 欄位（優先）
+        2. 使用 section_id 前綴匹配（備用，適用於 parent_section_id 為空的情況）
+        """
         try:
             with connection.cursor() as cursor:
+                # 方法 1：使用 parent_section_id 欄位
                 cursor.execute(
                     """
                     SELECT 
@@ -399,7 +406,37 @@ class SectionSearchService:
                 
                 columns = ['section_id', 'heading_level', 'heading_text',
                           'section_path', 'content', 'word_count']
-                return [dict(zip(columns, row)) for row in cursor.fetchall()]
+                results = [dict(zip(columns, row)) for row in cursor.fetchall()]
+                
+                # 如果有結果，直接返回
+                if results:
+                    return results
+                
+                # 方法 2：使用 section_id 前綴匹配（備用）
+                # 例如 parent_section_id='doc_16'，則查詢 section_id LIKE 'doc_16_%' 或 section_id LIKE 'sec_%'
+                # 但需要排除自身
+                cursor.execute(
+                    """
+                    SELECT 
+                        section_id, heading_level, heading_text,
+                        section_path, content, word_count
+                    FROM document_section_embeddings
+                    WHERE source_table = %s 
+                      AND source_id = %s 
+                      AND section_id != %s
+                      AND (parent_section_id IS NULL OR parent_section_id = '')
+                    ORDER BY section_id
+                    LIMIT 10;
+                    """,
+                    [source_table, source_id, parent_section_id]
+                )
+                
+                results = [dict(zip(columns, row)) for row in cursor.fetchall()]
+                
+                if results:
+                    logger.info(f"📑 使用備用查詢找到 {len(results)} 個子段落 (parent_section_id 為空)")
+                
+                return results
                 
         except Exception as e:
             logger.error(f"獲取子段落失敗: {str(e)}", exc_info=True)

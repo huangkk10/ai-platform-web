@@ -1208,6 +1208,33 @@ class SearchThresholdSetting(models.Model):
         help_text="全文向量搜尋的相似度閾值（0.00-1.00，建議比第一階段低）"
     )
     
+    # === 🆕 視窗擴展配置 ===
+    context_window = models.IntegerField(
+        default=0,
+        verbose_name="視窗擴展大小",
+        help_text="搜尋時前後各擴展幾個段落（0=不擴展，1-5）"
+    )
+    
+    include_siblings = models.BooleanField(
+        default=False,
+        verbose_name="包含兄弟段落",
+        help_text="是否包含同層級的兄弟段落"
+    )
+    
+    CONTEXT_MODE_CHOICES = [
+        ('hierarchical', '層級結構'),
+        ('adjacent', '線性視窗'),
+        ('both', '兩者兼具'),
+    ]
+    
+    context_mode = models.CharField(
+        max_length=20,
+        default='hierarchical',
+        choices=CONTEXT_MODE_CHOICES,
+        verbose_name="上下文模式",
+        help_text="hierarchical=父子段落, adjacent=前後段落, both=全部"
+    )
+    
     # === 🆕 配置策略 ===
     use_unified_weights = models.BooleanField(
         default=True,
