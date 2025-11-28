@@ -561,9 +561,7 @@ const DifyTestCasePage = () => {
               icon={<ExperimentOutlined />}
               onClick={() => handleVersionComparison(record)}
               size="small"
-            >
-              版本比較
-            </Button>
+            />
           </Tooltip>
           <Tooltip title={record.is_active ? '停用' : '啟用'}>
             <Popconfirm
