@@ -19,8 +19,63 @@ from library.common.knowledge_base import BaseKnowledgeBaseSearchService
 from api.models import ProtocolGuide
 from django.db import connection
 import logging
+import re
+
+# 嘗試導入 jieba，如果失敗則使用 fallback
+try:
+    import jieba
+    JIEBA_AVAILABLE = True
+except ImportError:
+    JIEBA_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
+
+
+def smart_tokenize(query: str) -> list:
+    """
+    智能分詞：支援中英文混合查詢
+    
+    使用 jieba 分詞處理中文，自動識別中英文邊界。
+    如果 jieba 不可用，則使用 regex fallback。
+    
+    Args:
+        query: 原始查詢字串
+        
+    Returns:
+        List[str]: 分詞後的關鍵字列表（已過濾空白和標點）
+        
+    Examples:
+        >>> smart_tokenize("iol密碼")
+        ['iol', '密碼']
+        >>> smart_tokenize("iol root 密碼")
+        ['iol', 'root', '密碼']
+        >>> smart_tokenize("crystaldiskmark測試")
+        ['crystaldiskmark', '測試']
+    """
+    if not query or not query.strip():
+        return []
+    
+    query = query.strip()
+    
+    if JIEBA_AVAILABLE:
+        # 使用 jieba 分詞
+        tokens = jieba.cut(query)
+        # 過濾空白、標點和單字元標點符號
+        keywords = [
+            t.strip() 
+            for t in tokens 
+            if t.strip() and len(t.strip()) > 0 and not re.match(r'^[\s\-_,，。！？：；、]+$', t)
+        ]
+    else:
+        # Fallback: 使用 regex 在中英文邊界插入空格
+        # 英文後接中文
+        query = re.sub(r'([a-zA-Z0-9])([^\x00-\x7F])', r'\1 \2', query)
+        # 中文後接英文
+        query = re.sub(r'([^\x00-\x7F])([a-zA-Z0-9])', r'\1 \2', query)
+        keywords = [k.strip() for k in query.split() if k.strip()]
+    
+    logger.debug(f"🔤 智能分詞: '{query}' → {keywords}")
+    return keywords
 
 
 class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
@@ -303,21 +358,28 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
         return full_documents
     
     # ============================================================
-    # 🆕 混合搜尋方法（v1.2.2）
+    # 🆕 混合搜尋方法（v1.2.3 - OR 邏輯 + 智能分詞）
     # ============================================================
     
-    def _keyword_search(self, query: str, limit: int = 10, source_table: str = None) -> list:
+    def _keyword_search(self, query: str, limit: int = 50, source_table: str = None) -> list:
         """
-        LIKE 模糊匹配關鍵字搜尋（修復版）
+        LIKE 模糊匹配關鍵字搜尋（OR 邏輯 + 加權排序版）
         
-        策略：使用 ILIKE 模糊匹配（不區分大小寫）
-        - 支援中英文混合查詢
-        - 支援多關鍵字 AND 邏輯
-        - 不依賴 PostgreSQL 全文搜尋（避免中文分詞問題）
+        v1.2.3 更新：
+        - 使用 OR 邏輯：只要匹配任一關鍵字即返回
+        - 智能分詞：使用 jieba 處理中英文混合查詢
+        - 加權排序：按匹配關鍵字數量排序（匹配越多分數越高）
+        
+        策略：
+        1. 使用 smart_tokenize() 進行智能分詞
+        2. 使用 ILIKE 模糊匹配（不區分大小寫）
+        3. OR 邏輯：匹配任一關鍵字即納入結果
+        4. 計算 match_count：統計每筆結果匹配了幾個關鍵字
+        5. 按 match_count 降序排序（匹配越多越前面）
         
         Args:
             query: 搜尋查詢
-            limit: 返回結果數量
+            limit: 返回結果數量（預設 50，因為 OR 會返回更多結果）
             source_table: 來源表名（預設使用 self.source_table）
             
         Returns:
@@ -325,21 +387,25 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
                 - source_id: 來源記錄 ID
                 - title: 標題（heading_text 或 document_title）
                 - content: 內容
-                - rank: 搜尋分數（固定為 1.0）
+                - rank: 搜尋分數（基於 match_count 計算）
                 - document_id: 文檔 ID
+                - match_count: 匹配的關鍵字數量
+                - matched_keywords: 匹配的關鍵字列表
         """
         if source_table is None:
             source_table = self.source_table
         
         try:
-            # 將查詢拆分為關鍵字（空格分隔）
-            keywords = query.split()
+            # 🆕 使用智能分詞（支援中英文混合）
+            keywords = smart_tokenize(query)
             
             if not keywords:
-                logger.warning(f"⚠️ 關鍵字搜尋: 查詢為空")
+                logger.warning(f"⚠️ 關鍵字搜尋: 查詢為空或分詞後無有效關鍵字")
                 return []
             
-            # 構建 ILIKE 條件（所有關鍵字都要匹配）
+            logger.info(f"🔤 關鍵字分詞: '{query}' → {keywords} ({len(keywords)} 個)")
+            
+            # 🆕 構建 OR 條件（任一關鍵字匹配即可）
             like_conditions = []
             params = [source_table]
             
@@ -352,39 +418,73 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
                 like_pattern = f'%{keyword}%'
                 params.extend([like_pattern, like_pattern, like_pattern])
             
-            where_clause = " AND ".join(like_conditions)
+            # 🆕 使用 OR 替代 AND
+            where_clause = " OR ".join(like_conditions)
             params.append(limit)
             
             # 執行查詢
             with connection.cursor() as cursor:
                 cursor.execute(f"""
                     SELECT 
+                        id,
                         source_id,
                         COALESCE(heading_text, document_title) as title,
                         content,
                         document_id,
                         document_title,
-                        1.0 as rank
+                        heading_text
                     FROM document_section_embeddings
                     WHERE source_table = %s
-                        AND {where_clause}
+                        AND ({where_clause})
                     LIMIT %s
                 """, params)
                 
                 rows = cursor.fetchall()
                 
+                # 🆕 計算每筆結果的 match_count
                 results = []
                 for row in rows:
+                    section_pk = row[0]  # 段落主鍵（唯一識別符）
+                    source_id = row[1]
+                    title = row[2]
+                    content = row[3] or ''
+                    document_id = row[4]
+                    document_title = row[5] or ''
+                    heading_text = row[6] or ''
+                    
+                    # 計算匹配的關鍵字數量
+                    match_count = 0
+                    matched_keywords = []
+                    searchable_text = f"{heading_text} {document_title} {content}".lower()
+                    
+                    for keyword in keywords:
+                        if keyword.lower() in searchable_text:
+                            match_count += 1
+                            matched_keywords.append(keyword)
+                    
+                    # 🆕 計算加權分數（match_count / total_keywords）
+                    # 全部匹配 = 1.0，部分匹配 = 比例分數
+                    rank = match_count / len(keywords) if keywords else 0
+                    
                     results.append({
-                        'source_id': row[0],
-                        'title': row[1],
-                        'content': row[2],
-                        'document_id': row[3],
-                        'document_title': row[4],
-                        'rank': float(row[5])
+                        'id': section_pk,  # 🆕 段落主鍵（用於 RRF 融合去重）
+                        'source_id': source_id,
+                        'title': title,
+                        'content': content,
+                        'document_id': document_id,
+                        'document_title': document_title,
+                        'rank': rank,
+                        'match_count': match_count,
+                        'matched_keywords': matched_keywords
                     })
                 
-                logger.info(f"🔍 LIKE 模糊匹配: '{query}' → {len(results)} 個結果")
+                # 🆕 按 match_count 降序排序（匹配越多越前面）
+                results.sort(key=lambda x: (-x['match_count'], -x['rank']))
+                
+                logger.info(
+                    f"🔍 OR 關鍵字搜尋: '{query}' → {len(results)} 個結果 "
+                    f"(關鍵字: {keywords}, 全匹配: {sum(1 for r in results if r['match_count'] == len(keywords))} 筆)"
+                )
                 return results
                 
         except Exception as e:
@@ -395,26 +495,30 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
         """
         獲取文檔唯一識別符（用於 RRF 融合去重）
         
+        🔧 修正 (v1.2.4)：使用段落主鍵 (id) 作為唯一識別符
+        之前的問題：source_id 是文檔 ID，會導致同文檔的不同段落被當成同一個結果
+        
         支援兩種結果格式：
-        1. 原始段落結果：source_id 在頂層
-        2. 標準化結果：id 在 metadata.id
+        1. 向量搜尋結果：id 在 metadata.id（段落主鍵）
+        2. 關鍵字搜尋結果：id 在結果字典中
         
         Args:
             result: 搜尋結果字典
             
         Returns:
-            str: 文檔唯一識別符（格式：source_table:source_id）
+            str: 段落唯一識別符（格式：source_table:section:id）
         """
         source_table = result.get('metadata', {}).get('source_table', self.source_table)
-        
-        # 優先從 metadata.id 讀取（標準化格式）
         metadata = result.get('metadata', {})
-        source_id = metadata.get('id')
         
-        # 回退到頂層 source_id（原始段落格式）
-        if source_id is None:
-            source_id = result.get('source_id', 'unknown')
+        # 🆕 優先從 metadata.id 讀取段落主鍵
+        section_pk = metadata.get('id')
         
+        if section_pk:
+            return f"{source_table}:section:{section_pk}"
+        
+        # 回退：使用 source_id（舊格式，不建議）
+        source_id = result.get('source_id', 'unknown')
         return f"{source_table}:{source_id}"
     
     def _merge_with_rrf(self, vector_results: list, keyword_results: list, k: int = 60) -> list:
@@ -463,8 +567,14 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
         
         # 處理關鍵字搜尋結果
         for rank, result in enumerate(keyword_results, start=1):
-            # 從關鍵字結果構造 doc_id
-            doc_id = f"{self.source_table}:{result['source_id']}"
+            # 🔧 修正：使用段落主鍵 (id) 作為唯一識別符，而非 source_id
+            # source_id 是文檔 ID，會導致同文檔的不同段落被當成同一個結果
+            section_pk = result.get('id')
+            if section_pk:
+                doc_id = f"{self.source_table}:section:{section_pk}"
+            else:
+                # 回退：如果沒有 id，使用 source_id（舊格式）
+                doc_id = f"{self.source_table}:{result['source_id']}"
             rrf_score = 1.0 / (k + rank)
             
             if doc_id not in rrf_scores:
@@ -482,9 +592,12 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
                     'score': result['rank'],  # 使用 PostgreSQL ts_rank
                     'metadata': {
                         'source_table': self.source_table,
+                        'id': section_pk,  # 🆕 段落主鍵
                         'source_id': result['source_id'],
                         'document_id': result.get('document_id'),
-                        'document_title': result.get('document_title')
+                        'document_title': result.get('document_title'),
+                        'match_count': result.get('match_count'),
+                        'matched_keywords': result.get('matched_keywords')
                     }
                 }
             
@@ -517,6 +630,7 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
             f"向量 {len(vector_results)} + 關鍵字 {len(keyword_results)} = "
             f"合併 {len(merged_results)} (k={k})"
         )
+        
         
         return merged_results
     
@@ -702,9 +816,10 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
                 )
                 logger.info(f"✅ 關鍵字搜尋完成: {len(keyword_results)} 個結果")
                 
-                # 記錄關鍵字搜尋結果
+                # 記錄關鍵字搜尋結果（傳入分詞後的關鍵字）
                 if scoring_logger:
-                    scoring_logger.log_stage1_keyword_search(keyword_results)
+                    keywords = smart_tokenize(cleaned_query)
+                    scoring_logger.log_stage1_keyword_search(keyword_results, keywords=keywords)
                 
                 # 步驟 C: RRF 融合
                 logger.info(f"📍 步驟 3/6: RRF 融合 (k={rrf_k})")

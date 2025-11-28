@@ -154,21 +154,44 @@ class VSAScoringLogger:
         if result_count > 5:
             scoring_logger.info(f"      ... 還有 {result_count - 5} 筆結果")
     
-    def log_stage1_keyword_search(self, results: List[Dict], count: int = None):
+    def log_stage1_keyword_search(self, results: List[Dict], count: int = None, keywords: List[str] = None):
         """
-        記錄一階關鍵字搜尋結果
+        記錄一階關鍵字搜尋結果（v1.2.3 更新：支援 OR 邏輯統計）
         
         Args:
             results: 關鍵字搜尋結果列表
             count: 結果數量
+            keywords: 搜尋的關鍵字列表（用於顯示匹配統計）
         """
         result_count = count if count is not None else len(results)
-        scoring_logger.info(f"   🔶 [關鍵字搜尋] 找到 {result_count} 筆結果")
+        
+        # 計算全匹配、部分匹配統計
+        if keywords and len(keywords) > 1:
+            full_match = sum(1 for r in results if r.get('match_count', 0) == len(keywords))
+            partial_match = result_count - full_match
+            scoring_logger.info(
+                f"   🔶 [關鍵字搜尋] 找到 {result_count} 筆結果 "
+                f"(關鍵字: {keywords}, 全匹配: {full_match}, 部分匹配: {partial_match})"
+            )
+        else:
+            scoring_logger.info(f"   🔶 [關鍵字搜尋] 找到 {result_count} 筆結果")
         
         for i, r in enumerate(results[:5], 1):
             title = r.get('title', 'N/A')[:50]
             rank = r.get('rank', 0)
-            scoring_logger.info(f"      {i}. {title}... | 排名分數: {rank:.4f}")
+            match_count = r.get('match_count')
+            matched_kw = r.get('matched_keywords', [])
+            
+            # 如果有 match_count 資訊，顯示匹配詳情
+            if match_count is not None and keywords:
+                scoring_logger.info(
+                    f"      {i}. {title}... | "
+                    f"匹配: {match_count}/{len(keywords)} | "
+                    f"分數: {rank:.4f} | "
+                    f"關鍵字: {matched_kw}"
+                )
+            else:
+                scoring_logger.info(f"      {i}. {title}... | 排名分數: {rank:.4f}")
         
         if result_count > 5:
             scoring_logger.info(f"      ... 還有 {result_count - 5} 筆結果")
