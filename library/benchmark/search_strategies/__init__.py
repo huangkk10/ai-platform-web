@@ -31,9 +31,39 @@ from .section_only_strategy import SectionOnlyStrategy
 from .document_only_strategy import DocumentOnlyStrategy
 from .hybrid_weighted_strategy import HybridWeightedStrategy
 
+
+def get_strategy(strategy_type: str, search_service, **params):
+    """
+    獲取搜尋策略實例
+    
+    Args:
+        strategy_type: 策略類型 ('section_only', 'document_only', 'hybrid_weighted')
+        search_service: ProtocolGuideSearchService 實例
+        **params: 策略參數
+        
+    Returns:
+        BaseSearchStrategy: 策略實例
+        
+    Raises:
+        ValueError: 不支援的策略類型
+    """
+    strategy_map = {
+        'section_only': SectionOnlyStrategy,
+        'document_only': DocumentOnlyStrategy,
+        'hybrid_weighted': HybridWeightedStrategy,
+    }
+    
+    strategy_class = strategy_map.get(strategy_type)
+    if not strategy_class:
+        raise ValueError(f"不支援的策略類型: {strategy_type}. 可用類型: {list(strategy_map.keys())}")
+    
+    return strategy_class(search_service, **params)
+
+
 __all__ = [
     'BaseSearchStrategy',
     'SectionOnlyStrategy',
     'DocumentOnlyStrategy',
     'HybridWeightedStrategy',
+    'get_strategy',
 ]

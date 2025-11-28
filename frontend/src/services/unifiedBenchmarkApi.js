@@ -139,6 +139,56 @@ export const unifiedBenchmarkApi = {
     const params = testType ? { test_type: testType } : {};
     return api.get('/api/unified-benchmark/test-cases/bulk_export/', { params });
   },
+
+  /**
+   * 單一測試案例的版本比較測試
+   * @param {number} id - 測試案例 ID
+   * @param {Object} data - 測試參數
+   * @param {Array} data.version_ids - 要測試的版本 ID 列表（可選，null = 測試所有啟用版本）
+   * @param {boolean} data.force_retest - 是否強制重測（可選）
+   * @returns {Promise}
+   * 
+   * Response 格式:
+   * {
+   *   success: boolean,
+   *   test_case: {
+   *     id: number,
+   *     question: string,
+   *     difficulty: string,
+   *     answer_keywords: string[]
+   *   },
+   *   results: [
+   *     {
+   *       version_id: number,
+   *       version_name: string,
+   *       strategy_type: string,
+   *       metrics: {
+   *         precision: number,
+   *         recall: number,
+   *         f1_score: number
+   *       },
+   *       response_time: number,
+   *       matched_keywords: string[],
+   *       total_keywords: number,
+   *       status: 'success' | 'error',
+   *       test_run_id: number
+   *     },
+   *     ...
+   *   ],
+   *   summary: {
+   *     total_versions: number,
+   *     successful_tests: number,
+   *     failed_tests: number,
+   *     best_version: {...},
+   *     avg_response_time: number,
+   *     total_execution_time: number,
+   *     test_run_ids: number[]
+   *   }
+   * }
+   */
+  versionComparison: (id, data = {}) => {
+    return api.post(`/api/unified-benchmark/test-cases/${id}/version_comparison/`, data);
+  },
 };
 
 export default unifiedBenchmarkApi;

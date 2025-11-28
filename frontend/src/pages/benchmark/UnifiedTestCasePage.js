@@ -11,9 +11,10 @@ import {
 import {
   FileTextOutlined, EditOutlined,
   DeleteOutlined, EyeOutlined, ReloadOutlined, ExportOutlined,
-  SearchOutlined, FilterOutlined, PlusOutlined, CloseOutlined
+  SearchOutlined, FilterOutlined, PlusOutlined, CloseOutlined, ExperimentOutlined
 } from '@ant-design/icons';
 import unifiedBenchmarkApi from '../../services/unifiedBenchmarkApi';
+import VersionComparisonModal from './VersionComparisonModal';
 import './UnifiedTestCasePage.css';
 
 const { Search, TextArea } = Input;
@@ -35,6 +36,7 @@ const UnifiedTestCasePage = ({ defaultTab = 'vsa' }) => {
   // Modal 控制
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
+  const [versionComparisonVisible, setVersionComparisonVisible] = useState(false);
   const [selectedCase, setSelectedCase] = useState(null);
   const [editForm] = Form.useForm();
   
@@ -228,6 +230,19 @@ const UnifiedTestCasePage = ({ defaultTab = 'vsa' }) => {
     }
   };
 
+  // 版本比較測試
+  const handleVersionComparison = (record) => {
+    setSelectedCase(record);
+    setVersionComparisonVisible(true);
+  };
+
+  // 關閉版本比較 Modal
+  const handleCloseVersionComparison = () => {
+    setVersionComparisonVisible(false);
+    // 可選：重新載入測試案例以更新統計數據
+    // loadTestCases();
+  };
+
   // 批量匯出
   const handleExport = async () => {
     try {
@@ -390,7 +405,7 @@ const UnifiedTestCasePage = ({ defaultTab = 'vsa' }) => {
     const actionColumn = {
       title: '操作',
       key: 'actions',
-      width: 220,
+      width: 280,
       fixed: 'right',
       render: (_, record) => (
         <Space>
@@ -407,6 +422,16 @@ const UnifiedTestCasePage = ({ defaultTab = 'vsa' }) => {
               icon={<EditOutlined />}
               onClick={() => handleEdit(record)}
             />
+          </Tooltip>
+          <Tooltip title="版本比較測試">
+            <Button
+              type="primary"
+              ghost
+              icon={<ExperimentOutlined />}
+              onClick={() => handleVersionComparison(record)}
+            >
+              版本比較
+            </Button>
           </Tooltip>
           <Tooltip title={record.is_active ? '停用' : '啟用'}>
             <Button
@@ -563,7 +588,7 @@ const UnifiedTestCasePage = ({ defaultTab = 'vsa' }) => {
         dataSource={testCases}
         rowKey="id"
         loading={loading}
-        scroll={{ x: 1750, y: 'calc(100vh - 480px)' }}
+        scroll={{ x: 2000, y: 'calc(100vh - 480px)' }}
         pagination={{
           showSizeChanger: true,
           showQuickJumper: true,
@@ -826,6 +851,13 @@ const UnifiedTestCasePage = ({ defaultTab = 'vsa' }) => {
           </div>
         </Form>
       </Modal>
+
+      {/* 版本比較測試 Modal */}
+      <VersionComparisonModal
+        visible={versionComparisonVisible}
+        onClose={handleCloseVersionComparison}
+        testCase={selectedCase}
+      />
     </div>
   );
 };

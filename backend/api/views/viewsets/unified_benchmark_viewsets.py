@@ -257,3 +257,105 @@ class UnifiedBenchmarkTestCaseViewSet(viewsets.ModelViewSet):
         test_classes = [tc for tc in test_classes if tc]  # 過濾空值
         
         return Response(sorted(test_classes))
+    
+    @action(detail=True, methods=['post'])
+    def version_comparison(self, request, pk=None):
+        """
+        單一測試案例的版本比較測試
+        
+        POST /api/unified-benchmark/test-cases/{id}/version_comparison/
+        
+        Request Body:
+        {
+            "version_ids": [1, 2, 3, 4, 5],  // 可選，預設測試所有啟用版本
+            "force_retest": false            // 可選，是否強制重測（暫不實作快取）
+        }
+        
+        Response:
+        {
+            "success": true,
+            "test_case": {
+                "id": 123,
+                "question": "...",
+                "difficulty": "easy",
+                "answer_keywords": [...]
+            },
+            "results": [
+                {
+                    "version_id": 1,
+                    "version_name": "V1 - 純段落向量搜尋",
+                    "strategy_type": "section_only",
+                    "metrics": {
+                        "precision": 0.20,
+                        "recall": 1.00,
+                        "f1_score": 0.33
+                    },
+                    "response_time": 1.23,
+                    "matched_keywords": ["keyword1", "keyword2"],
+                    "total_keywords": 3,
+                    "status": "success",
+                    "test_run_id": 456
+                },
+                ...
+            ],
+            "summary": {
+                "total_versions": 5,
+                "successful_tests": 5,
+                "failed_tests": 0,
+                "best_version": {...},
+                "avg_response_time": 1.5,
+                "total_execution_time": 7.5,
+                "test_run_ids": [456, 457, 458, 459, 460]
+            }
+        }
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        test_case = self.get_object()
+        version_ids = request.data.get('version_ids', None)
+        force_retest = request.data.get('force_retest', False)
+        
+        # 驗證 version_ids 格式
+        if version_ids is not None and not isinstance(version_ids, list):
+            return Response(
+                {'error': 'version_ids 必須是陣列'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            # 導入測試器
+            from library.benchmark.single_case_version_tester import SingleCaseVersionTester
+            
+            logger.info(f"開始版本比較測試 - 測試案例 ID: {test_case.id}, 問題: {test_case.question[:50]}...")
+            
+            # 創建測試器並執行測試
+            tester = SingleCaseVersionTester(
+                test_case_id=test_case.id,
+                version_ids=version_ids,
+                verbose=True  # 輸出詳細日誌
+            )
+            
+            result = tester.run_comparison()
+            
+            # 檢查測試是否成功
+            if not result.get('success'):
+                error_msg = result.get('error', '測試失敗')
+                logger.error(f"版本比較測試失敗: {error_msg}")
+                return Response(
+                    {'error': error_msg},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            logger.info(f"版本比較測試完成 - 總時間: {result['summary']['total_execution_time']}秒")
+            
+            # 返回結果
+            return Response(result, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            error_msg = f"版本比較測試執行失敗: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            return Response(
+                {'error': error_msg},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

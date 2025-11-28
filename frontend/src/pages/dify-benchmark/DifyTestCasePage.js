@@ -43,8 +43,10 @@ import {
   PoweroffOutlined,
   CheckCircleOutlined,
   FileTextOutlined,
+  ExperimentOutlined,
 } from '@ant-design/icons';
 import * as difyBenchmarkApi from '../../services/difyBenchmarkApi';
+import VersionComparisonModal from '../benchmark/VersionComparisonModal';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -61,6 +63,7 @@ const DifyTestCasePage = () => {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [importModalVisible, setImportModalVisible] = useState(false);
+  const [versionComparisonVisible, setVersionComparisonVisible] = useState(false);
   const [selectedTestCase, setSelectedTestCase] = useState(null);
   const [isEditMode, setIsEditMode] = useState(false);
   
@@ -391,6 +394,18 @@ const DifyTestCasePage = () => {
     }
   };
 
+  // 版本比較測試
+  const handleVersionComparison = (record) => {
+    setSelectedTestCase(record);
+    setVersionComparisonVisible(true);
+  };
+
+  // 關閉版本比較 Modal
+  const handleCloseVersionComparison = () => {
+    setVersionComparisonVisible(false);
+    setSelectedTestCase(null);
+  };
+
   // 批量匯出
   const handleExport = async () => {
     try {
@@ -518,7 +533,7 @@ const DifyTestCasePage = () => {
     {
       title: '操作',
       key: 'actions',
-      width: 180,
+      width: 240,
       align: 'center',
       fixed: 'right',
       render: (_, record) => (
@@ -538,6 +553,17 @@ const DifyTestCasePage = () => {
               onClick={() => showEditModal(record)}
               size="small"
             />
+          </Tooltip>
+          <Tooltip title="版本比較測試">
+            <Button
+              type="primary"
+              ghost
+              icon={<ExperimentOutlined />}
+              onClick={() => handleVersionComparison(record)}
+              size="small"
+            >
+              版本比較
+            </Button>
           </Tooltip>
           <Tooltip title={record.is_active ? '停用' : '啟用'}>
             <Popconfirm
@@ -706,7 +732,7 @@ const DifyTestCasePage = () => {
           dataSource={filteredTestCases}
           rowKey="id"
           loading={loading}
-          scroll={{ x: 1400, y: 'calc(100vh - 480px)' }}
+          scroll={{ x: 1650, y: 'calc(100vh - 480px)' }}
           pagination={{
             defaultPageSize: 20,
             showSizeChanger: true,
@@ -1082,6 +1108,13 @@ const DifyTestCasePage = () => {
           </Button>
         </Upload>
       </Modal>
+
+      {/* 版本比較 Modal */}
+      <VersionComparisonModal
+        visible={versionComparisonVisible}
+        onClose={handleCloseVersionComparison}
+        testCase={selectedTestCase}
+      />
     </div>
   );
 };
