@@ -267,6 +267,26 @@ export const toggleDifyTestCase = (id) => {
   return api.patch(`/api/dify-benchmark/test-cases/${id}/toggle_active/`);
 };
 
+/**
+ * 選擇版本測試（單一測試案例 × 多個版本）
+ * @param {number} id - 測試案例 ID
+ * @param {Object} data - 測試配置
+ * @param {Array<number>} data.version_ids - 要測試的版本 ID 列表
+ * @param {number} data.max_workers - 最大並行執行緒數（預設 3，最大 5）
+ * @returns {Promise} - 測試結果
+ * 
+ * Response 格式:
+ * {
+ *   success: boolean,
+ *   test_case: { id, question, difficulty_level, expected_keywords },
+ *   results: [{ version_id, version_name, metrics, response_time, status }],
+ *   summary: { total_versions, successful_tests, best_version, avg_response_time }
+ * }
+ */
+export const selectedVersionTest = (id, data) => {
+  return api.post(`/api/dify-benchmark/test-cases/${id}/selected_version_test/`, data);
+};
+
 // ==================== Dify Test Runs API ====================
 
 /**
@@ -371,6 +391,7 @@ const difyBenchmarkApi = {
   bulkImportDifyTestCases,
   bulkExportDifyTestCases,
   toggleDifyTestCase,
+  selectedVersionTest,
 
   // Dify Test Runs
   getDifyTestRuns,

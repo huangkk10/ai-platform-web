@@ -359,3 +359,138 @@ class UnifiedBenchmarkTestCaseViewSet(viewsets.ModelViewSet):
                 {'error': error_msg},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    @action(detail=True, methods=['post'])
+    def selected_version_test(self, request, pk=None):
+        """
+        選擇版本的單一測試案例跑分（多執行緒）
+        
+        POST /api/unified-benchmark/test-cases/{id}/selected_version_test/
+        
+        Request Body:
+        {
+            "version_ids": [1, 2, 3],  // 必須指定要測試的版本 ID 列表
+            "max_workers": 3           // 可選，最大並行執行緒數（預設 3，最大 5）
+        }
+        
+        Response:
+        {
+            "success": true,
+            "test_case": {
+                "id": 123,
+                "question": "...",
+                "difficulty_level": "easy",
+                "expected_keywords": [...]
+            },
+            "results": [
+                {
+                    "version_id": 1,
+                    "version_name": "V1 - 純段落向量搜尋",
+                    "strategy_type": "section_only",
+                    "metrics": {
+                        "precision": 0.20,
+                        "recall": 1.00,
+                        "f1_score": 0.33
+                    },
+                    "response_time": 1.23,
+                    "matched_keywords": ["keyword1", "keyword2"],
+                    "total_keywords": 3,
+                    "status": "success",
+                    "test_run_id": 456
+                },
+                ...
+            ],
+            "summary": {
+                "total_versions": 3,
+                "successful_tests": 3,
+                "failed_tests": 0,
+                "best_version": {...},
+                "avg_response_time": 1.5,
+                "total_execution_time": 2.5,
+                "test_run_ids": [456, 457, 458],
+                "max_workers_used": 3
+            }
+        }
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        test_case = self.get_object()
+        version_ids = request.data.get('version_ids', None)
+        max_workers = request.data.get('max_workers', 3)
+        
+        # 驗證 version_ids（必須提供）
+        if not version_ids:
+            return Response(
+                {'error': 'version_ids 是必須的，請指定要測試的版本 ID 列表'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if not isinstance(version_ids, list):
+            return Response(
+                {'error': 'version_ids 必須是陣列'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if len(version_ids) == 0:
+            return Response(
+                {'error': 'version_ids 不能為空'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # 驗證 max_workers
+        if not isinstance(max_workers, int) or max_workers < 1:
+            max_workers = 3
+        max_workers = min(max_workers, 5)  # 最大限制 5 個執行緒
+        
+        try:
+            # 根據測試案例類型選擇測試器
+            if test_case.test_type == 'vsa':
+                # VSA 類型：使用 Dify 測試器
+                from library.dify_benchmark.dify_single_case_multithread_tester import DifySingleCaseMultithreadTester
+                
+                logger.info(f"開始 VSA 選擇版本測試 - 測試案例 ID: {test_case.id}, 版本: {version_ids}, 並行數: {max_workers}")
+                
+                tester = DifySingleCaseMultithreadTester(
+                    test_case_id=test_case.id,
+                    version_ids=version_ids,
+                    max_workers=max_workers,
+                    verbose=True
+                )
+            else:
+                # Protocol 類型：使用原有的 Protocol 測試器
+                from library.benchmark.single_case_multithread_tester import SingleCaseMultithreadTester
+                
+                logger.info(f"開始 Protocol 選擇版本測試 - 測試案例 ID: {test_case.id}, 版本: {version_ids}, 並行數: {max_workers}")
+                
+                tester = SingleCaseMultithreadTester(
+                    test_case_id=test_case.id,
+                    version_ids=version_ids,
+                    max_workers=max_workers,
+                    verbose=True
+                )
+            
+            result = tester.run_test()
+            
+            # 檢查測試是否成功
+            if not result.get('success'):
+                error_msg = result.get('error', '測試失敗')
+                logger.error(f"選擇版本測試失敗: {error_msg}")
+                return Response(
+                    {'error': error_msg},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            logger.info(f"選擇版本測試完成 - 總時間: {result['summary']['total_execution_time']}秒")
+            
+            # 返回結果
+            return Response(result, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            error_msg = f"選擇版本測試執行失敗: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            return Response(
+                {'error': error_msg},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+

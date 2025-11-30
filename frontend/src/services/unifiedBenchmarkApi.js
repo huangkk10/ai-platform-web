@@ -189,6 +189,44 @@ export const unifiedBenchmarkApi = {
   versionComparison: (id, data = {}) => {
     return api.post(`/api/unified-benchmark/test-cases/${id}/version_comparison/`, data);
   },
+
+  /**
+   * 選擇版本的單一案例跑分（多執行緒）
+   * @param {number} id - 測試案例 ID
+   * @param {Object} data - 測試參數
+   * @param {Array} data.version_ids - 要測試的版本 ID 列表（必須指定）
+   * @param {number} data.max_workers - 最大並行執行緒數（預設 3，最大 5）
+   * @returns {Promise}
+   * 
+   * Response 格式同 versionComparison，額外包含 max_workers_used
+   */
+  selectedVersionTest: (id, data) => {
+    return api.post(`/api/unified-benchmark/test-cases/${id}/selected_version_test/`, data);
+  },
+
+  /**
+   * 獲取所有可用的 Dify 配置版本（VSA 版本）
+   * @returns {Promise} - 包含版本列表的 Promise
+   * 
+   * Response 格式:
+   * [
+   *   {
+   *     id: number,
+   *     version_name: string,
+   *     version_code: string,
+   *     description: string,
+   *     is_active: boolean,
+   *     is_baseline: boolean,
+   *     dify_app_id: string,
+   *     rag_settings: object
+   *   },
+   *   ...
+   * ]
+   */
+  getVersions: () => {
+    return api.get('/api/dify-benchmark/versions/');
+  },
 };
 
 export default unifiedBenchmarkApi;
+

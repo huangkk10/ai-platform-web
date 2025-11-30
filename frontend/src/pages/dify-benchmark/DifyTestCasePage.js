@@ -46,9 +46,11 @@ import {
   ExperimentOutlined,
   ClearOutlined,
   HistoryOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons';
 import * as difyBenchmarkApi from '../../services/difyBenchmarkApi';
 import VersionComparisonModal from '../benchmark/VersionComparisonModal';
+import SelectVersionTestModal from '../benchmark/SelectVersionTestModal';
 import { useUrlParams } from '../../hooks/useUrlParams'; // 🆕 導入 URL 參數 Hook
 
 const { Option } = Select;
@@ -94,6 +96,7 @@ const DifyTestCasePage = () => {
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [importModalVisible, setImportModalVisible] = useState(false);
   const [versionComparisonVisible, setVersionComparisonVisible] = useState(false);
+  const [selectVersionTestVisible, setSelectVersionTestVisible] = useState(false);
   const [selectedTestCase, setSelectedTestCase] = useState(null);
   const [isEditMode, setIsEditMode] = useState(false);
   
@@ -460,6 +463,18 @@ const DifyTestCasePage = () => {
     setSelectedTestCase(null);
   };
 
+  // 選擇版本跑分
+  const handleSelectVersionTest = (record) => {
+    setSelectedTestCase(record);
+    setSelectVersionTestVisible(true);
+  };
+
+  // 關閉選擇版本跑分 Modal
+  const handleCloseSelectVersionTest = () => {
+    setSelectVersionTestVisible(false);
+    setSelectedTestCase(null);
+  };
+
   // 批量匯出
   const handleExport = async () => {
     try {
@@ -614,6 +629,15 @@ const DifyTestCasePage = () => {
               ghost
               icon={<ExperimentOutlined />}
               onClick={() => handleVersionComparison(record)}
+              size="small"
+            />
+          </Tooltip>
+          <Tooltip title="選擇版本跑分">
+            <Button
+              type="default"
+              style={{ backgroundColor: '#722ed1', borderColor: '#722ed1', color: 'white' }}
+              icon={<ThunderboltOutlined />}
+              onClick={() => handleSelectVersionTest(record)}
               size="small"
             />
           </Tooltip>
@@ -1197,8 +1221,16 @@ const DifyTestCasePage = () => {
         onClose={handleCloseVersionComparison}
         testCase={selectedTestCase}
       />
+
+      {/* 選擇版本跑分 Modal */}
+      <SelectVersionTestModal
+        visible={selectVersionTestVisible}
+        onClose={handleCloseSelectVersionTest}
+        testCase={selectedTestCase}
+      />
     </div>
   );
 };
 
 export default DifyTestCasePage;
+

@@ -913,6 +913,125 @@ class DifyBenchmarkTestCaseViewSet(viewsets.ModelViewSet):
             'message': f"測試案例已{'啟用' if test_case.is_active else '停用'}"
         })
 
+    @action(detail=True, methods=['post'])
+    def selected_version_test(self, request, pk=None):
+        """
+        選擇版本測試（單一測試案例 × 多個版本 - 多執行緒）
+        
+        POST /api/dify-benchmark/test-cases/:id/selected_version_test/
+        
+        Request Body:
+        {
+            "version_ids": [1, 2, 3],  // 必須指定要測試的版本 ID 列表 (DifyConfigVersion)
+            "max_workers": 3           // 可選，最大並行執行緒數（預設 3，最大 5）
+        }
+        
+        Response:
+        {
+            "success": true,
+            "test_case": {
+                "id": 123,
+                "question": "...",
+                "difficulty_level": "easy",
+                "expected_keywords": [...]
+            },
+            "results": [
+                {
+                    "version_id": 1,
+                    "version_name": "Dify 二階搜尋 v1.1",
+                    "version_code": "dify_v1_1",
+                    "metrics": {
+                        "score": 85.5,
+                        "precision": 0.80,
+                        "recall": 0.90,
+                        "f1_score": 0.85
+                    },
+                    "response_time": 2.5,
+                    "matched_keywords": ["keyword1", "keyword2"],
+                    "total_keywords": 3,
+                    "status": "success",
+                    "test_run_id": 456
+                },
+                ...
+            ],
+            "summary": {
+                "total_versions": 3,
+                "successful_tests": 3,
+                "failed_tests": 0,
+                "best_version": {...},
+                "avg_response_time": 2.8,
+                "total_execution_time": 5.5,
+                "test_run_ids": [456, 457, 458],
+                "max_workers_used": 3
+            }
+        }
+        """
+        test_case = self.get_object()
+        version_ids = request.data.get('version_ids', None)
+        max_workers = request.data.get('max_workers', 3)
+        
+        # 驗證 version_ids（必須提供）
+        if not version_ids:
+            return Response(
+                {'error': 'version_ids 是必須的，請指定要測試的版本 ID 列表'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if not isinstance(version_ids, list):
+            return Response(
+                {'error': 'version_ids 必須是陣列'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if len(version_ids) == 0:
+            return Response(
+                {'error': 'version_ids 不能為空'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # 驗證 max_workers
+        if not isinstance(max_workers, int) or max_workers < 1:
+            max_workers = 3
+        max_workers = min(max_workers, 5)  # 最大限制 5 個執行緒
+        
+        try:
+            # 導入 Dify 多執行緒測試器
+            from library.dify_benchmark.dify_single_case_multithread_tester import DifySingleCaseMultithreadTester
+            
+            logger.info(f"開始 Dify 選擇版本測試 - 測試案例 ID: {test_case.id}, 版本: {version_ids}, 並行數: {max_workers}")
+            
+            # 創建測試器並執行測試
+            tester = DifySingleCaseMultithreadTester(
+                test_case_id=test_case.id,
+                version_ids=version_ids,
+                max_workers=max_workers,
+                verbose=True
+            )
+            
+            result = tester.run_test()
+            
+            # 檢查測試是否成功
+            if not result.get('success'):
+                error_msg = result.get('error', '測試失敗')
+                logger.error(f"Dify 選擇版本測試失敗: {error_msg}")
+                return Response(
+                    {'error': error_msg},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            logger.info(f"Dify 選擇版本測試完成 - 總時間: {result['summary']['total_execution_time']}秒")
+            
+            # 返回結果
+            return Response(result, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            error_msg = f"Dify 選擇版本測試執行失敗: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            return Response(
+                {'error': error_msg},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 
 class DifyTestRunViewSet(viewsets.ReadOnlyModelViewSet):
     """
