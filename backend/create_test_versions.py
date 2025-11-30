@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 """
-創建 Benchmark 測試版本（V1-V5）
+創建 Benchmark 測試版本（V1-V6）
 ================================
 
 目的：
-創建 5 個使用新策略引擎的 SearchAlgorithmVersion，用於測試不同的搜尋策略。
+創建 6 個使用新策略引擎的 SearchAlgorithmVersion，用於測試不同的搜尋策略。
 
 版本設計：
 - V1: 純段落搜尋（section_only）- 高精準度
@@ -12,6 +12,7 @@
 - V3: 混合 70-30（hybrid_weighted）⭐ 預期最佳
 - V4: 混合 50-50（hybrid_weighted）- 平衡
 - V5: 混合 80-20（hybrid_weighted）- 高精準
+- V6: 混合 RRF（hybrid_rrf）🔄 向量+關鍵字+RRF 融合（來自 Dify v1.2.2）
 
 所有版本都使用：
 - use_strategy_engine: True（使用新策略引擎）
@@ -102,6 +103,28 @@ def create_test_versions():
                 'document_weight': 0.2,
                 'section_threshold': 0.75,
                 'document_threshold': 0.65,
+            },
+        },
+        # 🆕 V6 - 混合 RRF 搜尋（來自 Dify v1.2.2 一階搜尋）
+        {
+            'version_name': 'V6 - 混合RRF搜尋（向量+關鍵字）🔄',
+            'version_code': 'v3.6-hybrid-rrf',
+            'algorithm_type': 'hybrid_rrf',
+            'description': '混合搜尋（向量 + 關鍵字 + RRF 融合）- 來自 Dify v1.2.2 一階搜尋',
+            'parameters': {
+                'use_strategy_engine': True,
+                'strategy': 'hybrid_rrf',
+                # RRF 配置
+                'use_hybrid_search': True,
+                'rrf_k': 60,  # 業界標準
+                # Title Boost 配置
+                'title_match_bonus': 0.15,  # 15%
+                'min_keyword_length': 2,
+                # 搜尋配置
+                'section_threshold': 0.80,
+                'title_weight': 95,
+                'content_weight': 5,
+                'top_k': 20,
             },
         },
     ]

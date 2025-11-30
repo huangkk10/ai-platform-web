@@ -8,6 +8,7 @@
 - SectionOnlyStrategy: 純段落向量搜尋
 - DocumentOnlyStrategy: 純全文向量搜尋
 - HybridWeightedStrategy: 混合權重搜尋（四維權重系統）
+- HybridRRFStrategy: 混合 RRF 搜尋（向量 + 關鍵字 + RRF 融合）⭐ 來自 Dify v1.2.2
 - BalancedHybridStrategy: 平衡混合策略（50-50）
 - ThreeLayerStrategy: 三層策略（段落+全文+關鍵字）
 
@@ -30,6 +31,7 @@ from .base_strategy import BaseSearchStrategy
 from .section_only_strategy import SectionOnlyStrategy
 from .document_only_strategy import DocumentOnlyStrategy
 from .hybrid_weighted_strategy import HybridWeightedStrategy
+from .hybrid_rrf_strategy import HybridRRFStrategy
 
 
 def get_strategy(strategy_type: str, search_service, **params):
@@ -37,7 +39,7 @@ def get_strategy(strategy_type: str, search_service, **params):
     獲取搜尋策略實例
     
     Args:
-        strategy_type: 策略類型 ('section_only', 'document_only', 'hybrid_weighted')
+        strategy_type: 策略類型 ('section_only', 'document_only', 'hybrid_weighted', 'hybrid_rrf')
         search_service: ProtocolGuideSearchService 實例
         **params: 策略參數
         
@@ -51,6 +53,7 @@ def get_strategy(strategy_type: str, search_service, **params):
         'section_only': SectionOnlyStrategy,
         'document_only': DocumentOnlyStrategy,
         'hybrid_weighted': HybridWeightedStrategy,
+        'hybrid_rrf': HybridRRFStrategy,
     }
     
     strategy_class = strategy_map.get(strategy_type)
@@ -65,5 +68,6 @@ __all__ = [
     'SectionOnlyStrategy',
     'DocumentOnlyStrategy',
     'HybridWeightedStrategy',
+    'HybridRRFStrategy',
     'get_strategy',
 ]
