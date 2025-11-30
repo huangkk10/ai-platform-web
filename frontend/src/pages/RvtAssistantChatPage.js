@@ -26,6 +26,7 @@ const RvtAssistantChatPage = ({ collapsed = false }) => {
       placeholder="請描述你的 RVT 問題..."
       welcomeMessage={RVT_WELCOME_MESSAGE}
       collapsed={collapsed}
+      enableFileUpload={true}  // 🆕 啟用檔案上傳功能（圖片 OCR + 文字檔）
     />
   );
 };

@@ -83,6 +83,9 @@ urlpatterns = [
     # Dify OCR Chat API - 專門用於 AI OCR 系統
     path('dify/ocr/chat/', views.dify_ocr_chat, name='dify_ocr_chat'),
     
+    # OCR 圖片分析 API - 供 Assistant 檔案上傳功能使用
+    path('ocr/analyze/', views.OCRAnalyzeView.as_view(), name='ocr_analyze'),
+    
     # RVT Guide Chat API
     path('rvt-guide/chat/', views.rvt_guide_chat, name='rvt_guide_chat'),
     path('rvt-guide/config/', views.rvt_guide_config, name='rvt_guide_config'),

@@ -275,7 +275,10 @@ const useRvtChat = (conversationId, setConversationId, setMessages, user, curren
     sendMessage,
     loading,
     loadingStartTime,
-    stopRequest
+    stopRequest,
+    // 🆕 暴露 loading 控制函數（供 OCR 等前置處理使用）
+    setLoading,
+    setLoadingStartTime
   };
 };
 

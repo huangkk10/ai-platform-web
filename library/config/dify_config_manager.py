@@ -90,6 +90,7 @@ class DifyConfigManager:
         'rvt_guide': 'RVT Guide',
         'report_analyzer_3': 'Report Analyzer 3',
         'ai_ocr': 'AI OCR System',
+        'ocr_function': 'OCR Function',
     }
     
     def __init__(self):
@@ -162,6 +163,22 @@ class DifyConfigManager:
             'description': 'Dify Chat 應用，用於 RVT 相關指導和協助',
             'features': ['RVT 指導', '技術支援', 'RVT 流程管理'],
             'timeout': 75,  # 增加超時時間到75秒
+            'response_mode': 'blocking'
+        }
+    
+    @classmethod
+    def _get_ocr_function_config(cls):
+        """動態獲取 OCR Function 配置"""
+        ai_pc_ip = cls._get_ai_pc_ip()
+        return {
+            'api_url': f'http://{ai_pc_ip}/v1/chat-messages',
+            'api_key': 'app-eFCJ5fDpoWV7CGKQ7VSoKgi0',
+            'base_url': f'http://{ai_pc_ip}',
+            'app_name': 'OCR Function',
+            'workspace': 'OCR_Function',
+            'description': 'Dify 工作流應用，提供 OCR 圖像識別功能，供各 Web Assistant 調用',
+            'features': ['圖像識別', 'OCR 文字擷取', '結構化資料解析', '跨 Assistant 共用'],
+            'timeout': 90,  # OCR 處理可能需要較長時間
             'response_mode': 'blocking'
         }
     
@@ -253,6 +270,9 @@ class DifyConfigManager:
             # AI OCR 使用相同的 Report Analyzer 3 配置
             base_config = self._get_report_analyzer_3_config()
             return self._get_base_config_with_env_override(base_config, 'DIFY_REPORT_ANALYZER')
+        elif app_type == 'ocr_function':
+            base_config = self._get_ocr_function_config()
+            return self._get_base_config_with_env_override(base_config, 'DIFY_OCR_FUNCTION')
         else:
             raise ValueError(f"無法找到應用 {app_type} 的配置方法")
     
@@ -300,6 +320,15 @@ class DifyConfigManager:
             DifyAppConfig: AI OCR 配置
         """
         return self.get_app_config('ai_ocr')
+    
+    def get_ocr_function_config(self) -> DifyAppConfig:
+        """
+        獲取 OCR Function 配置的便利方法
+        
+        Returns:
+            DifyAppConfig: OCR Function 配置
+        """
+        return self.get_app_config('ocr_function')
     
     def list_available_apps(self) -> Dict[str, str]:
         """
@@ -426,6 +455,16 @@ def get_ai_ocr_config() -> DifyAppConfig:
     return default_config_manager.get_ai_ocr_config()
 
 
+def get_ocr_function_config() -> DifyAppConfig:
+    """
+    獲取 OCR Function 配置的便利函數
+    
+    Returns:
+        DifyAppConfig: OCR Function 配置對象
+    """
+    return default_config_manager.get_ocr_function_config()
+
+
 def validate_all_dify_configs() -> Dict[str, bool]:
     """
     驗證所有 Dify 配置的便利函數
@@ -505,3 +544,13 @@ def get_ai_ocr_config_dict() -> Dict[str, Any]:
         Dict[str, Any]: 配置字典
     """
     return get_ai_ocr_config().to_dict()
+
+
+def get_ocr_function_config_dict() -> Dict[str, Any]:
+    """
+    獲取 OCR Function 配置字典（向後兼容）
+    
+    Returns:
+        Dict[str, Any]: 配置字典
+    """
+    return get_ocr_function_config().to_dict()

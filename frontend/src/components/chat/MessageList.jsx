@@ -1,12 +1,14 @@
 import React from 'react';
-import { Card, Avatar, Button, Tooltip, Typography } from 'antd';
+import { Card, Avatar, Button, Tooltip, Typography, Image } from 'antd';
 import {
   UserOutlined,
   ToolOutlined,
   LikeOutlined,
   DislikeOutlined,
   LikeFilled,
-  DislikeFilled
+  DislikeFilled,
+  FileImageOutlined,
+  FileTextOutlined
 } from '@ant-design/icons';
 import MessageFormatter from './MessageFormatter';
 import LoadingIndicator from './LoadingIndicator';
@@ -62,6 +64,46 @@ const MessageList = ({
               className={`message-card ${msg.type}`}
               styles={{ body: { padding: '12px 16px' } }}
             >
+              {/* 🖼️ 圖片附件顯示 */}
+              {msg.type === 'user' && msg.attachment && (
+                <div style={{ 
+                  marginBottom: msg.content ? '8px' : 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  {msg.attachment.isImage && msg.attachment.imageUrl ? (
+                    <Image
+                      src={msg.attachment.imageUrl}
+                      alt={msg.attachment.fileName}
+                      style={{
+                        maxWidth: '200px',
+                        maxHeight: '150px',
+                        borderRadius: '8px',
+                        objectFit: 'cover'
+                      }}
+                      preview={{
+                        mask: '點擊查看'
+                      }}
+                    />
+                  ) : (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '6px 10px',
+                      backgroundColor: 'rgba(255,255,255,0.2)',
+                      borderRadius: '6px',
+                      fontSize: '12px'
+                    }}>
+                      {msg.attachment.isImage ? <FileImageOutlined /> : <FileTextOutlined />}
+                      <span>{msg.attachment.fileName}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {/* 訊息文字內容 */}
               <div className="message-text markdown-preview-content">
                 <MessageFormatter 
                   content={msg.content}

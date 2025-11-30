@@ -216,6 +216,11 @@ from .log_viewer_views import (
 )
 
 
+# ============= OCR API 導出 =============
+
+from .ocr_views import OCRAnalyzeView
+
+
 # ============= System Monitoring API 導出 =============
 # 🔄 已整合到 viewsets/ 包中 (monitoring_views.py)
 # system_logs, simple_system_status, basic_system_status 已從上方 viewsets 導入
@@ -329,6 +334,9 @@ __all__ = [
     'chat_clustering_stats',
     'vectorize_chat_message',
     'intelligent_question_classify',
+    
+    # OCR API
+    'OCRAnalyzeView',
 ]
 
 

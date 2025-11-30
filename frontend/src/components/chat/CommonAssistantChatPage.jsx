@@ -19,6 +19,7 @@
  *   permissionKey="webRvtAssistant"
  *   placeholder="請描述你的 RVT 問題..."
  *   collapsed={collapsed}
+ *   enableFileUpload={true}  // 🆕 啟用檔案上傳功能
  * />
  * ```
  */
@@ -32,6 +33,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import MessageList from './MessageList';
 import useMessageStorage from '../../hooks/useMessageStorage';
 import useMessageFeedback from '../../hooks/useMessageFeedback';
+// 🆕 檔案上傳相關
+import useFileUpload from '../../hooks/useFileUpload';
+import FileUploadButton from './FileUploadButton';
+import FilePreviewInline from './FilePreviewInline';  // 🎨 使用內聯預覽版本
+import { analyzeImageOCR } from '../../services/ocrService';  // 🆕 直接導入 OCR 服務
 
 const { Content } = Layout;
 const { TextArea } = Input;
@@ -45,10 +51,12 @@ const CommonAssistantChatPage = ({
   permissionKey,
   placeholder,
   welcomeMessage,
-  collapsed = false
+  collapsed = false,
+  enableFileUpload = false  // 🆕 是否啟用檔案上傳功能
 }) => {
   const { user, permissions } = useAuth();
-  const navigate = useNavigate();
+  // eslint-disable-next-line no-unused-vars
+  const navigate = useNavigate();  // 保留以備未來使用
   const { registerClearFunction, clearClearFunction } = useChatContext();
   
   const {
@@ -67,6 +75,11 @@ const CommonAssistantChatPage = ({
   const [textareaRows, setTextareaRows] = useState(1); // 🎯 方案 B：控制 TextArea 行數
   const messagesEndRef = useRef(null);
   
+  // 🆕 檔案上傳 Hook（必須無條件調用，但根據 enableFileUpload 決定是否使用）
+  const fileUploadHook = useFileUpload();
+  // 只在啟用時才使用 hook 的返回值
+  const fileUpload = enableFileUpload ? fileUploadHook : null;
+  
   // 使用傳入的 Chat Hook
   const chatHookReturn = useChatHook(
     conversationId,
@@ -80,7 +93,10 @@ const CommonAssistantChatPage = ({
     sendMessage, 
     loading, 
     loadingStartTime, 
-    stopRequest
+    stopRequest,
+    // 🆕 取得 loading 控制函數（供 OCR 前置處理使用）
+    setLoading,
+    setLoadingStartTime
   } = chatHookReturn;
   
   const { feedbackStates, submitFeedback } = useMessageFeedback();
@@ -101,6 +117,7 @@ const CommonAssistantChatPage = ({
   // 載入 Assistant 配置
   useEffect(() => {
     loadAssistantConfig();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadAssistantConfig = async () => {
@@ -122,13 +139,29 @@ const CommonAssistantChatPage = ({
     }
   };
 
+  // 🆕 輔助函數：將檔案轉換為 base64 URL（供訊息顯示用）
+  const fileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error('讀取檔案失敗'));
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleSendMessage = async () => {
     console.log('🎬 [CommonAssistantChatPage] handleSendMessage 開始執行');
     console.log('  - inputMessage:', inputMessage);
     console.log('  - assistantType:', assistantType);
+    console.log('  - enableFileUpload:', enableFileUpload);
+    console.log('  - hasFile:', fileUpload?.hasFile);
     
-    if (!inputMessage.trim()) {
-      console.log('⚠️ [CommonAssistantChatPage] 訊息為空，返回');
+    // 檢查是否有訊息或待處理的檔案可發送
+    const hasTextContent = inputMessage.trim().length > 0;
+    const hasPendingFile = enableFileUpload && fileUpload?.hasFile;
+    
+    if (!hasTextContent && !hasPendingFile) {
+      console.log('⚠️ [CommonAssistantChatPage] 沒有訊息或檔案，返回');
       return;
     }
 
@@ -139,22 +172,131 @@ const CommonAssistantChatPage = ({
       return;
     }
 
+    // ========== 步驟 1：保存檔案資訊並轉換為 base64（供 UI 顯示）==========
+    let fileToProcess = null;
+    let imageBase64 = null;
+    
+    if (enableFileUpload && fileUpload?.hasFile) {
+      // 保存檔案引用
+      fileToProcess = {
+        file: fileUpload.uploadedFile,
+        isImage: fileUpload.isImage,
+        fileName: fileUpload.uploadedFile?.name
+      };
+      console.log('📎 [CommonAssistantChatPage] 保存檔案引用:', fileToProcess.fileName);
+      
+      // 🖼️ 如果是圖片，轉換為 base64 供訊息顯示
+      if (fileToProcess.isImage) {
+        try {
+          imageBase64 = await fileToBase64(fileToProcess.file);
+          console.log('🖼️ [CommonAssistantChatPage] 圖片已轉換為 base64，長度:', imageBase64?.length);
+        } catch (err) {
+          console.warn('⚠️ [CommonAssistantChatPage] 圖片 base64 轉換失敗:', err);
+        }
+      }
+      
+      // 立即清除輸入框預覽
+      fileUpload.clearFile();
+    }
+
+    // ========== 步驟 2：立即顯示用戶訊息（含圖片）並清空輸入框 ==========
+    const userMessageText = inputMessage.trim();
+    const fileAttachment = fileToProcess ? {
+      fileName: fileToProcess.fileName,
+      fileType: fileToProcess.isImage ? 'image' : 'text',
+      isImage: fileToProcess.isImage,
+      imageUrl: imageBase64  // 🖼️ 圖片 base64 URL
+    } : null;
+    
     const userMessage = {
       id: Date.now(),
       type: 'user',
-      content: inputMessage.trim(),
-      timestamp: new Date()
+      content: userMessageText || (fileAttachment ? `[已上傳檔案: ${fileAttachment.fileName}]` : ''),
+      timestamp: new Date(),
+      attachment: fileAttachment
     };
 
-    console.log('📨 [CommonAssistantChatPage] 創建 userMessage:', userMessage);
+    console.log('📨 [CommonAssistantChatPage] 立即顯示 userMessage:', userMessage);
     setMessages(prev => [...prev, userMessage]);
     setInputMessage('');
-    setTextareaRows(1); // 🎯 發送後重置為 1 行
+    setTextareaRows(1);
+
+    // 🆕 步驟 2.5：如果有檔案要處理，立即啟動 loading 動畫（在 OCR 處理前就顯示）
+    // 如果沒有檔案，讓 sendMessage() 自己控制 loading
+    const needPreLoading = fileToProcess && setLoading && setLoadingStartTime;
+    if (needPreLoading) {
+      console.log('⏳ [CommonAssistantChatPage] 啟動 loading 動畫（OCR 前置處理）');
+      setLoading(true);
+      setLoadingStartTime(Date.now());
+    }
+
+    // ========== 步驟 3：處理 OCR（此時用戶已看到訊息 + loading 動畫）==========
+    let finalMessage = userMessageText;
+    let fileContextString = null;
     
+    if (fileToProcess) {
+      console.log('📎 [CommonAssistantChatPage] 開始處理檔案 OCR...');
+      
+      try {
+        let ocrText = '';
+        
+        if (fileToProcess.isImage) {
+          // 🔧 圖片：直接呼叫 OCR API
+          console.log('📷 [CommonAssistantChatPage] 呼叫 OCR API...');
+          const ocrResult = await analyzeImageOCR(fileToProcess.file);
+          console.log('📋 [CommonAssistantChatPage] OCR 結果:', ocrResult);
+          
+          if (ocrResult.success) {
+            ocrText = ocrResult.text;
+            console.log('✅ [CommonAssistantChatPage] OCR 成功，文字長度:', ocrText?.length);
+          } else {
+            throw new Error(ocrResult.error || 'OCR 辨識失敗');
+          }
+        } else {
+          // 文字檔：直接讀取
+          console.log('📄 [CommonAssistantChatPage] 讀取文字檔...');
+          ocrText = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = () => reject(new Error('讀取檔案失敗'));
+            reader.readAsText(fileToProcess.file);
+          });
+          console.log('✅ [CommonAssistantChatPage] 讀取成功，文字長度:', ocrText?.length);
+        }
+        
+        // 組合檔案內容（改進 prompt 格式，讓 AI 知道要分析而非展示）
+        const prefix = fileToProcess.isImage 
+          ? `【用戶上傳了一張圖片，以下是 OCR 辨識出的文字內容，請根據這些內容回答用戶的問題】\n`
+          : `【用戶上傳了文字檔 ${fileToProcess.fileName}，以下是檔案內容，請根據這些內容回答用戶的問題】\n`;
+        
+        fileContextString = `${prefix}---\n${ocrText}\n---\n\n用戶問題：`;
+        console.log('✅ [CommonAssistantChatPage] 檔案內容組合完成');
+        
+      } catch (err) {
+        console.error('❌ [CommonAssistantChatPage] 檔案處理失敗:', err);
+        message.error(`檔案處理失敗: ${err.message}`);
+        // 即使 OCR 失敗，也繼續發送原始訊息
+      }
+    }
+    
+    // ========== 步驟 4：組合最終訊息並發送到 AI ==========
+    if (fileContextString) {
+      console.log('📎 [CommonAssistantChatPage] 附加檔案內容到訊息');
+      // 格式：[OCR 內容] + 用戶問題：[用戶輸入]
+      // 這樣 AI 知道要根據 OCR 內容回答問題，而不是展示 OCR 內容
+      if (finalMessage) {
+        finalMessage = `${fileContextString}${finalMessage}`;
+      } else {
+        // 如果用戶沒有輸入問題，預設問「請說明圖片內容」
+        finalMessage = `${fileContextString}請說明這張圖片的內容`;
+      }
+    }
+    
+    console.log('📨 [CommonAssistantChatPage] 最終訊息長度:', finalMessage.length);
     console.log('🔗 [CommonAssistantChatPage] 調用 sendMessage');
-    console.log('  - sendMessage 函數:', typeof sendMessage);
+    
     try {
-      await sendMessage(userMessage);
+      await sendMessage({ ...userMessage, content: finalMessage });
       console.log('✅ [CommonAssistantChatPage] sendMessage 執行完成');
     } catch (error) {
       console.error('❌ [CommonAssistantChatPage] sendMessage 執行錯誤:', error);
@@ -226,6 +368,8 @@ const CommonAssistantChatPage = ({
           padding: '16px 24px',
           boxShadow: '0 -2px 8px rgba(0, 0, 0, 0.06)'
         }}>
+          {/* � 檔案預覽已移到輸入框內部（參考 Web AI OCR） */}
+          
           <div className="input-container" style={{
             display: 'flex',
             alignItems: 'flex-end',
@@ -233,30 +377,75 @@ const CommonAssistantChatPage = ({
             maxWidth: '800px',
             margin: '0 auto'
           }}>
-            <TextArea
-              value={inputMessage}
-              onChange={handleInputChange}
-              onKeyPress={handleKeyPress}
-              placeholder={`${placeholder} (按 Enter 發送，Shift + Enter 換行${assistantConfig ? ` • ${assistantConfig.app_name}` : ''})`}
-              rows={textareaRows}
-              disabled={loading}
-              className="chat-input-area"
-              style={{ 
-                borderRadius: '20px', 
-                resize: 'none',
-                flex: 1,
-                padding: '12px 16px',
-                fontSize: '14px',
-                border: '1px solid #d9d9d9',
-                transition: 'all 0.3s',
-                lineHeight: '1.5'
-              }}
-            />
+            {/* � 參考 Web AI OCR 的 input-with-buttons 結構：按鈕在輸入框內部 */}
+            <div className="input-with-buttons" style={{
+              flex: 1,
+              position: 'relative',
+              display: 'flex',
+              alignItems: 'flex-start',
+              border: '1px solid #d9d9d9',
+              borderRadius: '20px',
+              background: 'white',
+              transition: 'all 0.3s',
+              padding: '8px',
+              flexWrap: 'wrap',
+              gap: '8px'
+            }}>
+              {/* �🆕 檔案上傳按鈕（在輸入框內部左側） */}
+              {enableFileUpload && (
+                <FileUploadButton
+                  onFileSelect={fileUpload?.handleFileSelect}
+                  disabled={loading || fileUpload?.isProcessing}
+                  isProcessing={fileUpload?.isProcessing}
+                  hasFile={fileUpload?.hasFile}
+                />
+              )}
+              
+              {/* 🆕 檔案預覽區（在輸入框內部，按鈕右側） */}
+              {enableFileUpload && fileUpload?.hasFile && (
+                <div className="file-preview-inline" style={{
+                  display: 'flex',
+                  gap: '6px',
+                  alignItems: 'center'
+                }}>
+                  <FilePreviewInline
+                    file={fileUpload.uploadedFile}
+                    fileContent={fileUpload.fileContent}
+                    isProcessing={fileUpload.isProcessing}
+                    isProcessed={fileUpload.isProcessed}
+                    onRemove={fileUpload.clearFile}
+                  />
+                </div>
+              )}
+              
+              <TextArea
+                value={inputMessage}
+                onChange={handleInputChange}
+                onKeyPress={handleKeyPress}
+                placeholder={`${placeholder} (按 Enter 發送，Shift + Enter 換行${assistantConfig ? ` • ${assistantConfig.app_name}` : ''}${enableFileUpload ? ' • 支援圖片/文字檔上傳' : ''})`}
+                rows={textareaRows}
+                disabled={loading}
+                className="chat-input-area textarea-with-button"
+                style={{ 
+                  flex: 1,
+                  border: 'none',
+                  outline: 'none',
+                  resize: 'none',
+                  padding: '4px 8px',
+                  fontSize: '14px',
+                  lineHeight: '1.5',
+                  background: 'transparent',
+                  minHeight: '24px'
+                }}
+              />
+            </div>
+            
             <button
               onClick={() => {
                 console.log('🖱️ [CommonAssistantChatPage] 發送按鈕被點擊');
                 console.log('  - loading:', loading);
                 console.log('  - inputMessage:', inputMessage);
+                console.log('  - hasFile:', fileUpload?.hasFile);  // 🔧 改為檢查 hasFile
                 if (loading) {
                   console.log('  - 執行 stopRequest');
                   stopRequest();
@@ -265,7 +454,7 @@ const CommonAssistantChatPage = ({
                   handleSendMessage();
                 }
               }}
-              disabled={!loading && !inputMessage.trim()}
+              disabled={!loading && !inputMessage.trim() && !(enableFileUpload && fileUpload?.hasFile)}
               title={loading ? "點擊停止當前任務" : "發送消息"}
               style={{ 
                 borderRadius: '50%', 
@@ -275,10 +464,20 @@ const CommonAssistantChatPage = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: loading ? '#595959' : (!inputMessage.trim() ? '#d9d9d9' : '#1890ff'),
+                backgroundColor: loading 
+                  ? '#595959' 
+                  : ((!inputMessage.trim() && !(enableFileUpload && fileUpload?.hasFile)) 
+                    ? '#d9d9d9' 
+                    : '#1890ff'),
                 color: '#fff',
-                border: `1px solid ${loading ? '#595959' : (!inputMessage.trim() ? '#d9d9d9' : '#1890ff')}`,
-                cursor: (loading || inputMessage.trim()) ? 'pointer' : 'not-allowed',
+                border: `1px solid ${loading 
+                  ? '#595959' 
+                  : ((!inputMessage.trim() && !(enableFileUpload && fileUpload?.hasFile)) 
+                    ? '#d9d9d9' 
+                    : '#1890ff')}`,
+                cursor: (loading || inputMessage.trim() || (enableFileUpload && fileUpload?.hasFile)) 
+                  ? 'pointer' 
+                  : 'not-allowed',
                 fontSize: '16px',
                 transition: 'all 0.3s ease',
                 outline: 'none'
