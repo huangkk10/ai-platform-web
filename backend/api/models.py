@@ -3,6 +3,28 @@ from django.contrib.auth.models import User
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
+import os
+import sys
+from pathlib import Path
+
+# 添加專案根目錄到路徑以導入配置載入器
+_backend_root = Path(__file__).parent.parent
+_project_root = _backend_root.parent
+sys.path.insert(0, str(_project_root))
+
+try:
+    from config.config_loader import get_ai_pc_ip_with_env
+    _CONFIG_LOADER_AVAILABLE = True
+except ImportError:
+    _CONFIG_LOADER_AVAILABLE = False
+    def get_ai_pc_ip_with_env():
+        return os.getenv('AI_PC_IP', '10.10.172.37')
+
+
+def get_default_dify_api_url():
+    """獲取預設的 Dify API URL（用於 Model default）"""
+    ai_pc_ip = get_ai_pc_ip_with_env()
+    return f'http://{ai_pc_ip}/v1/chat-messages'
 
 
 class UserProfile(models.Model):
@@ -1632,7 +1654,7 @@ class DifyConfigVersion(models.Model):
     )
     dify_api_url = models.CharField(
         max_length=500,
-        default='http://10.10.172.37/v1/chat-messages',
+        default=get_default_dify_api_url,  # 使用動態函數獲取預設值
         verbose_name="Dify API URL"
     )
     

@@ -22,8 +22,21 @@ sys.path.insert(0, '/app')
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'ai_platform.settings')
 django.setup()
 
+# 導入配置載入器
+try:
+    from config.config_loader import get_ai_pc_ip_with_env
+except ImportError:
+    def get_ai_pc_ip_with_env():
+        return os.getenv('AI_PC_IP', '10.10.172.37')
+
 from api.models import DifyConfigVersion
 from django.contrib.auth.models import User
+
+
+def get_dify_api_url():
+    """獲取 Dify API URL"""
+    ai_pc_ip = get_ai_pc_ip_with_env()
+    return f"http://{ai_pc_ip}/v1/chat-messages"
 
 
 def create_v1_1_1_dynamic_version():
@@ -192,7 +205,7 @@ def create_v1_1_1_dynamic_version():
             'version_name': "Dify 二階搜尋 v1.1.1 (Dynamic Threshold)",
             'dify_app_id': "app-MgZZOhADkEmdUrj2DtQLJ23G",
             'dify_api_key': "app-MgZZOhADkEmdUrj2DtQLJ23G",
-            'dify_api_url': "http://10.10.172.37/v1/chat-messages",
+            'dify_api_url': get_dify_api_url(),  # 動態獲取 API URL
             'description': description,
             'rag_settings': rag_settings,
             'model_config': model_config,

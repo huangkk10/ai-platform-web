@@ -4,7 +4,26 @@ Dify 配置管理
 """
 
 import os
+import sys
+from pathlib import Path
 from typing import Dict, Optional
+
+# 添加專案根目錄到路徑以導入配置載入器
+_project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(_project_root))
+
+try:
+    from config.config_loader import get_ai_pc_ip_with_env
+    _CONFIG_LOADER_AVAILABLE = True
+except ImportError:
+    _CONFIG_LOADER_AVAILABLE = False
+    def get_ai_pc_ip_with_env():
+        return os.getenv('AI_PC_IP', '10.10.172.37')
+
+
+def _get_ai_pc_ip():
+    """獲取 AI PC IP（統一入口）"""
+    return get_ai_pc_ip_with_env()
 
 
 class DifyConfig:
@@ -19,25 +38,40 @@ class DifyConfig:
         'indexing_technique': 'economy'
     }
     
-    # Chat API 默認配置
-    DEFAULT_CHAT_CONFIG = {
-        'base_url': 'http://10.10.172.37',
-        'api_url': 'http://10.10.172.37/v1/chat-messages',
-        'api_key': '',
-        'timeout': 60,
-        'response_mode': 'blocking',
-        'user': 'default_user'
-    }
+    @classmethod
+    def _get_default_chat_config(cls) -> Dict:
+        """動態生成 Chat API 默認配置"""
+        ai_pc_ip = _get_ai_pc_ip()
+        return {
+            'base_url': f'http://{ai_pc_ip}',
+            'api_url': f'http://{ai_pc_ip}/v1/chat-messages',
+            'api_key': '',
+            'timeout': 60,
+            'response_mode': 'blocking',
+            'user': 'default_user'
+        }
     
-    # Dataset API 默認配置
-    DEFAULT_DATASET_CONFIG = {
-        'base_url': 'http://10.10.172.37',
-        'dataset_api_url': 'http://10.10.172.37/v1/datasets',
-        'dataset_key': '',
-        'timeout': 30,
-        'top_k': 5,
-        'score_threshold': 0.5
-    }
+    @classmethod
+    def _get_default_dataset_config(cls) -> Dict:
+        """動態生成 Dataset API 默認配置"""
+        ai_pc_ip = _get_ai_pc_ip()
+        return {
+            'base_url': f'http://{ai_pc_ip}',
+            'dataset_api_url': f'http://{ai_pc_ip}/v1/datasets',
+            'dataset_key': '',
+            'timeout': 30,
+            'top_k': 5,
+            'score_threshold': 0.5
+        }
+    
+    # 保持向後兼容的類屬性（動態計算）
+    @property
+    def DEFAULT_CHAT_CONFIG(self) -> Dict:
+        return self._get_default_chat_config()
+    
+    @property
+    def DEFAULT_DATASET_CONFIG(self) -> Dict:
+        return self._get_default_dataset_config()
     
     def __init__(self, api_key: str = None, config: Dict = None):
         """
