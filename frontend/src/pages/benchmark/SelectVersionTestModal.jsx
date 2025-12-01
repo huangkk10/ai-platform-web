@@ -328,6 +328,8 @@ const SelectVersionTestModal = ({ visible, onClose, testCase }) => {
       title: '版本名稱',
       dataIndex: 'version_name',
       key: 'version_name',
+      sorter: (a, b) => a.version_name.localeCompare(b.version_name, 'zh-TW'),
+      defaultSortOrder: 'ascend',
       render: (text, record) => (
         <Space>
           <Text strong>{text}</Text>
@@ -338,6 +340,11 @@ const SelectVersionTestModal = ({ visible, onClose, testCase }) => {
     {
       title: '策略類型',
       key: 'strategy_type',
+      sorter: (a, b) => {
+        const strategyA = a.retrieval_mode || a.rag_settings?.retrieval_strategy || a.version_code || '';
+        const strategyB = b.retrieval_mode || b.rag_settings?.retrieval_strategy || b.version_code || '';
+        return strategyA.localeCompare(strategyB);
+      },
       render: (_, record) => {
         // DifyConfigVersion 使用 retrieval_mode 或 rag_settings 中的策略
         const strategy = record.retrieval_mode || 
