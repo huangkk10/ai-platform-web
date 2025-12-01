@@ -76,7 +76,10 @@ class ConfigLoader:
         """
         return {
             "ai_server": {
-                "ai_pc_ip": "10.10.172.37"  # 預設 IP
+                "ai_pc_ip": "10.10.172.37"  # 預設 AI PC IP
+            },
+            "web_server": {
+                "web_ip": "10.10.172.127"  # 預設 Web Server IP
             },
             "database": {},
             "api": {
@@ -122,6 +125,15 @@ class ConfigLoader:
             str: IP 地址
         """
         return self.get('ai_server.ai_pc_ip', '10.10.172.37')
+    
+    def get_web_ip(self) -> str:
+        """
+        獲取 Web Server IP 地址
+        
+        Returns:
+            str: IP 地址
+        """
+        return self.get('web_server.web_ip', '10.10.172.127')
     
     def get_full_config(self) -> Dict[str, Any]:
         """
@@ -259,9 +271,31 @@ def get_ai_pc_ip_with_env() -> str:
     return get_config_with_env_override('ai_server.ai_pc_ip', 'AI_PC_IP', '10.10.172.37')
 
 
+def get_web_ip() -> str:
+    """
+    獲取 Web Server IP 地址的便利函數
+    
+    Returns:
+        str: IP 地址
+    """
+    return config_loader.get_web_ip()
+
+
+def get_web_ip_with_env() -> str:
+    """
+    獲取 Web Server IP，支持環境變數 WEB_IP 覆蓋
+    
+    Returns:
+        str: IP 地址
+    """
+    return get_config_with_env_override('web_server.web_ip', 'WEB_IP', '10.10.172.127')
+
+
 if __name__ == "__main__":
     # 測試配置載入
     print("=== 配置載入測試 ===")
     print(f"AI PC IP: {get_ai_pc_ip()}")
+    print(f"Web Server IP: {get_web_ip()}")
     print(f"完整配置: {get_full_config()}")
     print(f"支持環境變數的 AI PC IP: {get_ai_pc_ip_with_env()}")
+    print(f"支持環境變數的 Web Server IP: {get_web_ip_with_env()}")

@@ -8,6 +8,13 @@ ai_server:
   # ai_port: 80
   # ai_protocol: "http"
 
+# Web 服務器配置
+web_server:
+  web_ip: "10.10.172.127"
+  # 其他 Web 服務相關配置可以在此添加
+  # web_port: 80
+  # web_protocol: "http"
+
 # 資料庫配置（如需要）
 database:
   # postgres_host: "localhost"
