@@ -330,6 +330,44 @@ const CommonAssistantChatPage = ({
     }
   };
 
+  // 🆕 處理剪貼簿貼上事件（支援截圖直接貼上）
+  const handlePaste = (e) => {
+    // 檢查是否啟用檔案上傳功能
+    if (!enableFileUpload || !fileUpload) return;
+    
+    // 檢查剪貼簿內容
+    const clipboardItems = e.clipboardData?.items;
+    if (!clipboardItems) return;
+    
+    // 遍歷剪貼簿項目，尋找圖片
+    for (const item of clipboardItems) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();  // 阻止預設貼上行為
+        
+        // 轉換為 File 對象
+        const file = item.getAsFile();
+        if (!file) {
+          console.warn('⚠️ [CommonAssistantChatPage] 無法從剪貼簿獲取圖片檔案');
+          return;
+        }
+        
+        // 檢查是否已有檔案
+        if (fileUpload.hasFile) {
+          message.warning('已有檔案待處理，請先清除或發送後再貼上新圖片');
+          return;
+        }
+        
+        // 使用現有的檔案處理函數
+        console.log('📋 [CommonAssistantChatPage] 從剪貼簿貼上圖片:', file.type, file.size);
+        fileUpload.handleFileSelect(file);
+        message.success('截圖已貼上，可輸入問題後發送');
+        
+        return;  // 處理完圖片後返回
+      }
+    }
+    // 如果沒有圖片，讓預設行為（貼上文字）繼續
+  };
+
   useEffect(() => {
     registerClearFunction(clearChat);
     return () => clearClearFunction();
@@ -425,7 +463,8 @@ const CommonAssistantChatPage = ({
                 value={inputMessage}
                 onChange={handleInputChange}
                 onKeyPress={handleKeyPress}
-                placeholder={`${placeholder} (按 Enter 發送，Shift + Enter 換行${assistantConfig ? ` • ${assistantConfig.app_name}` : ''}${enableFileUpload ? ' • 支援圖片/文字檔上傳' : ''})`}
+                onPaste={handlePaste}
+                placeholder={`${placeholder} (按 Enter 發送，Shift + Enter 換行${assistantConfig ? ` • ${assistantConfig.app_name}` : ''}${enableFileUpload ? ' • 可直接貼上截圖' : ''})`}
                 rows={textareaRows}
                 disabled={loading}
                 className="chat-input-area textarea-with-button"
