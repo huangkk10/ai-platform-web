@@ -3,17 +3,110 @@ Message Feedback Handler - 處理用戶對 AI 回覆的反饋評分
 
 此模組負責：
 - 記錄用戶對消息的按讚/按踩反饋
-- 更新數據庫中的 is_helpful 字段
+- 支援 Dify API 直接反饋（主要方式）
+- 本地資料庫更新（備用方式）
 - 提供反饋統計功能
 - 與對話管理系統集成
 """
 
 import logging
+import requests
 from django.http import JsonResponse
 from rest_framework.response import Response
 from rest_framework import status
 
 logger = logging.getLogger(__name__)
+
+
+def send_feedback_to_dify(message_id: str, is_helpful: bool, user_id: str = None) -> dict:
+    """
+    向 Dify API 發送消息反饋
+    
+    Dify API 文檔: POST /messages/{message_id}/feedbacks
+    
+    Args:
+        message_id (str): Dify 返回的消息 ID (UUID 格式)
+        is_helpful (bool): True 為按讚 (like)，False 為按踩 (dislike)
+        user_id (str): 用戶識別碼（可選）
+        
+    Returns:
+        dict: 包含 success 和相關資訊的字典
+    """
+    try:
+        # 獲取 Dify 配置
+        from library.config.dify_config_manager import get_rvt_guide_config
+        
+        config = get_rvt_guide_config()
+        if not config:
+            logger.warning("無法獲取 RVT Guide Dify 配置，跳過 Dify 反饋")
+            return {
+                'success': False,
+                'error': 'Dify 配置不可用',
+                'dify_feedback_sent': False
+            }
+        
+        # 構建 Dify Feedback API URL
+        # base_url 例如: http://10.10.172.37
+        # Feedback API: POST /v1/messages/{message_id}/feedbacks
+        feedback_url = f"{config.base_url}/v1/messages/{message_id}/feedbacks"
+        
+        # 構建請求 Headers
+        headers = {
+            'Authorization': f'Bearer {config.api_key}',
+            'Content-Type': 'application/json'
+        }
+        
+        # 構建請求 Body
+        # rating: "like" 或 "dislike"，或 null 取消反饋
+        payload = {
+            'user': user_id or 'anonymous',
+            'rating': 'like' if is_helpful else 'dislike'
+        }
+        
+        logger.info(f"發送反饋到 Dify: message_id={message_id}, rating={payload['rating']}")
+        
+        # 發送請求
+        response = requests.post(
+            feedback_url,
+            headers=headers,
+            json=payload,
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            logger.info(f"Dify 反饋成功: {result}")
+            return {
+                'success': True,
+                'dify_feedback_sent': True,
+                'dify_response': result
+            }
+        else:
+            logger.warning(
+                f"Dify 反饋失敗: status={response.status_code}, "
+                f"response={response.text[:200]}"
+            )
+            return {
+                'success': False,
+                'error': f'Dify API 返回錯誤: {response.status_code}',
+                'dify_feedback_sent': False,
+                'dify_error': response.text[:200]
+            }
+            
+    except requests.exceptions.Timeout:
+        logger.warning(f"Dify 反饋超時: message_id={message_id}")
+        return {
+            'success': False,
+            'error': 'Dify API 請求超時',
+            'dify_feedback_sent': False
+        }
+    except Exception as e:
+        logger.error(f"發送 Dify 反饋異常: {str(e)}")
+        return {
+            'success': False,
+            'error': f'發送反饋異常: {str(e)}',
+            'dify_feedback_sent': False
+        }
 
 class MessageFeedbackHandler:
     """消息反饋處理器"""
@@ -25,8 +118,10 @@ class MessageFeedbackHandler:
         """
         記錄用戶對消息的反饋
         
+        優先嘗試向 Dify 發送反饋，如果失敗則嘗試更新本地資料庫。
+        
         Args:
-            message_id (str): 消息ID
+            message_id (str): 消息ID（Dify 返回的 UUID 或本地資料庫 ID）
             is_helpful (bool): True為按讚，False為按踩
             user (User): 登入用戶（可選）
             guest_identifier (str): 訪客識別碼（可選）
@@ -34,53 +129,99 @@ class MessageFeedbackHandler:
         Returns:
             dict: 處理結果
         """
+        # ⚠️ 重要：獲取用戶 ID 用於 Dify API
+        # 必須與聊天時使用的 user_id 格式一致
+        # 聊天時格式為：rvt_guide_user_{user.id} 或 rvt_guide_user_guest
+        if user and user.is_authenticated:
+            user_id = f"rvt_guide_user_{user.id}"
+        else:
+            user_id = "rvt_guide_user_guest"
+        
+        # ============================================
+        # 策略 1：優先嘗試向 Dify API 發送反饋
+        # ============================================
+        self.logger.info(
+            f"開始處理反饋: message_id={message_id}, "
+            f"is_helpful={is_helpful}, user={user_id}"
+        )
+        
+        dify_result = send_feedback_to_dify(
+            message_id=message_id,
+            is_helpful=is_helpful,
+            user_id=user_id
+        )
+        
+        # ============================================
+        # 策略 2：無論 Dify 成功與否，都更新本地資料庫
+        # （Analytics Dashboard 需要從本地 DB 讀取評價）
+        # ============================================
+        local_db_updated = False
+        local_db_error = None
+        
         try:
             from api.models import ChatMessage
             
             # 查找消息
             try:
                 message = ChatMessage.objects.get(message_id=message_id)
+                
+                # 只能對 AI 回覆進行評分
+                if message.role != 'assistant':
+                    self.logger.warning(f"嘗試對非 assistant 訊息進行評分: {message_id}")
+                else:
+                    # 更新反饋
+                    old_feedback = message.is_helpful
+                    message.is_helpful = is_helpful
+                    message.save(update_fields=['is_helpful', 'updated_at'])
+                    
+                    # 更新對話會話的統計數據
+                    self._update_session_stats(message.conversation_id)
+                    
+                    local_db_updated = True
+                    self.logger.info(
+                        f"✅ 本地資料庫反饋已記錄: message_id={message_id}, "
+                        f"is_helpful={is_helpful}, "
+                        f"user={user.username if user else 'guest'}, "
+                        f"old_feedback={old_feedback}"
+                    )
+                    
             except ChatMessage.DoesNotExist:
-                return {
-                    'success': False,
-                    'error': f'消息不存在: {message_id}'
-                }
+                local_db_error = f"消息在本地資料庫找不到: {message_id}"
+                self.logger.warning(local_db_error)
             
-            # 只能對 AI 回覆進行評分
-            if message.role != 'assistant':
-                return {
-                    'success': False,
-                    'error': '只能對 AI 回覆進行評分'
-                }
-            
-            # 更新反饋
-            old_feedback = message.is_helpful
-            message.is_helpful = is_helpful
-            message.save(update_fields=['is_helpful', 'updated_at'])
-            
-            # 更新對話會話的統計數據
-            self._update_session_stats(message.conversation_id)
-            
-            self.logger.info(
-                f"消息反饋已記錄: message_id={message_id}, "
-                f"is_helpful={is_helpful}, "
-                f"user={user.username if user else 'guest'}, "
-                f"old_feedback={old_feedback}"
-            )
-            
+        except Exception as e:
+            local_db_error = f"更新本地資料庫失敗: {str(e)}"
+            self.logger.error(local_db_error)
+        
+        # ============================================
+        # 返回結果：優先看 Dify 是否成功
+        # ============================================
+        if dify_result.get('success'):
             return {
                 'success': True,
                 'message_id': message_id,
                 'is_helpful': is_helpful,
-                'previous_feedback': old_feedback,
-                'updated_at': message.updated_at.isoformat()
+                'feedback_source': 'dify' if not local_db_updated else 'both',
+                'local_db_updated': local_db_updated,
+                'updated_at': None
             }
-            
-        except Exception as e:
-            self.logger.error(f"記錄消息反饋失敗: {str(e)}")
+        elif local_db_updated:
+            return {
+                'success': True,
+                'message_id': message_id,
+                'is_helpful': is_helpful,
+                'feedback_source': 'local_db',
+                'local_db_updated': True,
+                'dify_error': dify_result.get('error'),
+                'updated_at': message.updated_at.isoformat() if 'message' in dir() else None
+            }
+        else:
+            # 兩者都失敗
             return {
                 'success': False,
-                'error': f'記錄反饋失敗: {str(e)}'
+                'error': local_db_error or dify_result.get('error', '反饋記錄失敗'),
+                'dify_error': dify_result.get('error'),
+                'local_db_error': local_db_error
             }
     
     def _update_session_stats(self, conversation_id):

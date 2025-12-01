@@ -44,7 +44,18 @@ const useMessageFeedback = () => {
             : '感謝您的反饋，我們會持續改進！'
         );
       } else {
-        message.error(`反饋提交失敗: ${data.error}`);
+        // 根據錯誤類型顯示不同的提示
+        const errorMsg = data.error || '未知錯誤';
+        
+        if (errorMsg.includes('消息不存在') || errorMsg.includes('Message Not')) {
+          // 舊對話的訊息，提示用戶清除對話
+          message.warning(
+            '此訊息已過期，無法提交反饋。請點擊「新聊天」開始新對話後再進行反饋。',
+            5  // 顯示 5 秒
+          );
+        } else {
+          message.error(`反饋提交失敗: ${errorMsg}`);
+        }
       }
     } catch (error) {
       console.error('提交反饋失敗:', error);

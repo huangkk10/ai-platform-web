@@ -119,6 +119,21 @@ class RVTGuideAPIHandler(BaseKnowledgeBaseAPIHandler):
             logger.info(f"   是否降級: {result.get('is_fallback', False)}")
             logger.info(f"   響應時間: {elapsed:.2f} 秒")
             
+            # ✅ 新增：保存對話記錄到本地資料庫（供 Analytics Dashboard 使用）
+            try:
+                RVTGuideAPIHandler._save_conversation_to_db(
+                    request=request,
+                    user_message=message,
+                    assistant_answer=result.get('answer', ''),
+                    conversation_id=result.get('conversation_id', conversation_id),
+                    message_id=result.get('message_id', ''),
+                    response_time=elapsed,
+                    tokens=result.get('tokens', {})
+                )
+            except Exception as save_error:
+                # 記錄失敗不影響主要回應
+                logger.warning(f"保存對話記錄失敗（不影響回應）: {str(save_error)}")
+            
             return Response({
                 'success': True,
                 'answer': result.get('answer', ''),
@@ -139,6 +154,88 @@ class RVTGuideAPIHandler(BaseKnowledgeBaseAPIHandler):
                 'success': False,
                 'error': f'服務器錯誤: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    @staticmethod
+    def _save_conversation_to_db(
+        request,
+        user_message: str,
+        assistant_answer: str,
+        conversation_id: str,
+        message_id: str,
+        response_time: float,
+        tokens: dict
+    ):
+        """
+        保存對話記錄到本地資料庫（供 Analytics Dashboard 使用）
+        
+        Args:
+            request: Django request 對象
+            user_message: 用戶訊息
+            assistant_answer: AI 回答
+            conversation_id: Dify 對話 ID
+            message_id: Dify 訊息 ID
+            response_time: 回應時間（秒）
+            tokens: Token 使用統計
+        """
+        from api.models import ConversationSession, ChatMessage
+        from django.db import transaction
+        
+        try:
+            with transaction.atomic():
+                # 查找或創建對話會話
+                user = request.user if request.user.is_authenticated else None
+                guest_identifier = None
+                
+                if not user:
+                    # 使用 session key 作為訪客識別碼
+                    guest_identifier = request.session.session_key or 'anonymous'
+                
+                # 嘗試查找現有會話（使用 Dify conversation_id 作為 session_id）
+                session = None
+                if conversation_id:
+                    session = ConversationSession.objects.filter(
+                        session_id=conversation_id,
+                        chat_type='rvt_assistant_chat'
+                    ).first()
+                
+                # 如果沒有找到，創建新會話
+                if not session:
+                    session = ConversationSession.objects.create(
+                        user=user,
+                        guest_identifier=guest_identifier,
+                        chat_type='rvt_assistant_chat',
+                        session_id=conversation_id or f'rvt_session_{int(time.time())}'
+                    )
+                    logger.info(f"創建新的 RVT 對話會話: {session.id}")
+                
+                # 記錄用戶訊息
+                user_msg = ChatMessage.objects.create(
+                    conversation=session,
+                    role='user',
+                    content=user_message,
+                    message_id='',  # 用戶訊息沒有 Dify message_id
+                    content_type='text'
+                )
+                
+                # 記錄 AI 回答
+                assistant_msg = ChatMessage.objects.create(
+                    conversation=session,
+                    role='assistant',
+                    content=assistant_answer,
+                    message_id=message_id,  # Dify 返回的 message_id
+                    response_time=response_time,
+                    token_usage=tokens,
+                    content_type='text'
+                )
+                
+                logger.info(
+                    f"✅ 對話記錄已保存: session={session.id}, "
+                    f"user_msg={user_msg.id}, assistant_msg={assistant_msg.id}"
+                )
+                
+        except Exception as e:
+            logger.error(f"保存對話記錄失敗: {str(e)}", exc_info=True)
+            raise
     
     # ===== 以下為舊版實現（保留作為參考）=====
     
