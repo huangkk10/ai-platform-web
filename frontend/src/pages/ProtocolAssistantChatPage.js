@@ -23,7 +23,7 @@ const ProtocolAssistantChatPage = ({ collapsed = false }) => {
       useChatHook={useProtocolAssistantChat}
       configApiPath="/api/protocol-assistant/config/"
       storageKey="protocol-assistant"
-      permissionKey="webProtocolAssistant"
+      permissionKey={null}  // 允許所有用戶使用（包括未登入訪客）
       placeholder="請描述你的 Protocol 問題..."
       welcomeMessage={PROTOCOL_WELCOME_MESSAGE}
       collapsed={collapsed}

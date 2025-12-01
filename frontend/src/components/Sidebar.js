@@ -63,14 +63,12 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       label: 'RVT Assistant',
     });
 
-    // Protocol Assistant - 需要 web_protocol_assistant 權限
-    if (isAuthenticated && user && hasPermission('webProtocolAssistant')) {
-      baseItems.push({
-        key: 'protocol-assistant-chat',
-        icon: <ToolOutlined />,
-        label: 'Protocol Assistant',
-      });
-    }
+    // Protocol Assistant - 對所有用戶開放（包括訪客）
+    baseItems.push({
+      key: 'protocol-assistant-chat',
+      icon: <ToolOutlined />,
+      label: 'Protocol Assistant',
+    });
 
     return baseItems;
   }; const topMenuItems = getTopMenuItems();

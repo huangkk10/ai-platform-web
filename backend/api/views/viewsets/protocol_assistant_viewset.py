@@ -7,8 +7,7 @@ Protocol Assistant ViewSet
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from api.permissions import WebProtocolAssistantPermission
+from rest_framework.permissions import AllowAny
 import logging
 
 logger = logging.getLogger(__name__)
@@ -32,7 +31,7 @@ class ProtocolAssistantViewSet(viewsets.ViewSet):
     提供與 Protocol Assistant 聊天的 API 端點，整合 Dify Protocol Guide 應用
     內部使用 ProtocolGuideAPIHandler 處理所有邏輯
     """
-    permission_classes = [IsAuthenticated, WebProtocolAssistantPermission]
+    permission_classes = [AllowAny]  # 允許未登入用戶使用
 
     @action(detail=False, methods=['post'])
     def chat(self, request):

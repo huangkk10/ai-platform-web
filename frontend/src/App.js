@@ -438,11 +438,7 @@ function AppLayout() {
               </ProtectedRoute>
             } />
             <Route path="/rvt-assistant-chat" element={<RvtAssistantChatPage collapsed={collapsed} />} />
-            <Route path="/protocol-assistant-chat" element={
-              <ProtectedRoute permission="webProtocolAssistant" fallbackTitle="Protocol Assistant 存取受限">
-                <ProtocolAssistantChatPage collapsed={collapsed} />
-              </ProtectedRoute>
-            } />
+            <Route path="/protocol-assistant-chat" element={<ProtocolAssistantChatPage collapsed={collapsed} />} />
             <Route path="/log-analyze" element={<LogAnalyzePage />} />
             <Route path="/admin/test-class-management" element={<TestClassManagementPage />} />
             <Route path="/admin/user-management" element={<IntegratedUserManagementPage />} />
