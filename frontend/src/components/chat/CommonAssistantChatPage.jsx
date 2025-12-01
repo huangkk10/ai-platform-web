@@ -287,8 +287,11 @@ const CommonAssistantChatPage = ({
       if (finalMessage) {
         finalMessage = `${fileContextString}${finalMessage}`;
       } else {
-        // 如果用戶沒有輸入問題，預設問「請說明圖片內容」
-        finalMessage = `${fileContextString}請說明這張圖片的內容`;
+        // 如果用戶沒有輸入問題，根據檔案類型動態調整預設問題
+        const defaultQuestion = fileToProcess?.isImage 
+          ? '請說明這張圖片的內容'
+          : `請說明這個檔案的內容`;
+        finalMessage = `${fileContextString}${defaultQuestion}`;
       }
     }
     
