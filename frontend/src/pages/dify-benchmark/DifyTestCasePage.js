@@ -619,7 +619,7 @@ const DifyTestCasePage = () => {
             <Button
               type="link"
               icon={<EditOutlined />}
-              onClick={() => showEditModal(record)}
+              onClick={() => navigate(`/benchmark/dify/test-cases/edit/${record.id}`)}
               size="small"
             />
           </Tooltip>
@@ -1017,14 +1017,6 @@ const DifyTestCasePage = () => {
             </div>
           </Form.Item>
 
-          <Form.Item
-            name="max_score"
-            label="滿分"
-            tooltip="測試案例的最高分數"
-          >
-            <Input type="number" min={1} max={1000} style={{ width: '100%' }} />
-          </Form.Item>
-
           {/* ========== 進階選項 ========== */}
           <Divider orientation="left">進階選項</Divider>
 
@@ -1084,7 +1076,7 @@ const DifyTestCasePage = () => {
             icon={<EditOutlined />}
             onClick={() => {
               setDetailModalVisible(false);
-              showEditModal(selectedTestCase);
+              navigate(`/benchmark/dify/test-cases/edit/${selectedTestCase.id}`);
             }}
           >
             編輯

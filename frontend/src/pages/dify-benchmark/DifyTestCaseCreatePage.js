@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Select, Button, Card, Space, Switch, message } from 'antd';
-import { useNavigate } from 'react-router-dom';
+import { Form, Input, Select, Button, Card, Space, Switch, message, Spin } from 'antd';
+import { useNavigate, useParams } from 'react-router-dom';
 import difyBenchmarkApi from '../../services/difyBenchmarkApi';
 import KeywordManager from './components/KeywordManager';
 
@@ -9,11 +9,15 @@ const { Option } = Select;
 
 const DifyTestCaseCreatePage = () => {
   const navigate = useNavigate();
+  const { id } = useParams(); // 取得 URL 參數中的 id
+  const isEditMode = !!id; // 判斷是否為編輯模式
+  
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(false); // 頁面載入狀態
   const [keywords, setKeywords] = useState([]);
 
-  // 監聽保存事件（來自 TopHeader 按鈕）
+  // 監聯保存事件（來自 TopHeader 按鈕）
   useEffect(() => {
     const handleSaveEvent = () => {
       console.log('收到儲存事件 - 觸發表單提交');
@@ -26,6 +30,43 @@ const DifyTestCaseCreatePage = () => {
       window.removeEventListener('test-case-form-save', handleSaveEvent);
     };
   }, [form]);
+
+  // 編輯模式：載入測試案例資料
+  useEffect(() => {
+    if (isEditMode && id) {
+      loadTestCase(id);
+    }
+  }, [id, isEditMode]);
+
+  // 載入測試案例
+  const loadTestCase = async (testCaseId) => {
+    setPageLoading(true);
+    try {
+      const response = await difyBenchmarkApi.getDifyTestCase(testCaseId);
+      const data = response.data;
+      
+      // 設定表單值
+      form.setFieldsValue({
+        question: data.question,
+        difficulty_level: data.difficulty_level,
+        notes: data.notes,
+        is_active: data.is_active,
+      });
+      
+      // 設定關鍵字
+      if (data.answer_keywords && Array.isArray(data.answer_keywords)) {
+        setKeywords(data.answer_keywords);
+      }
+      
+      console.log('載入測試案例成功:', data);
+    } catch (error) {
+      console.error('載入測試案例失敗:', error);
+      message.error('載入測試案例失敗');
+      navigate('/benchmark/dify/test-cases');
+    } finally {
+      setPageLoading(false);
+    }
+  };
 
   // 處理表單提交
   const handleSubmit = async (values) => {
@@ -45,20 +86,42 @@ const DifyTestCaseCreatePage = () => {
       };
 
       console.log('提交資料:', payload);
-      await difyBenchmarkApi.createDifyTestCase(payload);
-      message.success('測試案例新增成功');
+      
+      if (isEditMode) {
+        // 編輯模式：更新
+        await difyBenchmarkApi.updateDifyTestCase(id, payload);
+        message.success('測試案例更新成功');
+      } else {
+        // 新增模式：創建
+        await difyBenchmarkApi.createDifyTestCase(payload);
+        message.success('測試案例新增成功');
+      }
       
       // 延遲一下再跳轉，讓用戶看到成功訊息
       setTimeout(() => {
         navigate('/benchmark/dify/test-cases');
       }, 500);
     } catch (error) {
-      console.error('新增失敗:', error);
-      message.error(`新增失敗: ${error.response?.data?.detail || error.message}`);
+      console.error(isEditMode ? '更新失敗:' : '新增失敗:', error);
+      message.error(`${isEditMode ? '更新' : '新增'}失敗: ${error.response?.data?.detail || error.message}`);
     } finally {
       setLoading(false);
     }
   };
+
+  // 頁面載入中顯示
+  if (pageLoading) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        minHeight: 'calc(100vh - 64px)' 
+      }}>
+        <Spin size="large" tip="載入中..." />
+      </div>
+    );
+  }
 
   return (
     <div style={{ 
@@ -122,21 +185,6 @@ const DifyTestCaseCreatePage = () => {
             keywords={keywords} 
             onChange={setKeywords}
           />
-
-          <Form.Item
-            name="max_score"
-            label="滿分"
-            tooltip="測試案例的最高分數"
-          >
-            <Input 
-              type="number" 
-              min={1} 
-              max={1000} 
-              size="large"
-              style={{ width: '200px' }}
-              placeholder="預設 100 分"
-            />
-          </Form.Item>
         </Card>
 
         {/* 進階選項卡片 */}

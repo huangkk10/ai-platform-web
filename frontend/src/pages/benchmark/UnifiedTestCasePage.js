@@ -386,13 +386,6 @@ const UnifiedTestCasePage = ({ defaultTab = 'vsa' }) => {
         },
       },
       {
-        title: '滿分',
-        dataIndex: 'max_score',
-        key: 'max_score',
-        width: 100,
-        render: (score) => <Tag color="gold">{score}</Tag>,
-      },
-      {
         title: '創建時間',
         dataIndex: 'created_at',
         key: 'created_at',
@@ -638,8 +631,6 @@ const UnifiedTestCasePage = ({ defaultTab = 'vsa' }) => {
                 ) : ' 無'}
               </p>
             </div>
-            
-            <p style={{ marginTop: '12px' }}><strong>滿分：</strong>{selectedCase.max_score}</p>
           </div>
         )}
       </Modal>

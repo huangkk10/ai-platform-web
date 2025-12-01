@@ -136,7 +136,7 @@ function AppLayout() {
         return 'VSA 測試案例';
       case '/benchmark/dify/test-cases/create':
       case '/dify-benchmark/test-cases/create':
-        return '新增 VSA 測試案例'; // 🆕 新增頁面標題
+        return '新增 VSA 測試案例';
       case '/benchmark/dify/batch-test':
       case '/dify-benchmark/batch-test':
         return 'VSA 批量測試';
@@ -146,6 +146,11 @@ function AppLayout() {
       case '/dify-benchmark/dashboard':
         return 'VSA Benchmark Dashboard';
       default:
+        // 編輯 VSA 測試案例頁面標題
+        if (pathname.startsWith('/benchmark/dify/test-cases/edit/') ||
+            pathname.startsWith('/dify-benchmark/test-cases/edit/')) {
+          return '編輯 VSA 測試案例';
+        }
         // Markdown 編輯器頁面標題（整頁模式）
         if (pathname.startsWith('/knowledge/rvt-guide/markdown-edit/')) {
           const id = pathname.split('/').pop();
@@ -536,6 +541,18 @@ function AppLayout() {
               </ProtectedRoute>
             } />
             <Route path="/benchmark/dify/test-cases/create" element={
+              <ProtectedRoute permission="isStaff" fallbackTitle="Dify Benchmark 系統存取受限">
+                <DifyTestCaseCreatePage />
+              </ProtectedRoute>
+            } />
+
+            {/* 🆕 VSA 測試案例編輯頁面 */}
+            <Route path="/dify-benchmark/test-cases/edit/:id" element={
+              <ProtectedRoute permission="isStaff" fallbackTitle="Dify Benchmark 系統存取受限">
+                <DifyTestCaseCreatePage />
+              </ProtectedRoute>
+            } />
+            <Route path="/benchmark/dify/test-cases/edit/:id" element={
               <ProtectedRoute permission="isStaff" fallbackTitle="Dify Benchmark 系統存取受限">
                 <DifyTestCaseCreatePage />
               </ProtectedRoute>
