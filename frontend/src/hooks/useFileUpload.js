@@ -20,12 +20,12 @@ import { message } from 'antd';
 import { analyzeImageOCR } from '../services/ocrService';
 
 // 🔧 檔案大小限制（2025-12-02 調整，防止大檔案導致瀏覽器當機）
-const MAX_TEXT_FILE_SIZE = 500 * 1024; // 500KB（文字檔）
+const MAX_TEXT_FILE_SIZE = 300 * 1024; // 300KB（文字檔，配合 30K token 限制）
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB（圖片，因為要 OCR 壓縮）
 
 // 🔧 內容長度限制
-const MAX_TEXT_CONTENT_LENGTH = 100000; // 10 萬字元（超過則拒絕）
-const RECOMMENDED_CONTENT_LENGTH = 30000; // 3 萬字元（超過顯示警告）
+const MAX_TEXT_CONTENT_LENGTH = 60000; // 6 萬字元（約 15K-20K tokens，保留空間給對話）
+const RECOMMENDED_CONTENT_LENGTH = 20000; // 2 萬字元（建議值，確保最佳回應品質）
 
 // 支援的檔案類型
 const SUPPORTED_IMAGE_TYPES = [
@@ -95,7 +95,7 @@ export const useFileUpload = () => {
     
     // 2. 根據檔案類型檢查大小限制
     const sizeLimit = isImage ? MAX_IMAGE_SIZE : MAX_TEXT_FILE_SIZE;
-    const sizeLimitText = isImage ? '5MB' : '500KB';
+    const sizeLimitText = isImage ? '5MB' : '300KB';
     
     if (file.size > sizeLimit) {
       message.error(`${isImage ? '圖片' : '文字檔'}大小不能超過 ${sizeLimitText}。您的檔案大小：${(file.size / 1024).toFixed(0)}KB`);
