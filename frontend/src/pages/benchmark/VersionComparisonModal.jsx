@@ -32,7 +32,8 @@ import {
   Statistic,
   Row,
   Col,
-  Alert
+  Alert,
+  Collapse
 } from 'antd';
 import {
   ExperimentOutlined,
@@ -42,11 +43,12 @@ import {
   TrophyOutlined,
   ThunderboltOutlined,
   CheckCircleOutlined,
-  CloseCircleOutlined
+  CloseCircleOutlined,
+  InfoCircleOutlined
 } from '@ant-design/icons';
 import unifiedBenchmarkApi from '../../services/unifiedBenchmarkApi';
 
-const { Title, Text, Paragraph } = Typography;
+const { Text, Paragraph } = Typography;
 
 /**
  * 版本比較 Modal 組件
@@ -424,6 +426,91 @@ const VersionComparisonModal = ({ visible, onClose, testCase }) => {
           </Col>
         </Row>
       </Card>
+
+      {/* 指標說明摺疊面板 */}
+      <Collapse 
+        ghost 
+        size="small"
+        style={{ marginBottom: 16, background: '#fafafa', borderRadius: 8 }}
+        items={[
+          {
+            key: 'metrics-help',
+            label: (
+              <Space>
+                <InfoCircleOutlined style={{ color: '#1890ff' }} />
+                <Text type="secondary">評估指標說明 (Precision / Recall / F1 Score)</Text>
+              </Space>
+            ),
+            children: (
+              <div style={{ padding: '8px 16px' }}>
+                <Row gutter={[24, 16]}>
+                  <Col span={8}>
+                    <Card size="small" bordered={false} style={{ background: '#e6f7ff' }}>
+                      <Text strong style={{ color: '#1890ff', fontSize: '14px' }}>
+                        🎯 Precision（精確率）
+                      </Text>
+                      <Paragraph style={{ marginTop: 8, marginBottom: 4, fontSize: '13px' }}>
+                        搜尋結果中，有多少是<Text strong>正確答案</Text>？
+                      </Paragraph>
+                      <Paragraph type="secondary" style={{ marginBottom: 4, fontSize: '12px' }}>
+                        公式：正確匹配數 ÷ 搜尋結果總數
+                      </Paragraph>
+                      <Paragraph style={{ fontSize: '12px', marginBottom: 0 }}>
+                        <Text type="secondary">範例：返回 5 個結果，其中 3 個包含答案關鍵字</Text>
+                        <br />
+                        <Text code>Precision = 3/5 = 60%</Text>
+                      </Paragraph>
+                    </Card>
+                  </Col>
+                  <Col span={8}>
+                    <Card size="small" bordered={false} style={{ background: '#fff7e6' }}>
+                      <Text strong style={{ color: '#fa8c16', fontSize: '14px' }}>
+                        📊 Recall（召回率）
+                      </Text>
+                      <Paragraph style={{ marginTop: 8, marginBottom: 4, fontSize: '13px' }}>
+                        所有答案關鍵字中，有多少被<Text strong>成功找到</Text>？
+                      </Paragraph>
+                      <Paragraph type="secondary" style={{ marginBottom: 4, fontSize: '12px' }}>
+                        公式：已匹配關鍵字數 ÷ 答案關鍵字總數
+                      </Paragraph>
+                      <Paragraph style={{ fontSize: '12px', marginBottom: 0 }}>
+                        <Text type="secondary">範例：答案有 3 個關鍵字，搜尋結果匹配了 2 個</Text>
+                        <br />
+                        <Text code>Recall = 2/3 = 67%</Text>
+                      </Paragraph>
+                    </Card>
+                  </Col>
+                  <Col span={8}>
+                    <Card size="small" bordered={false} style={{ background: '#f6ffed' }}>
+                      <Text strong style={{ color: '#52c41a', fontSize: '14px' }}>
+                        ⚖️ F1 Score（綜合分數）
+                      </Text>
+                      <Paragraph style={{ marginTop: 8, marginBottom: 4, fontSize: '13px' }}>
+                        Precision 和 Recall 的<Text strong>調和平均</Text>
+                      </Paragraph>
+                      <Paragraph type="secondary" style={{ marginBottom: 4, fontSize: '12px' }}>
+                        公式：2 × (P × R) ÷ (P + R)
+                      </Paragraph>
+                      <Paragraph style={{ fontSize: '12px', marginBottom: 0 }}>
+                        <Text type="secondary">平衡精確率和召回率，是最常用的綜合評估指標</Text>
+                        <br />
+                        <Text code>F1 = 100% 表示完美匹配</Text>
+                      </Paragraph>
+                    </Card>
+                  </Col>
+                </Row>
+                <Paragraph type="secondary" style={{ marginTop: 12, marginBottom: 0, fontSize: '12px' }}>
+                  💡 <Text strong>判讀建議：</Text>
+                  F1 Score 100% = 完美（所有關鍵字都找到且結果精確）｜
+                  F1 Score {'>'} 80% = 優秀｜
+                  F1 Score {'>'} 60% = 良好｜
+                  F1 Score {'<'} 33% = 需優化
+                </Paragraph>
+              </div>
+            )
+          }
+        ]}
+      />
 
       {/* 進度條 */}
       {loading && (
