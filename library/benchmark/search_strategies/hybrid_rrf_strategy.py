@@ -8,14 +8,15 @@
 - 結合向量搜尋（語義理解）和關鍵字搜尋（精確匹配）
 - 使用 RRF (Reciprocal Rank Fusion) 算法融合結果
 - 可選 Title Boost 加分
+- 🆕 支援從資料庫讀取 Protocol Assistant 的 Threshold 設定
 - 適合：需要同時兼顧語義和精確關鍵字匹配的查詢
 
 參數：
 - rrf_k: RRF 融合常數（預設 60，業界標準）
 - title_match_bonus: 標題匹配加分（預設 0.15，即 15%）
-- section_threshold: 搜尋閾值（預設 0.80）
-- title_weight: 標題權重（預設 95）
-- content_weight: 內容權重（預設 5）
+- section_threshold: 搜尋閾值（從資料庫讀取，預設 0.70）
+- title_weight: 標題權重（從資料庫讀取，預設 80）
+- content_weight: 內容權重（從資料庫讀取，預設 20）
 
 🎯 解決的問題：
 - 純向量搜尋：語義理解好，但精確關鍵字（如 "iol 密碼"）排名不佳
@@ -23,19 +24,67 @@
 - 混合 RRF：結合兩者優點，排名穩定
 
 算法流程：
-1. 執行向量搜尋（語義理解）
-2. 執行關鍵字搜尋（精確匹配）
-3. RRF 融合（排名融合，k=60）
-4. 分數正規化（0.5-1.0 範圍）
-5. 可選 Title Boost 加分
-6. 按最終分數排序返回
+1. 從資料庫讀取 Protocol Assistant 設定
+2. 執行向量搜尋（語義理解）
+3. 執行關鍵字搜尋（精確匹配）
+4. RRF 融合（排名融合，k=60）
+5. 分數正規化（0.5-1.0 範圍）
+6. 可選 Title Boost 加分
+7. 按最終分數排序返回
 """
 
 from .base_strategy import BaseSearchStrategy
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def get_protocol_assistant_settings() -> dict:
+    """
+    從資料庫讀取 Protocol Assistant 的 Threshold 設定
+    
+    Returns:
+        dict: 包含 threshold、title_weight、content_weight 的設定字典
+    """
+    try:
+        from api.models import SearchThresholdSetting
+        
+        setting = SearchThresholdSetting.objects.filter(
+            assistant_type='protocol_assistant',
+            is_active=True
+        ).first()
+        
+        if setting:
+            # 將 Decimal 轉為 float
+            threshold = float(setting.stage1_threshold)
+            title_weight = setting.stage1_title_weight
+            content_weight = setting.stage1_content_weight
+            
+            logger.info(
+                f"📖 從資料庫讀取 Protocol Assistant 設定: "
+                f"threshold={threshold:.0%}, title={title_weight}%, content={content_weight}%"
+            )
+            
+            return {
+                'section_threshold': threshold,
+                'title_weight': title_weight,
+                'content_weight': content_weight,
+                'source': 'database'
+            }
+        else:
+            logger.warning("⚠️ 資料庫無 Protocol Assistant 設定，使用預設值")
+            
+    except Exception as e:
+        logger.warning(f"⚠️ 無法讀取資料庫設定: {e}，使用預設值")
+    
+    # 預設值（與資料庫預設一致）
+    return {
+        'section_threshold': 0.70,
+        'title_weight': 80,
+        'content_weight': 20,
+        'source': 'default'
+    }
 
 
 class HybridRRFStrategy(BaseSearchStrategy):
@@ -45,9 +94,13 @@ class HybridRRFStrategy(BaseSearchStrategy):
     ✅ 結合向量搜尋和關鍵字搜尋
     ✅ 使用 RRF 算法融合結果
     ✅ 可選 Title Boost 加分
+    ✅ 🆕 自動讀取資料庫 Threshold 設定
     """
     
     def __init__(self, search_service):
+        # 🆕 從資料庫讀取設定
+        db_settings = get_protocol_assistant_settings()
+        
         super().__init__(
             search_service=search_service,
             name='hybrid_rrf',
@@ -58,11 +111,21 @@ class HybridRRFStrategy(BaseSearchStrategy):
             # Title Boost 配置
             title_match_bonus=0.15,
             min_keyword_length=2,
-            # 搜尋配置
-            section_threshold=0.80,
-            title_weight=95,
-            content_weight=5,
-            top_k=20
+            # 🆕 搜尋配置（從資料庫讀取）
+            section_threshold=db_settings['section_threshold'],
+            title_weight=db_settings['title_weight'],
+            content_weight=db_settings['content_weight'],
+            top_k=20,
+            # 記錄設定來源
+            settings_source=db_settings['source']
+        )
+        
+        logger.info(
+            f"🔧 HybridRRFStrategy 初始化: "
+            f"threshold={db_settings['section_threshold']:.0%}, "
+            f"title={db_settings['title_weight']}%, "
+            f"content={db_settings['content_weight']}% "
+            f"(來源: {db_settings['source']})"
         )
     
     def execute(
