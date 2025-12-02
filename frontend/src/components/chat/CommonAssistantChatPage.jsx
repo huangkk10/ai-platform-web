@@ -34,7 +34,7 @@ import MessageList from './MessageList';
 import useMessageStorage from '../../hooks/useMessageStorage';
 import useMessageFeedback from '../../hooks/useMessageFeedback';
 // 🆕 檔案上傳相關
-import useFileUpload from '../../hooks/useFileUpload';
+import useFileUpload, { MAX_TEXT_CONTENT_LENGTH, RECOMMENDED_CONTENT_LENGTH } from '../../hooks/useFileUpload';
 import FileUploadButton from './FileUploadButton';
 import FilePreviewInline from './FilePreviewInline';  // 🎨 使用內聯預覽版本
 import { analyzeImageOCR } from '../../services/ocrService';  // 🆕 直接導入 OCR 服務
@@ -262,6 +262,24 @@ const CommonAssistantChatPage = ({
             reader.readAsText(fileToProcess.file);
           });
           console.log('✅ [CommonAssistantChatPage] 讀取成功，文字長度:', ocrText?.length);
+          
+          // 🔧 2025-12-02：新增內容長度檢查，防止大檔案導致系統問題
+          if (ocrText.length > MAX_TEXT_CONTENT_LENGTH) {
+            const fileSizeKB = (ocrText.length / 1000).toFixed(0);
+            message.error(`檔案內容過大（${fileSizeKB}K 字元），最大支援 ${MAX_TEXT_CONTENT_LENGTH / 1000}K 字元。建議上傳較小的檔案或擷取關鍵內容。`);
+            console.warn(`⚠️ [CommonAssistantChatPage] 檔案內容過大: ${ocrText.length} > ${MAX_TEXT_CONTENT_LENGTH}`);
+            // 清除 loading 狀態並中止處理
+            if (setLoading) setLoading(false);
+            if (setLoadingStartTime) setLoadingStartTime(null);
+            return;
+          }
+          
+          // 超過建議值顯示警告（但仍允許繼續）
+          if (ocrText.length > RECOMMENDED_CONTENT_LENGTH) {
+            const fileSizeKB = (ocrText.length / 1000).toFixed(0);
+            message.warning(`檔案內容較大（${fileSizeKB}K 字元），處理可能需要較長時間。`);
+            console.log(`⚠️ [CommonAssistantChatPage] 檔案內容較大: ${ocrText.length} > ${RECOMMENDED_CONTENT_LENGTH}`);
+          }
         }
         
         // 組合檔案內容（改進 prompt 格式，讓 AI 知道要分析而非展示）

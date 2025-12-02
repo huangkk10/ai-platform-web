@@ -19,7 +19,13 @@ import { useState, useCallback, useRef } from 'react';
 import { message } from 'antd';
 import { analyzeImageOCR } from '../services/ocrService';
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+// 🔧 檔案大小限制（2025-12-02 調整，防止大檔案導致瀏覽器當機）
+const MAX_TEXT_FILE_SIZE = 500 * 1024; // 500KB（文字檔）
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB（圖片，因為要 OCR 壓縮）
+
+// 🔧 內容長度限制
+const MAX_TEXT_CONTENT_LENGTH = 100000; // 10 萬字元（超過則拒絕）
+const RECOMMENDED_CONTENT_LENGTH = 30000; // 3 萬字元（超過顯示警告）
 
 // 支援的檔案類型
 const SUPPORTED_IMAGE_TYPES = [
@@ -78,18 +84,21 @@ export const useFileUpload = () => {
    * 處理檔案選擇（只儲存檔案和顯示預覽，不執行 OCR）
    */
   const handleFileSelect = useCallback(async (file) => {
-    // 1. 檢查檔案大小
-    if (file.size > MAX_FILE_SIZE) {
-      message.error('檔案大小不能超過 10MB');
-      return;
-    }
-    
-    // 2. 檢查檔案類型
+    // 1. 檢查檔案類型
     const isImage = isImageFile(file);
     const isText = isTextFile(file);
     
     if (!isImage && !isText) {
       message.error('不支援的檔案格式。支援：圖片 (jpg, png, gif, bmp, webp) 和文字檔 (txt, log, md)');
+      return;
+    }
+    
+    // 2. 根據檔案類型檢查大小限制
+    const sizeLimit = isImage ? MAX_IMAGE_SIZE : MAX_TEXT_FILE_SIZE;
+    const sizeLimitText = isImage ? '5MB' : '500KB';
+    
+    if (file.size > sizeLimit) {
+      message.error(`${isImage ? '圖片' : '文字檔'}大小不能超過 ${sizeLimitText}。您的檔案大小：${(file.size / 1024).toFixed(0)}KB`);
       return;
     }
     
@@ -245,6 +254,14 @@ export const useFileUpload = () => {
     isText: uploadedFile ? isTextFile(uploadedFile) : false,
     isPending: !!uploadedFile && !isProcessed && !isProcessing  // 新增：是否待處理
   };
+};
+
+// 🔧 導出常數供其他組件使用
+export { 
+  MAX_TEXT_FILE_SIZE, 
+  MAX_IMAGE_SIZE, 
+  MAX_TEXT_CONTENT_LENGTH, 
+  RECOMMENDED_CONTENT_LENGTH 
 };
 
 export default useFileUpload;
