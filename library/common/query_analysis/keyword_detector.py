@@ -34,6 +34,15 @@ FULL_DOCUMENT_KEYWORDS = [
     '顯示完整', '顯示全部', '顯示所有',
     '查看完整', '查看全部', '查看所有',
     
+    # SOP 和標準作業流程相關（🆕 新增）
+    'SOP', 'sop', '標準作業流程', '操作流程', '作業流程',
+    '標準流程', '工作流程', '執行流程',
+    
+    # 教學和手冊相關（🆕 新增）
+    '教學', '指南', '手冊', '使用手冊', '操作手冊',
+    '指導', '說明書', '操作指南', '使用指南',
+    'tutorial', 'guide', 'manual', 'handbook',
+    
     # 英文（如果用戶可能使用英文）
     'full', 'complete', 'entire', 'whole',
     'all steps', 'full document', 'complete document',

@@ -158,14 +158,21 @@ class ProtocolGuideKeywordTriggeredHandler:
             # ✅ 改進：Mode A 直接使用文檔搜索模式（用戶已明確要求完整內容）
             logger.info(f"   📝 Mode A: 使用文檔搜索模式 (search_mode='document_only')")
             
+            # ✅ 2025-12-03 修正：添加 __FULL_SEARCH__ 標記
+            # 注意：Dify 不會將 inputs 參數傳遞給外部知識庫 API
+            # 所以必須使用查詢字串中的特殊標記來觸發全文搜尋
+            # 與模式 B Stage 2 保持一致的行為
+            full_search_query = f"{query} __FULL_SEARCH__"
+            logger.info(f"   🏷️ Mode A 查詢（含標記）: {full_search_query}")
+            
             inputs = {
-                'search_mode': 'document_only',  # ← 關鍵字查詢直接搜索完整文檔
+                'search_mode': 'document_only',  # ← 保留作為備用機制
                 'require_detailed_answer': 'true'
             }
             
             # 使用 DifyChatClient
             response = self.dify_client.chat(
-                question=query,  # ✅ 原查詢（保留用戶的「完整」等關鍵字）
+                question=full_search_query,  # ✅ 修正：使用含 __FULL_SEARCH__ 標記的查詢
                 conversation_id=conversation_id if conversation_id else "",
                 user=user_id,
                 inputs=inputs,  # ← 通過 inputs 傳遞 search_mode
