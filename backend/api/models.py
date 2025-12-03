@@ -1209,6 +1209,13 @@ class SearchThresholdSetting(models.Model):
         help_text="段落向量搜尋的相似度閾值（0.00-1.00）"
     )
     
+    # === 🆕 混合搜尋配置（一階段 RRF 融合） ===
+    stage1_rrf_k = models.IntegerField(
+        default=60,
+        verbose_name="一階段 RRF K 值",
+        help_text="RRF 融合常數（30-120）。較小值讓頂部結果更突出；較大值讓結果更平均。業界標準: 60"
+    )
+    
     # === 🆕 第二階段配置（全文向量搜尋） ===
     stage2_title_weight = models.IntegerField(
         default=50,
@@ -1362,6 +1369,12 @@ class SearchThresholdSetting(models.Model):
         # 確保第一階段權重總和為 100
         if self.stage1_title_weight + self.stage1_content_weight != 100:
             self.stage1_content_weight = 100 - self.stage1_title_weight
+        
+        # === 🆕 RRF K 值驗證（30-120 範圍）===
+        if self.stage1_rrf_k < 30:
+            self.stage1_rrf_k = 30
+        elif self.stage1_rrf_k > 120:
+            self.stage1_rrf_k = 120
         
         # === 🆕 第二階段權重驗證 ===
         if self.stage2_title_weight < 0:

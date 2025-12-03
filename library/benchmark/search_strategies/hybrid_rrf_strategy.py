@@ -45,7 +45,7 @@ def get_protocol_assistant_settings() -> dict:
     從資料庫讀取 Protocol Assistant 的 Threshold 設定
     
     Returns:
-        dict: 包含 threshold、title_weight、content_weight 的設定字典
+        dict: 包含 threshold、title_weight、content_weight、rrf_k 的設定字典
     """
     try:
         from api.models import SearchThresholdSetting
@@ -60,16 +60,18 @@ def get_protocol_assistant_settings() -> dict:
             threshold = float(setting.stage1_threshold)
             title_weight = setting.stage1_title_weight
             content_weight = setting.stage1_content_weight
+            rrf_k = setting.stage1_rrf_k  # 🆕 RRF K 值
             
             logger.info(
                 f"📖 從資料庫讀取 Protocol Assistant 設定: "
-                f"threshold={threshold:.0%}, title={title_weight}%, content={content_weight}%"
+                f"threshold={threshold:.0%}, title={title_weight}%, content={content_weight}%, rrf_k={rrf_k}"
             )
             
             return {
                 'section_threshold': threshold,
                 'title_weight': title_weight,
                 'content_weight': content_weight,
+                'rrf_k': rrf_k,  # 🆕 RRF K 值
                 'source': 'database'
             }
         else:
@@ -83,6 +85,7 @@ def get_protocol_assistant_settings() -> dict:
         'section_threshold': 0.70,
         'title_weight': 80,
         'content_weight': 20,
+        'rrf_k': 60,  # 🆕 RRF K 值預設值
         'source': 'default'
     }
 
@@ -105,8 +108,8 @@ class HybridRRFStrategy(BaseSearchStrategy):
             search_service=search_service,
             name='hybrid_rrf',
             description='混合搜尋（向量 + 關鍵字 + RRF 融合）- 來自 Dify v1.2.2',
-            # RRF 配置
-            rrf_k=60,
+            # RRF 配置（🆕 從資料庫讀取）
+            rrf_k=db_settings.get('rrf_k', 60),
             use_hybrid_search=True,
             # Title Boost 配置
             title_match_bonus=0.15,
@@ -124,7 +127,8 @@ class HybridRRFStrategy(BaseSearchStrategy):
             f"🔧 HybridRRFStrategy 初始化: "
             f"threshold={db_settings['section_threshold']:.0%}, "
             f"title={db_settings['title_weight']}%, "
-            f"content={db_settings['content_weight']}% "
+            f"content={db_settings['content_weight']}%, "
+            f"rrf_k={db_settings.get('rrf_k', 60)} "
             f"(來源: {db_settings['source']})"
         )
     

@@ -92,6 +92,7 @@ const ThresholdSettingsPage = () => {
       stage1_threshold: parseFloat(record.stage1_threshold) * 100,
       stage1_title_weight: record.stage1_title_weight,
       stage1_content_weight: record.stage1_content_weight,
+      stage1_rrf_k: record.stage1_rrf_k || 60,  // 🆕 RRF K 值
       // 二階設定
       stage2_threshold: parseFloat(record.stage2_threshold) * 100,
       stage2_title_weight: record.stage2_title_weight,
@@ -115,6 +116,7 @@ const ThresholdSettingsPage = () => {
         stage1_threshold: (values.stage1_threshold / 100).toFixed(2),
         stage1_title_weight: values.stage1_title_weight,
         stage1_content_weight: values.stage1_content_weight,
+        stage1_rrf_k: values.stage1_rrf_k,  // 🆕 RRF K 值
         stage2_threshold: (values.stage2_threshold / 100).toFixed(2),
         stage2_title_weight: values.stage2_title_weight,
         stage2_content_weight: values.stage2_content_weight,
@@ -206,6 +208,24 @@ const ThresholdSettingsPage = () => {
             <Text style={{ fontSize: '14px', color: '#1890ff' }}>
               {value}%
             </Text>
+          )
+        },
+        {
+          title: (
+            <Space>
+              RRF K 值
+              <Tooltip title="RRF 融合常數（30-120）。影響向量與關鍵字搜尋的融合權重。較小值讓頂部結果更突出；較大值讓結果更平均。業界標準: 60">
+                <InfoCircleOutlined />
+              </Tooltip>
+            </Space>
+          ),
+          dataIndex: 'stage1_rrf_k',
+          key: 'stage1_rrf_k',
+          width: 100,
+          render: (value) => (
+            <Tag color="purple" style={{ fontSize: '14px' }}>
+              {value || 60}
+            </Tag>
           )
         }
       ]
@@ -544,6 +564,60 @@ const ThresholdSettingsPage = () => {
             <Alert
               message="💡 提示：標題權重 + 內容權重 = 100%"
               type="warning"
+              showIcon
+              style={{ marginBottom: 16 }}
+            />
+
+            {/* 🆕 RRF K 值設定 */}
+            <Form.Item
+              label={
+                <Space>
+                  <span>RRF 融合 K 值</span>
+                  <Tooltip title="影響向量與關鍵字搜尋的融合權重。較小值(30-50)讓頂部結果更突出；較大值(80-120)讓結果更平均。業界標準: 60">
+                    <InfoCircleOutlined />
+                  </Tooltip>
+                </Space>
+              }
+              name="stage1_rrf_k"
+              rules={[
+                { required: true, message: '請設定 RRF K 值' },
+                { type: 'number', min: 30, max: 120, message: 'RRF K 值必須在 30 到 120 之間' }
+              ]}
+            >
+              <Slider
+                min={30}
+                max={120}
+                step={5}
+                marks={{
+                  30: '30',
+                  60: '60 (標準)',
+                  90: '90',
+                  120: '120'
+                }}
+                tooltip={{
+                  formatter: (value) => `K = ${value}`
+                }}
+              />
+            </Form.Item>
+
+            <Alert
+              message={
+                <Space direction="vertical" size={2}>
+                  <span><strong>💡 RRF K 值說明（向量 + 關鍵字融合）：</strong></span>
+                  <span>• <strong>K 值較小 (30-50)</strong>：排名靠前的結果權重更高</span>
+                  <span style={{ paddingLeft: 16, color: '#666' }}>
+                    → 關鍵字精確匹配的結果更容易排到前面，適合已知精確術語的查詢
+                  </span>
+                  <span>• <strong>K 值較大 (80-120)</strong>：排名差異對分數的影響減小</span>
+                  <span style={{ paddingLeft: 16, color: '#666' }}>
+                    → 向量語義搜尋的結果有更多機會出現，適合探索性或模糊查詢
+                  </span>
+                  <span style={{ marginTop: 4, color: '#1890ff' }}>
+                    📐 公式：RRF_score = 1/(K + rank)，K 越大分數差異越小
+                  </span>
+                </Space>
+              }
+              type="info"
               showIcon
             />
           </Card>

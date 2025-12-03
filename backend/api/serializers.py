@@ -380,6 +380,7 @@ class SearchThresholdSettingSerializer(serializers.ModelSerializer):
             'stage1_threshold',
             'stage1_title_weight',
             'stage1_content_weight',
+            'stage1_rrf_k',  # 🆕 RRF K 值
             
             # 🆕 第二階段配置
             'stage2_threshold',
