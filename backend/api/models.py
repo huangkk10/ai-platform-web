@@ -1209,6 +1209,15 @@ class SearchThresholdSetting(models.Model):
         help_text="段落向量搜尋的相似度閾值（0.00-1.00）"
     )
     
+    # === 🆕 Title Boost 後二次篩選 Threshold ===
+    stage1_post_boost_threshold = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        default=0.70,
+        verbose_name="一階段 Boost 後 Threshold",
+        help_text="Title Boost 加分後的二次過濾閾值（0.00-1.00）。建議設為比第一次低，避免過濾掉相關但標題不完全匹配的結果"
+    )
+    
     # === 🆕 混合搜尋配置（一階段 RRF 融合） ===
     stage1_rrf_k = models.IntegerField(
         default=60,

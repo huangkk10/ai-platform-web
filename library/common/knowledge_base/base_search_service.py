@@ -45,6 +45,19 @@ class BaseKnowledgeBaseSearchService(ABC):
         if self.source_table is None:
             raise NotImplementedError(f"{self.__class__.__name__} must define 'source_table' attribute")
     
+    def _get_assistant_type(self):
+        """
+        根據 source_table 獲取對應的 assistant_type
+        
+        Returns:
+            str: assistant_type ('protocol_assistant', 'rvt_assistant', etc.)
+        """
+        table_to_type = {
+            'protocol_guide': 'protocol_assistant',
+            'rvt_guide': 'rvt_assistant',
+        }
+        return table_to_type.get(self.source_table, 'protocol_assistant')
+    
     def _get_context_window_settings(self):
         """
         獲取 Window 擴展設定（從 SearchThresholdSetting 讀取）
@@ -179,21 +192,19 @@ class BaseKnowledgeBaseSearchService(ABC):
                 self.logger.info(f"🎯 顯式文檔搜索模式 (search_mode='document_only', threshold={threshold}, stage={stage})")
                 from .vector_search_helper import search_with_vectors_generic
                 
-                # 使用降級閾值
-                doc_threshold = max(threshold * 0.85, 0.5)
-                
+                # ✅ 簡化：直接使用 threshold，不再降級（由管理員在 UI 設定適當的 stage2_threshold）
                 results = search_with_vectors_generic(
                     query=query,
                     model_class=self.model_class,
                     source_table=self.source_table,
                     limit=limit,
-                    threshold=doc_threshold,
+                    threshold=threshold,
                     use_1024=True,
                     content_formatter=self._get_item_content,
                     stage=stage  # ✅ 傳遞 stage 參數
                 )
                 
-                self.logger.info(f"📄 文檔搜索返回 {len(results)} 個結果 (threshold={doc_threshold:.2f}, stage={stage})")
+                self.logger.info(f"📄 文檔搜索返回 {len(results)} 個結果 (threshold={threshold:.2f}, stage={stage})")
                 return results
             
             # === 模式 2：只搜索段落（不降級）===
@@ -275,25 +286,31 @@ class BaseKnowledgeBaseSearchService(ABC):
                 except Exception as section_error:
                     self.logger.warning(f"⚠️ 段落向量搜尋失敗，使用整篇文檔搜尋: {str(section_error)}")
                 
-                # 備用：整篇文檔向量搜尋（使用稍低的 threshold）
+                # 備用：整篇文檔向量搜尋
                 from .vector_search_helper import search_with_vectors_generic
+                from library.common.threshold_manager import ThresholdManager
                 
-                # 文檔搜索使用稍低的 threshold (threshold * 0.85)
-                doc_threshold = max(threshold * 0.85, 0.5)
+                # ✅ 備用文檔搜尋使用 stage2_threshold（從資料庫讀取）
+                threshold_manager = ThresholdManager()
+                stage2_threshold = threshold_manager.get_threshold(
+                    assistant_type=self._get_assistant_type(),
+                    stage=2
+                )
                 
-                # ✅ 修正：備用文檔搜尋應該使用 stage=2（全文搜尋）
+                self.logger.info(f"🔄 備用文檔搜尋：使用 stage2_threshold={stage2_threshold} (原 stage1_threshold={threshold})")
+                
                 results = search_with_vectors_generic(
                     query=query,
                     model_class=self.model_class,
                     source_table=self.source_table,
                     limit=limit,
-                    threshold=doc_threshold,  # ✅ 使用動態計算的 threshold
+                    threshold=stage2_threshold,  # ✅ 使用 stage2_threshold
                     use_1024=True,
                     content_formatter=self._get_item_content,
-                    stage=2  # ✅ 修正：備用文檔搜尋使用 stage=2
+                    stage=2  # ✅ 備用文檔搜尋使用 stage=2
                 )
                 
-                self.logger.info(f"📄 整篇文檔向量搜尋返回 {len(results)} 個結果 (threshold={doc_threshold:.2f}, stage={stage})")
+                self.logger.info(f"📄 整篇文檔向量搜尋返回 {len(results)} 個結果 (threshold={stage2_threshold:.2f}, stage=2)")
                 return results
             
         except Exception as e:

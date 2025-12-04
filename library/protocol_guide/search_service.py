@@ -1011,17 +1011,48 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
                 
                 # 🔧 二次過濾：移除加分後仍低於 threshold 的結果（在轉換格式之前）
                 filtered_boosted_results = boosted_results
-                if threshold > 0:
-                    original_count = len(boosted_results)
-                    # ✅ 使用 final_score 或 score 來過濾
-                    filtered_boosted_results = [
-                        r for r in boosted_results 
-                        if r.get('final_score', r.get('score', 0)) >= threshold
-                    ]
-                    if len(filtered_boosted_results) < original_count:
-                        logger.info(
-                            f"🎯 Title Boost 後過濾: {original_count} → {len(filtered_boosted_results)} (threshold={threshold})"
-                        )
+                
+                # 🆕 獲取 post_boost_threshold
+                # - Stage 1: 使用 stage1_post_boost_threshold
+                # - Stage 2: 不需要二次過濾（結果已經是全文搜尋的結果）
+                post_boost_threshold = threshold  # 預設使用原 threshold
+                
+                # ⚠️ 只有 Stage 1 才使用 post_boost_threshold 二次過濾
+                # Stage 2 是全文搜尋，結果本身就是經過 threshold 過濾的
+                if stage == 1:
+                    try:
+                        from library.common.threshold_manager import get_threshold_manager
+                        tm = get_threshold_manager()
+                        # 確保快取是最新的
+                        if not tm._is_cache_valid():
+                            tm._refresh_cache()
+                        # 使用 protocol_assistant 的設定（與此 search service 對應）
+                        config = tm._cache.get('protocol_assistant', {})
+                        if 'stage1_post_boost_threshold' in config:
+                            post_boost_threshold = config['stage1_post_boost_threshold']
+                            logger.info(
+                                f"🎯 [Stage 1] 使用 stage1_post_boost_threshold={post_boost_threshold:.2f} "
+                                f"(原 threshold={threshold:.2f})"
+                            )
+                    except Exception as e:
+                        logger.warning(f"⚠️ 無法獲取 post_boost_threshold，使用原 threshold: {e}")
+                    
+                    if post_boost_threshold > 0:
+                        original_count = len(boosted_results)
+                        # ✅ 使用 final_score 或 score 來過濾
+                        filtered_boosted_results = [
+                            r for r in boosted_results 
+                            if r.get('final_score', r.get('score', 0)) >= post_boost_threshold
+                        ]
+                        if len(filtered_boosted_results) < original_count:
+                            logger.info(
+                                f"🎯 [Stage 1] Title Boost 後過濾: {original_count} → {len(filtered_boosted_results)} (post_boost_threshold={post_boost_threshold:.2f})"
+                            )
+                else:
+                    # Stage 2: 不做二次過濾，保留所有 Title Boost 後的結果
+                    logger.info(
+                        f"🎯 [Stage 2] 跳過 post_boost_threshold 過濾，保留全部 {len(boosted_results)} 個結果"
+                    )
                 
                 # 轉換為標準格式（與基類返回格式一致）
                 results = []

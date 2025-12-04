@@ -378,6 +378,7 @@ class SearchThresholdSettingSerializer(serializers.ModelSerializer):
             
             # 🆕 第一階段配置
             'stage1_threshold',
+            'stage1_post_boost_threshold',  # 🆕 Title Boost 後二次篩選 Threshold
             'stage1_title_weight',
             'stage1_content_weight',
             'stage1_rrf_k',  # 🆕 RRF K 值

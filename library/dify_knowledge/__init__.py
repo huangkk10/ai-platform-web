@@ -381,6 +381,17 @@ class DifyKnowledgeSearchHandler:
         if score_threshold <= 0:
             return results
         
+        # 🆕 Stage 2 全文搜尋跳過二次過濾
+        # 原因：Stage 2 已經在 SQL 階段使用 stage2_threshold 過濾過了
+        #       且 Stage 2 不使用 Hybrid Search，不需要 post_boost 後的二次過濾
+        #       這裡再用 Dify 的高 threshold (0.9) 過濾會錯殺結果
+        if stage == 2:
+            self.logger.info(
+                f"🎯 [Stage 2] 跳過 DifyKnowledgeSearchHandler 二次過濾，"
+                f"保留全部 {len(results)} 個結果 (SQL 階段已過濾)"
+            )
+            return results
+        
         # 🔍 詳細記錄每個結果的分數（診斷用）
         self.logger.info(f"📊 分數過濾診斷（threshold={score_threshold}, stage={stage}, top_k={top_k}, type={knowledge_type}）:")
         for idx, result in enumerate(results, 1):
