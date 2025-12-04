@@ -79,6 +79,14 @@ from .dify_knowledge_views import (
     create_dify_search_handler,
 )
 
+# ============= SAF 外部知識庫 API 導出 =============
+
+from .dify_saf_views import (
+    saf_retrieval,                   # SAF 知識庫檢索入口
+    saf_health,                      # SAF 健康檢查
+    saf_endpoints,                   # SAF 端點資訊
+)
+
 
 # ============= 認證 API 導出 =============
 

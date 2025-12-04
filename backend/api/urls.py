@@ -59,6 +59,12 @@ urlpatterns = [
     path('dify/rvt/knowledge/retrieval', views.dify_rvt_guide_search, name='dify_rvt_knowledge_no_slash'),
     path('dify/rvt/knowledge/retrieval/', views.dify_rvt_guide_search, name='dify_rvt_knowledge'),
     
+    # SAF 知識庫 API (獨立入口)
+    path('dify/saf/retrieval', views.saf_retrieval, name='dify_saf_retrieval_no_slash'),
+    path('dify/saf/retrieval/', views.saf_retrieval, name='dify_saf_retrieval'),
+    path('dify/saf/health/', views.saf_health, name='dify_saf_health'),
+    path('dify/saf/endpoints/', views.saf_endpoints, name='dify_saf_endpoints'),
+    
     # 通用知識庫端點（向後兼容，通過 knowledge_id 路由）
     path('dify/knowledge/retrieval', views.dify_knowledge_search, name='dify_knowledge_search_no_slash'),
     path('dify/knowledge/retrieval/', views.dify_knowledge_search, name='dify_knowledge_search'),
