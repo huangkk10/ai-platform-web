@@ -12,6 +12,12 @@ v1.2 更新（2025-01-20）：
 - ✅ 整合 ProtocolGuideSearchService 和 Title Boost
 - ✅ 向後相容：version_config 為可選參數
 - ✅ 無 version_config 時保持原有行為（Dify 自主 RAG）
+
+v1.3 更新（2025-01-21）：
+- ✅ 新增 use_smart_router 選項 - 使用與 Web 完全一致的兩階段搜尋
+- ✅ 當 use_smart_router=True 時，呼叫 SmartSearchRouter.handle_smart_search()
+- ✅ 解決 Benchmark 測試通過率為 0% 的問題
+- ✅ 確保 Benchmark 測試結果與真實用戶體驗一致
 """
 
 import logging
@@ -240,6 +246,99 @@ class DifyAPIClient:
                 'answer': '',
                 'error': str(e),
                 'response_time': 0
+            }
+    
+    def send_question_with_smart_router(
+        self,
+        question: str,
+        user_id: str = "benchmark_tester",
+        conversation_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        ✅ v1.3 新增：使用 SmartSearchRouter 發送問題（與 Web 完全一致）
+        
+        此方法使用與 Web Protocol Assistant 完全相同的搜尋邏輯：
+        1. 智能路由：根據查詢決定使用 Mode A 或 Mode B
+        2. 兩階段搜尋：Stage 1 段落搜尋 → Stage 2 全文搜尋（fallback）
+        3. 不確定回答檢測：自動觸發更深入的搜尋
+        
+        使用場景：
+        - Benchmark 測試需要與真實用戶體驗一致時
+        - 測試 "iol root 密碼" 這類需要 Stage 2 才能回答的問題
+        
+        Args:
+            question: 測試問題
+            user_id: 用戶 ID
+            conversation_id: 對話 ID（可選）
+            
+        Returns:
+            Dict: 與 send_question 相同格式的回應
+            {
+                'success': bool,
+                'answer': str,
+                'message_id': str,
+                'conversation_id': str,
+                'response_time': float,
+                'retrieved_documents': List,
+                'tokens': Dict,
+                'smart_router_used': True,  # ✅ 標記使用了 SmartRouter
+                'search_mode': str,         # ✅ 'mode_a' 或 'mode_b'
+                'search_stage': int,        # ✅ 1 或 2
+                'is_fallback': bool         # ✅ 是否為降級模式
+            }
+        """
+        import time
+        
+        try:
+            # 延遲導入避免循環引用
+            from library.protocol_guide.smart_search_router import SmartSearchRouter
+            
+            logger.info(f"🔄 使用 SmartSearchRouter 發送問題: {question[:50]}...")
+            
+            start_time = time.time()
+            
+            # 創建 SmartSearchRouter 實例
+            router = SmartSearchRouter()
+            
+            # 使用與 Web 完全一致的邏輯
+            result = router.handle_smart_search(
+                user_query=question,
+                conversation_id=conversation_id or "",
+                user_id=user_id
+            )
+            
+            response_time = time.time() - start_time
+            
+            # 提取 metadata 中的引用文件
+            metadata = result.get('metadata', {})
+            retriever_resources = metadata.get('retriever_resources', [])
+            
+            # 轉換為標準格式
+            return {
+                'success': True,
+                'answer': result.get('answer', ''),
+                'message_id': result.get('message_id', ''),
+                'conversation_id': result.get('conversation_id', ''),
+                'response_time': round(response_time, 2),
+                'retrieved_documents': retriever_resources,
+                'tokens': result.get('tokens', {}),
+                # ✅ SmartRouter 特有欄位
+                'smart_router_used': True,
+                'search_mode': result.get('mode', 'unknown'),
+                'search_stage': result.get('stage', 0),
+                'is_fallback': result.get('is_fallback', False),
+                'backend_search_used': True,
+                'search_results_count': len(retriever_resources)
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ SmartSearchRouter 呼叫失敗: {str(e)}", exc_info=True)
+            return {
+                'success': False,
+                'answer': '',
+                'error': str(e),
+                'response_time': 0,
+                'smart_router_used': True
             }
     
     def send_questions_batch(

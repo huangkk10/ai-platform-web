@@ -92,33 +92,16 @@ class DifyTestRunner:
         self.version = version
         self.use_ai_evaluator = use_ai_evaluator
         
-        # ✅ v1.2.1: 動態載入 RAG 設定（如果版本啟用動態 Threshold）
-        from library.dify_integration.dynamic_threshold_loader import DynamicThresholdLoader
-        
-        if DynamicThresholdLoader.is_dynamic_version(version.rag_settings):
-            logger.info(f"🔄 版本 {version.version_name} 使用動態 Threshold 載入")
-            rag_settings = DynamicThresholdLoader.load_full_rag_settings(version.rag_settings)
-            logger.info(
-                f"✅ 動態配置載入完成: "
-                f"Stage1={rag_settings['stage1']['threshold']}/{rag_settings['stage1']['title_weight']}%/"
-                f"{rag_settings['stage1']['content_weight']}%, "
-                f"Stage2={rag_settings['stage2']['threshold']}/{rag_settings['stage2']['title_weight']}%/"
-                f"{rag_settings['stage2']['content_weight']}%"
-            )
-        else:
-            logger.info(f"📌 版本 {version.version_name} 使用靜態配置")
-            rag_settings = version.rag_settings
-        
-        # 準備版本配置（用於後端搜尋）
+        # ✅ v1.2: 準備版本配置（用於後端搜尋）
         self.version_config = {
             'version_code': version.version_code,
             'version_name': version.version_name,
-            'rag_settings': rag_settings  # 使用動態或靜態配置
+            'rag_settings': version.rag_settings
         }
         logger.info(
             f"📋 [DifyTestRunner] 版本配置已載入: "
             f"version={version.version_code}, "
-            f"retrieval_mode={rag_settings.get('retrieval_mode', 'unknown')}"
+            f"retrieval_mode={version.rag_settings.get('retrieval_mode', 'unknown')}"
         )
         
         # 初始化 Dify API Client
@@ -346,6 +329,7 @@ class DifyTestRunner:
         2. 每次使用新的 conversation_id（None）
         3. 線程安全的統計更新（使用 Lock）
         4. 完全隔離，不影響 Protocol Assistant
+        5. ✅ v1.3: 支援 SmartSearchRouter（與 Web 一致的兩階段搜尋）
         
         Args:
             test_run: 測試批次實例
@@ -366,13 +350,25 @@ class DifyTestRunner:
         )
         
         try:
-            # ✅ v1.2: 呼叫 Dify API（傳遞版本配置以使用後端搜尋）
-            api_response = self.api_client.send_question(
-                question=test_case.question,
-                user_id=unique_user_id,      # ✅ 唯一 user_id
-                conversation_id=None,        # ✅ 每次新對話
-                version_config=self.version_config  # ✅ v1.2 新增：傳遞版本配置
-            )
+            # ✅ v1.3: 檢查是否使用 SmartSearchRouter（與 Web 完全一致）
+            use_smart_router = self.version_config.get('rag_settings', {}).get('use_smart_router', False)
+            
+            if use_smart_router:
+                # 使用 SmartSearchRouter（與 Web Protocol Assistant 完全一致）
+                logger.info(f"[Thread {index}] 🔄 使用 SmartSearchRouter（與 Web 一致）")
+                api_response = self.api_client.send_question_with_smart_router(
+                    question=test_case.question,
+                    user_id=unique_user_id,
+                    conversation_id=None
+                )
+            else:
+                # ✅ v1.2: 呼叫 Dify API（傳遞版本配置以使用後端搜尋）
+                api_response = self.api_client.send_question(
+                    question=test_case.question,
+                    user_id=unique_user_id,      # ✅ 唯一 user_id
+                    conversation_id=None,        # ✅ 每次新對話
+                    version_config=self.version_config  # ✅ v1.2 新增：傳遞版本配置
+                )
             
             # 提取資訊
             actual_answer = api_response.get('answer', '')
@@ -382,9 +378,18 @@ class DifyTestRunner:
             retrieved_documents = api_response.get('retrieved_documents', [])
             backend_search_used = api_response.get('backend_search_used', False)  # ✅ v1.2 新增
             search_results_count = api_response.get('search_results_count', 0)  # ✅ v1.2 新增
+            smart_router_used = api_response.get('smart_router_used', False)  # ✅ v1.3 新增
             
+            # ✅ v1.3: 記錄 SmartRouter 使用狀態
+            if smart_router_used:
+                logger.info(
+                    f"[Thread {index}] 🌟 使用 SmartRouter: "
+                    f"mode={api_response.get('search_mode', 'unknown')}, "
+                    f"stage={api_response.get('search_stage', 0)}, "
+                    f"fallback={api_response.get('is_fallback', False)}"
+                )
             # ✅ v1.2: 記錄後端搜尋狀態
-            if backend_search_used:
+            elif backend_search_used:
                 logger.info(
                     f"[Thread {index}] 🌟 使用後端搜尋: "
                     f"results={search_results_count}, "
@@ -526,17 +531,32 @@ class DifyTestRunner:
         執行單個測試案例
         
         流程：
-        1. 呼叫 Dify API 獲取答案
+        1. 呼叫 Dify API 獲取答案（支援 SmartSearchRouter）
         2. 使用 KeywordEvaluator 評分
         3. 儲存 TestResult 和 AnswerEvaluation
+        
+        ✅ v1.3: 支援 use_smart_router 選項
         """
         
+        # ✅ v1.3: 檢查是否使用 SmartSearchRouter
+        use_smart_router = self.version_config.get('rag_settings', {}).get('use_smart_router', False)
+        
         # 1. 呼叫 Dify API
-        api_response = self.api_client.send_question(
-            question=test_case.question,
-            user_id=f"test_run_{test_run.id}",
-            conversation_id=None  # 每個測試案例使用獨立對話
-        )
+        if use_smart_router:
+            # 使用 SmartSearchRouter（與 Web Protocol Assistant 完全一致）
+            logger.info(f"🔄 使用 SmartSearchRouter（與 Web 一致）")
+            api_response = self.api_client.send_question_with_smart_router(
+                question=test_case.question,
+                user_id=f"test_run_{test_run.id}",
+                conversation_id=None
+            )
+        else:
+            # 使用原有的 send_question 方法
+            api_response = self.api_client.send_question(
+                question=test_case.question,
+                user_id=f"test_run_{test_run.id}",
+                conversation_id=None  # 每個測試案例使用獨立對話
+            )
         
         # 提取資訊
         actual_answer = api_response.get('answer', '')
@@ -544,6 +564,15 @@ class DifyTestRunner:
         dify_conversation_id = api_response.get('conversation_id', '')
         dify_message_id = api_response.get('message_id', '')
         retrieved_documents = api_response.get('retrieved_documents', [])
+        
+        # ✅ v1.3: 記錄 SmartRouter 資訊
+        if use_smart_router:
+            logger.info(
+                f"SmartRouter 結果: "
+                f"mode={api_response.get('search_mode', 'unknown')}, "
+                f"stage={api_response.get('search_stage', 0)}, "
+                f"fallback={api_response.get('is_fallback', False)}"
+            )
         
         # 2. 使用 KeywordEvaluator 評分
         keywords = test_case.answer_keywords  # ✅ 直接訪問 JSONField 欄位
@@ -560,38 +589,6 @@ class DifyTestRunner:
         matched_keywords = evaluation_result['matched_keywords']
         missing_keywords = evaluation_result['missing_keywords']
         
-        # ✅ v1.2.1: 記錄實際使用的配置（用於追蹤動態配置）
-        rag_settings = self.version_config['rag_settings']
-        config_source = 'dynamic' if rag_settings.get('stage1', {}).get('loaded_from_db', False) else 'static'
-        
-        evaluation_details = {
-            # 🆕 配置來源
-            'config_source': config_source,
-            'version_name': self.version.version_name,
-            
-            # 🆕 實際使用的配置
-            'actual_config': {
-                'stage1': {
-                    'threshold': rag_settings.get('stage1', {}).get('threshold', 0),
-                    'title_weight': rag_settings.get('stage1', {}).get('title_weight', 0),
-                    'content_weight': rag_settings.get('stage1', {}).get('content_weight', 0),
-                    'title_match_bonus': rag_settings.get('stage1', {}).get('title_match_bonus', 0),
-                },
-                'stage2': {
-                    'threshold': rag_settings.get('stage2', {}).get('threshold', 0),
-                    'title_weight': rag_settings.get('stage2', {}).get('title_weight', 0),
-                    'content_weight': rag_settings.get('stage2', {}).get('content_weight', 0),
-                    'title_match_bonus': rag_settings.get('stage2', {}).get('title_match_bonus', 0),
-                },
-            },
-            
-            # 關鍵字匹配詳情
-            'total_keywords': len(keywords),
-            'matched_count': len(matched_keywords),
-            'missing_count': len(missing_keywords),
-            'match_details': evaluation_result.get('match_details', {}),
-        }
-        
         # 3. 儲存 TestResult
         test_result = DifyTestResult.objects.create(
             test_run=test_run,
@@ -602,8 +599,7 @@ class DifyTestRunner:
             is_passed=is_passed,
             response_time=response_time,
             matched_keywords=matched_keywords,
-            missing_keywords=missing_keywords,
-            evaluation_details=evaluation_details,  # ✅ 記錄實際配置
+            missing_keywords=missing_keywords
             # dify_conversation_id 和 retrieved_documents_count 欄位不存在，移除
         )
         
