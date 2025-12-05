@@ -1,33 +1,117 @@
-/**
- * SAF Assistant 聊天頁面樣式
+/* ============================================
+ * SAF Assistant 聊天頁面
+ * ============================================
+ * 📦 模組化架構：
+ * - 共用 Markdown 樣式：參考 ../../styles/assistants/AssistantMarkdownBase.css
+ * - 此檔案包含：SAF 特定的樣式（表格顯示等）
  * 
- * 可以在這裡添加 SAF Assistant 特定的樣式
- * 如果不需要特殊樣式，可以使用空檔案
- */
+ * 🎨 設計原則：
+ * 1. 使用頁面前綴 .saf-assistant-chat-page 避免 CSS 污染
+ * 2. Markdown 渲染樣式與 Protocol Assistant 保持一致
+ * 3. all: revert + margin: revert 策略
+ * ============================================ */
 
-/* SAF Assistant 特定樣式 */
-.saf-assistant-chat {
-  /* 保留基本容器樣式 */
-  width: 100%;
+/* 統一使用微軟正黑體 */
+.saf-assistant-chat-page * {
+  font-family: 'Microsoft JhengHei', sans-serif !important;
 }
+
+.saf-assistant-chat-page .ant-input,
+.saf-assistant-chat-page .ant-input-textarea textarea {
+  font-family: 'Microsoft JhengHei', sans-serif !important;
+}
+
+.saf-assistant-chat-page .stop-button:hover {
+  background-color: #ff7875 !important;
+}
+
+.saf-assistant-chat-page button:not(.stop-button):hover:not(:disabled) {
+  background-color: #40a9ff !important;
+}
+
+/* ============================================
+ * 📝 Markdown 渲染樣式
+ * ============================================
+ * 此區塊樣式與 Protocol Assistant 保持一致
+ * 使用 .saf-assistant-chat-page 前綴確保作用域隔離
+ * ============================================ */
+
+/* 🎯 完全模仿 Markdown 測試頁面的格式 */
+.saf-assistant-chat-page .markdown-preview-content.markdown-content {
+  font-size: 16px !important;
+  line-height: 1.8 !important;
+  color: #333 !important;
+}
+
+/* 🔥 關鍵：覆蓋 App.css 中的 .message-text 規則 */
+.saf-assistant-chat-page .message-text {
+  /* 清除 App.css 的所有規則 */
+  all: revert !important;
+}
+
+/* 覆蓋所有可能的間距規則 */
+.saf-assistant-chat-page .markdown-preview-content.markdown-content p,
+.saf-assistant-chat-page .markdown-preview-content.markdown-content h1,
+.saf-assistant-chat-page .markdown-preview-content.markdown-content h2,
+.saf-assistant-chat-page .markdown-preview-content.markdown-content h3,
+.saf-assistant-chat-page .markdown-preview-content.markdown-content ul,
+.saf-assistant-chat-page .markdown-preview-content.markdown-content ol {
+  margin: revert !important;
+}
+
+/* 📋 列表樣式 - 多層列表符號（與 Markdown 測試頁面一致）*/
+.saf-assistant-chat-page .markdown-preview-content.markdown-content ul {
+  list-style-type: circle !important;  /* 第一層：空心圓圈 */
+  margin: 0 !important;
+  padding-left: 24px !important;
+  color: #000 !important;
+}
+
+/* 第二層巢狀列表：小黑方塊 */
+.saf-assistant-chat-page .markdown-preview-content.markdown-content ul ul {
+  list-style-type: square !important;
+}
+
+.saf-assistant-chat-page .markdown-preview-content.markdown-content ol {
+  margin: 0 !important;
+  padding-left: 24px !important;
+}
+
+.saf-assistant-chat-page .markdown-preview-content.markdown-content li {
+  margin-bottom: 0 !important;
+  line-height: 1.5 !important;
+  color: #333 !important;
+}
+
+/* ============================================
+ * 📊 SAF 專案表格樣式
+ * ============================================ */
 
 /* 表格在聊天中的顯示優化 */
-.saf-assistant-chat .markdown-content table {
+.saf-assistant-chat-page .markdown-content table {
   font-size: 13px;
   margin: 8px 0;
+  width: 100%;
+  border-collapse: collapse;
 }
 
-.saf-assistant-chat .markdown-content th,
-.saf-assistant-chat .markdown-content td {
-  padding: 6px 10px;
+.saf-assistant-chat-page .markdown-content th,
+.saf-assistant-chat-page .markdown-content td {
+  padding: 8px 12px;
+  border: 1px solid #e8e8e8;
 }
 
 /* SAF 專案列表表格樣式 */
-.saf-assistant-chat .markdown-content table th {
-  background-color: #f5f5f5;
+.saf-assistant-chat-page .markdown-content table th {
+  background-color: #1890ff;
+  color: white;
   font-weight: 600;
 }
 
-.saf-assistant-chat .markdown-content table tr:hover {
+.saf-assistant-chat-page .markdown-content table tr:nth-child(even) {
   background-color: #fafafa;
+}
+
+.saf-assistant-chat-page .markdown-content table tr:hover {
+  background-color: #e6f7ff;
 }
