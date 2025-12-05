@@ -70,6 +70,15 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       label: 'Protocol Assistant',
     });
 
+    // 🆕 SAF Assistant - 僅限 Admin 用戶可見
+    if (isAuthenticated && user && (user.is_staff || user.is_superuser)) {
+      baseItems.push({
+        key: 'saf-assistant-chat',
+        icon: <DatabaseOutlined />,
+        label: 'SAF Assistant',
+      });
+    }
+
     return baseItems;
   }; const topMenuItems = getTopMenuItems();
 
@@ -112,6 +121,9 @@ const Sidebar = ({ collapsed, onCollapse }) => {
         break;
       case 'protocol-assistant-chat':
         navigate('/protocol-assistant-chat');
+        break;
+      case 'saf-assistant-chat':
+        navigate('/saf-assistant-chat');
         break;
       case 'log-analyze':
         navigate('/log-analyze');

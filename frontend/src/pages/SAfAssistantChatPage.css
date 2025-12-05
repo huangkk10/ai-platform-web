@@ -1,0 +1,33 @@
+/**
+ * SAF Assistant 聊天頁面樣式
+ * 
+ * 可以在這裡添加 SAF Assistant 特定的樣式
+ * 如果不需要特殊樣式，可以使用空檔案
+ */
+
+/* SAF Assistant 特定樣式 */
+.saf-assistant-chat {
+  /* 保留基本容器樣式 */
+  width: 100%;
+}
+
+/* 表格在聊天中的顯示優化 */
+.saf-assistant-chat .markdown-content table {
+  font-size: 13px;
+  margin: 8px 0;
+}
+
+.saf-assistant-chat .markdown-content th,
+.saf-assistant-chat .markdown-content td {
+  padding: 6px 10px;
+}
+
+/* SAF 專案列表表格樣式 */
+.saf-assistant-chat .markdown-content table th {
+  background-color: #f5f5f5;
+  font-weight: 600;
+}
+
+.saf-assistant-chat .markdown-content table tr:hover {
+  background-color: #fafafa;
+}

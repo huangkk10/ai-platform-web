@@ -1,7 +1,8 @@
 # SAF Assistant 前端設計文檔
 
-> **文檔狀態**：📋 規劃中（尚未執行）  
+> **文檔狀態**：✅ 實作完成  
 > **建立日期**：2025-12-05  
+> **完成日期**：2025-12-06  
 > **作者**：AI Platform Team  
 > **參考範本**：Protocol Assistant
 
@@ -385,20 +386,38 @@ import SAfAssistantChatPage from './pages/SAfAssistantChatPage';
 
 **修改位置**：`frontend/src/components/Sidebar.js`
 
+**⚠️ 權限控制**：SAF Assistant 僅對 Admin 用戶可見
+
 **目前選單順序**：
 ```
+一般用戶看到的選單：
 ┌─────────────────────────────┐
 │  🏠 Dashboard               │
 │  🔍 Query                   │
 │  📄 AI OCR (需權限)          │
 │  📄 RVT Assistant           │
 │  🔧 Protocol Assistant      │
-│  🗄️ SAF Assistant    🆕     │  ← 新增在這裡
 │  ─────────────────────────  │
 │  📚 Knowledge Base ▼        │
-│  ⚙️ Admin ▼ (需權限)        │
+└─────────────────────────────┘
+
+Admin 用戶看到的選單：
+┌─────────────────────────────┐
+│  🏠 Dashboard               │
+│  🔍 Query                   │
+│  � AI OCR (需權限)          │
+│  📄 RVT Assistant           │
+│  🔧 Protocol Assistant      │
+│  🗄️ SAF Assistant  🔒 Admin │  ← 僅 Admin 可見
+│  ─────────────────────────  │
+│  📚 Knowledge Base ▼        │
+│  ⚙️ Admin ▼                 │
 └─────────────────────────────┘
 ```
+
+**權限判斷邏輯**：
+- `is_staff === true` 或 `is_superuser === true` 的用戶才能看到
+- 參考現有的 Admin 選單和 AI OCR 的權限控制模式
 
 **新增內容**：
 
@@ -421,12 +440,15 @@ import {
       label: 'Protocol Assistant',
     });
 
-    // 🆕 SAF Assistant - 對所有用戶開放（包括訪客）
-    baseItems.push({
-      key: 'saf-assistant-chat',
-      icon: <DatabaseOutlined />,
-      label: 'SAF Assistant',
-    });
+    // 🆕 SAF Assistant - 僅限 Admin 用戶可見
+    // ⚠️ 權限控制：使用 is_staff 或 is_superuser 判斷
+    if (isAuthenticated && user && (user.is_staff || user.is_superuser)) {
+      baseItems.push({
+        key: 'saf-assistant-chat',
+        icon: <DatabaseOutlined />,
+        label: 'SAF Assistant',
+      });
+    }
 
     return baseItems;
 
@@ -519,11 +541,11 @@ def config(self, request):
 
 ### 前端檔案
 
-- [ ] 建立 `frontend/src/pages/SAfAssistantChatPage.js`
-- [ ] 建立 `frontend/src/hooks/useSafAssistantChat.js`
-- [ ] (可選) 建立 `frontend/src/pages/SAfAssistantChatPage.css`
-- [ ] 修改 `frontend/src/App.js` 新增路由
-- [ ] 修改 `frontend/src/components/Sidebar.js` 新增選單
+- [x] 建立 `frontend/src/pages/SAfAssistantChatPage.js`
+- [x] 建立 `frontend/src/hooks/useSafAssistantChat.js`
+- [x] 建立 `frontend/src/pages/SAfAssistantChatPage.css`
+- [x] 修改 `frontend/src/App.js` 新增路由
+- [x] 修改 `frontend/src/components/Sidebar.js` 新增選單
 
 ### 後端檔案（可選）
 
@@ -531,12 +553,57 @@ def config(self, request):
 
 ### 測試驗證
 
-- [ ] 前端編譯無錯誤
-- [ ] 側邊欄顯示 SAF Assistant 選單
+- [x] 前端編譯無錯誤
+- [ ] 側邊欄顯示 SAF Assistant 選單（Admin 登入後）
 - [ ] 點擊選單可以導航到聊天頁面
 - [ ] 歡迎訊息正確顯示
 - [ ] 發送查詢可以收到回應
 - [ ] 回應格式正確顯示（Markdown 表格）
+
+---
+
+## 🔐 權限控制說明
+
+### Assistant 權限對比表
+
+| Assistant | 一般用戶 | Admin 用戶 | 權限控制方式 |
+|-----------|---------|-----------|-------------|
+| RVT Assistant | ✅ 可見 | ✅ 可見 | 公開（無限制） |
+| Protocol Assistant | ✅ 可見 | ✅ 可見 | 公開（無限制） |
+| SAF Assistant | ❌ 隱藏 | ✅ 可見 | `is_staff \|\| is_superuser` |
+
+### Admin 判斷邏輯
+
+```javascript
+// Sidebar.js 中的權限判斷
+if (isAuthenticated && user && (user.is_staff || user.is_superuser)) {
+  // 只有 Admin 用戶才能看到 SAF Assistant
+  baseItems.push({
+    key: 'saf-assistant-chat',
+    icon: <DatabaseOutlined />,
+    label: 'SAF Assistant',
+  });
+}
+```
+
+### 為什麼限制為 Admin？
+
+1. **資料敏感性**：SAF 系統包含客戶專案的詳細資訊
+2. **初期測試**：先讓管理員測試功能穩定性
+3. **未來開放**：確認穩定後可調整為公開
+
+### 未來權限調整
+
+如果需要開放給所有用戶，只需移除 `if` 條件判斷：
+
+```javascript
+// 移除權限限制後的程式碼
+baseItems.push({
+  key: 'saf-assistant-chat',
+  icon: <DatabaseOutlined />,
+  label: 'SAF Assistant',
+});
+```
 
 ---
 
@@ -575,4 +642,4 @@ def config(self, request):
 
 ---
 
-**文檔狀態**：📋 規劃完成，等待執行確認
+**文檔狀態**：✅ 前端實作完成（2025-12-06）

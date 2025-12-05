@@ -24,6 +24,7 @@ import KnowIssueChatPage from './pages/KnowIssueChatPage';
 import LogAnalyzeChatPage from './pages/LogAnalyzeChatPage';
 import RvtAssistantChatPage from './pages/RvtAssistantChatPage';
 import ProtocolAssistantChatPage from './pages/ProtocolAssistantChatPage';
+import SAfAssistantChatPage from './pages/SAfAssistantChatPage';  // 🆕 SAF Assistant
 import LogAnalyzePage from './pages/LogAnalyzePage';
 import MarkdownEditorPage from './pages/MarkdownEditorPage';
 import UnifiedAnalyticsPage from './pages/UnifiedAnalyticsPage';
@@ -86,6 +87,8 @@ function AppLayout() {
         return 'RVT Assistant';
       case '/protocol-assistant-chat':
         return 'Protocol Assistant';
+      case '/saf-assistant-chat':
+        return 'SAF Assistant';
       case '/dashboard':
         return 'Dashboard';
       case '/query':
@@ -181,7 +184,7 @@ function AppLayout() {
   };
 
   const getExtraActions = (pathname, navigate) => {
-    if ((pathname === '/know-issue-chat' || pathname === '/log-analyze-chat' || pathname === '/rvt-assistant-chat' || pathname === '/protocol-assistant-chat') && clearChatFunction) {
+    if ((pathname === '/know-issue-chat' || pathname === '/log-analyze-chat' || pathname === '/rvt-assistant-chat' || pathname === '/protocol-assistant-chat' || pathname === '/saf-assistant-chat') && clearChatFunction) {
       return (
         <Button
           icon={<DeleteOutlined />}
@@ -439,6 +442,7 @@ function AppLayout() {
             } />
             <Route path="/rvt-assistant-chat" element={<RvtAssistantChatPage collapsed={collapsed} />} />
             <Route path="/protocol-assistant-chat" element={<ProtocolAssistantChatPage collapsed={collapsed} />} />
+            <Route path="/saf-assistant-chat" element={<SAfAssistantChatPage collapsed={collapsed} />} />
             <Route path="/log-analyze" element={<LogAnalyzePage />} />
             <Route path="/admin/test-class-management" element={<TestClassManagementPage />} />
             <Route path="/admin/user-management" element={<IntegratedUserManagementPage />} />
