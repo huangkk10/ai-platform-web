@@ -287,6 +287,121 @@ class SAFAPIClient:
         """
         projects = self.get_all_projects()
         return projects
+    
+    def get_project_uid_by_name(self, project_name: str) -> Optional[str]:
+        """
+        根據專案名稱獲取專案 UID（帶快取）
+        
+        Args:
+            project_name: 專案名稱
+            
+        Returns:
+            專案 UID，如果找不到則返回 None
+        """
+        if not project_name:
+            return None
+        
+        # 檢查快取
+        cache_key = f"project_uid:{project_name.lower()}"
+        if self.cache_manager:
+            cached_uid = self.cache_manager.get(cache_key)
+            if cached_uid:
+                logger.debug(f"從快取獲取 project_uid: {project_name} -> {cached_uid}")
+                return cached_uid
+        
+        # 從專案列表中查找
+        projects = self.get_all_projects()
+        project_name_lower = project_name.lower()
+        
+        for project in projects:
+            # 精確匹配
+            if project.get('projectName', '').lower() == project_name_lower:
+                uid = project.get('projectUid')
+                # 存入快取
+                if self.cache_manager and uid:
+                    self.cache_manager.set(cache_key, uid)
+                logger.info(f"找到專案 UID: {project_name} -> {uid}")
+                return uid
+        
+        # 模糊匹配（專案名稱包含搜尋詞）
+        for project in projects:
+            if project_name_lower in project.get('projectName', '').lower():
+                uid = project.get('projectUid')
+                if self.cache_manager and uid:
+                    self.cache_manager.set(cache_key, uid)
+                logger.info(f"模糊匹配專案 UID: {project_name} -> {project.get('projectName')} -> {uid}")
+                return uid
+        
+        logger.warning(f"找不到專案: {project_name}")
+        return None
+    
+    def get_project_test_summary(self, project_uid: str) -> Optional[Dict[str, Any]]:
+        """
+        獲取專案測試摘要
+        
+        Args:
+            project_uid: 專案 UID
+            
+        Returns:
+            測試摘要資料
+        """
+        if not project_uid:
+            logger.error("project_uid 不能為空")
+            return None
+        
+        # 獲取 endpoint 配置
+        config = get_endpoint_config("project_test_summary")
+        if not config:
+            logger.error("找不到 project_test_summary endpoint 配置")
+            return None
+        
+        # 構建 URL（替換 path_params）
+        path = config['path'].replace('{project_uid}', project_uid)
+        url = f"{self.base_url}{path}"
+        
+        # 檢查快取
+        cache_key = f"test_summary:{project_uid}"
+        if self.cache_manager:
+            cached_data = self.cache_manager.get(cache_key)
+            if cached_data:
+                logger.debug(f"從快取獲取測試摘要: {project_uid}")
+                return cached_data
+        
+        # 獲取認證 headers
+        headers = self.auth_manager.get_auth_headers()
+        
+        try:
+            logger.info(f"調用 Test Summary API: {url}")
+            response = requests.get(url, headers=headers, timeout=self.timeout)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('success'):
+                    result = data.get('data')
+                    # 存入快取
+                    if self.cache_manager and result:
+                        self.cache_manager.set(cache_key, result)
+                    logger.info(f"獲取測試摘要成功: {project_uid}")
+                    return result
+                else:
+                    logger.warning(f"Test Summary API 返回失敗: {data.get('message')}")
+                    return None
+            elif response.status_code == 404:
+                logger.warning(f"專案不存在: {project_uid}")
+                return None
+            else:
+                logger.error(f"Test Summary API HTTP 錯誤: {response.status_code}")
+                return None
+                
+        except requests.exceptions.Timeout:
+            logger.error(f"Test Summary API 請求超時: {project_uid}")
+            return None
+        except requests.exceptions.ConnectionError as e:
+            logger.error(f"Test Summary API 連線錯誤: {str(e)}")
+            return None
+        except Exception as e:
+            logger.error(f"Test Summary API 請求異常: {str(e)}")
+            return None
 
 
 # 全局客戶端實例

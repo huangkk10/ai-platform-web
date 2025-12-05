@@ -25,6 +25,8 @@ from .intent_types import (
     IntentResult, 
     KNOWN_CUSTOMERS, 
     KNOWN_CONTROLLERS,
+    KNOWN_TEST_CATEGORIES,
+    KNOWN_CAPACITIES,
     INTENT_KEYWORDS
 )
 
@@ -70,15 +72,41 @@ INTENT_ANALYSIS_PROMPT = """
   - 「介紹一下 XX 專案」「XX 專案的狀況」
 - 參數：project_name (專案名稱)
 
-### 4. query_project_summary - 查詢專案測試摘要
-用戶想了解某個專案的測試結果或測試狀況時使用。
+### 4. query_project_summary - 查詢專案測試摘要（舊版，簡單摘要）
+用戶想了解某個專案的測試結果或測試狀況時使用（簡略版本）。
 - 常見問法：
   - 「XX 的測試結果」「XX 測試狀況」「XX 的測試摘要」
   - 「XX 專案測試得怎麼樣」「XX 的 QA 結果」
   - 「XX 測試通過了嗎」「XX 的驗證結果」
 - 參數：project_name (專案名稱)
 
-### 5. count_projects - 統計專案數量
+### 5. query_project_test_summary - 查詢專案測試結果統計（新版）
+用戶想要詳細了解專案測試結果的統計資訊時使用，包含按類別和容量的統計。
+- 常見問法：
+  - 「XX 專案的測試結果」「XX 的測試統計」
+  - 「XX 有多少測試通過」「XX 的 Pass/Fail 統計」
+  - 「XX 專案測試報告」「XX 測試結果總覽」
+  - 「查看 XX 專案的測試結果」「XX 測試狀態」
+- 參數：project_name (專案名稱)
+
+### 6. query_project_test_by_category - 按類別查詢測試結果
+用戶想了解某個專案在特定測試類別的結果時使用。
+- 常見問法：
+  - 「XX 專案的 Compliance 測試結果」「XX 的功能測試」
+  - 「XX 專案 Performance 測試怎麼樣」「XX 的效能測試結果」
+  - 「XX 的 Interoperability 測試」「XX 互通性測試狀況」
+  - 「XX 專案 Stress 測試結果」
+- 參數：project_name (專案名稱), category (測試類別: Compliance/Functionality/Performance/Interoperability/Stress/Compatibility)
+
+### 7. query_project_test_by_capacity - 按容量查詢測試結果
+用戶想了解某個專案在特定容量規格的測試結果時使用。
+- 常見問法：
+  - 「XX 專案 1TB 的測試結果」「XX 的 512GB 測試」
+  - 「XX 專案 2TB 版本測試怎麼樣」「XX 256GB 測試狀況」
+  - 「查看 XX 的 4TB 測試結果」
+- 參數：project_name (專案名稱), capacity (容量規格: 256GB/512GB/1TB/2TB/4TB/8TB)
+
+### 8. count_projects - 統計專案數量
 用戶想知道專案數量時使用。
 - 常見問法：
   - 「有多少專案」「幾個專案」「專案數量」「總共多少專案」
@@ -86,27 +114,29 @@ INTENT_ANALYSIS_PROMPT = """
   - 「統計專案數量」「專案總數」
 - 參數：customer (可選，若指定特定客戶)
 
-### 6. list_all_customers - 列出所有客戶
+### 9. list_all_customers - 列出所有客戶
 用戶想知道系統中有哪些客戶時使用。
 - 常見問法：
   - 「有哪些客戶」「客戶列表」「列出所有客戶」
   - 「系統裡有什麼客戶」「支援哪些客戶」「客戶有誰」
 - 參數：無
 
-### 7. list_all_controllers - 列出所有控制器
+### 10. list_all_controllers - 列出所有控制器
 用戶想知道系統中有哪些控制器型號時使用。
 - 常見問法：
   - 「有哪些控制器」「控制器列表」「列出所有控制器」
   - 「支援哪些控制器型號」「可以查詢哪些控制器」
 - 參數：無
 
-### 8. unknown - 無法識別的意圖
+### 11. unknown - 無法識別的意圖
 當問題與 SAF 專案管理系統無關時使用。
 
 ## 已知資訊
 
 客戶名稱：WD, WDC, Western Digital, Samsung, Micron, Transcend, ADATA, UMIS, Biwin, Kioxia, SK Hynix
 控制器型號：SM2263, SM2264, SM2267, SM2269, SM2264XT, SM2269XT, SM2508
+測試類別：Compliance, Functionality, Performance, Interoperability, Stress, Compatibility
+容量規格：256GB, 512GB, 1TB, 2TB, 4TB, 8TB
 
 ## 輸出格式
 
@@ -152,6 +182,33 @@ INTENT_ANALYSIS_PROMPT = """
 
 輸入：TITAN 的測試結果
 輸出：{"intent": "query_project_summary", "parameters": {"project_name": "TITAN"}, "confidence": 0.90}
+
+輸入：APOLLO 專案的測試結果統計
+輸出：{"intent": "query_project_test_summary", "parameters": {"project_name": "APOLLO"}, "confidence": 0.95}
+
+輸入：查看 DEMETER 的測試報告
+輸出：{"intent": "query_project_test_summary", "parameters": {"project_name": "DEMETER"}, "confidence": 0.93}
+
+輸入：TITAN 有多少測試通過
+輸出：{"intent": "query_project_test_summary", "parameters": {"project_name": "TITAN"}, "confidence": 0.92}
+
+輸入：APOLLO 專案的 Compliance 測試結果
+輸出：{"intent": "query_project_test_by_category", "parameters": {"project_name": "APOLLO", "category": "Compliance"}, "confidence": 0.95}
+
+輸入：DEMETER 的 Performance 測試怎麼樣
+輸出：{"intent": "query_project_test_by_category", "parameters": {"project_name": "DEMETER", "category": "Performance"}, "confidence": 0.93}
+
+輸入：TITAN 的功能測試結果
+輸出：{"intent": "query_project_test_by_category", "parameters": {"project_name": "TITAN", "category": "Functionality"}, "confidence": 0.90}
+
+輸入：APOLLO 專案 1TB 的測試結果
+輸出：{"intent": "query_project_test_by_capacity", "parameters": {"project_name": "APOLLO", "capacity": "1TB"}, "confidence": 0.95}
+
+輸入：DEMETER 的 512GB 測試狀況
+輸出：{"intent": "query_project_test_by_capacity", "parameters": {"project_name": "DEMETER", "capacity": "512GB"}, "confidence": 0.93}
+
+輸入：查看 TITAN 2TB 版本的測試
+輸出：{"intent": "query_project_test_by_capacity", "parameters": {"project_name": "TITAN", "capacity": "2TB"}, "confidence": 0.92}
 
 輸入：有哪些客戶
 輸出：{"intent": "list_all_customers", "parameters": {}, "confidence": 0.95}
@@ -413,12 +470,38 @@ class SAFIntentAnalyzer:
         # 6. 檢查是否是專案詳情或摘要查詢
         project_name = self._detect_project_name(query)
         if project_name:
-            if '測試' in query or '結果' in query or '摘要' in query:
+            # 檢查是否有測試類別或容量關鍵字
+            detected_category = self._detect_test_category(query)
+            detected_capacity = self._detect_capacity(query)
+            
+            if detected_category:
+                # 按類別查詢測試結果
+                params = {'project_name': project_name, 'category': detected_category}
+                if detected_capacity:
+                    params['capacity'] = detected_capacity
                 return IntentResult(
-                    intent=IntentType.QUERY_PROJECT_SUMMARY,
+                    intent=IntentType.QUERY_PROJECT_TEST_BY_CATEGORY,
+                    parameters=params,
+                    confidence=0.6,
+                    raw_response=f"Fallback: test by category query for {project_name}"
+                )
+            
+            if detected_capacity:
+                # 按容量查詢測試結果
+                return IntentResult(
+                    intent=IntentType.QUERY_PROJECT_TEST_BY_CAPACITY,
+                    parameters={'project_name': project_name, 'capacity': detected_capacity},
+                    confidence=0.6,
+                    raw_response=f"Fallback: test by capacity query for {project_name}"
+                )
+            
+            # 一般測試查詢
+            if '測試' in query or '結果' in query or '摘要' in query or 'pass' in query_lower or 'fail' in query_lower:
+                return IntentResult(
+                    intent=IntentType.QUERY_PROJECT_TEST_SUMMARY,
                     parameters={'project_name': project_name},
                     confidence=0.5,
-                    raw_response=f"Fallback: project summary query for {project_name}"
+                    raw_response=f"Fallback: project test summary query for {project_name}"
                 )
             else:
                 return IntentResult(
@@ -521,6 +604,85 @@ class SAFIntentAnalyzer:
         """檢查是否包含專案相關關鍵字"""
         project_keywords = ['專案', 'project', '有哪些', '列表', '列出']
         return any(kw in query.lower() for kw in project_keywords)
+    
+    def _detect_test_category(self, query: str) -> Optional[str]:
+        """
+        檢測查詢中的測試類別
+        
+        Args:
+            query: 用戶查詢
+            
+        Returns:
+            Optional[str]: 檢測到的測試類別（標準化名稱），或 None
+        """
+        query_lower = query.lower()
+        
+        # 類別名稱映射（包含中英文和縮寫）
+        category_mapping = {
+            'compliance': 'Compliance',
+            'comp': 'Compliance',
+            '合規': 'Compliance',
+            '合規性': 'Compliance',
+            'functionality': 'Functionality',
+            'func': 'Functionality',
+            '功能': 'Functionality',
+            '功能測試': 'Functionality',
+            'performance': 'Performance',
+            'perf': 'Performance',
+            '效能': 'Performance',
+            '效能測試': 'Performance',
+            'interoperability': 'Interoperability',
+            'inter': 'Interoperability',
+            '互通': 'Interoperability',
+            '互通性': 'Interoperability',
+            'stress': 'Stress',
+            '壓力': 'Stress',
+            '壓力測試': 'Stress',
+            'compatibility': 'Compatibility',
+            'compat': 'Compatibility',
+            '相容': 'Compatibility',
+            '相容性': 'Compatibility',
+        }
+        
+        for keyword, standard_name in category_mapping.items():
+            if keyword in query_lower:
+                return standard_name
+        
+        return None
+    
+    def _detect_capacity(self, query: str) -> Optional[str]:
+        """
+        檢測查詢中的容量規格
+        
+        Args:
+            query: 用戶查詢
+            
+        Returns:
+            Optional[str]: 檢測到的容量（標準化格式），或 None
+        """
+        query_upper = query.upper()
+        
+        # 容量映射（標準化為 GB/TB 格式）
+        capacity_mapping = {
+            '256GB': '256GB',
+            '256G': '256GB',
+            '512GB': '512GB',
+            '512G': '512GB',
+            '1TB': '1TB',
+            '1T': '1TB',
+            '2TB': '2TB',
+            '2T': '2TB',
+            '4TB': '4TB',
+            '4T': '4TB',
+            '8TB': '8TB',
+            '8T': '8TB',
+        }
+        
+        for keyword, standard_capacity in capacity_mapping.items():
+            if keyword in query_upper:
+                return standard_capacity
+        
+        return None
 
 
 # ============================================================

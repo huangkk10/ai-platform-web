@@ -25,8 +25,17 @@ class IntentType(Enum):
     # 查詢專案詳細資訊
     QUERY_PROJECT_DETAIL = "query_project_detail"
     
-    # 查詢專案測試摘要
+    # 查詢專案測試摘要（舊版，保留向後相容）
     QUERY_PROJECT_SUMMARY = "query_project_summary"
+    
+    # 查詢專案測試結果摘要（新版 - 按類別和容量統計）
+    QUERY_PROJECT_TEST_SUMMARY = "query_project_test_summary"
+    
+    # 查詢專案特定類別的測試結果
+    QUERY_PROJECT_TEST_BY_CATEGORY = "query_project_test_by_category"
+    
+    # 查詢專案特定容量的測試結果
+    QUERY_PROJECT_TEST_BY_CAPACITY = "query_project_test_by_capacity"
     
     # 統計專案數量
     COUNT_PROJECTS = "count_projects"
@@ -67,7 +76,10 @@ class IntentType(Enum):
             self.QUERY_PROJECTS_BY_CUSTOMER: "按客戶查詢專案",
             self.QUERY_PROJECTS_BY_CONTROLLER: "按控制器查詢專案",
             self.QUERY_PROJECT_DETAIL: "查詢專案詳細資訊",
-            self.QUERY_PROJECT_SUMMARY: "查詢專案測試摘要",
+            self.QUERY_PROJECT_SUMMARY: "查詢專案測試摘要（舊版）",
+            self.QUERY_PROJECT_TEST_SUMMARY: "查詢專案測試結果摘要（按類別和容量）",
+            self.QUERY_PROJECT_TEST_BY_CATEGORY: "查詢專案特定類別的測試結果",
+            self.QUERY_PROJECT_TEST_BY_CAPACITY: "查詢專案特定容量的測試結果",
             self.COUNT_PROJECTS: "統計專案數量",
             self.LIST_ALL_CUSTOMERS: "列出所有客戶",
             self.LIST_ALL_CONTROLLERS: "列出所有控制器",
@@ -82,6 +94,9 @@ class IntentType(Enum):
             self.QUERY_PROJECTS_BY_CONTROLLER: ["controller"],
             self.QUERY_PROJECT_DETAIL: ["project_name"],
             self.QUERY_PROJECT_SUMMARY: ["project_name"],
+            self.QUERY_PROJECT_TEST_SUMMARY: ["project_name"],
+            self.QUERY_PROJECT_TEST_BY_CATEGORY: ["project_name", "category"],
+            self.QUERY_PROJECT_TEST_BY_CAPACITY: ["project_name", "capacity"],
             self.COUNT_PROJECTS: [],  # customer 是可選的
             self.LIST_ALL_CUSTOMERS: [],
             self.LIST_ALL_CONTROLLERS: [],
@@ -96,6 +111,9 @@ class IntentType(Enum):
             self.QUERY_PROJECTS_BY_CONTROLLER: [],
             self.QUERY_PROJECT_DETAIL: [],
             self.QUERY_PROJECT_SUMMARY: [],
+            self.QUERY_PROJECT_TEST_SUMMARY: ["category", "capacity"],  # 可選：過濾特定類別或容量
+            self.QUERY_PROJECT_TEST_BY_CATEGORY: ["capacity"],  # 可選：同時按容量過濾
+            self.QUERY_PROJECT_TEST_BY_CAPACITY: ["category"],  # 可選：同時按類別過濾
             self.COUNT_PROJECTS: ["customer"],  # 可選：按客戶統計
             self.LIST_ALL_CUSTOMERS: [],
             self.LIST_ALL_CONTROLLERS: [],
@@ -227,6 +245,27 @@ KNOWN_CONTROLLERS = [
     'SM2271',
 ]
 
+# 已知測試類別（用於測試摘要查詢）
+KNOWN_TEST_CATEGORIES = [
+    # 完整名稱
+    'Compliance', 'Functionality', 'Performance', 
+    'Interoperability', 'Stress', 'Compatibility',
+    # 縮寫
+    'Comp', 'Func', 'Perf', 'Inter', 'Compat',
+    # 中文
+    '合規性', '功能測試', '效能測試', '互通性', '壓力測試', '相容性',
+]
+
+# 已知容量規格（用於測試摘要查詢）
+KNOWN_CAPACITIES = [
+    # 標準容量表示
+    '256GB', '512GB', '1TB', '2TB', '4TB', '8TB',
+    # 替代表示
+    '256G', '512G', '1T', '2T', '4T', '8T',
+    # 數字形式
+    '256', '512', '1024', '2048',
+]
+
 # 意圖觸發詞對應表（用於降級的關鍵字匹配）
 INTENT_KEYWORDS = {
     IntentType.QUERY_PROJECTS_BY_CUSTOMER: [
@@ -240,6 +279,22 @@ INTENT_KEYWORDS = {
     ],
     IntentType.QUERY_PROJECT_SUMMARY: [
         '測試結果', '測試狀況', 'summary', '摘要', '測試摘要'
+    ],
+    IntentType.QUERY_PROJECT_TEST_SUMMARY: [
+        '測試結果', '測試摘要', '測試統計', '測試狀態', '測試報告',
+        'test summary', 'test result', '測試結果總覽',
+        'pass', 'fail', '通過', '失敗', '測試狀況'
+    ],
+    IntentType.QUERY_PROJECT_TEST_BY_CATEGORY: [
+        '類別測試', '分類測試', 'category', 
+        'Compliance', 'Functionality', 'Performance', 
+        'Interoperability', 'Stress', 'Compatibility',
+        '合規', '功能', '效能', '互通', '壓力', '相容'
+    ],
+    IntentType.QUERY_PROJECT_TEST_BY_CAPACITY: [
+        '容量', 'capacity', 
+        '256GB', '512GB', '1TB', '2TB', '4TB',
+        '256G', '512G', '1T', '2T', '4T'
     ],
     IntentType.COUNT_PROJECTS: [
         '多少', '幾個', '數量', 'count', '總共', '專案數'

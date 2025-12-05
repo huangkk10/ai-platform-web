@@ -70,6 +70,16 @@ SAF_ENDPOINTS: Dict[str, Dict[str, Any]] = {
         "path_params": ["project_id"],
         "transformer": "project_detail_to_dify_record",
         "enabled": False  # 尚未啟用
+    },
+    # 🆕 Phase 3: Test Summary API
+    "project_test_summary": {
+        "path": "/api/v1/projects/{project_uid}/test-summary",
+        "method": "GET",
+        "description": "查詢專案測試結果摘要（按類別和容量）",
+        "params": {},
+        "path_params": ["project_uid"],
+        "transformer": "test_summary_to_dify_record",
+        "enabled": True
     }
 }
 

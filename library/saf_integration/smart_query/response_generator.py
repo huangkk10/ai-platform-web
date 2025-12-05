@@ -58,6 +58,10 @@ class SAFResponseGenerator:
             IntentType.QUERY_PROJECTS_BY_CONTROLLER: self._generate_controller_projects_response,
             IntentType.QUERY_PROJECT_DETAIL: self._generate_project_detail_response,
             IntentType.QUERY_PROJECT_SUMMARY: self._generate_project_summary_response,
+            # Phase 3: 測試摘要回應生成器
+            IntentType.QUERY_PROJECT_TEST_SUMMARY: self._generate_test_summary_response,
+            IntentType.QUERY_PROJECT_TEST_BY_CATEGORY: self._generate_test_by_category_response,
+            IntentType.QUERY_PROJECT_TEST_BY_CAPACITY: self._generate_test_by_capacity_response,
             IntentType.COUNT_PROJECTS: self._generate_count_response,
             IntentType.LIST_ALL_CUSTOMERS: self._generate_customers_list_response,
             IntentType.LIST_ALL_CONTROLLERS: self._generate_controllers_list_response,
@@ -152,6 +156,187 @@ class SAFResponseGenerator:
             'answer': answer,
             'table': [data] if isinstance(data, dict) else data,
             'summary': f"{project_name} 測試摘要"
+        }
+    
+    # ============================================================
+    # Phase 3: 測試摘要回應生成方法
+    # ============================================================
+    
+    def _generate_test_summary_response(self, result_data: Dict,
+                                         full_result: Dict) -> Dict[str, Any]:
+        """
+        生成專案測試結果統計的回答
+        
+        Args:
+            result_data: 查詢結果資料
+            full_result: 完整查詢結果
+            
+        Returns:
+            Dict: 包含 answer 和 table 的回應
+        """
+        data = result_data.get('data', {})
+        
+        if not data:
+            return {
+                'answer': "找不到該專案的測試結果統計。",
+                'table': []
+            }
+        
+        project_name = data.get('projectName', '未知專案')
+        summary = data.get('summary', {})
+        by_category = data.get('byCategory', [])
+        by_capacity = data.get('byCapacity', [])
+        
+        # 構建回答
+        total_pass = summary.get('totalPass', 0)
+        total_fail = summary.get('totalFail', 0)
+        pass_rate = summary.get('overallPassRate', 'N/A')
+        
+        answer = f"## 📊 **{project_name}** 專案測試結果統計\n\n"
+        answer += f"### 整體統計\n"
+        answer += f"- **總通過數**：{total_pass}\n"
+        answer += f"- **總失敗數**：{total_fail}\n"
+        answer += f"- **通過率**：{pass_rate}\n\n"
+        
+        # 按類別統計表格
+        if by_category:
+            answer += "### 📁 按測試類別\n\n"
+            answer += "| 類別 | Pass | Fail | 總數 | 通過率 |\n"
+            answer += "|------|------|------|------|--------|\n"
+            for cat in by_category:
+                answer += f"| {cat.get('name', '-')} | {cat.get('pass', 0)} | {cat.get('fail', 0)} | {cat.get('total', 0)} | {cat.get('passRate', 'N/A')} |\n"
+            answer += "\n"
+        
+        # 按容量統計表格
+        if by_capacity:
+            answer += "### 💾 按容量規格\n\n"
+            answer += "| 容量 | Pass | Fail | 總數 | 通過率 |\n"
+            answer += "|------|------|------|------|--------|\n"
+            for cap in by_capacity:
+                answer += f"| {cap.get('name', '-')} | {cap.get('pass', 0)} | {cap.get('fail', 0)} | {cap.get('total', 0)} | {cap.get('passRate', 'N/A')} |\n"
+            answer += "\n"
+        
+        # 提示可用的進一步查詢
+        answer += f"\n💡 **提示**：您可以查詢特定類別或容量的詳細資訊，例如：\n"
+        answer += f"- 「{project_name} 的 Compliance 測試結果」\n"
+        answer += f"- 「{project_name} 的 1TB 測試狀況」\n"
+        
+        return {
+            'answer': answer,
+            'table': {
+                'summary': summary,
+                'byCategory': by_category,
+                'byCapacity': by_capacity
+            },
+            'summary': f"{project_name} 測試統計：{total_pass} Pass, {total_fail} Fail ({pass_rate})"
+        }
+    
+    def _generate_test_by_category_response(self, result_data: Dict,
+                                             full_result: Dict) -> Dict[str, Any]:
+        """
+        生成按類別查詢測試結果的回答
+        
+        Args:
+            result_data: 查詢結果資料
+            full_result: 完整查詢結果
+            
+        Returns:
+            Dict: 包含 answer 和 table 的回應
+        """
+        data = result_data.get('data', {})
+        
+        if not data:
+            return {
+                'answer': "找不到該類別的測試結果。",
+                'table': []
+            }
+        
+        project_name = data.get('projectName', '未知專案')
+        category = data.get('category', '未知類別')
+        pass_count = data.get('pass', 0)
+        fail_count = data.get('fail', 0)
+        total = data.get('total', 0)
+        pass_rate = data.get('passRate', 'N/A')
+        capacity_filter = data.get('capacity_filter')
+        
+        answer = f"## 📁 **{project_name}** - {category} 測試結果\n\n"
+        
+        if capacity_filter:
+            answer += f"（已按 {capacity_filter} 容量過濾）\n\n"
+        
+        answer += f"| 指標 | 數值 |\n"
+        answer += f"|------|------|\n"
+        answer += f"| 通過數 | **{pass_count}** |\n"
+        answer += f"| 失敗數 | **{fail_count}** |\n"
+        answer += f"| 總數 | {total} |\n"
+        answer += f"| 通過率 | **{pass_rate}** |\n"
+        
+        # 狀態指示
+        if pass_rate != 'N/A':
+            rate_value = float(pass_rate.replace('%', ''))
+            if rate_value >= 95:
+                answer += f"\n✅ 測試狀態：**優秀**\n"
+            elif rate_value >= 80:
+                answer += f"\n🟡 測試狀態：**良好**\n"
+            else:
+                answer += f"\n🔴 測試狀態：**需要關注**\n"
+        
+        return {
+            'answer': answer,
+            'table': [data],
+            'summary': f"{project_name} {category}：{pass_count} Pass, {fail_count} Fail"
+        }
+    
+    def _generate_test_by_capacity_response(self, result_data: Dict,
+                                             full_result: Dict) -> Dict[str, Any]:
+        """
+        生成按容量查詢測試結果的回答
+        
+        Args:
+            result_data: 查詢結果資料
+            full_result: 完整查詢結果
+            
+        Returns:
+            Dict: 包含 answer 和 table 的回應
+        """
+        data = result_data.get('data', {})
+        
+        if not data:
+            return {
+                'answer': "找不到該容量規格的測試結果。",
+                'table': []
+            }
+        
+        project_name = data.get('projectName', '未知專案')
+        capacity = data.get('capacity', '未知容量')
+        pass_count = data.get('pass', 0)
+        fail_count = data.get('fail', 0)
+        total = data.get('total', 0)
+        pass_rate = data.get('passRate', 'N/A')
+        
+        answer = f"## 💾 **{project_name}** - {capacity} 測試結果\n\n"
+        
+        answer += f"| 指標 | 數值 |\n"
+        answer += f"|------|------|\n"
+        answer += f"| 通過數 | **{pass_count}** |\n"
+        answer += f"| 失敗數 | **{fail_count}** |\n"
+        answer += f"| 總數 | {total} |\n"
+        answer += f"| 通過率 | **{pass_rate}** |\n"
+        
+        # 狀態指示
+        if pass_rate != 'N/A':
+            rate_value = float(pass_rate.replace('%', ''))
+            if rate_value >= 95:
+                answer += f"\n✅ 測試狀態：**優秀**\n"
+            elif rate_value >= 80:
+                answer += f"\n🟡 測試狀態：**良好**\n"
+            else:
+                answer += f"\n🔴 測試狀態：**需要關注**\n"
+        
+        return {
+            'answer': answer,
+            'table': [data],
+            'summary': f"{project_name} {capacity}：{pass_count} Pass, {fail_count} Fail"
         }
     
     def _generate_count_response(self, result_data: Dict,

@@ -19,6 +19,7 @@ from .query_handlers import (
     ControllerHandler,
     ProjectDetailHandler,
     ProjectSummaryHandler,
+    TestSummaryHandler,
     StatisticsHandler,
 )
 
@@ -42,11 +43,21 @@ class QueryRouter:
     
     def _register_handlers(self):
         """註冊所有處理器"""
+        # Phase 3: TestSummaryHandler 處理測試摘要相關意圖
+        test_summary_handler = TestSummaryHandler()
+        
         self._handlers = {
+            # Phase 1-2 處理器
             IntentType.QUERY_PROJECTS_BY_CUSTOMER: CustomerHandler(),
             IntentType.QUERY_PROJECTS_BY_CONTROLLER: ControllerHandler(),
             IntentType.QUERY_PROJECT_DETAIL: ProjectDetailHandler(),
             IntentType.QUERY_PROJECT_SUMMARY: ProjectSummaryHandler(),
+            
+            # Phase 3: 測試摘要處理器（3 個意圖共用）
+            IntentType.QUERY_PROJECT_TEST_SUMMARY: test_summary_handler,
+            IntentType.QUERY_PROJECT_TEST_BY_CATEGORY: test_summary_handler,
+            IntentType.QUERY_PROJECT_TEST_BY_CAPACITY: test_summary_handler,
+            
             # 統計類型使用專門的處理器
             IntentType.COUNT_PROJECTS: self._statistics_handler,
             IntentType.LIST_ALL_CUSTOMERS: self._statistics_handler,
