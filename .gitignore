@@ -66,3 +66,5 @@ tmp/
 temp/
 tests/test_saf_smart_query/results/*.md
 tests/test_saf_smart_query/results/*.json
+backend/tests/test_saf_smart_query/results/*.md
+backend/tests/test_saf_smart_query/results/*.json

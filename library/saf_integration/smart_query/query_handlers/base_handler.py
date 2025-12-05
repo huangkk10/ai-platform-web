@@ -211,7 +211,7 @@ class BaseHandler(ABC):
         logger.error(f"[{self.handler_name}] {error_message}")
         
         return QueryResult.error(
-            error_message=error_message,
+            error_message,  # 使用位置參數而非命名參數
             query_type=self.handler_name,
             parameters=parameters
         )

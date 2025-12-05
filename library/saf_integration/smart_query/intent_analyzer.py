@@ -72,22 +72,27 @@ INTENT_ANALYSIS_PROMPT = """
   - 「介紹一下 XX 專案」「XX 專案的狀況」
 - 參數：project_name (專案名稱)
 
-### 4. query_project_summary - 查詢專案測試摘要（舊版，簡單摘要）
-用戶想了解某個專案的測試結果或測試狀況時使用（簡略版本）。
+### 4. query_project_summary - 查詢專案基本摘要（僅限專案資訊）
+【注意】此意圖僅用於查詢專案的基本資訊摘要，不涉及測試結果。
+- 使用場景：用戶詢問專案概況、專案介紹、專案基本情況
 - 常見問法：
-  - 「XX 的測試結果」「XX 測試狀況」「XX 的測試摘要」
-  - 「XX 專案測試得怎麼樣」「XX 的 QA 結果」
-  - 「XX 測試通過了嗎」「XX 的驗證結果」
+  - 「XX 專案概況」「介紹 XX 專案」「XX 專案摘要」
 - 參數：project_name (專案名稱)
+- 【重要】如果問題涉及「測試」、「Pass」、「Fail」、「通過」、「失敗」等字眼，應使用 query_project_test_summary
 
-### 5. query_project_test_summary - 查詢專案測試結果統計（新版）
-用戶想要詳細了解專案測試結果的統計資訊時使用，包含按類別和容量的統計。
+### 5. query_project_test_summary - 查詢專案測試結果統計（推薦使用）
+【預設使用】任何與「測試結果」相關的查詢都應使用此意圖。
+用戶想了解專案測試結果、測試狀況、測試進度、Pass/Fail 統計時使用。
 - 常見問法：
-  - 「XX 專案的測試結果」「XX 的測試統計」
-  - 「XX 有多少測試通過」「XX 的 Pass/Fail 統計」
-  - 「XX 專案測試報告」「XX 測試結果總覽」
-  - 「查看 XX 專案的測試結果」「XX 測試狀態」
+  - 「XX 的測試結果」「XX 測試狀況」「XX 的測試進度」
+  - 「XX 有多少測試通過」「XX 有多少測試失敗」
+  - 「XX 的 Pass/Fail 統計」「XX 專案測試報告」
+  - 「XX 測試結果如何」「XX 測試狀態」「XX 測試怎麼樣」
+  - 「查看 XX 專案的測試結果」「XX 測試結果總覽」
+  - 「想了解 XX 測試跑得怎麼樣」
+  - 「What's the test status of XX?」「XX test results」
 - 參數：project_name (專案名稱)
+- 【重要】只要問題包含「測試結果」、「測試狀況」、「測試進度」等，就應優先使用此意圖
 
 ### 6. query_project_test_by_category - 按類別查詢測試結果
 用戶想了解某個專案在特定測試類別的結果時使用。
@@ -95,16 +100,26 @@ INTENT_ANALYSIS_PROMPT = """
   - 「XX 專案的 Compliance 測試結果」「XX 的功能測試」
   - 「XX 專案 Performance 測試怎麼樣」「XX 的效能測試結果」
   - 「XX 的 Interoperability 測試」「XX 互通性測試狀況」
-  - 「XX 專案 Stress 測試結果」
-- 參數：project_name (專案名稱), category (測試類別: Compliance/Functionality/Performance/Interoperability/Stress/Compatibility)
+  - 「XX 專案 Stress 測試結果」「XX 的壓力測試」
+  - 「XX 的相容性測試」「XX 的 Compatibility 測試」
+- 參數：project_name (專案名稱), category (測試類別)
+- 【類別對應】中文 → 英文：
+  - 功能測試 → Functionality
+  - 效能測試 → Performance
+  - 壓力測試 → Stress
+  - 相容性測試/相容測試 → Compatibility
+  - 互通性測試 → Interoperability
+  - 合規測試 → Compliance
 
 ### 7. query_project_test_by_capacity - 按容量查詢測試結果
 用戶想了解某個專案在特定容量規格的測試結果時使用。
 - 常見問法：
   - 「XX 專案 1TB 的測試結果」「XX 的 512GB 測試」
   - 「XX 專案 2TB 版本測試怎麼樣」「XX 256GB 測試狀況」
-  - 「查看 XX 的 4TB 測試結果」
-- 參數：project_name (專案名稱), capacity (容量規格: 256GB/512GB/1TB/2TB/4TB/8TB)
+  - 「查看 XX 的 4TB 測試結果」「XX 128GB 測試」
+  - 「想看 XX 一T版本的測試」（一T = 1TB）
+- 參數：project_name (專案名稱), capacity (容量規格: 128GB/256GB/512GB/1TB/2TB/4TB/8TB)
+- 【口語對應】一T/1T → 1TB, 二T/2T → 2TB, 半T → 512GB
 
 ### 8. count_projects - 統計專案數量
 用戶想知道專案數量時使用。
@@ -136,7 +151,7 @@ INTENT_ANALYSIS_PROMPT = """
 客戶名稱：WD, WDC, Western Digital, Samsung, Micron, Transcend, ADATA, UMIS, Biwin, Kioxia, SK Hynix
 控制器型號：SM2263, SM2264, SM2267, SM2269, SM2264XT, SM2269XT, SM2508
 測試類別：Compliance, Functionality, Performance, Interoperability, Stress, Compatibility
-容量規格：256GB, 512GB, 1TB, 2TB, 4TB, 8TB
+容量規格：128GB, 256GB, 512GB, 1TB, 2TB, 4TB, 8TB
 
 ## 輸出格式
 
@@ -180,8 +195,23 @@ INTENT_ANALYSIS_PROMPT = """
 輸入：查詢 APOLLO 專案
 輸出：{"intent": "query_project_detail", "parameters": {"project_name": "APOLLO"}, "confidence": 0.88}
 
+輸入：DEMETER 的測試結果如何？
+輸出：{"intent": "query_project_test_summary", "parameters": {"project_name": "DEMETER"}, "confidence": 0.95}
+
+輸入：Garuda 專案測試狀況如何
+輸出：{"intent": "query_project_test_summary", "parameters": {"project_name": "Garuda"}, "confidence": 0.95}
+
+輸入：PHOENIX 專案的測試進度
+輸出：{"intent": "query_project_test_summary", "parameters": {"project_name": "PHOENIX"}, "confidence": 0.93}
+
+輸入：想了解一下 VULCAN 測試跑得怎麼樣
+輸出：{"intent": "query_project_test_summary", "parameters": {"project_name": "VULCAN"}, "confidence": 0.92}
+
+輸入：What's the test status of DEMETER?
+輸出：{"intent": "query_project_test_summary", "parameters": {"project_name": "DEMETER"}, "confidence": 0.93}
+
 輸入：TITAN 的測試結果
-輸出：{"intent": "query_project_summary", "parameters": {"project_name": "TITAN"}, "confidence": 0.90}
+輸出：{"intent": "query_project_test_summary", "parameters": {"project_name": "TITAN"}, "confidence": 0.95}
 
 輸入：APOLLO 專案的測試結果統計
 輸出：{"intent": "query_project_test_summary", "parameters": {"project_name": "APOLLO"}, "confidence": 0.95}
@@ -209,6 +239,18 @@ INTENT_ANALYSIS_PROMPT = """
 
 輸入：查看 TITAN 2TB 版本的測試
 輸出：{"intent": "query_project_test_by_capacity", "parameters": {"project_name": "TITAN", "capacity": "2TB"}, "confidence": 0.92}
+
+輸入：VULCAN 128GB 的測試狀況
+輸出：{"intent": "query_project_test_by_capacity", "parameters": {"project_name": "VULCAN", "capacity": "128GB"}, "confidence": 0.93}
+
+輸入：APOLLO 的相容性測試結果
+輸出：{"intent": "query_project_test_by_category", "parameters": {"project_name": "APOLLO", "category": "Compatibility"}, "confidence": 0.93}
+
+輸入：TITAN 的相容測試做得如何？
+輸出：{"intent": "query_project_test_by_category", "parameters": {"project_name": "TITAN", "category": "Compatibility"}, "confidence": 0.93}
+
+輸入：PHOENIX 的功能測試結果如何
+輸出：{"intent": "query_project_test_by_category", "parameters": {"project_name": "PHOENIX", "category": "Functionality"}, "confidence": 0.93}
 
 輸入：有哪些客戶
 輸出：{"intent": "list_all_customers", "parameters": {}, "confidence": 0.95}

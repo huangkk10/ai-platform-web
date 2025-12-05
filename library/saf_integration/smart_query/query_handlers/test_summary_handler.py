@@ -128,8 +128,16 @@ class TestSummaryHandler(BaseHandler):
         """
         formatted_data = self._format_full_summary(test_summary, project_name)
         
-        total_pass = sum(cat.get('pass', 0) for cat in test_summary.get('categories', []))
-        total_fail = sum(cat.get('fail', 0) for cat in test_summary.get('categories', []))
+        # 從 summary 或 categories 獲取總計
+        summary = test_summary.get('summary', {})
+        if summary:
+            total_pass = summary.get('total_pass', 0)
+            total_fail = summary.get('total_fail', 0)
+        else:
+            # 從 categories 的 total 欄位計算
+            categories = test_summary.get('categories', [])
+            total_pass = sum(cat.get('total', {}).get('pass', 0) for cat in categories)
+            total_fail = sum(cat.get('total', {}).get('fail', 0) for cat in categories)
         
         result = QueryResult.success(
             data=formatted_data,
@@ -193,22 +201,27 @@ class TestSummaryHandler(BaseHandler):
                 message=f"專案 '{project_name}' 沒有 '{normalized_category}' 類別的測試資料"
             )
         
-        # 如果有容量過濾，進一步過濾
+        # 獲取統計資料（從 total 或 results_by_capacity）
         if capacity:
-            capacity_filtered = self._filter_by_capacity(category_data, capacity)
-            if capacity_filtered:
-                category_data = capacity_filtered
+            # 如果有容量過濾，從 results_by_capacity 獲取
+            normalized_capacity = self._normalize_capacity(capacity)
+            results_by_cap = category_data.get('results_by_capacity', {})
+            cap_results = results_by_cap.get(normalized_capacity, {})
+            cat_pass = cap_results.get('pass', 0)
+            cat_fail = cap_results.get('fail', 0)
+        else:
+            # 從 total 欄位獲取
+            cat_total = category_data.get('total', {})
+            cat_pass = cat_total.get('pass', 0)
+            cat_fail = cat_total.get('fail', 0)
         
         formatted_data = {
             'projectName': project_name,
             'category': normalized_category,
-            'pass': category_data.get('pass', 0),
-            'fail': category_data.get('fail', 0),
-            'total': category_data.get('pass', 0) + category_data.get('fail', 0),
-            'passRate': self._calculate_pass_rate(
-                category_data.get('pass', 0),
-                category_data.get('fail', 0)
-            ),
+            'pass': cat_pass,
+            'fail': cat_fail,
+            'total': cat_pass + cat_fail,
+            'passRate': self._calculate_pass_rate(cat_pass, cat_fail),
             'capacity_filter': capacity
         }
         
@@ -250,33 +263,40 @@ class TestSummaryHandler(BaseHandler):
                 {'project_name': project_name, 'capacity': capacity}
             )
         
-        # 查找容量資料
+        # capacities 是字串列表，如 ['256GB', '512GB', '1024GB']
         capacities = test_summary.get('capacities', [])
-        capacity_data = None
         
-        for cap in capacities:
-            cap_name = cap.get('name', '').upper()
-            if cap_name == normalized_capacity.upper():
-                capacity_data = cap
-                break
+        # 檢查容量是否存在
+        capacity_exists = any(
+            cap.upper() == normalized_capacity.upper() 
+            for cap in capacities
+        )
         
-        if not capacity_data:
+        if not capacity_exists:
             return QueryResult.no_results(
                 query_type=self.handler_name,
                 parameters={'project_name': project_name, 'capacity': capacity},
                 message=f"專案 '{project_name}' 沒有 '{normalized_capacity}' 容量的測試資料"
             )
         
+        # 從 categories 的 results_by_capacity 彙總該容量的統計
+        categories = test_summary.get('categories', [])
+        cap_pass = 0
+        cap_fail = 0
+        
+        for cat in categories:
+            results_by_cap = cat.get('results_by_capacity', {})
+            cap_results = results_by_cap.get(normalized_capacity, {})
+            cap_pass += cap_results.get('pass', 0)
+            cap_fail += cap_results.get('fail', 0)
+        
         formatted_data = {
             'projectName': project_name,
             'capacity': normalized_capacity,
-            'pass': capacity_data.get('pass', 0),
-            'fail': capacity_data.get('fail', 0),
-            'total': capacity_data.get('pass', 0) + capacity_data.get('fail', 0),
-            'passRate': self._calculate_pass_rate(
-                capacity_data.get('pass', 0),
-                capacity_data.get('fail', 0)
-            )
+            'pass': cap_pass,
+            'fail': cap_fail,
+            'total': cap_pass + cap_fail,
+            'passRate': self._calculate_pass_rate(cap_pass, cap_fail)
         }
         
         result = QueryResult.success(
@@ -306,17 +326,23 @@ class TestSummaryHandler(BaseHandler):
             Dict: 格式化後的摘要
         """
         categories = test_summary.get('categories', [])
-        capacities = test_summary.get('capacities', [])
+        capacities = test_summary.get('capacities', [])  # 這是字串列表
+        summary = test_summary.get('summary', {})
         
-        # 計算總計
-        total_pass = sum(cat.get('pass', 0) for cat in categories)
-        total_fail = sum(cat.get('fail', 0) for cat in categories)
+        # 從 summary 獲取總計，或從 categories 的 total 計算
+        if summary:
+            total_pass = summary.get('total_pass', 0)
+            total_fail = summary.get('total_fail', 0)
+        else:
+            total_pass = sum(cat.get('total', {}).get('pass', 0) for cat in categories)
+            total_fail = sum(cat.get('total', {}).get('fail', 0) for cat in categories)
         
-        # 格式化類別資料
+        # 格式化類別資料（從 total 子物件取值）
         formatted_categories = []
         for cat in categories:
-            cat_pass = cat.get('pass', 0)
-            cat_fail = cat.get('fail', 0)
+            cat_total = cat.get('total', {})
+            cat_pass = cat_total.get('pass', 0)
+            cat_fail = cat_total.get('fail', 0)
             formatted_categories.append({
                 'name': cat.get('name', ''),
                 'pass': cat_pass,
@@ -325,13 +351,22 @@ class TestSummaryHandler(BaseHandler):
                 'passRate': self._calculate_pass_rate(cat_pass, cat_fail)
             })
         
-        # 格式化容量資料
+        # 格式化容量資料（從 categories 的 results_by_capacity 彙總）
         formatted_capacities = []
-        for cap in capacities:
-            cap_pass = cap.get('pass', 0)
-            cap_fail = cap.get('fail', 0)
+        capacity_stats = {}
+        
+        # 彙總各容量的統計
+        for cap_name in capacities:
+            cap_pass = 0
+            cap_fail = 0
+            for cat in categories:
+                results_by_cap = cat.get('results_by_capacity', {})
+                cap_results = results_by_cap.get(cap_name, {})
+                cap_pass += cap_results.get('pass', 0)
+                cap_fail += cap_results.get('fail', 0)
+            
             formatted_capacities.append({
-                'name': cap.get('name', ''),
+                'name': cap_name,
                 'pass': cap_pass,
                 'fail': cap_fail,
                 'total': cap_pass + cap_fail,
