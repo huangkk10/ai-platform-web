@@ -2,8 +2,8 @@
 
 **文檔版本**：v1.6  
 **創建日期**：2025-12-05  
-**最後更新**：2025-12-05  
-**狀態**：📋 規劃中（尚未執行）  
+**最後更新**：2025-12-06  
+**狀態**：📋 Phase 1-2 已完成，Phase 3 規劃中  
 **作者**：AI Platform Team  
 **確定方案**：Django 智能路由 API + Dify 雙 App 協作
 
@@ -20,6 +20,7 @@
 7. [業界參考案例](#7-業界參考案例)
 8. [Dify 雙 App 整合設計（已確定方案）](#8-dify-雙-app-整合設計已確定方案)
 9. [優先實作的意圖](#9-優先實作的意圖)
+10. [Phase 3：Test Summary API 整合設計](#10-phase-3test-summary-api-整合設計)
 
 ---
 
@@ -1408,7 +1409,808 @@ if __name__ == "__main__":
 
 ---
 
-## 🔗 相關文檔
+## 10. Phase 3：Test Summary API 整合設計
+
+### 10.1 背景與目標
+
+SAF API Server 新增了 **Project Test Summary API**，可以查詢專案的詳細測試結果統計。此 API 提供：
+- 按測試類別（Performance, Function, Compatibility 等）統計
+- 按容量規格（256GB, 512GB, 1024GB 等）統計
+- 完整的通過/失敗/進行中數據
+
+**目標**：整合此 API 到智能路由系統，讓用戶可以自然語言查詢專案測試結果。
+
+### 10.2 Test Summary API 規格
+
+#### 10.2.1 API 端點
+
+```
+GET http://localhost:8080/api/v1/projects/{project_uid}/test-summary
+
+Headers（必填）:
+  Authorization: <user_id>           # 使用者 ID，例如: 150
+  Authorization-Name: <username>     # 使用者名稱，例如: Chunwei.Huang
+```
+
+#### 10.2.2 回應格式
+
+```json
+{
+  "success": true,
+  "data": {
+    "project_uid": "21c6db80a556449f8b026649b28858c9",
+    "project_name": "Automotive_PCIe_WD_DEMETER_SM2264XT_WDC Bi...",
+    "capacities": ["256GB", "512GB", "1024GB"],
+    "categories": [
+      {
+        "name": "Performance",
+        "results_by_capacity": {
+          "256GB": {
+            "pass": 5,
+            "fail": 10,
+            "ongoing": 0,
+            "cancel": 0,
+            "check": 0,
+            "total": 15,
+            "pass_rate": 33.33
+          }
+        },
+        "total": {
+          "pass": 5,
+          "fail": 10,
+          "ongoing": 0,
+          "cancel": 0,
+          "check": 0,
+          "total": 15,
+          "pass_rate": 33.33
+        }
+      }
+    ],
+    "summary": {
+      "total_pass": 0,
+      "total_fail": 68,
+      "total_ongoing": 0,
+      "total_cancel": 3,
+      "total_check": 1,
+      "overall_total": 72,
+      "overall_pass_rate": 0.0
+    }
+  }
+}
+```
+
+#### 10.2.3 回應欄位說明
+
+| 欄位 | 說明 |
+|------|------|
+| `project_uid` | 專案唯一識別碼 |
+| `project_name` | 專案名稱 |
+| `capacities` | 所有測試容量列表 (如 256GB, 512GB, 1024GB) |
+| `categories` | 測試類別列表 (如 Compatibility, Function, Performance 等) |
+| `categories[].name` | 類別名稱 |
+| `categories[].results_by_capacity` | 各容量的測試結果 |
+| `categories[].total` | 該類別的統計 |
+| `summary.total_pass` | 總通過數 |
+| `summary.total_fail` | 總失敗數 |
+| `summary.total_ongoing` | 進行中數量 |
+| `summary.total_cancel` | 取消數量 |
+| `summary.total_check` | 待確認數量 |
+| `summary.overall_total` | 總測試數 |
+| `summary.overall_pass_rate` | 整體通過率 (%) |
+
+### 10.3 新增意圖類型
+
+| # | 意圖 ID | 說明 | 參數 | 用戶問題範例 |
+|---|---------|------|------|-------------|
+| 9 | `query_project_test_summary` | 查詢專案測試總覽 | project_name | 「DEMETER 的測試通過率是多少？」「DEMETER 有多少測試失敗？」 |
+| 10 | `query_project_test_by_category` | 按類別查詢測試結果 | project_name, category | 「DEMETER 的 Performance 測試結果」「DEMETER 功能測試」 |
+| 11 | `query_project_test_by_capacity` | 按容量查詢測試結果 | project_name, capacity | 「DEMETER 256GB 測試結果」「DEMETER 512GB 通過率」 |
+
+### 10.4 認證方式
+
+**沿用現有機制**：Test Summary API 使用與現有 SAF API 相同的認證方式。
+
+```python
+# library/saf_integration/auth_manager.py
+
+class SAFAuthManager:
+    # 預設認證資訊（與 Test Summary API 所需相同）
+    DEFAULT_USER_ID = "150"
+    DEFAULT_USER_NAME = "Chunwei.Huang"
+    
+    def get_auth_headers(self) -> Dict[str, str]:
+        return {
+            "Authorization": self.user_id,
+            "Authorization-Name": self.user_name
+        }
+```
+
+**認證取值優先順序**：
+1. 函數參數傳入
+2. Django settings 配置
+3. 環境變數
+4. 預設值
+
+### 10.5 Project UID 快取設計
+
+由於 Test Summary API 需要 `project_uid`，但用戶通常只知道 `project_name`，需要一個轉換機制。
+
+#### 10.5.1 快取策略
+
+**沿用現有 `SAFCacheManager`**：
+- **快取 TTL**：5 分鐘（與現有一致）
+- **快取內容**：`project_name → project_uid` 映射
+- **更新頻率**：專案資訊相對穩定，5 分鐘 TTL 足夠
+
+```python
+# 快取 key 格式
+cache_key = f"project_uid:{project_name.lower()}"
+```
+
+#### 10.5.2 轉換流程
+
+```
+用戶輸入：「DEMETER 的測試結果」
+                    │
+                    ▼
+┌─────────────────────────────────────┐
+│  TestSummaryHandler._get_project_uid()  │
+│                                     │
+│  1. 檢查快取                        │
+│     cache_key = "project_uid:demeter"│
+│                                     │
+│  2. 快取命中 → 直接返回 UID         │
+│     快取未命中 ↓                    │
+│                                     │
+│  3. 調用 /api/v1/projects           │
+│     搜尋匹配的專案名稱              │
+│                                     │
+│  4. 找到 → 存入快取 + 返回 UID      │
+│     找不到 → 返回 None              │
+└─────────────────────────────────────┘
+```
+
+### 10.6 實作規劃
+
+#### 10.6.1 需要新增的檔案
+
+| 檔案 | 說明 |
+|------|------|
+| `library/saf_integration/smart_query/query_handlers/test_summary_handler.py` | 測試摘要處理器 |
+| `tests/test_saf_smart_query/test_handlers/test_test_summary_handler.py` | 測試案例 |
+
+#### 10.6.2 需要修改的檔案
+
+| 檔案 | 修改內容 |
+|------|---------|
+| `library/saf_integration/endpoint_registry.py` | 新增 `project_test_summary` 端點 |
+| `library/saf_integration/api_client.py` | 新增 `get_project_test_summary()`, `get_project_uid_by_name()` 方法 |
+| `library/saf_integration/smart_query/intent_types.py` | 新增 3 個意圖類型 + 已知類別/容量常數 |
+| `library/saf_integration/smart_query/intent_analyzer.py` | 更新 Prompt，支援新意圖 |
+| `library/saf_integration/smart_query/query_router.py` | 註冊 TestSummaryHandler |
+| `library/saf_integration/smart_query/response_generator.py` | 新增測試結果回應模板 |
+
+#### 10.6.3 Endpoint Registry 更新
+
+```python
+# library/saf_integration/endpoint_registry.py
+
+SAF_ENDPOINTS["project_test_summary"] = {
+    "path": "/api/v1/projects/{project_uid}/test-summary",
+    "method": "GET",
+    "description": "查詢專案測試結果摘要（按類別和容量）",
+    "path_params": ["project_uid"],
+    "transformer": "test_summary_to_dify_record",
+    "enabled": True
+}
+```
+
+#### 10.6.4 API Client 更新
+
+```python
+# library/saf_integration/api_client.py
+
+def get_project_uid_by_name(self, project_name: str) -> Optional[str]:
+    """
+    根據專案名稱獲取專案 UID（帶快取）
+    
+    Args:
+        project_name: 專案名稱
+        
+    Returns:
+        專案 UID，如果找不到則返回 None
+    """
+    # 檢查快取
+    cache_key = f"project_uid:{project_name.lower()}"
+    if self.cache_manager:
+        cached_uid = self.cache_manager.get(cache_key)
+        if cached_uid:
+            return cached_uid
+    
+    # 從專案列表中查找
+    projects = self.get_all_projects()
+    for project in projects:
+        if project.get('projectName', '').lower() == project_name.lower():
+            uid = project.get('projectUid')
+            # 存入快取
+            if self.cache_manager and uid:
+                self.cache_manager.set(cache_key, uid)
+            return uid
+    
+    return None
+
+def get_project_test_summary(self, project_uid: str) -> Optional[Dict[str, Any]]:
+    """
+    獲取專案測試摘要
+    
+    Args:
+        project_uid: 專案 UID
+        
+    Returns:
+        測試摘要資料
+    """
+    # 構建 URL（替換 path_params）
+    config = get_endpoint_config("project_test_summary")
+    if not config:
+        return None
+    
+    path = config['path'].replace('{project_uid}', project_uid)
+    url = f"{self.base_url}{path}"
+    
+    # 獲取認證 headers
+    headers = self.auth_manager.get_auth_headers()
+    
+    try:
+        response = requests.get(url, headers=headers, timeout=self.timeout)
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('success'):
+                return data.get('data')
+        return None
+    except Exception as e:
+        logger.error(f"獲取測試摘要失敗: {str(e)}")
+        return None
+```
+
+#### 10.6.5 Intent Types 更新
+
+```python
+# library/saf_integration/smart_query/intent_types.py
+
+class IntentType(Enum):
+    # Phase 1-2 意圖（現有）
+    QUERY_PROJECTS_BY_CUSTOMER = "query_projects_by_customer"
+    QUERY_PROJECTS_BY_CONTROLLER = "query_projects_by_controller"
+    QUERY_PROJECT_DETAIL = "query_project_detail"
+    QUERY_PROJECT_SUMMARY = "query_project_summary"
+    COUNT_PROJECTS = "count_projects"
+    LIST_ALL_CUSTOMERS = "list_all_customers"
+    LIST_ALL_CONTROLLERS = "list_all_controllers"
+    UNKNOWN = "unknown"
+    
+    # 🆕 Phase 3 意圖
+    QUERY_PROJECT_TEST_SUMMARY = "query_project_test_summary"
+    QUERY_PROJECT_TEST_BY_CATEGORY = "query_project_test_by_category"
+    QUERY_PROJECT_TEST_BY_CAPACITY = "query_project_test_by_capacity"
+
+
+# 🆕 已知測試類別
+KNOWN_TEST_CATEGORIES = [
+    "Performance",
+    "Function", 
+    "Compatibility",
+    "Stress",
+    "Reliability"
+]
+
+# 🆕 已知容量規格
+KNOWN_CAPACITIES = [
+    "128GB",
+    "256GB", 
+    "512GB",
+    "1024GB",
+    "2048GB"
+]
+```
+
+#### 10.6.6 Intent Analyzer Prompt 更新
+
+```python
+# 新增到 INTENT_ANALYSIS_PROMPT
+
+### 9. query_project_test_summary - 查詢專案測試總覽
+用戶想知道專案的整體測試結果統計時使用。
+- 常見問法：
+  - 「XX 的測試通過率是多少」「XX 有多少測試」「XX 測試結果統計」
+  - 「XX 測試狀況如何」「XX 的 QA 報告」「XX 有多少測試失敗」
+  - 「XX 的測試統計」「XX 目前測試進度」
+- 參數：project_name (專案名稱)
+- 注意：這是查詢詳細測試數據統計，與 query_project_summary（基本摘要）不同
+
+### 10. query_project_test_by_category - 按類別查詢測試結果
+用戶想知道專案某個測試類別的結果時使用。
+- 常見問法：
+  - 「XX 的 Performance 測試」「XX Performance 結果」
+  - 「XX 功能測試怎麼樣」「XX 的 Function 測試結果」
+  - 「XX 相容性測試」「XX Compatibility 測試」
+  - 「XX Stress 測試」「XX 壓力測試結果」
+- 參數：project_name (專案名稱), category (測試類別)
+- 已知類別：Performance, Function, Compatibility, Stress, Reliability
+
+### 11. query_project_test_by_capacity - 按容量查詢測試結果
+用戶想知道專案某個容量的測試結果時使用。
+- 常見問法：
+  - 「XX 256GB 測試結果」「XX 256GB 通過率」
+  - 「XX 的 512GB 測試」「XX 1024GB 測試怎麼樣」
+  - 「XX 1TB 測試」「XX 2TB 結果」
+- 參數：project_name (專案名稱), capacity (容量規格)
+- 已知容量：128GB, 256GB, 512GB, 1024GB, 2048GB
+
+## 新增範例
+
+輸入：DEMETER 的測試通過率是多少？
+輸出：{"intent": "query_project_test_summary", "parameters": {"project_name": "DEMETER"}, "confidence": 0.95}
+
+輸入：DEMETER 有多少測試失敗
+輸出：{"intent": "query_project_test_summary", "parameters": {"project_name": "DEMETER"}, "confidence": 0.93}
+
+輸入：DEMETER 的 Performance 測試結果
+輸出：{"intent": "query_project_test_by_category", "parameters": {"project_name": "DEMETER", "category": "Performance"}, "confidence": 0.94}
+
+輸入：DEMETER 功能測試怎麼樣
+輸出：{"intent": "query_project_test_by_category", "parameters": {"project_name": "DEMETER", "category": "Function"}, "confidence": 0.90}
+
+輸入：DEMETER 256GB 測試結果
+輸出：{"intent": "query_project_test_by_capacity", "parameters": {"project_name": "DEMETER", "capacity": "256GB"}, "confidence": 0.93}
+
+輸入：DEMETER 512GB 通過率
+輸出：{"intent": "query_project_test_by_capacity", "parameters": {"project_name": "DEMETER", "capacity": "512GB"}, "confidence": 0.91}
+```
+
+#### 10.6.7 TestSummaryHandler 設計
+
+```python
+# library/saf_integration/smart_query/query_handlers/test_summary_handler.py
+
+"""
+TestSummaryHandler - 專案測試摘要處理器
+========================================
+
+處理以下意圖：
+- query_project_test_summary: 測試總覽
+- query_project_test_by_category: 按類別查詢
+- query_project_test_by_capacity: 按容量查詢
+
+作者：AI Platform Team
+創建日期：2025-12-06
+"""
+
+import logging
+from typing import Dict, Any, Optional
+
+from .base_handler import BaseHandler, QueryResult
+from ..intent_types import IntentType
+
+logger = logging.getLogger(__name__)
+
+
+class TestSummaryHandler(BaseHandler):
+    """
+    專案測試摘要處理器
+    
+    處理 Project Test Summary API 相關的意圖。
+    """
+    
+    handler_name = "test_summary_handler"
+    
+    # 支援的意圖類型
+    SUPPORTED_INTENTS = [
+        IntentType.QUERY_PROJECT_TEST_SUMMARY,
+        IntentType.QUERY_PROJECT_TEST_BY_CATEGORY,
+        IntentType.QUERY_PROJECT_TEST_BY_CAPACITY,
+    ]
+    
+    def execute(self, parameters: Dict[str, Any], 
+                intent_type: IntentType = None) -> QueryResult:
+        """
+        執行測試摘要查詢
+        
+        Args:
+            parameters: 查詢參數
+            intent_type: 意圖類型（用於決定回應格式）
+            
+        Returns:
+            QueryResult: 查詢結果
+        """
+        self._log_query(parameters)
+        
+        # 驗證必要參數
+        error = self.validate_parameters(parameters, required=['project_name'])
+        if error:
+            return QueryResult.error(error, self.handler_name, parameters)
+        
+        project_name = parameters.get('project_name')
+        
+        try:
+            # Step 1: project_name → project_uid 轉換
+            project_uid = self._get_project_uid(project_name)
+            
+            if not project_uid:
+                return QueryResult.no_results(
+                    query_type=self.handler_name,
+                    parameters=parameters,
+                    message=f"找不到專案 '{project_name}'，請確認專案名稱是否正確"
+                )
+            
+            # Step 2: 調用 Test Summary API
+            test_data = self.api_client.get_project_test_summary(project_uid)
+            
+            if not test_data:
+                return QueryResult.error(
+                    f"無法獲取專案 '{project_name}' 的測試資料",
+                    self.handler_name,
+                    parameters
+                )
+            
+            # Step 3: 根據意圖類型格式化結果
+            if intent_type == IntentType.QUERY_PROJECT_TEST_SUMMARY:
+                return self._format_overall_summary(test_data, parameters)
+            
+            elif intent_type == IntentType.QUERY_PROJECT_TEST_BY_CATEGORY:
+                category = parameters.get('category')
+                return self._format_category_result(test_data, category, parameters)
+            
+            elif intent_type == IntentType.QUERY_PROJECT_TEST_BY_CAPACITY:
+                capacity = parameters.get('capacity')
+                return self._format_capacity_result(test_data, capacity, parameters)
+            
+            else:
+                # 預設返回總覽
+                return self._format_overall_summary(test_data, parameters)
+            
+        except Exception as e:
+            return self._handle_api_error(e, parameters)
+    
+    def _get_project_uid(self, project_name: str) -> Optional[str]:
+        """
+        獲取專案 UID（使用 API Client 的快取機制）
+        """
+        return self.api_client.get_project_uid_by_name(project_name)
+    
+    def _format_overall_summary(self, data: Dict, 
+                                 parameters: Dict) -> QueryResult:
+        """格式化整體測試摘要"""
+        summary = data.get('summary', {})
+        categories = data.get('categories', [])
+        capacities = data.get('capacities', [])
+        
+        formatted_data = {
+            'project_name': data.get('project_name', ''),
+            'capacities': capacities,
+            'summary': {
+                'total': summary.get('overall_total', 0),
+                'pass': summary.get('total_pass', 0),
+                'fail': summary.get('total_fail', 0),
+                'ongoing': summary.get('total_ongoing', 0),
+                'cancel': summary.get('total_cancel', 0),
+                'check': summary.get('total_check', 0),
+                'pass_rate': summary.get('overall_pass_rate', 0),
+            },
+            'categories': [
+                {
+                    'name': cat.get('name', ''),
+                    'total': cat.get('total', {}).get('total', 0),
+                    'pass': cat.get('total', {}).get('pass', 0),
+                    'fail': cat.get('total', {}).get('fail', 0),
+                    'pass_rate': cat.get('total', {}).get('pass_rate', 0),
+                }
+                for cat in categories
+            ]
+        }
+        
+        return QueryResult.success(
+            data=formatted_data,
+            count=1,
+            query_type=self.handler_name,
+            parameters=parameters,
+            message=f"專案 '{data.get('project_name')}' 的測試摘要"
+        )
+    
+    def _format_category_result(self, data: Dict, category: str,
+                                  parameters: Dict) -> QueryResult:
+        """格式化按類別的測試結果"""
+        categories = data.get('categories', [])
+        
+        # 查找指定類別
+        target_category = None
+        for cat in categories:
+            if cat.get('name', '').lower() == category.lower():
+                target_category = cat
+                break
+        
+        if not target_category:
+            available = [cat.get('name') for cat in categories]
+            return QueryResult.no_results(
+                query_type=self.handler_name,
+                parameters=parameters,
+                message=f"找不到類別 '{category}'，可用類別：{', '.join(available)}"
+            )
+        
+        formatted_data = {
+            'project_name': data.get('project_name', ''),
+            'category': target_category.get('name', ''),
+            'results_by_capacity': target_category.get('results_by_capacity', {}),
+            'total': target_category.get('total', {})
+        }
+        
+        return QueryResult.success(
+            data=formatted_data,
+            count=1,
+            query_type=self.handler_name,
+            parameters=parameters,
+            message=f"專案 '{data.get('project_name')}' 的 {category} 測試結果"
+        )
+    
+    def _format_capacity_result(self, data: Dict, capacity: str,
+                                  parameters: Dict) -> QueryResult:
+        """格式化按容量的測試結果"""
+        capacities = data.get('capacities', [])
+        categories = data.get('categories', [])
+        
+        # 標準化容量格式
+        capacity_normalized = capacity.upper()
+        
+        if capacity_normalized not in capacities:
+            return QueryResult.no_results(
+                query_type=self.handler_name,
+                parameters=parameters,
+                message=f"找不到容量 '{capacity}'，可用容量：{', '.join(capacities)}"
+            )
+        
+        # 收集該容量在各類別的結果
+        capacity_results = []
+        for cat in categories:
+            results_by_cap = cat.get('results_by_capacity', {})
+            if capacity_normalized in results_by_cap:
+                capacity_results.append({
+                    'category': cat.get('name', ''),
+                    **results_by_cap[capacity_normalized]
+                })
+        
+        formatted_data = {
+            'project_name': data.get('project_name', ''),
+            'capacity': capacity_normalized,
+            'results': capacity_results
+        }
+        
+        return QueryResult.success(
+            data=formatted_data,
+            count=len(capacity_results),
+            query_type=self.handler_name,
+            parameters=parameters,
+            message=f"專案 '{data.get('project_name')}' 的 {capacity} 測試結果"
+        )
+```
+
+#### 10.6.8 Query Router 更新
+
+```python
+# library/saf_integration/smart_query/query_router.py
+
+# 在 _register_handlers() 中新增
+
+from .query_handlers import TestSummaryHandler
+
+def _register_handlers(self):
+    """註冊所有處理器"""
+    self._test_summary_handler = TestSummaryHandler()
+    
+    self._handlers = {
+        # 現有 handlers...
+        
+        # 🆕 Phase 3 handlers
+        IntentType.QUERY_PROJECT_TEST_SUMMARY: self._test_summary_handler,
+        IntentType.QUERY_PROJECT_TEST_BY_CATEGORY: self._test_summary_handler,
+        IntentType.QUERY_PROJECT_TEST_BY_CAPACITY: self._test_summary_handler,
+    }
+```
+
+### 10.7 回應格式設計
+
+#### 10.7.1 測試總覽回應
+
+```markdown
+📊 DEMETER 專案測試結果總覽
+
+| 項目 | 數量 |
+|------|------|
+| 總測試數 | 72 |
+| ✅ 通過 (Pass) | 0 |
+| ❌ 失敗 (Fail) | 68 |
+| 🔄 進行中 (Ongoing) | 0 |
+| ⏸️ 取消 (Cancel) | 3 |
+| ❓ 待確認 (Check) | 1 |
+| **通過率** | **0.0%** |
+
+📁 測試容量：256GB, 512GB, 1024GB
+
+📂 各類別摘要：
+| 類別 | 通過 | 失敗 | 總數 | 通過率 |
+|------|------|------|------|--------|
+| Performance | 5 | 10 | 15 | 33.33% |
+| Function | 3 | 12 | 15 | 20.00% |
+| Compatibility | 2 | 8 | 10 | 20.00% |
+
+💡 提示：可以進一步詢問「DEMETER Performance 測試結果」或「DEMETER 256GB 測試結果」
+```
+
+#### 10.7.2 按類別查詢回應
+
+```markdown
+� DEMETER - Performance 測試結果
+
+| 容量 | 通過 | 失敗 | 進行中 | 總數 | 通過率 |
+|------|------|------|--------|------|--------|
+| 256GB | 5 | 10 | 0 | 15 | 33.33% |
+| 512GB | 3 | 8 | 0 | 11 | 27.27% |
+| 1024GB | 2 | 5 | 0 | 7 | 28.57% |
+| **總計** | **10** | **23** | **0** | **33** | **30.30%** |
+```
+
+#### 10.7.3 按容量查詢回應
+
+```markdown
+📊 DEMETER - 256GB 測試結果
+
+| 類別 | 通過 | 失敗 | 進行中 | 總數 | 通過率 |
+|------|------|------|--------|------|--------|
+| Performance | 5 | 10 | 0 | 15 | 33.33% |
+| Function | 3 | 5 | 0 | 8 | 37.50% |
+| Compatibility | 2 | 4 | 0 | 6 | 33.33% |
+| **總計** | **10** | **19** | **0** | **29** | **34.48%** |
+```
+
+### 10.8 完整查詢流程圖
+
+```
+用戶：「DEMETER 的測試通過率是多少？」
+                    │
+                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    🧠 IntentAnalyzer.analyze()                          │
+│                                                                          │
+│  輸出：{                                                                 │
+│    "intent": "query_project_test_summary",                              │
+│    "parameters": {"project_name": "DEMETER"},                           │
+│    "confidence": 0.95                                                    │
+│  }                                                                       │
+└─────────────────────────────────┬───────────────────────────────────────┘
+                                  │
+                                  ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    🔀 QueryRouter.route()                                │
+│                                                                          │
+│  選擇 TestSummaryHandler                                                │
+└─────────────────────────────────┬───────────────────────────────────────┘
+                                  │
+                                  ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    📋 TestSummaryHandler.execute()                       │
+│                                                                          │
+│  Step 1: 取得 project_uid                                               │
+│          ├─ 檢查快取 (TTL: 5min)                                        │
+│          └─ 快取未命中 → 調用 GET /projects 搜尋                        │
+│                                                                          │
+│  Step 2: 調用 Test Summary API                                          │
+│          GET /api/v1/projects/{project_uid}/test-summary                │
+│          Headers: Authorization: 150                                     │
+│                   Authorization-Name: Chunwei.Huang                      │
+│                                                                          │
+│  Step 3: 格式化結果 (_format_overall_summary)                           │
+└─────────────────────────────────┬───────────────────────────────────────┘
+                                  │
+                                  ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    📝 ResponseGenerator.generate()                       │
+│                                                                          │
+│  轉換為 Markdown Table 格式                                              │
+└─────────────────────────────────┬───────────────────────────────────────┘
+                                  │
+                                  ▼
+                    📊 返回格式化的測試結果
+```
+
+### 10.9 預估時程
+
+| 步驟 | 任務 | 預估時間 |
+|------|------|----------|
+| 10.1 | 更新 `endpoint_registry.py` | 0.5 小時 |
+| 10.2 | 更新 `api_client.py`（新增 2 個方法） | 1 小時 |
+| 10.3 | 更新 `intent_types.py`（新增意圖 + 常數） | 0.5 小時 |
+| 10.4 | 更新 `intent_analyzer.py`（更新 Prompt） | 1 小時 |
+| 10.5 | 新增 `test_summary_handler.py` | 2 小時 |
+| 10.6 | 更新 `query_router.py`（註冊新 Handler） | 0.5 小時 |
+| 10.7 | 更新 `response_generator.py`（新增回應模板） | 1 小時 |
+| 10.8 | 測試和調試 | 1.5 小時 |
+| **總計** | | **約 8 小時（1 天）** |
+
+### 10.10 Phase 3 實作檢查清單
+
+- [ ] **Endpoint Registry**
+  - [ ] 新增 `project_test_summary` 端點定義
+
+- [ ] **API Client**
+  - [ ] 新增 `get_project_test_summary()` 方法
+  - [ ] 新增 `get_project_uid_by_name()` 方法
+  - [ ] 處理 path_params 替換邏輯
+
+- [ ] **Intent Types**
+  - [ ] 新增 `QUERY_PROJECT_TEST_SUMMARY` 意圖
+  - [ ] 新增 `QUERY_PROJECT_TEST_BY_CATEGORY` 意圖
+  - [ ] 新增 `QUERY_PROJECT_TEST_BY_CAPACITY` 意圖
+  - [ ] 新增 `KNOWN_TEST_CATEGORIES` 常數
+  - [ ] 新增 `KNOWN_CAPACITIES` 常數
+
+- [ ] **Intent Analyzer**
+  - [ ] 更新 `INTENT_ANALYSIS_PROMPT` 添加 3 個新意圖說明
+  - [ ] 添加新意圖的範例（至少各 2 個）
+
+- [ ] **Test Summary Handler**
+  - [ ] 實作 `execute()` 方法
+  - [ ] 實作 `_get_project_uid()` 方法
+  - [ ] 實作 `_format_overall_summary()` 方法
+  - [ ] 實作 `_format_category_result()` 方法
+  - [ ] 實作 `_format_capacity_result()` 方法
+
+- [ ] **Query Router**
+  - [ ] 註冊 `TestSummaryHandler`
+  - [ ] 處理 3 個新意圖的路由
+
+- [ ] **Response Generator**
+  - [ ] 新增測試總覽回應模板
+  - [ ] 新增按類別回應模板
+  - [ ] 新增按容量回應模板
+
+- [ ] **測試**
+  - [ ] 測試 project_name → project_uid 轉換
+  - [ ] 測試 3 種新意圖的識別
+  - [ ] 測試 Test Summary API 調用
+  - [ ] 測試回應格式化
+  - [ ] 測試錯誤處理（找不到專案、找不到類別/容量）
+
+---
+
+## 📅 文檔更新記錄
+
+| 版本 | 日期 | 更新內容 | 作者 |
+|------|------|---------|------|
+| v1.0 | 2025-12-05 | 初始規劃文檔 | AI Platform Team |
+| v1.1 | 2025-12-05 | 新增 Dify LLM API 整合方案詳細設計 | AI Platform Team |
+| v1.2 | 2025-12-05 | 新增「無需建立 Dify App」方案（B-1b, B-1c） | AI Platform Team |
+| v1.3 | 2025-12-05 | 詳細說明 B-1b 如何調用 Dify 模型（gpt-oss:20b） | AI Platform Team |
+| v1.4 | 2025-12-05 | 完成 B-1b-2 方案配置，新增雙 App 協作架構設計 | AI Platform Team |
+| v1.5 | 2025-12-05 | 移除方案 A/C，只保留方案 B（Django 智能路由 API） | AI Platform Team |
+| v1.6 | 2025-12-06 | 新增 Phase 3：Test Summary API 整合設計 | AI Platform Team |
+
+### v1.6 更新詳情
+
+**新增內容**：
+- ✅ 新增第 10 章：Phase 3 Test Summary API 整合設計
+- ✅ 詳細記錄 Test Summary API 規格
+- ✅ 新增 3 個意圖類型設計
+- ✅ 完整的 TestSummaryHandler 程式碼設計
+- ✅ 回應格式模板設計
+- ✅ 實作檢查清單
+
+**確認事項**：
+- ✅ 認證方式：沿用現有 SAFAuthManager（user_id=150, username=Chunwei.Huang）
+- ✅ 快取策略：沿用現有 SAFCacheManager（TTL=5 分鐘）
+- ✅ Phase 1-2 已完成，可直接開始 Phase 3
+
+---
+
+## �🔗 相關文檔
 
 - [Dify SAF 外部知識庫 API 設計](./dify-saf-external-knowledge-api-plan.md)
 - [SAF API Server 分析](../features/dify-saf-external-knowledge-api-design.md)
+- [Project Test Summary API 使用說明](../../internal_api/docs/PLANNING_PROJECT_SUMMARY_API.md)
