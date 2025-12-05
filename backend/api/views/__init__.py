@@ -87,6 +87,15 @@ from .dify_saf_views import (
     saf_endpoints,                   # SAF 端點資訊
 )
 
+# ============= SAF Smart Query API 導出 =============
+
+from .saf_smart_query_views import (
+    smart_query,                     # 智能查詢主入口
+    smart_query_health,              # Smart Query 健康檢查
+    smart_query_intents,             # 獲取支援的意圖類型
+    smart_query_analyze,             # 僅執行意圖分析
+)
+
 
 # ============= 認證 API 導出 =============
 

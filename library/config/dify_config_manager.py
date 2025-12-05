@@ -91,6 +91,8 @@ class DifyConfigManager:
         'report_analyzer_3': 'Report Analyzer 3',
         'ai_ocr': 'AI OCR System',
         'ocr_function': 'OCR Function',
+        'saf_intent_analyzer': 'SAF Intent Analyzer',
+        'saf_analyzer': 'SAF Analyzer',
     }
     
     def __init__(self):
@@ -179,6 +181,38 @@ class DifyConfigManager:
             'description': 'Dify 工作流應用，提供 OCR 圖像識別功能，供各 Web Assistant 調用',
             'features': ['圖像識別', 'OCR 文字擷取', '結構化資料解析', '跨 Assistant 共用'],
             'timeout': 90,  # OCR 處理可能需要較長時間
+            'response_mode': 'blocking'
+        }
+    
+    @classmethod
+    def _get_saf_intent_analyzer_config(cls):
+        """動態獲取 SAF Intent Analyzer 配置"""
+        ai_pc_ip = cls._get_ai_pc_ip()
+        return {
+            'api_url': f'http://{ai_pc_ip}/v1/chat-messages',
+            'api_key': 'app-vMNSUqgEIoejnXo3fuFvp1hC',
+            'base_url': f'http://{ai_pc_ip}',
+            'app_name': 'SAF Intent Analyzer',
+            'workspace': 'SAF_Intent_Analyzer',
+            'description': 'Dify Chat 應用，用於分析用戶查詢意圖，輸出 JSON 格式的意圖識別結果',
+            'features': ['意圖分析', 'JSON 輸出', 'SAF 查詢路由'],
+            'timeout': 30,  # 意圖分析應該快速完成
+            'response_mode': 'blocking'
+        }
+    
+    @classmethod
+    def _get_saf_analyzer_config(cls):
+        """動態獲取 SAF Analyzer 配置"""
+        ai_pc_ip = cls._get_ai_pc_ip()
+        return {
+            'api_url': f'http://{ai_pc_ip}/v1/chat-messages',
+            'api_key': 'app-0GyoZLrr4tDpT4EO2Kihuvux',
+            'base_url': f'http://{ai_pc_ip}',
+            'app_name': 'SAF Analyzer',
+            'workspace': 'SAF_Analyzer',
+            'description': 'Dify Chat 應用，用於根據 SAF API 查詢結果生成自然語言回答',
+            'features': ['回答生成', '自然語言處理', 'Table 格式化'],
+            'timeout': 60,  # 回答生成可能需要較長時間
             'response_mode': 'blocking'
         }
     
@@ -273,6 +307,12 @@ class DifyConfigManager:
         elif app_type == 'ocr_function':
             base_config = self._get_ocr_function_config()
             return self._get_base_config_with_env_override(base_config, 'DIFY_OCR_FUNCTION')
+        elif app_type == 'saf_intent_analyzer':
+            base_config = self._get_saf_intent_analyzer_config()
+            return self._get_base_config_with_env_override(base_config, 'DIFY_SAF_INTENT')
+        elif app_type == 'saf_analyzer':
+            base_config = self._get_saf_analyzer_config()
+            return self._get_base_config_with_env_override(base_config, 'DIFY_SAF_ANALYZER')
         else:
             raise ValueError(f"無法找到應用 {app_type} 的配置方法")
     
@@ -329,6 +369,24 @@ class DifyConfigManager:
             DifyAppConfig: OCR Function 配置
         """
         return self.get_app_config('ocr_function')
+    
+    def get_saf_intent_analyzer_config(self) -> DifyAppConfig:
+        """
+        獲取 SAF Intent Analyzer 配置的便利方法
+        
+        Returns:
+            DifyAppConfig: SAF Intent Analyzer 配置
+        """
+        return self.get_app_config('saf_intent_analyzer')
+    
+    def get_saf_analyzer_config(self) -> DifyAppConfig:
+        """
+        獲取 SAF Analyzer 配置的便利方法
+        
+        Returns:
+            DifyAppConfig: SAF Analyzer 配置
+        """
+        return self.get_app_config('saf_analyzer')
     
     def list_available_apps(self) -> Dict[str, str]:
         """
@@ -465,6 +523,26 @@ def get_ocr_function_config() -> DifyAppConfig:
     return default_config_manager.get_ocr_function_config()
 
 
+def get_saf_intent_analyzer_config() -> DifyAppConfig:
+    """
+    獲取 SAF Intent Analyzer 配置的便利函數
+    
+    Returns:
+        DifyAppConfig: SAF Intent Analyzer 配置對象
+    """
+    return default_config_manager.get_saf_intent_analyzer_config()
+
+
+def get_saf_analyzer_config() -> DifyAppConfig:
+    """
+    獲取 SAF Analyzer 配置的便利函數
+    
+    Returns:
+        DifyAppConfig: SAF Analyzer 配置對象
+    """
+    return default_config_manager.get_saf_analyzer_config()
+
+
 def validate_all_dify_configs() -> Dict[str, bool]:
     """
     驗證所有 Dify 配置的便利函數
@@ -554,3 +632,23 @@ def get_ocr_function_config_dict() -> Dict[str, Any]:
         Dict[str, Any]: 配置字典
     """
     return get_ocr_function_config().to_dict()
+
+
+def get_saf_intent_analyzer_config_dict() -> Dict[str, Any]:
+    """
+    獲取 SAF Intent Analyzer 配置字典（向後兼容）
+    
+    Returns:
+        Dict[str, Any]: 配置字典
+    """
+    return get_saf_intent_analyzer_config().to_dict()
+
+
+def get_saf_analyzer_config_dict() -> Dict[str, Any]:
+    """
+    獲取 SAF Analyzer 配置字典（向後兼容）
+    
+    Returns:
+        Dict[str, Any]: 配置字典
+    """
+    return get_saf_analyzer_config().to_dict()

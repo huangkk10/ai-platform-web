@@ -1,0 +1,334 @@
+"""
+SAF Smart Query 測試案例定義
+============================
+
+定義所有測試案例，方便管理和維護。
+"""
+
+from dataclasses import dataclass
+from typing import Dict, Any
+
+
+@dataclass
+class TestCase:
+    """測試案例"""
+    name: str                          # 測試名稱
+    query: str                         # 用戶問題
+    expected_intent: str               # 預期意圖
+    expected_params: Dict[str, Any]    # 預期參數（部分匹配）
+    min_confidence: float = 0.5        # 最低信心度
+    should_succeed: bool = True        # 是否應該成功
+    description: str = ""              # 測試說明
+
+
+# ============================================================
+# 1. 按客戶查詢專案
+# ============================================================
+CUSTOMER_QUERY_TESTS = [
+    TestCase(
+        name="客戶查詢_WD",
+        query="WD 有哪些專案？",
+        expected_intent="query_projects_by_customer",
+        expected_params={"customer": "WD"},
+        min_confidence=0.8,
+        description="標準客戶查詢"
+    ),
+    TestCase(
+        name="客戶查詢_Samsung",
+        query="Samsung 的專案有哪些？",
+        expected_intent="query_projects_by_customer",
+        expected_params={"customer": "Samsung"},
+        min_confidence=0.8,
+        description="不同客戶名稱"
+    ),
+    TestCase(
+        name="客戶查詢_WDC",
+        query="WDC 有什麼專案",
+        expected_intent="query_projects_by_customer",
+        expected_params={"customer": "WDC"},  # WDC 在資料庫中是獨立客戶
+        min_confidence=0.7,
+        description="WDC 客戶查詢（獨立客戶）"
+    ),
+    TestCase(
+        name="客戶查詢_列出格式",
+        query="列出 Micron 的所有專案",
+        expected_intent="query_projects_by_customer",
+        expected_params={"customer": "Micron"},
+        min_confidence=0.7,
+        description="不同問法"
+    ),
+    TestCase(
+        name="客戶查詢_口語化",
+        query="我想看看 ADATA 在做什麼專案",
+        expected_intent="query_projects_by_customer",
+        expected_params={"customer": "ADATA"},
+        min_confidence=0.6,
+        description="口語化問法"
+    ),
+]
+
+# ============================================================
+# 2. 按控制器查詢專案
+# ============================================================
+CONTROLLER_QUERY_TESTS = [
+    TestCase(
+        name="控制器查詢_SM2264",
+        query="SM2264 控制器用在哪些專案？",
+        expected_intent="query_projects_by_controller",
+        expected_params={"controller": "SM2264"},
+        min_confidence=0.8,
+        description="標準控制器查詢"
+    ),
+    TestCase(
+        name="控制器查詢_SM2269",
+        query="哪些專案使用 SM2269？",
+        expected_intent="query_projects_by_controller",
+        expected_params={"controller": "SM2269"},
+        min_confidence=0.7,
+        description="不同問法"
+    ),
+    TestCase(
+        name="控制器查詢_XT系列",
+        query="SM2264XT 有哪些專案在用",
+        expected_intent="query_projects_by_controller",
+        expected_params={"controller": "SM2264XT"},
+        min_confidence=0.7,
+        description="XT 系列控制器"
+    ),
+]
+
+# ============================================================
+# 3. 專案詳情查詢
+# ============================================================
+PROJECT_DETAIL_TESTS = [
+    TestCase(
+        name="專案詳情_DEMETER",
+        query="DEMETER 專案的詳細資訊",
+        expected_intent="query_project_detail",
+        expected_params={"project_name": "DEMETER"},
+        min_confidence=0.8,
+        description="標準專案詳情查詢"
+    ),
+    TestCase(
+        name="專案詳情_口語化",
+        query="請告訴我 Garuda 專案的情況",
+        expected_intent="query_project_detail",
+        expected_params={"project_name": "Garuda"},
+        min_confidence=0.7,
+        description="口語化問法"
+    ),
+    TestCase(
+        name="專案詳情_簡短",
+        query="查詢 Taurian 專案",
+        expected_intent="query_project_detail",
+        expected_params={"project_name": "Taurian"},
+        min_confidence=0.6,
+        description="簡短問法"
+    ),
+]
+
+# ============================================================
+# 4. 專案測試摘要查詢
+# ============================================================
+PROJECT_SUMMARY_TESTS = [
+    TestCase(
+        name="測試摘要_DEMETER",
+        query="DEMETER 的測試結果如何？",
+        expected_intent="query_project_summary",
+        expected_params={"project_name": "DEMETER"},
+        min_confidence=0.7,
+        description="測試結果查詢"
+    ),
+    TestCase(
+        name="測試摘要_測試狀況",
+        query="Garuda 專案測試狀況",
+        expected_intent="query_project_summary",
+        expected_params={"project_name": "Garuda"},
+        min_confidence=0.6,
+        description="測試狀況查詢"
+    ),
+]
+
+# ============================================================
+# 5. 統計專案數量
+# ============================================================
+COUNT_PROJECTS_TESTS = [
+    TestCase(
+        name="數量統計_總數",
+        query="總共有多少專案？",
+        expected_intent="count_projects",
+        expected_params={},
+        min_confidence=0.8,
+        description="總數查詢"
+    ),
+    TestCase(
+        name="數量統計_客戶專案數",
+        query="Samsung 有幾個專案？",
+        expected_intent="count_projects",
+        expected_params={"customer": "Samsung"},
+        min_confidence=0.8,
+        description="特定客戶數量"
+    ),
+    TestCase(
+        name="數量統計_口語化",
+        query="WD 目前有多少個進行中的專案",
+        expected_intent="count_projects",
+        expected_params={"customer": "WD"},
+        min_confidence=0.5,  # 口語化問法可能降低信心度
+        description="口語化數量查詢"
+    ),
+    TestCase(
+        name="數量統計_專案數量",
+        query="專案數量是多少",
+        expected_intent="count_projects",
+        expected_params={},
+        min_confidence=0.7,
+        description="簡短數量查詢"
+    ),
+]
+
+# ============================================================
+# 6. 列出所有客戶
+# ============================================================
+LIST_CUSTOMERS_TESTS = [
+    TestCase(
+        name="客戶列表_標準",
+        query="有哪些客戶？",
+        expected_intent="list_all_customers",
+        expected_params={},
+        min_confidence=0.8,
+        description="標準客戶列表查詢"
+    ),
+    TestCase(
+        name="客戶列表_列出",
+        query="列出所有客戶",
+        expected_intent="list_all_customers",
+        expected_params={},
+        min_confidence=0.7,
+        description="列出格式"
+    ),
+    TestCase(
+        name="客戶列表_全部",
+        query="目前有哪些客戶在合作",
+        expected_intent="list_all_customers",
+        expected_params={},
+        min_confidence=0.6,
+        description="口語化問法"
+    ),
+]
+
+# ============================================================
+# 7. 列出所有控制器
+# ============================================================
+LIST_CONTROLLERS_TESTS = [
+    TestCase(
+        name="控制器列表_標準",
+        query="有哪些控制器？",
+        expected_intent="list_all_controllers",
+        expected_params={},
+        min_confidence=0.8,
+        description="標準控制器列表查詢"
+    ),
+    TestCase(
+        name="控制器列表_列出",
+        query="列出所有控制器型號",
+        expected_intent="list_all_controllers",
+        expected_params={},
+        min_confidence=0.7,
+        description="列出格式"
+    ),
+    TestCase(
+        name="控制器列表_支援",
+        query="系統支援哪些控制器",
+        expected_intent="list_all_controllers",
+        expected_params={},
+        min_confidence=0.6,
+        description="支援格式問法"
+    ),
+]
+
+# ============================================================
+# 8. 未知意圖（邊界測試）
+# ============================================================
+UNKNOWN_INTENT_TESTS = [
+    TestCase(
+        name="未知意圖_天氣",
+        query="今天天氣如何？",
+        expected_intent="unknown",
+        expected_params={},
+        min_confidence=0.0,
+        should_succeed=False,  # API 返回 success=false 是正確的
+        description="完全無關的問題"
+    ),
+    TestCase(
+        name="未知意圖_問候",
+        query="你好",
+        expected_intent="unknown",
+        expected_params={},
+        min_confidence=0.0,
+        should_succeed=False,  # API 返回 success=false 是正確的
+        description="簡單問候"
+    ),
+    TestCase(
+        name="未知意圖_模糊",
+        query="幫我查一下",
+        expected_intent="unknown",
+        expected_params={},
+        min_confidence=0.0,
+        should_succeed=False,  # API 返回 success=false 是正確的
+        description="模糊不清的請求"
+    ),
+]
+
+# ============================================================
+# 9. 邊界情況測試
+# ============================================================
+EDGE_CASE_TESTS = [
+    TestCase(
+        name="邊界_空白查詢",
+        query="   ",
+        expected_intent="unknown",
+        expected_params={},
+        should_succeed=False,
+        description="空白查詢應該失敗"
+    ),
+    TestCase(
+        name="邊界_超長查詢",
+        query="我想要查詢一下關於 WD 這個客戶的所有專案資訊，包括他們使用的控制器型號、NAND 類型、負責人等等，" * 3,
+        expected_intent="query_projects_by_customer",
+        expected_params={"customer": "WD"},
+        min_confidence=0.5,
+        description="超長查詢"
+    ),
+    TestCase(
+        name="邊界_混合中英文",
+        query="Show me WD's projects 列表",
+        expected_intent="query_projects_by_customer",
+        expected_params={"customer": "WD"},
+        min_confidence=0.5,
+        description="中英文混合"
+    ),
+    TestCase(
+        name="邊界_特殊字符",
+        query="WD 的專案？！@#",
+        expected_intent="query_projects_by_customer",
+        expected_params={"customer": "WD"},
+        min_confidence=0.5,
+        description="包含特殊字符"
+    ),
+]
+
+# ============================================================
+# 所有測試套件
+# ============================================================
+ALL_TEST_SUITES = [
+    ("1. 按客戶查詢專案", CUSTOMER_QUERY_TESTS),
+    ("2. 按控制器查詢專案", CONTROLLER_QUERY_TESTS),
+    ("3. 專案詳情查詢", PROJECT_DETAIL_TESTS),
+    ("4. 專案測試摘要", PROJECT_SUMMARY_TESTS),
+    ("5. 統計專案數量", COUNT_PROJECTS_TESTS),
+    ("6. 列出所有客戶", LIST_CUSTOMERS_TESTS),
+    ("7. 列出所有控制器", LIST_CONTROLLERS_TESTS),
+    ("8. 未知意圖", UNKNOWN_INTENT_TESTS),
+    ("9. 邊界情況", EDGE_CASE_TESTS),
+]

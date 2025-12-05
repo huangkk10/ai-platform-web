@@ -64,3 +64,5 @@ cookies.txt
 # 臨時測試目錄
 tmp/
 temp/
+tests/test_saf_smart_query/results/*.md
+tests/test_saf_smart_query/results/*.json

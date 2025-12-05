@@ -81,6 +81,27 @@ def check_saf_health():
     return client.health_check()
 
 
+def get_smart_query_service():
+    """獲取智能查詢服務"""
+    from .smart_query.query_router import SmartQueryService
+    return SmartQueryService()
+
+
+def smart_query(user_query: str, user_id: str = "anonymous"):
+    """
+    執行智能查詢的便利函數
+    
+    Args:
+        user_query: 用戶查詢
+        user_id: 用戶 ID
+        
+    Returns:
+        Dict: 查詢結果
+    """
+    service = get_smart_query_service()
+    return service.query(user_query, user_id)
+
+
 # 導出的類別和函數
 __all__ = [
     'SAF_INTEGRATION_LIBRARY_AVAILABLE',
@@ -91,4 +112,6 @@ __all__ = [
     'get_available_endpoints',
     'get_supported_knowledge_ids',
     'check_saf_health',
+    'get_smart_query_service',
+    'smart_query',
 ]

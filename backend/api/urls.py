@@ -65,6 +65,12 @@ urlpatterns = [
     path('dify/saf/health/', views.saf_health, name='dify_saf_health'),
     path('dify/saf/endpoints/', views.saf_endpoints, name='dify_saf_endpoints'),
     
+    # SAF Smart Query API (LLM 智能路由)
+    path('saf/smart-query/', views.smart_query, name='saf_smart_query'),
+    path('saf/smart-query/health/', views.smart_query_health, name='saf_smart_query_health'),
+    path('saf/smart-query/intents/', views.smart_query_intents, name='saf_smart_query_intents'),
+    path('saf/smart-query/analyze/', views.smart_query_analyze, name='saf_smart_query_analyze'),
+    
     # 通用知識庫端點（向後兼容，通過 knowledge_id 路由）
     path('dify/knowledge/retrieval', views.dify_knowledge_search, name='dify_knowledge_search_no_slash'),
     path('dify/knowledge/retrieval/', views.dify_knowledge_search, name='dify_knowledge_search'),
