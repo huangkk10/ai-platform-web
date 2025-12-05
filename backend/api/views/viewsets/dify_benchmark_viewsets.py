@@ -1102,21 +1102,21 @@ class DifyTestRunViewSet(viewsets.ReadOnlyModelViewSet):
         - max_score: 最高分數
         """
         test_run = self.get_object()
-        results = test_run.results.select_related('test_case').prefetch_related('evaluation')
+        results = test_run.results.select_related('test_case')
         
         # 篩選通過/失敗
         passed = request.query_params.get('passed')
         if passed is not None:
             is_passed = passed.lower() == 'true'
-            results = results.filter(evaluation__is_passed=is_passed)
+            results = results.filter(is_passed=is_passed)
         
         # 篩選分數範圍
         min_score = request.query_params.get('min_score')
         max_score = request.query_params.get('max_score')
         if min_score:
-            results = results.filter(evaluation__score__gte=float(min_score))
+            results = results.filter(score__gte=float(min_score))
         if max_score:
-            results = results.filter(evaluation__score__lte=float(max_score))
+            results = results.filter(score__lte=float(max_score))
         
         serializer = DifyTestResultSerializer(results, many=True)
         

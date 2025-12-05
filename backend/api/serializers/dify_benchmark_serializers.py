@@ -108,7 +108,6 @@ class DifyTestResultSerializer(serializers.ModelSerializer):
     
     test_case_question = serializers.CharField(source='test_case.question', read_only=True)
     test_case_expected_answer = serializers.CharField(source='test_case.expected_answer', read_only=True)
-    evaluation = DifyAnswerEvaluationSerializer(read_only=True)
     
     class Meta:
         model = DifyTestResult
@@ -119,12 +118,18 @@ class DifyTestResultSerializer(serializers.ModelSerializer):
             'test_case_question',
             'test_case_expected_answer',
             'dify_answer',
+            'score',
+            'is_passed',
+            'completeness_score',
+            'accuracy_score',
+            'relevance_score',
+            'matched_keywords',
+            'missing_keywords',
             'response_time',
             'tokens_used',
             'dify_message_id',
             'dify_conversation_id',
             'retrieved_documents',
-            'evaluation',
             'created_at'
         ]
         read_only_fields = ['id', 'created_at']

@@ -31,8 +31,10 @@ import {
   ReloadOutlined,
   SearchOutlined,
   TrophyOutlined,
-  ClockCircleOutlined
+  ClockCircleOutlined,
+  EyeOutlined
 } from '@ant-design/icons';
+import TestResultDetailModal from '../../components/dify-benchmark/TestResultDetailModal';
 import axios from 'axios';
 import './DifyTestHistoryPage.css';
 
@@ -49,6 +51,19 @@ const DifyTestHistoryPage = () => {
     avg_pass_rate: 0,
     today_tests: 0
   });
+
+  // Modal state for viewing test results detail
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [selectedTestRun, setSelectedTestRun] = useState({ id: null, name: '' });
+
+  // 查看詳情處理
+  const handleViewDetail = (record) => {
+    setSelectedTestRun({
+      id: record.id,
+      name: record.version_name || record.run_name || '測試執行'
+    });
+    setDetailModalVisible(true);
+  };
 
   // Load data on mount
   useEffect(() => {
@@ -279,6 +294,24 @@ const DifyTestHistoryPage = () => {
         );
       },
     },
+    {
+      title: '操作',
+      key: 'action',
+      width: 100,
+      align: 'center',
+      fixed: 'right',
+      render: (_, record) => (
+        <Tooltip title="查看每題 AI 回覆詳情">
+          <Button
+            type="link"
+            icon={<EyeOutlined />}
+            onClick={() => handleViewDetail(record)}
+          >
+            詳情
+          </Button>
+        </Tooltip>
+      ),
+    },
   ];
 
   // 篩選資料
@@ -376,7 +409,7 @@ const DifyTestHistoryPage = () => {
               showTotal: (total, range) => `第 ${range[0]}-${range[1]} 項，共 ${total} 項`,
               pageSizeOptions: ['10', '20', '50', '100'],
             }}
-            scroll={{ x: 1400, y: 'calc(100vh - 450px)' }}
+            scroll={{ x: 1500, y: 'calc(100vh - 450px)' }}
             locale={{
               emptyText: (
                 <Empty
@@ -388,6 +421,14 @@ const DifyTestHistoryPage = () => {
           />
         </Space>
       </Card>
+
+      {/* 測試結果詳情 Modal */}
+      <TestResultDetailModal
+        visible={detailModalVisible}
+        testRunId={selectedTestRun.id}
+        testRunName={selectedTestRun.name}
+        onClose={() => setDetailModalVisible(false)}
+      />
     </div>
   );
 };
