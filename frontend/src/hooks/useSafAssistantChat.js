@@ -8,16 +8,14 @@
  * 請求格式：{ query: "用戶問題" }
  * 回應格式：{
  *   success: true,
- *   response: "AI 回應",
- *   intent: "query_projects_by_customer",
- *   confidence: 0.97,
- *   parameters: { customer: "WD" },
- *   response_time_ms: 3500
+ *   answer: "AI 回應（自然語言）",
+ *   intent: { type: "query_projects_by_customer", ... },
+ *   result: { status: "success", data: [...] },
+ *   metadata: { ... }
  * }
  * 
  * ⚠️ 與 Protocol Assistant API 的差異：
  * - 請求參數名：query（不是 message）
- * - 回應內容欄位：response（不是 answer）
  * - 不支援 conversation_id（無對話追蹤）
  */
 
@@ -89,25 +87,31 @@ const useSafAssistantChat = (
       
       console.log('🔍 [SAF Assistant] 回應資料:', {
         success: data.success,
-        response_length: data.response?.length || 0,
-        intent: data.intent,
-        confidence: data.confidence,
-        response_time_ms: data.response_time_ms
+        answer_length: data.answer?.answer?.length || data.answer?.length || 0,
+        intent: data.intent?.type,
+        confidence: data.intent?.confidence,
+        result_status: data.result?.status
       });
 
-      if (data.success) {
+      // 提取回答內容（answer 可能是字串或物件）
+      let answerContent = '';
+      if (typeof data.answer === 'string') {
+        answerContent = data.answer;
+      } else if (data.answer && data.answer.answer) {
+        answerContent = data.answer.answer;
+      }
+
+      if (data.success && answerContent) {
         // 創建 AI 回應訊息
-        // ⚠️ SAF API 使用 "response" 欄位，不是 "answer"
         const assistantMessage = {
           id: Date.now() + 1,
           type: 'assistant',
-          content: data.response || '抱歉，我無法生成回應。',
+          content: answerContent,
           timestamp: new Date(),
           metadata: {
             intent: data.intent,
-            confidence: data.confidence,
-            parameters: data.parameters,
-            response_time_ms: data.response_time_ms
+            result: data.result,
+            query_metadata: data.metadata
           }
         };
 
@@ -126,18 +130,23 @@ const useSafAssistantChat = (
         });
         
       } else {
-        // 處理錯誤回應
-        const errorContent = data.error_message || data.error || '抱歉，查詢失敗，請稍後再試。';
+        // 處理錯誤或無法理解的回應
+        // 優先使用 answer 欄位（包含幫助提示），否則使用 result.message
+        let errorContent = answerContent || 
+                           data.result?.message || 
+                           data.error_message || 
+                           data.error || 
+                           '抱歉，查詢失敗，請稍後再試。';
         
         const errorMessage = {
           id: Date.now() + 1,
           type: 'assistant',
-          content: `❌ ${errorContent}`,
+          content: errorContent,
           timestamp: new Date(),
-          error: true
+          error: !data.success
         };
         
-        console.log('⚠️ [SAF Assistant] API 回傳錯誤:', errorContent);
+        console.log('⚠️ [SAF Assistant] 無法處理查詢:', data.intent?.type);
         setMessages(prev => [...prev, errorMessage]);
       }
 

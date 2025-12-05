@@ -21,14 +21,17 @@ SAF Smart Query API Views
 import logging
 import time
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
+from django.views.decorators.csrf import csrf_exempt
 
 logger = logging.getLogger(__name__)
 
 
+@csrf_exempt
 @api_view(['POST'])
+@authentication_classes([])  # 禁用認證（避免 SessionAuthentication 的 CSRF 檢查）
 @permission_classes([AllowAny])  # 允許外部調用（Dify 整合用）
 def smart_query(request):
     """

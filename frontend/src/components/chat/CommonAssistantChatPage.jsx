@@ -121,6 +121,11 @@ const CommonAssistantChatPage = ({
   }, []);
 
   const loadAssistantConfig = async () => {
+    // 如果沒有配置 API 路徑，跳過載入
+    if (!configApiPath) {
+      return;
+    }
+    
     try {
       const response = await fetch(configApiPath, {
         method: 'GET',

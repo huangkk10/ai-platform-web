@@ -39,7 +39,7 @@ const SAfAssistantChatPage = ({ collapsed = false }) => {
       assistantType="saf"
       assistantName="SAF Assistant"
       useChatHook={useSafAssistantChat}
-      configApiPath="/api/saf/smart-query/config/"
+      configApiPath={null}  // SAF 不需要額外配置 API
       storageKey="saf-assistant"
       permissionKey={null}  // 權限由 Sidebar.js 控制，這裡不再額外檢查
       placeholder="請輸入你的 SAF 查詢問題，例如：WD 有哪些專案？"
