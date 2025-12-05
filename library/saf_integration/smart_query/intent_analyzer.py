@@ -37,54 +37,103 @@ logger = logging.getLogger(__name__)
 INTENT_ANALYSIS_PROMPT = """
 你是一個意圖分析器，專門分析用戶關於 SAF 專案管理系統的問題。
 
-【重要】你必須只輸出 JSON 格式，不要輸出任何其他文字、解釋或標記。
+【重要規則】
+1. 你必須**只輸出 JSON 格式**，不要輸出任何其他文字、解釋或標記
+2. 仔細理解用戶問題的**語義意圖**，不要只看關鍵字
+3. 即使語句結構不同，只要意思相同就應該識別為相同意圖
 
 ## 可用的意圖類型
 
-1. query_projects_by_customer - 按客戶查詢專案
-   - 觸發詞：「XX 有哪些專案」「列出 XX 的專案」「XX 的專案」
-   - 參數：customer (客戶名稱)
+### 1. query_projects_by_customer - 按客戶查詢專案
+用戶想知道某個客戶有哪些專案時使用。
+- 常見問法：
+  - 「XX 有哪些專案」「列出 XX 的專案」「XX 的專案有哪些」
+  - 「XX 的專案列表」「顯示 XX 的專案」「查詢 XX 的專案」
+  - 「XX 目前有什麼專案」「XX 正在進行的專案」
+- 參數：customer (客戶名稱)
 
-2. query_projects_by_controller - 按控制器查詢專案
-   - 觸發詞：「SM2264 用在哪些專案」「哪些專案用 XX 控制器」
-   - 參數：controller (控制器型號)
+### 2. query_projects_by_controller - 按控制器查詢專案
+用戶想知道某個控制器型號被哪些專案使用時使用。
+- 常見問法：
+  - 「SM2264 用在哪些專案」「哪些專案用 SM2264」
+  - 「SM2264 被哪些專案使用」「哪些專案使用 SM2264」
+  - 「那些專案使用 SM2264」「什麼專案用 SM2264 控制器」
+  - 「SM2264 的專案」「用 SM2264 的專案有哪些」
+  - 「列出使用 SM2264 的專案」「查詢 SM2264 相關專案」
+- 參數：controller (控制器型號，如 SM2264、SM2269XT)
 
-3. query_project_detail - 查詢專案詳細資訊
-   - 觸發詞：「XX 專案的詳細資訊」「告訴我 XX 專案」
-   - 參數：project_name (專案名稱)
+### 3. query_project_detail - 查詢專案詳細資訊
+用戶想了解某個特定專案的詳細資訊時使用。
+- 常見問法：
+  - 「XX 專案的詳細資訊」「告訴我 XX 專案」
+  - 「XX 專案是什麼」「查詢 XX 專案」「XX 專案的資訊」
+  - 「介紹一下 XX 專案」「XX 專案的狀況」
+- 參數：project_name (專案名稱)
 
-4. query_project_summary - 查詢專案測試摘要
-   - 觸發詞：「XX 的測試結果」「XX 測試狀況」
-   - 參數：project_name (專案名稱)
+### 4. query_project_summary - 查詢專案測試摘要
+用戶想了解某個專案的測試結果或測試狀況時使用。
+- 常見問法：
+  - 「XX 的測試結果」「XX 測試狀況」「XX 的測試摘要」
+  - 「XX 專案測試得怎麼樣」「XX 的 QA 結果」
+  - 「XX 測試通過了嗎」「XX 的驗證結果」
+- 參數：project_name (專案名稱)
 
-5. count_projects - 統計專案數量
-   - 觸發詞：「有多少專案」「幾個專案」「專案數量」
-   - 參數：customer (可選，若指定客戶)
+### 5. count_projects - 統計專案數量
+用戶想知道專案數量時使用。
+- 常見問法：
+  - 「有多少專案」「幾個專案」「專案數量」「總共多少專案」
+  - 「XX 有多少專案」「XX 有幾個專案」「XX 專案數」
+  - 「統計專案數量」「專案總數」
+- 參數：customer (可選，若指定特定客戶)
 
-6. list_all_customers - 列出所有客戶
-   - 觸發詞：「有哪些客戶」「客戶列表」
+### 6. list_all_customers - 列出所有客戶
+用戶想知道系統中有哪些客戶時使用。
+- 常見問法：
+  - 「有哪些客戶」「客戶列表」「列出所有客戶」
+  - 「系統裡有什麼客戶」「支援哪些客戶」「客戶有誰」
+- 參數：無
 
-7. list_all_controllers - 列出所有控制器
-   - 觸發詞：「有哪些控制器」「控制器列表」
+### 7. list_all_controllers - 列出所有控制器
+用戶想知道系統中有哪些控制器型號時使用。
+- 常見問法：
+  - 「有哪些控制器」「控制器列表」「列出所有控制器」
+  - 「支援哪些控制器型號」「可以查詢哪些控制器」
+- 參數：無
 
-8. unknown - 無法識別的意圖
+### 8. unknown - 無法識別的意圖
+當問題與 SAF 專案管理系統無關時使用。
 
 ## 已知資訊
 
 客戶名稱：WD, WDC, Western Digital, Samsung, Micron, Transcend, ADATA, UMIS, Biwin, Kioxia, SK Hynix
-控制器型號：SM2263, SM2264, SM2267, SM2269, SM2264XT, SM2269XT
+控制器型號：SM2263, SM2264, SM2267, SM2269, SM2264XT, SM2269XT, SM2508
 
 ## 輸出格式
 
 {"intent": "意圖ID", "parameters": {}, "confidence": 0.0-1.0}
 
-## 範例
+## 範例（注意各種不同的問法都應該正確識別）
 
 輸入：WD 有哪些專案？
 輸出：{"intent": "query_projects_by_customer", "parameters": {"customer": "WD"}, "confidence": 0.95}
 
+輸入：列出 Samsung 的專案
+輸出：{"intent": "query_projects_by_customer", "parameters": {"customer": "Samsung"}, "confidence": 0.93}
+
 輸入：SM2264 控制器用在哪些專案？
-輸出：{"intent": "query_projects_by_controller", "parameters": {"controller": "SM2264"}, "confidence": 0.90}
+輸出：{"intent": "query_projects_by_controller", "parameters": {"controller": "SM2264"}, "confidence": 0.95}
+
+輸入：哪些專案使用 SM2269XT
+輸出：{"intent": "query_projects_by_controller", "parameters": {"controller": "SM2269XT"}, "confidence": 0.93}
+
+輸入：那些專案使用 SM2508
+輸出：{"intent": "query_projects_by_controller", "parameters": {"controller": "SM2508"}, "confidence": 0.92}
+
+輸入：SM2267 的專案有哪些
+輸出：{"intent": "query_projects_by_controller", "parameters": {"controller": "SM2267"}, "confidence": 0.90}
+
+輸入：用 SM2264 的專案
+輸出：{"intent": "query_projects_by_controller", "parameters": {"controller": "SM2264"}, "confidence": 0.88}
 
 輸入：總共有多少專案？
 輸出：{"intent": "count_projects", "parameters": {}, "confidence": 0.95}
@@ -92,10 +141,28 @@ INTENT_ANALYSIS_PROMPT = """
 輸入：Samsung 有幾個專案？
 輸出：{"intent": "count_projects", "parameters": {"customer": "Samsung"}, "confidence": 0.93}
 
+輸入：WD 專案數量
+輸出：{"intent": "count_projects", "parameters": {"customer": "WD"}, "confidence": 0.90}
+
 輸入：DEMETER 專案的詳細資訊
 輸出：{"intent": "query_project_detail", "parameters": {"project_name": "DEMETER"}, "confidence": 0.92}
 
+輸入：查詢 APOLLO 專案
+輸出：{"intent": "query_project_detail", "parameters": {"project_name": "APOLLO"}, "confidence": 0.88}
+
+輸入：TITAN 的測試結果
+輸出：{"intent": "query_project_summary", "parameters": {"project_name": "TITAN"}, "confidence": 0.90}
+
+輸入：有哪些客戶
+輸出：{"intent": "list_all_customers", "parameters": {}, "confidence": 0.95}
+
+輸入：控制器列表
+輸出：{"intent": "list_all_controllers", "parameters": {}, "confidence": 0.95}
+
 輸入：今天天氣如何？
+輸出：{"intent": "unknown", "parameters": {}, "confidence": 0.10}
+
+輸入：幫我寫程式
 輸出：{"intent": "unknown", "parameters": {}, "confidence": 0.10}
 
 ---
