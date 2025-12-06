@@ -149,9 +149,9 @@ PROJECT_SUMMARY_TESTS = [
     ),
     TestCase(
         name="測試摘要_多少通過",
-        query="APOLLO 有多少測試通過？",
+        query="KC600 有多少測試通過？",
         expected_intent="query_project_test_summary",
-        expected_params={"project_name": "APOLLO"},
+        expected_params={"project_name": "KC600"},
         min_confidence=0.7,
         description="通過數量查詢"
     ),
@@ -165,17 +165,17 @@ PROJECT_SUMMARY_TESTS = [
     ),
     TestCase(
         name="測試摘要_測試進度",
-        query="PHOENIX 專案的測試進度如何",
+        query="NV3 專案的測試進度如何",
         expected_intent="query_project_test_summary",
-        expected_params={"project_name": "PHOENIX"},
+        expected_params={"project_name": "NV3"},
         min_confidence=0.6,
         description="測試進度查詢"
     ),
     TestCase(
         name="測試摘要_口語化",
-        query="想了解一下 VULCAN 測試跑得怎麼樣",
+        query="想了解一下 Thor 測試跑得怎麼樣",
         expected_intent="query_project_test_summary",
-        expected_params={"project_name": "VULCAN"},
+        expected_params={"project_name": "Thor"},
         min_confidence=0.5,
         description="口語化測試查詢"
     ),
@@ -257,9 +257,9 @@ TEST_BY_CATEGORY_TESTS = [
 TEST_BY_CAPACITY_TESTS = [
     TestCase(
         name="容量測試_1TB",
-        query="APOLLO 1TB 的測試狀況",
+        query="NV3 1TB 的測試狀況",
         expected_intent="query_project_test_by_capacity",
-        expected_params={"project_name": "APOLLO", "capacity": "1TB"},
+        expected_params={"project_name": "NV3", "capacity": "1TB"},
         min_confidence=0.7,
         description="1TB 容量測試查詢"
     ),

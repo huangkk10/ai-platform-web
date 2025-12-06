@@ -91,6 +91,7 @@ class IntentTestResult:
     params_matched: bool
     confidence_ok: bool
     error_message: Optional[str] = None
+    raw_response: Optional[str] = None  # AI 原始回應（用於調試）
 
 
 # ============================================================
@@ -326,6 +327,7 @@ class TestSummaryIntentTester:
             raw_intent = analysis_result.intent if hasattr(analysis_result, 'intent') else ''
             actual_params = analysis_result.parameters if hasattr(analysis_result, 'parameters') else {}
             actual_confidence = analysis_result.confidence if hasattr(analysis_result, 'confidence') else 0.0
+            raw_response = analysis_result.raw_response if hasattr(analysis_result, 'raw_response') else None
             
             # 處理 IntentType 列舉：取其 .value 或轉字串
             if hasattr(raw_intent, 'value'):
@@ -356,7 +358,8 @@ class TestSummaryIntentTester:
                 actual_confidence=actual_confidence,
                 intent_matched=intent_matched,
                 params_matched=params_matched,
-                confidence_ok=confidence_ok
+                confidence_ok=confidence_ok,
+                raw_response=raw_response  # 記錄 AI 原始回應
             )
             
         except Exception as e:
@@ -538,7 +541,8 @@ class TestSummaryIntentTester:
                 "intent_matched": r.intent_matched,
                 "params_matched": r.params_matched,
                 "confidence_ok": r.confidence_ok,
-                "error_message": r.error_message
+                "error_message": r.error_message,
+                "raw_response": r.raw_response  # AI 原始回應
             })
         
         with open(json_file, 'w', encoding='utf-8') as f:
@@ -597,20 +601,26 @@ class TestSummaryIntentTester:
                 f.write("**分析結果**:\n")
                 f.write(f"- 意圖: `{r.actual_intent}` (預期: `{r.test_case.expected_intent.value}`)\n")
                 f.write(f"- 參數: `{r.actual_params}` (預期: `{r.test_case.expected_params}`)\n")
-                f.write(f"- 信心度: {r.actual_confidence:.2f} (最低: {r.test_case.min_confidence})\n")
+                f.write(f"- 信心度: {r.actual_confidence:.2f} (最低: {r.test_case.min_confidence})\n\n")
+                
+                # AI 原始回應
+                if r.raw_response:
+                    f.write("**AI 原始回應**:\n")
+                    f.write(f"```json\n{r.raw_response}\n```\n\n")
                 
                 if not r.passed:
-                    f.write(f"\n**失敗原因**:\n")
+                    f.write("**失敗原因**:\n")
                     if not r.intent_matched:
-                        f.write(f"- ⚠️ 意圖不匹配\n")
+                        f.write("- ⚠️ 意圖不匹配\n")
                     if not r.params_matched:
-                        f.write(f"- ⚠️ 參數不匹配\n")
+                        f.write("- ⚠️ 參數不匹配\n")
                     if not r.confidence_ok:
-                        f.write(f"- ⚠️ 信心度過低\n")
+                        f.write("- ⚠️ 信心度過低\n")
                     if r.error_message:
                         f.write(f"- ❌ 錯誤: {r.error_message}\n")
+                    f.write("\n")
                 
-                f.write("\n---\n\n")
+                f.write("---\n\n")
         
         print(f"📝 Markdown 報告已儲存: {md_file}")
         
