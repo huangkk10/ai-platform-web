@@ -1,9 +1,9 @@
 # LLM 智能 API 路由系統設計文檔
 
-**文檔版本**：v1.7  
+**文檔版本**：v1.8  
 **創建日期**：2025-12-05  
-**最後更新**：2025-12-06  
-**狀態**：📋 Phase 1-2 已完成，Phase 3 已完成，Phase 4 規劃中  
+**最後更新**：2025-12-07  
+**狀態**：📋 Phase 1-4 已完成，Phase 5 規劃中  
 **作者**：AI Platform Team  
 **確定方案**：Django 智能路由 API + Dify 雙 App 協作
 
@@ -22,6 +22,7 @@
 9. [優先實作的意圖](#9-優先實作的意圖)
 10. [Phase 3：Test Summary API 整合設計](#10-phase-3test-summary-api-整合設計)
 11. [Phase 4：FW 版本查詢功能設計](#11-phase-4fw-版本查詢功能設計)
+12. [Phase 5：FW 版本比較功能設計](#12-phase-5fw-版本比較功能設計)
 
 ---
 
@@ -2738,6 +2739,864 @@ def _fuzzy_match_fw(user_input: str, actual_fw: str) -> bool:
 
 ---
 
+## 12. Phase 5：FW 版本比較功能設計
+
+### 12.1 需求背景
+
+在 Phase 4 實現了單一 FW 版本的測試結果查詢後，用戶進一步提出了版本比較的需求：
+
+1. **兩版本比較**：比較指定專案的兩個 FW 版本測試結果差異
+2. **全版本比較**：查看專案下所有 FW 版本的測試結果總覽
+3. **最近 N 版比較**：追蹤最新幾個版本的變化趨勢
+
+### 12.2 用戶場景分析
+
+| 場景 | 用戶問題範例 | 用途 |
+|------|-------------|------|
+| **(1) 兩版本比較** | 「DEMETER 的 Y1114B 和 Y1114A 比較」 | 比較指定的兩個 FW 版本差異 |
+| **(2) 全版本比較** | 「DEMETER 專案所有 FW 版本的比較」 | 查看專案下所有版本的測試趨勢 |
+| **(3) 最近 N 版比較** | 「DEMETER 最近 3 版 FW 的測試比較」 | 追蹤最新幾個版本的變化趨勢 |
+
+### 12.3 新增意圖類型
+
+```python
+# library/saf_integration/smart_query/intent_types.py
+
+class IntentType(Enum):
+    # ... 現有意圖 (Phase 1-4) ...
+    
+    # 🆕 Phase 5: FW 版本比較意圖
+    COMPARE_FW_VERSIONS = "compare_fw_versions"                    # (1) 兩版本比較
+    COMPARE_ALL_FW_VERSIONS = "compare_all_fw_versions"            # (2) 全版本比較
+    COMPARE_RECENT_FW_VERSIONS = "compare_recent_fw_versions"      # (3) 最近 N 版比較
+```
+
+### 12.4 意圖參數設計
+
+| 意圖 | 必要參數 | 可選參數 | 說明 |
+|------|---------|---------|------|
+| `compare_fw_versions` | `project_name`, `fw_version_1`, `fw_version_2` | `category` | 比較指定兩個版本 |
+| `compare_all_fw_versions` | `project_name` | `category`, `limit` | 所有版本比較 |
+| `compare_recent_fw_versions` | `project_name` | `count` (預設 3), `category` | 最近 N 版比較 |
+
+### 12.5 Intent Analyzer Prompt 更新
+
+需要在 `INTENT_ANALYSIS_PROMPT` 中新增以下意圖說明：
+
+```markdown
+### 12. compare_fw_versions - 比較兩個指定的 FW 版本
+用戶想比較同一專案的兩個特定 FW 版本測試結果時使用。
+- 常見問法：
+  - 「XX 專案的 FW1 和 FW2 比較」
+  - 「XX 的 FW1 跟 FW2 測試結果差異」
+  - 「比較 XX 專案 FW1 與 FW2 的測試」
+  - 「XX FW1 vs FW2」
+  - 「XX 專案 FW1 和 FW2 哪個好」
+- 參數：
+  - project_name (專案名稱)
+  - fw_version_1 (第一個 FW 版本)
+  - fw_version_2 (第二個 FW 版本)
+  - category (可選，指定測試類別過濾)
+- 範例輸出：
+  {
+    "intent": "compare_fw_versions",
+    "parameters": {
+      "project_name": "DEMETER",
+      "fw_version_1": "Y1114B",
+      "fw_version_2": "Y1114A"
+    },
+    "confidence": 0.95
+  }
+
+### 13. compare_all_fw_versions - 比較專案所有 FW 版本
+用戶想查看專案下所有 FW 版本的測試結果總覽時使用。
+- 常見問法：
+  - 「XX 專案所有 FW 版本的比較」
+  - 「XX 的每個版本測試結果」
+  - 「列出 XX 專案所有版本的測試統計」
+  - 「XX 專案各版本 Pass/Fail 統計」
+  - 「XX 歷史版本測試比較」
+- 參數：
+  - project_name (專案名稱)
+  - category (可選，指定測試類別過濾)
+  - limit (可選，最多顯示幾個版本)
+- 範例輸出：
+  {
+    "intent": "compare_all_fw_versions",
+    "parameters": {
+      "project_name": "DEMETER"
+    },
+    "confidence": 0.95
+  }
+
+### 14. compare_recent_fw_versions - 比較最近幾版 FW
+用戶想查看專案最近幾個 FW 版本的測試結果時使用。
+- 常見問法：
+  - 「XX 專案最近 3 版的測試比較」
+  - 「XX 最新幾版 FW 的測試結果」
+  - 「XX 專案近期版本測試狀況」
+  - 「XX 最近幾個版本的 Pass/Fail」
+  - 「看一下 XX 近 5 版的測試趨勢」
+- 參數：
+  - project_name (專案名稱)
+  - count (比較版本數量，預設 3，最大 10)
+  - category (可選，指定測試類別過濾)
+- 【重要】如果用戶沒有指定數量，預設為 3 版
+- 範例輸出：
+  {
+    "intent": "compare_recent_fw_versions",
+    "parameters": {
+      "project_name": "Channel",
+      "count": 3
+    },
+    "confidence": 0.95
+  }
+```
+
+### 12.6 Handler 設計
+
+#### 12.6.1 CompareFWVersionsHandler（兩版本比較）
+
+```python
+# library/saf_integration/smart_query/query_handlers/compare_fw_handler.py
+
+class CompareFWVersionsHandler(BaseHandler):
+    """
+    比較兩個指定 FW 版本的測試結果
+    
+    處理 compare_fw_versions 意圖
+    
+    輸入：
+        project_name: 專案名稱
+        fw_version_1: 第一個 FW 版本
+        fw_version_2: 第二個 FW 版本
+        category: (可選) 測試類別過濾
+        
+    輸出：
+        兩版本的 Pass/Fail 對比、變化量、趨勢分析
+    """
+    
+    handler_name = "compare_fw_versions_handler"
+    supported_intent = "compare_fw_versions"
+    
+    def execute(self, parameters: Dict[str, Any]) -> QueryResult:
+        """
+        執行兩版本比較
+        
+        流程：
+        1. 驗證參數
+        2. 分別獲取兩個版本的測試摘要
+        3. 計算差異和趨勢
+        4. 格式化比較結果
+        """
+        # 驗證參數
+        error = self.validate_parameters(
+            parameters, 
+            required=['project_name', 'fw_version_1', 'fw_version_2']
+        )
+        if error:
+            return QueryResult.error(error, self.handler_name, parameters)
+        
+        project_name = parameters.get('project_name')
+        fw_1 = parameters.get('fw_version_1')
+        fw_2 = parameters.get('fw_version_2')
+        category = parameters.get('category')  # 可選
+        
+        try:
+            # 獲取兩個版本的測試摘要
+            summary_1 = self._get_fw_test_summary(project_name, fw_1)
+            summary_2 = self._get_fw_test_summary(project_name, fw_2)
+            
+            if not summary_1:
+                return QueryResult.no_results(
+                    query_type=self.handler_name,
+                    parameters=parameters,
+                    message=f"找不到專案 '{project_name}' 的 FW 版本 '{fw_1}'"
+                )
+            
+            if not summary_2:
+                return QueryResult.no_results(
+                    query_type=self.handler_name,
+                    parameters=parameters,
+                    message=f"找不到專案 '{project_name}' 的 FW 版本 '{fw_2}'"
+                )
+            
+            # 計算差異
+            comparison = self._calculate_comparison(summary_1, summary_2, category)
+            
+            # 格式化並返回結果
+            return self._format_comparison_result(comparison, parameters)
+            
+        except Exception as e:
+            logger.error(f"FW 版本比較錯誤: {str(e)}")
+            return self._handle_api_error(e, parameters)
+    
+    def _get_fw_test_summary(self, project_name: str, fw_version: str) -> Optional[Dict]:
+        """
+        獲取指定 FW 版本的測試摘要
+        
+        複用 TestSummaryByFWHandler 的邏輯
+        """
+        # 1. 找到匹配的專案（FW 模糊匹配）
+        matched_project = self._find_project_by_fw(project_name, fw_version)
+        if not matched_project:
+            return None
+        
+        # 2. 獲取測試摘要
+        project_uid = matched_project.get('projectUid')
+        test_summary = self.api_client.get_project_test_summary(project_uid)
+        
+        if test_summary:
+            test_summary['matchedFW'] = matched_project.get('fw', '')
+            test_summary['projectUid'] = project_uid
+        
+        return test_summary
+    
+    def _calculate_comparison(
+        self, 
+        summary_1: Dict, 
+        summary_2: Dict,
+        category: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        計算兩個版本的差異
+        
+        Returns:
+            {
+                'fw_1': {...},
+                'fw_2': {...},
+                'diff': {
+                    'pass_change': +4,
+                    'fail_change': -5,
+                    'passRate_change': '+3.3%',
+                    'trend': 'improved'
+                },
+                'byCategory': [...] (如果有過濾)
+            }
+        """
+        # 提取統計數據
+        stats_1 = self._extract_stats(summary_1, category)
+        stats_2 = self._extract_stats(summary_2, category)
+        
+        # 計算變化
+        pass_change = stats_1['pass'] - stats_2['pass']
+        fail_change = stats_1['fail'] - stats_2['fail']
+        
+        # 計算通過率變化
+        rate_1 = stats_1['pass'] / max(stats_1['total'], 1) * 100
+        rate_2 = stats_2['pass'] / max(stats_2['total'], 1) * 100
+        rate_change = rate_1 - rate_2
+        
+        # 判斷趨勢
+        if rate_change > 1:
+            trend = 'improved'
+        elif rate_change < -1:
+            trend = 'declined'
+        else:
+            trend = 'stable'
+        
+        return {
+            'projectName': summary_1.get('projectName', ''),
+            'fw_1': {
+                'version': summary_1.get('matchedFW', ''),
+                'pass': stats_1['pass'],
+                'fail': stats_1['fail'],
+                'total': stats_1['total'],
+                'passRate': f"{rate_1:.1f}%"
+            },
+            'fw_2': {
+                'version': summary_2.get('matchedFW', ''),
+                'pass': stats_2['pass'],
+                'fail': stats_2['fail'],
+                'total': stats_2['total'],
+                'passRate': f"{rate_2:.1f}%"
+            },
+            'diff': {
+                'pass_change': pass_change,
+                'fail_change': fail_change,
+                'passRate_change': f"{rate_change:+.1f}%",
+                'trend': trend
+            },
+            'category_filter': category
+        }
+```
+
+#### 12.6.2 CompareAllFWVersionsHandler（全版本比較）
+
+```python
+class CompareAllFWVersionsHandler(BaseHandler):
+    """
+    比較專案下所有 FW 版本的測試結果
+    
+    處理 compare_all_fw_versions 意圖
+    """
+    
+    handler_name = "compare_all_fw_versions_handler"
+    supported_intent = "compare_all_fw_versions"
+    
+    def execute(self, parameters: Dict[str, Any]) -> QueryResult:
+        """
+        執行全版本比較
+        
+        流程：
+        1. 獲取專案下所有 FW 版本
+        2. 批量獲取每個版本的測試摘要
+        3. 排序並計算趨勢
+        4. 格式化結果
+        """
+        error = self.validate_parameters(parameters, required=['project_name'])
+        if error:
+            return QueryResult.error(error, self.handler_name, parameters)
+        
+        project_name = parameters.get('project_name')
+        limit = parameters.get('limit', 10)  # 預設最多 10 個版本
+        category = parameters.get('category')
+        
+        try:
+            # 1. 獲取專案下所有 FW 版本
+            fw_versions = self._get_all_fw_versions_for_project(project_name)
+            
+            if not fw_versions:
+                return QueryResult.no_results(
+                    query_type=self.handler_name,
+                    parameters=parameters,
+                    message=f"找不到專案 '{project_name}' 或該專案沒有 FW 版本"
+                )
+            
+            # 2. 批量獲取測試摘要（限制數量避免 API 過載）
+            summaries = []
+            for fw_info in fw_versions[:limit]:
+                summary = self._get_test_summary_by_uid(fw_info['projectUid'])
+                if summary:
+                    summary['fw'] = fw_info['fw']
+                    summary['projectUid'] = fw_info['projectUid']
+                    summaries.append(summary)
+            
+            # 3. 計算趨勢
+            trend_analysis = self._analyze_trend(summaries)
+            
+            # 4. 格式化結果
+            return self._format_all_versions_result(
+                project_name, summaries, trend_analysis, parameters
+            )
+            
+        except Exception as e:
+            logger.error(f"全版本比較錯誤: {str(e)}")
+            return self._handle_api_error(e, parameters)
+    
+    def _get_all_fw_versions_for_project(self, project_name: str) -> List[Dict]:
+        """
+        獲取專案下所有 FW 版本
+        
+        Returns:
+            [
+                {'projectUid': 'xxx', 'fw': 'Y1114B', 'createDate': '...'},
+                {'projectUid': 'yyy', 'fw': 'Y1114A', 'createDate': '...'},
+                ...
+            ]
+        """
+        projects = self.api_client.get_all_projects()
+        
+        if not projects:
+            return []
+        
+        # 過濾出指定專案名稱的所有版本
+        project_name_lower = project_name.lower()
+        matching_versions = []
+        
+        for project in projects:
+            if project.get('projectName', '').lower() == project_name_lower:
+                matching_versions.append({
+                    'projectUid': project.get('projectUid'),
+                    'fw': project.get('fw', ''),
+                    'createDate': project.get('createDate', ''),
+                    'customer': project.get('customer', ''),
+                    'controller': project.get('controller', '')
+                })
+        
+        # 按建立日期排序（最新的在前）
+        matching_versions.sort(
+            key=lambda x: x.get('createDate', ''), 
+            reverse=True
+        )
+        
+        return matching_versions
+    
+    def _analyze_trend(self, summaries: List[Dict]) -> Dict[str, Any]:
+        """
+        分析版本趨勢
+        
+        Returns:
+            {
+                'direction': 'improving' | 'declining' | 'stable',
+                'best_version': {...},
+                'worst_version': {...},
+                'average_pass_rate': '5.5%'
+            }
+        """
+        if not summaries:
+            return {'direction': 'unknown'}
+        
+        # 計算每個版本的通過率
+        rates = []
+        for s in summaries:
+            categories = s.get('categories', [])
+            total_pass = sum(c.get('total', {}).get('pass', 0) for c in categories)
+            total_fail = sum(c.get('total', {}).get('fail', 0) for c in categories)
+            total = total_pass + total_fail
+            rate = (total_pass / total * 100) if total > 0 else 0
+            rates.append({
+                'fw': s.get('fw', ''),
+                'rate': rate,
+                'pass': total_pass,
+                'fail': total_fail
+            })
+        
+        # 找最佳和最差
+        best = max(rates, key=lambda x: x['rate'])
+        worst = min(rates, key=lambda x: x['rate'])
+        avg_rate = sum(r['rate'] for r in rates) / len(rates)
+        
+        # 判斷趨勢（比較最新 vs 最舊）
+        if len(rates) >= 2:
+            newest_rate = rates[0]['rate']
+            oldest_rate = rates[-1]['rate']
+            if newest_rate > oldest_rate + 2:
+                direction = 'improving'
+            elif newest_rate < oldest_rate - 2:
+                direction = 'declining'
+            else:
+                direction = 'stable'
+        else:
+            direction = 'stable'
+        
+        return {
+            'direction': direction,
+            'best_version': best,
+            'worst_version': worst,
+            'average_pass_rate': f"{avg_rate:.1f}%",
+            'total_versions': len(rates)
+        }
+```
+
+#### 12.6.3 CompareRecentFWVersionsHandler（最近 N 版比較）
+
+```python
+class CompareRecentFWVersionsHandler(BaseHandler):
+    """
+    比較專案最近 N 個 FW 版本的測試結果
+    
+    處理 compare_recent_fw_versions 意圖
+    """
+    
+    handler_name = "compare_recent_fw_versions_handler"
+    supported_intent = "compare_recent_fw_versions"
+    
+    def execute(self, parameters: Dict[str, Any]) -> QueryResult:
+        """
+        執行最近 N 版比較
+        
+        流程：
+        1. 獲取最近 N 個版本
+        2. 獲取測試摘要
+        3. 計算版本間差異
+        4. 格式化結果
+        """
+        error = self.validate_parameters(parameters, required=['project_name'])
+        if error:
+            return QueryResult.error(error, self.handler_name, parameters)
+        
+        project_name = parameters.get('project_name')
+        count = min(parameters.get('count', 3), 10)  # 預設 3，最大 10
+        category = parameters.get('category')
+        
+        try:
+            # 1. 獲取最近 N 個版本
+            recent_versions = self._get_recent_fw_versions(project_name, count)
+            
+            if not recent_versions:
+                return QueryResult.no_results(
+                    query_type=self.handler_name,
+                    parameters=parameters,
+                    message=f"找不到專案 '{project_name}' 的 FW 版本資料"
+                )
+            
+            # 2. 獲取測試摘要
+            summaries = []
+            for fw_info in recent_versions:
+                summary = self._get_test_summary_by_uid(fw_info['projectUid'])
+                if summary:
+                    summary['fw'] = fw_info['fw']
+                    summary['createDate'] = fw_info.get('createDate', '')
+                    summaries.append(summary)
+            
+            # 3. 計算版本間差異
+            version_diffs = self._calculate_version_diffs(summaries)
+            
+            # 4. 格式化結果
+            return self._format_recent_comparison(
+                project_name, summaries, version_diffs, parameters
+            )
+            
+        except Exception as e:
+            logger.error(f"最近版本比較錯誤: {str(e)}")
+            return self._handle_api_error(e, parameters)
+    
+    def _get_recent_fw_versions(self, project_name: str, count: int) -> List[Dict]:
+        """
+        獲取最近 N 個 FW 版本
+        
+        按建立日期倒序排列，取前 N 個
+        """
+        all_versions = self._get_all_fw_versions_for_project(project_name)
+        return all_versions[:count]
+    
+    def _calculate_version_diffs(self, summaries: List[Dict]) -> List[Dict]:
+        """
+        計算相鄰版本間的差異
+        
+        Returns:
+            [
+                {
+                    'from_version': 'Y1114A',
+                    'to_version': 'Y1114B',
+                    'pass_change': +4,
+                    'fail_change': -2,
+                    'rate_change': '+3.2%'
+                },
+                ...
+            ]
+        """
+        diffs = []
+        
+        for i in range(len(summaries) - 1):
+            current = summaries[i]
+            previous = summaries[i + 1]
+            
+            # 計算統計
+            curr_stats = self._extract_stats(current)
+            prev_stats = self._extract_stats(previous)
+            
+            curr_rate = curr_stats['pass'] / max(curr_stats['total'], 1) * 100
+            prev_rate = prev_stats['pass'] / max(prev_stats['total'], 1) * 100
+            
+            diffs.append({
+                'from_version': previous.get('fw', ''),
+                'to_version': current.get('fw', ''),
+                'pass_change': curr_stats['pass'] - prev_stats['pass'],
+                'fail_change': curr_stats['fail'] - prev_stats['fail'],
+                'rate_change': f"{curr_rate - prev_rate:+.1f}%"
+            })
+        
+        return diffs
+```
+
+### 12.7 回應格式設計
+
+#### 12.7.1 兩版本比較回應
+
+```python
+# response_generator.py
+
+def _generate_compare_fw_versions_response(self, result_data: Dict, 
+                                            full_result: Dict) -> Dict[str, Any]:
+    """生成兩版本比較的回答"""
+    data = result_data.get('data', {})
+    
+    project_name = data.get('projectName', '未知專案')
+    fw_1 = data.get('fw_1', {})
+    fw_2 = data.get('fw_2', {})
+    diff = data.get('diff', {})
+    
+    # 趨勢圖示
+    trend_icon = {
+        'improved': '📈 改善',
+        'declined': '📉 退步',
+        'stable': '➡️ 持平'
+    }.get(diff.get('trend'), '➡️')
+    
+    # 變化箭頭
+    def change_arrow(val):
+        if val > 0:
+            return f"+{val} ⬆️"
+        elif val < 0:
+            return f"{val} ⬇️"
+        return "0 ➡️"
+    
+    answer = f"## 📊 {project_name} 專案 FW 版本比較\n\n"
+    answer += f"### 版本對比：{fw_1.get('version')} vs {fw_2.get('version')}\n\n"
+    
+    answer += "| 指標 | " + fw_1.get('version', 'V1') + " | " + fw_2.get('version', 'V2') + " | 變化 |\n"
+    answer += "|------|--------|--------|------|\n"
+    answer += f"| Pass | {fw_1.get('pass', 0)} | {fw_2.get('pass', 0)} | {change_arrow(diff.get('pass_change', 0))} |\n"
+    answer += f"| Fail | {fw_1.get('fail', 0)} | {fw_2.get('fail', 0)} | {change_arrow(diff.get('fail_change', 0))} |\n"
+    answer += f"| 通過率 | {fw_1.get('passRate', 'N/A')} | {fw_2.get('passRate', 'N/A')} | {diff.get('passRate_change', 'N/A')} |\n\n"
+    
+    answer += f"### 📈 趨勢分析\n"
+    answer += f"{trend_icon}：{fw_1.get('version')} {'表現較佳' if diff.get('trend') == 'improved' else '表現較差' if diff.get('trend') == 'declined' else '表現相當'}\n"
+    
+    return {
+        'answer': answer,
+        'table': [fw_1, fw_2],
+        'summary': f"{project_name} {fw_1.get('version')} vs {fw_2.get('version')}"
+    }
+```
+
+#### 12.7.2 全版本比較回應
+
+```markdown
+## 📊 DEMETER 專案所有 FW 版本比較
+
+共有 **5** 個 FW 版本
+
+| # | FW 版本 | Pass | Fail | 通過率 | 建立日期 |
+|---|---------|------|------|--------|----------|
+| 1 | Y1114B | 9 | 100 | 8.3% | 2025-12-01 |
+| 2 | Y1114A | 5 | 95 | 5.0% | 2025-11-15 |
+| 3 | Y1113C | 3 | 90 | 3.2% | 2025-11-01 |
+| 4 | Y1112B | 2 | 88 | 2.2% | 2025-10-15 |
+| 5 | Y1111A | 1 | 85 | 1.2% | 2025-10-01 |
+
+### 📈 趨勢分析
+- 📊 **整體趨勢**：持續改善 ⬆️
+- 🏆 **最佳版本**：Y1114B (8.3%)
+- ⚠️ **最差版本**：Y1111A (1.2%)
+- 📏 **平均通過率**：4.0%
+```
+
+#### 12.7.3 最近 N 版比較回應
+
+```markdown
+## 📊 DEMETER 專案最近 3 版 FW 比較
+
+| 排序 | FW 版本 | Pass | Fail | 通過率 | 與上版比較 |
+|------|---------|------|------|--------|-----------|
+| 1 (最新) | Y1114B | 9 | 100 | 8.3% | +3.3% ⬆️ |
+| 2 | Y1114A | 5 | 95 | 5.0% | +1.8% ⬆️ |
+| 3 | Y1113C | 3 | 90 | 3.2% | - |
+
+### 📈 近期趨勢
+✅ **持續改善中**：最近 3 版通過率從 3.2% 提升到 8.3%
+
+💡 **提示**：您可以查詢更多版本，例如：「DEMETER 最近 5 版的測試比較」
+```
+
+### 12.8 Query Router 更新
+
+```python
+# library/saf_integration/smart_query/query_router.py
+
+from .query_handlers.compare_fw_handler import (
+    CompareFWVersionsHandler,
+    CompareAllFWVersionsHandler,
+    CompareRecentFWVersionsHandler
+)
+
+class QueryRouter:
+    def __init__(self):
+        # ... 現有 handlers ...
+        
+        # Phase 5: FW 版本比較
+        IntentType.COMPARE_FW_VERSIONS: CompareFWVersionsHandler(self.api_client),
+        IntentType.COMPARE_ALL_FW_VERSIONS: CompareAllFWVersionsHandler(self.api_client),
+        IntentType.COMPARE_RECENT_FW_VERSIONS: CompareRecentFWVersionsHandler(self.api_client),
+```
+
+### 12.9 測試案例設計
+
+```python
+# tests/test_saf_smart_query/test_cases.py
+
+# Phase 5.1: 兩版本比較測試案例
+COMPARE_TWO_FW_TEST_CASES = [
+    # 標準兩版本比較
+    {
+        'id': 'compare_fw_standard',
+        'name': '兩版本比較_標準格式',
+        'query': 'DEMETER 的 Y1114B 和 Y1114A 比較',
+        'expected_intent': 'compare_fw_versions',
+        'expected_params': {
+            'project_name': 'DEMETER',
+            'fw_version_1': 'Y1114B',
+            'fw_version_2': 'Y1114A'
+        }
+    },
+    # 口語化問法
+    {
+        'id': 'compare_fw_casual',
+        'name': '兩版本比較_口語化',
+        'query': '比較一下 Channel 的 82CBW5QF 跟 82CBW4QF',
+        'expected_intent': 'compare_fw_versions',
+        'expected_params': {
+            'project_name': 'Channel',
+            'fw_version_1': '82CBW5QF',
+            'fw_version_2': '82CBW4QF'
+        }
+    },
+    # VS 格式
+    {
+        'id': 'compare_fw_vs',
+        'name': '兩版本比較_VS格式',
+        'query': 'Springsteen G200X6EC vs G200X5EC',
+        'expected_intent': 'compare_fw_versions',
+        'expected_params': {
+            'project_name': 'Springsteen',
+            'fw_version_1': 'G200X6EC',
+            'fw_version_2': 'G200X5EC'
+        }
+    },
+    # 哪個好
+    {
+        'id': 'compare_fw_which_better',
+        'name': '兩版本比較_哪個好',
+        'query': 'A400 的 X0325A 和 X0324B 哪個好',
+        'expected_intent': 'compare_fw_versions',
+        'expected_params': {
+            'project_name': 'A400'
+        }
+    },
+]
+
+# Phase 5.2: 全版本比較測試案例
+COMPARE_ALL_FW_TEST_CASES = [
+    # 所有版本
+    {
+        'id': 'compare_all_fw_standard',
+        'name': '全版本比較_標準',
+        'query': 'DEMETER 專案所有 FW 版本的比較',
+        'expected_intent': 'compare_all_fw_versions',
+        'expected_params': {'project_name': 'DEMETER'}
+    },
+    # 歷史版本
+    {
+        'id': 'compare_all_fw_history',
+        'name': '全版本比較_歷史',
+        'query': 'Channel 歷史版本測試比較',
+        'expected_intent': 'compare_all_fw_versions',
+        'expected_params': {'project_name': 'Channel'}
+    },
+    # 各版本統計
+    {
+        'id': 'compare_all_fw_stats',
+        'name': '全版本比較_統計',
+        'query': 'Springsteen 各版本 Pass/Fail 統計',
+        'expected_intent': 'compare_all_fw_versions',
+        'expected_params': {'project_name': 'Springsteen'}
+    },
+]
+
+# Phase 5.3: 最近 N 版比較測試案例
+COMPARE_RECENT_FW_TEST_CASES = [
+    # 最近 3 版（明確數量）
+    {
+        'id': 'compare_recent_fw_3',
+        'name': '最近版本_3版',
+        'query': 'DEMETER 專案最近 3 版的測試比較',
+        'expected_intent': 'compare_recent_fw_versions',
+        'expected_params': {'project_name': 'DEMETER', 'count': 3}
+    },
+    # 最近 5 版
+    {
+        'id': 'compare_recent_fw_5',
+        'name': '最近版本_5版',
+        'query': 'Channel 最新 5 版 FW 的測試結果',
+        'expected_intent': 'compare_recent_fw_versions',
+        'expected_params': {'project_name': 'Channel', 'count': 5}
+    },
+    # 未指定數量（應該預設 3）
+    {
+        'id': 'compare_recent_fw_default',
+        'name': '最近版本_預設',
+        'query': '看一下 Springsteen 近期版本測試狀況',
+        'expected_intent': 'compare_recent_fw_versions',
+        'expected_params': {'project_name': 'Springsteen', 'count': 3}
+    },
+    # 測試趨勢
+    {
+        'id': 'compare_recent_fw_trend',
+        'name': '最近版本_趨勢',
+        'query': 'A400 最近幾版的測試趨勢',
+        'expected_intent': 'compare_recent_fw_versions',
+        'expected_params': {'project_name': 'A400'}
+    },
+]
+```
+
+### 12.10 實作順序建議
+
+| 子階段 | 功能 | 優先級 | 複雜度 | 預估時間 |
+|--------|------|--------|--------|----------|
+| Phase 5.1 | 兩版本比較 | 高 | 中 | 2-3 小時 |
+| Phase 5.2 | 全版本比較 | 中 | 中 | 2 小時 |
+| Phase 5.3 | 最近 N 版比較 | 中 | 低 | 1.5 小時 |
+
+**建議執行順序**：5.1 → 5.3 → 5.2
+
+**理由**：
+- 5.1 是最常用的場景，實現後可驗證基礎比較邏輯
+- 5.3 可以複用 5.1 的比較邏輯和 5.2 的版本獲取邏輯
+- 5.2 需要處理較多版本，可能需要效能優化
+
+### 12.11 技術考量
+
+#### 12.11.1 API 效能
+- **全版本比較**可能需要多次 API 調用（每個 FW 版本一次 test-summary）
+- 建議實作 **批量查詢快取**，避免重複請求
+- 設定合理的 `limit` 預設值（如最多 10 個版本）
+
+#### 12.11.2 FW 版本排序
+- SAF API 的專案列表包含 `createDate` 欄位
+- 按 `createDate` 倒序排列判斷「最近」的版本
+- 需要處理 `createDate` 為空的情況
+
+#### 12.11.3 差異計算
+- 需要處理版本不存在的情況（返回友好提示）
+- 通過率計算需要處理分母為 0 的情況
+- 趨勢判斷邏輯：改善 >+2%、退步 <-2%、持平 ±2%
+
+#### 12.11.4 複用現有邏輯
+- FW 模糊匹配：複用 `TestSummaryByFWHandler._find_project_by_fw()`
+- 測試摘要獲取：複用 `api_client.get_project_test_summary()`
+- 統計計算：可抽取為共用工具方法
+
+### 12.12 Phase 5 實作檢查清單
+
+- [ ] **Intent Types**
+  - [ ] 新增 `COMPARE_FW_VERSIONS` 意圖
+  - [ ] 新增 `COMPARE_ALL_FW_VERSIONS` 意圖
+  - [ ] 新增 `COMPARE_RECENT_FW_VERSIONS` 意圖
+  - [ ] 實作 `get_required_parameters()` 和 `get_optional_parameters()`
+
+- [ ] **Intent Analyzer**
+  - [ ] 更新 `INTENT_ANALYSIS_PROMPT` 添加 3 個比較意圖說明
+  - [ ] 添加意圖判斷範例和參數格式
+
+- [ ] **Handlers**
+  - [ ] 實作 `CompareFWVersionsHandler`（兩版本比較）
+  - [ ] 實作 `CompareAllFWVersionsHandler`（全版本比較）
+  - [ ] 實作 `CompareRecentFWVersionsHandler`（最近 N 版比較）
+  - [ ] 實作共用的 `_get_all_fw_versions_for_project()` 方法
+  - [ ] 實作共用的 `_calculate_comparison()` 方法
+
+- [ ] **Response Generator**
+  - [ ] 實作 `_generate_compare_fw_versions_response()`
+  - [ ] 實作 `_generate_compare_all_fw_versions_response()`
+  - [ ] 實作 `_generate_compare_recent_fw_versions_response()`
+
+- [ ] **Query Router**
+  - [ ] 註冊 3 個新 Handler
+  - [ ] 更新 `__init__.py` 導出
+
+- [ ] **測試**
+  - [ ] 測試兩版本比較意圖識別
+  - [ ] 測試全版本比較意圖識別
+  - [ ] 測試最近 N 版比較意圖識別
+  - [ ] 測試完整查詢流程
+  - [ ] 測試錯誤處理（專案不存在、FW 不存在）
+  - [ ] 效能測試（全版本比較的 API 調用次數）
+
+---
+
 ## 📅 文檔更新記錄
 
 | 版本 | 日期 | 更新內容 | 作者 |
@@ -2750,6 +3609,29 @@ def _fuzzy_match_fw(user_input: str, actual_fw: str) -> bool:
 | v1.5 | 2025-12-05 | 移除方案 A/C，只保留方案 B（Django 智能路由 API） | AI Platform Team |
 | v1.6 | 2025-12-06 | 新增 Phase 3：Test Summary API 整合設計 | AI Platform Team |
 | v1.7 | 2025-12-06 | 新增 Phase 4：FW 版本查詢功能設計 | AI Platform Team |
+| v1.8 | 2025-12-07 | 新增 Phase 5：FW 版本比較功能設計 | AI Platform Team |
+
+### v1.8 更新詳情
+
+**新增內容**：
+- ✅ 新增第 12 章：Phase 5 FW 版本比較功能設計
+- ✅ 詳細需求分析：3 種比較場景
+- ✅ 設計 3 個新意圖類型：
+  - `compare_fw_versions` - 兩個指定版本比較
+  - `compare_all_fw_versions` - 全部版本比較
+  - `compare_recent_fw_versions` - 最近 N 版比較
+- ✅ 完整的 `FWVersionComparisonHandler` 程式碼設計
+- ✅ 比較運算邏輯設計（包含趨勢分析）
+- ✅ 3 種回應格式模板設計
+- ✅ 測試案例規劃
+- ✅ 實作優先順序建議（5.1 → 5.3 → 5.2）
+
+**技術要點**：
+- 需要多次調用 Phase 4 API 獲取各 FW 版本資料
+- 全版本比較需要先查詢所有 FW 版本列表
+- 趨勢分析根據 pass/fail/pass_rate 變化判斷
+- 回應需要支援表格和摘要兩種展示方式
+- 預估實作時間：約 5-6 小時
 
 ### v1.7 更新詳情
 

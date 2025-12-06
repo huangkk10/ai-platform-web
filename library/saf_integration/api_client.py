@@ -232,11 +232,16 @@ class SAFAPIClient:
         
         return []
     
-    def get_all_projects(self) -> List[Dict[str, Any]]:
+    def get_all_projects(self, flatten: bool = True) -> List[Dict[str, Any]]:
         """
         獲取所有專案（自動分頁）
         
         注意: SAF API 限制每頁最大 100 筆
+        
+        Args:
+            flatten: 是否展開 children 子專案到同一層級
+                    - True: 返回所有專案（含子專案）的平坦列表
+                    - False: 保留原始階層結構
         
         Returns:
             所有專案列表
@@ -264,8 +269,32 @@ class SAFAPIClient:
             
             page += 1
         
-        logger.info(f"獲取所有專案完成: 共 {len(all_projects)} 個")
+        # 展開 children 子專案
+        if flatten:
+            all_projects = self._flatten_projects(all_projects)
+            logger.info(f"獲取所有專案完成（含子專案）: 共 {len(all_projects)} 個")
+        else:
+            logger.info(f"獲取所有專案完成（頂層）: 共 {len(all_projects)} 個")
+        
         return all_projects
+    
+    def _flatten_projects(self, projects: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        遞迴展開專案列表中的 children 子專案
+        
+        Args:
+            projects: 專案列表
+            
+        Returns:
+            展開後的平坦專案列表
+        """
+        result = []
+        for project in projects:
+            result.append(project)
+            children = project.get('children', [])
+            if children:
+                result.extend(self._flatten_projects(children))
+        return result
     
     def get_summary(self) -> Optional[Dict[str, Any]]:
         """

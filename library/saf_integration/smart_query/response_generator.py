@@ -64,6 +64,8 @@ class SAFResponseGenerator:
             IntentType.QUERY_PROJECT_TEST_BY_CAPACITY: self._generate_test_by_capacity_response,
             # Phase 4: FW 版本查詢回應生成器
             IntentType.QUERY_PROJECT_TEST_SUMMARY_BY_FW: self._generate_test_summary_by_fw_response,
+            # Phase 5: FW 版本比較回應生成器
+            IntentType.COMPARE_FW_VERSIONS: self._generate_compare_fw_versions_response,
             IntentType.COUNT_PROJECTS: self._generate_count_response,
             IntentType.LIST_ALL_CUSTOMERS: self._generate_customers_list_response,
             IntentType.LIST_ALL_CONTROLLERS: self._generate_controllers_list_response,
@@ -430,6 +432,102 @@ class SAFResponseGenerator:
             'answer': answer,
             'table': [data],
             'summary': f"{project_name} FW {fw_version}：{total_pass} Pass, {total_fail} Fail ({pass_rate})"
+        }
+    
+    # ============================================================
+    # Phase 5: FW 版本比較回應生成方法
+    # ============================================================
+    
+    def _generate_compare_fw_versions_response(self, result_data: Dict,
+                                                full_result: Dict) -> Dict[str, Any]:
+        """
+        生成 FW 版本比較的回答
+        
+        Args:
+            result_data: 查詢結果資料
+            full_result: 完整查詢結果
+            
+        Returns:
+            Dict: 包含 answer 和 table 的回應
+        """
+        data = result_data.get('data', {})
+        
+        if not data:
+            return {
+                'answer': "無法生成比較結果。",
+                'table': []
+            }
+        
+        project_name = data.get('projectName', '未知專案')
+        fw_1 = data.get('fw_1', {})
+        fw_2 = data.get('fw_2', {})
+        diff = data.get('diff', {})
+        
+        fw_version_1 = fw_1.get('version', '版本1')
+        fw_version_2 = fw_2.get('version', '版本2')
+        
+        # 趨勢圖示
+        trend = diff.get('trend', 'stable')
+        trend_icon = {
+            'improved': '📈 改善',
+            'declined': '📉 退步',
+            'stable': '➡️ 持平'
+        }.get(trend, '➡️ 持平')
+        
+        # 變化箭頭
+        def format_change(val):
+            if isinstance(val, (int, float)):
+                if val > 0:
+                    return f"+{val} ⬆️"
+                elif val < 0:
+                    return f"{val} ⬇️"
+            return "0 ➡️"
+        
+        # 構建回答
+        answer = f"## 📊 {project_name} 專案 FW 版本比較\n\n"
+        answer += f"### 版本對比：{fw_version_1} vs {fw_version_2}\n\n"
+        
+        # 比較表格
+        answer += "| 指標 | " + fw_version_1 + " | " + fw_version_2 + " | 變化 |\n"
+        answer += "|------|--------|--------|------|\n"
+        answer += f"| Pass | {fw_1.get('pass', 0)} | {fw_2.get('pass', 0)} | {format_change(diff.get('pass_change', 0))} |\n"
+        answer += f"| Fail | {fw_1.get('fail', 0)} | {fw_2.get('fail', 0)} | {format_change(diff.get('fail_change', 0))} |\n"
+        answer += f"| 通過率 | {fw_1.get('passRate', 'N/A')} | {fw_2.get('passRate', 'N/A')} | {diff.get('passRate_change', 'N/A')} |\n\n"
+        
+        # 趨勢分析
+        answer += f"### 📈 趨勢分析\n\n"
+        answer += f"**{trend_icon}**：{fw_version_1} 相較於 {fw_version_2} "
+        
+        if trend == 'improved':
+            answer += "表現**更好**\n"
+        elif trend == 'declined':
+            answer += "表現**較差**\n"
+        else:
+            answer += "表現**相當**\n"
+        
+        # 生成表格資料（用於前端顯示）
+        table_data = [
+            {
+                'fw_version': fw_version_1,
+                'pass': fw_1.get('pass', 0),
+                'fail': fw_1.get('fail', 0),
+                'total': fw_1.get('total', 0),
+                'passRate': fw_1.get('passRate', 'N/A')
+            },
+            {
+                'fw_version': fw_version_2,
+                'pass': fw_2.get('pass', 0),
+                'fail': fw_2.get('fail', 0),
+                'total': fw_2.get('total', 0),
+                'passRate': fw_2.get('passRate', 'N/A')
+            }
+        ]
+        
+        return {
+            'answer': answer,
+            'table': table_data,
+            'summary': f"{project_name} {fw_version_1} vs {fw_version_2}: {trend_icon}",
+            'diff': diff
         }
     
     def _generate_count_response(self, result_data: Dict,

@@ -400,6 +400,84 @@ TEST_BY_FW_VERSION_TESTS = [
 ]
 
 # ============================================================
+# 4.4 比較兩個 FW 版本測試 (Phase 5 新增)
+# ============================================================
+COMPARE_FW_VERSIONS_TESTS = [
+    TestCase(
+        name="FW版本比較_標準格式",
+        query="DEMETER 專案的 Y1114B 和 Y1114A 比較",
+        expected_intent="compare_fw_versions",
+        expected_params={
+            "project_name": "DEMETER", 
+            "fw_version_1": "Y1114B", 
+            "fw_version_2": "Y1114A"
+        },
+        min_confidence=0.7,
+        description="標準 FW 版本比較"
+    ),
+    TestCase(
+        name="FW版本比較_完整句子",
+        query="比較 Channel 專案 FW 82CBW5QF 和 82F1W7DA 的測試結果",
+        expected_intent="compare_fw_versions",
+        expected_params={
+            "project_name": "Channel", 
+            "fw_version_1": "82CBW5QF", 
+            "fw_version_2": "82F1W7DA"
+        },
+        min_confidence=0.7,
+        description="完整描述的版本比較（使用真實 FW）"
+    ),
+    TestCase(
+        name="FW版本比較_差異查詢",
+        query="A400 的 X0325A 版本跟 W0207A 版本差異",
+        expected_intent="compare_fw_versions",
+        expected_params={
+            "project_name": "A400", 
+            "fw_version_1": "X0325A", 
+            "fw_version_2": "W0207A"
+        },
+        min_confidence=0.6,
+        description="使用「差異」關鍵字（使用真實 FW）"
+    ),
+    TestCase(
+        name="FW版本比較_VS格式",
+        query="DEMETER FW Y1114B vs Y1114A",
+        expected_intent="compare_fw_versions",
+        expected_params={
+            "project_name": "DEMETER", 
+            "fw_version_1": "Y1114B", 
+            "fw_version_2": "Y1114A"
+        },
+        min_confidence=0.6,
+        description="使用 vs 格式"
+    ),
+    TestCase(
+        name="FW版本比較_優劣查詢",
+        query="Frey3B 的 FWX0926C 和 FWX0509DE 哪個測試結果比較好",
+        expected_intent="compare_fw_versions",
+        expected_params={
+            "project_name": "Frey3B", 
+            "fw_version_1": "FWX0926C", 
+            "fw_version_2": "FWX0509DE"
+        },
+        min_confidence=0.6,
+        description="詢問哪個版本較好（使用真實 FW）"
+    ),
+    TestCase(
+        name="FW版本比較_對比格式",
+        query="對比 Bennington 專案韌體 Y1103C 和 Y0418A",
+        expected_intent="compare_fw_versions",
+        expected_params={
+            "project_name": "Bennington", 
+            "fw_version_1": "Y1103C", 
+            "fw_version_2": "Y0418A"
+        },
+        min_confidence=0.6,
+        description="使用「對比」關鍵字（使用真實 FW）"
+    ),
+]
+
+# ============================================================
 # 5. 統計專案數量
 # ============================================================
 COUNT_PROJECTS_TESTS = [
@@ -579,6 +657,7 @@ ALL_TEST_SUITES = [
     ("4.1 按類別查詢測試（Phase 3）", TEST_BY_CATEGORY_TESTS),
     ("4.2 按容量查詢測試（Phase 3）", TEST_BY_CAPACITY_TESTS),
     ("4.3 按 FW 版本查詢測試（Phase 4）", TEST_BY_FW_VERSION_TESTS),
+    ("4.4 FW 版本比較測試（Phase 5）", COMPARE_FW_VERSIONS_TESTS),
     ("5. 統計專案數量", COUNT_PROJECTS_TESTS),
     ("6. 列出所有客戶", LIST_CUSTOMERS_TESTS),
     ("7. 列出所有控制器", LIST_CONTROLLERS_TESTS),
