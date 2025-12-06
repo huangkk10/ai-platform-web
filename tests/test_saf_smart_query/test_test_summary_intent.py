@@ -306,6 +306,61 @@ TEST_BY_CAPACITY_CASES = [
 
 
 # ============================================================
+# 測試案例：query_project_test_summary_by_fw (Phase 4 新增)
+# ============================================================
+TEST_BY_FW_VERSION_CASES = [
+    IntentTestCase(
+        name="FW版本測試_標準格式",
+        query="DEMETER 專案 FW Y1114B 的測試結果",
+        expected_intent=IntentType.QUERY_PROJECT_TEST_SUMMARY_BY_FW,
+        expected_params={"project_name": "DEMETER", "fw_version": "Y1114B"},
+        min_confidence=0.7,
+        description="標準 FW 版本測試查詢"
+    ),
+    IntentTestCase(
+        name="FW版本測試_Channel",
+        query="Channel 的 82CBW5QF 版本測試狀況",
+        expected_intent=IntentType.QUERY_PROJECT_TEST_SUMMARY_BY_FW,
+        expected_params={"project_name": "Channel", "fw_version": "82CBW5QF"},
+        min_confidence=0.7,
+        description="Channel 專案的 FW 版本查詢"
+    ),
+    IntentTestCase(
+        name="FW版本測試_A400",
+        query="A400 專案 X0325A 的測試結果如何",
+        expected_intent=IntentType.QUERY_PROJECT_TEST_SUMMARY_BY_FW,
+        expected_params={"project_name": "A400", "fw_version": "X0325A"},
+        min_confidence=0.7,
+        description="A400 專案的 FW 版本查詢"
+    ),
+    IntentTestCase(
+        name="FW版本測試_Springsteen",
+        query="Springsteen 專案 G200X6EC 的測試結果",
+        expected_intent=IntentType.QUERY_PROJECT_TEST_SUMMARY_BY_FW,
+        expected_params={"project_name": "Springsteen", "fw_version": "G200X6EC"},
+        min_confidence=0.7,
+        description="Springsteen 專案 FW 版本查詢（真實資料）"
+    ),
+    IntentTestCase(
+        name="FW版本測試_韌體版本",
+        query="Garuda 韌體版本 22Z4VBL3 測試情況",
+        expected_intent=IntentType.QUERY_PROJECT_TEST_SUMMARY_BY_FW,
+        expected_params={"project_name": "Garuda", "fw_version": "22Z4VBL3"},
+        min_confidence=0.6,
+        description="使用「韌體版本」關鍵字"
+    ),
+    IntentTestCase(
+        name="FW版本測試_版本號",
+        query="KC600 版本 S4800122 測試報告",
+        expected_intent=IntentType.QUERY_PROJECT_TEST_SUMMARY_BY_FW,
+        expected_params={"project_name": "KC600", "fw_version": "S4800122"},
+        min_confidence=0.6,
+        description="使用「版本」關鍵字"
+    ),
+]
+
+
+# ============================================================
 # 測試執行器
 # ============================================================
 
@@ -421,7 +476,7 @@ class TestSummaryIntentTester:
     def run_all_tests(self, intent_filter: Optional[str] = None) -> Dict[str, Any]:
         """執行所有測試"""
         print("\n" + "=" * 70)
-        print("🧪 SAF Smart Query Phase 3 - 測試摘要意圖測試")
+        print("🧪 SAF Smart Query Phase 3/4 - 測試摘要意圖測試")
         print("=" * 70)
         print(f"測試時間: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         
@@ -442,6 +497,9 @@ class TestSummaryIntentTester:
         
         if intent_filter is None or intent_filter == 'capacity':
             test_suites.append(("按容量查詢測試", TEST_BY_CAPACITY_CASES))
+        
+        if intent_filter is None or intent_filter == 'fw':
+            test_suites.append(("按 FW 版本查詢測試 (Phase 4)", TEST_BY_FW_VERSION_CASES))
         
         # 執行測試
         for suite_name, test_cases in test_suites:
@@ -633,11 +691,11 @@ class TestSummaryIntentTester:
 
 def main():
     parser = argparse.ArgumentParser(
-        description='SAF Smart Query Phase 3 測試摘要意圖測試'
+        description='SAF Smart Query Phase 3/4 測試摘要意圖測試'
     )
     parser.add_argument(
         '--intent', 
-        choices=['summary', 'category', 'capacity'],
+        choices=['summary', 'category', 'capacity', 'fw'],
         help='只測試特定意圖類型'
     )
     parser.add_argument(

@@ -1,9 +1,9 @@
 # LLM 智能 API 路由系統設計文檔
 
-**文檔版本**：v1.6  
+**文檔版本**：v1.7  
 **創建日期**：2025-12-05  
 **最後更新**：2025-12-06  
-**狀態**：📋 Phase 1-2 已完成，Phase 3 規劃中  
+**狀態**：📋 Phase 1-2 已完成，Phase 3 已完成，Phase 4 規劃中  
 **作者**：AI Platform Team  
 **確定方案**：Django 智能路由 API + Dify 雙 App 協作
 
@@ -21,6 +21,7 @@
 8. [Dify 雙 App 整合設計（已確定方案）](#8-dify-雙-app-整合設計已確定方案)
 9. [優先實作的意圖](#9-優先實作的意圖)
 10. [Phase 3：Test Summary API 整合設計](#10-phase-3test-summary-api-整合設計)
+11. [Phase 4：FW 版本查詢功能設計](#11-phase-4fw-版本查詢功能設計)
 
 ---
 
@@ -2180,6 +2181,563 @@ def _register_handlers(self):
 
 ---
 
+## 11. Phase 4：FW 版本查詢功能設計
+
+### 11.1 需求背景
+
+#### 用戶需求
+用戶希望能夠查詢**特定 FW（韌體）版本**的測試結果，例如：
+- 「DEMETER 專案 FW Y1114B 的測試結果」
+- 「Channel 的 82CBW5QF 版本測試狀況」
+- 「NV3 專案 FW X0925B 有多少測試通過？」
+
+#### 資料結構分析
+從 SAF API 查詢結果分析：
+
+```
+專案結構：
+├── projectName: "DEMETER"
+├── projectUid: "b77416d3547548fc8d332248744bf2d1"  ← 唯一識別碼
+├── fw: "[MR1.2][Y1114B_629fa1a_Y1114A_8572096]"   ← FW 版本字串
+└── ... 其他欄位
+
+特點：
+- 同一個 projectName 可能有多個不同的 fw 版本
+- 每個 fw 版本有獨立的 projectUid
+- fw 格式不一致，需要模糊匹配
+```
+
+#### 實際資料範例
+
+| 專案名稱 | FW 版本數量 | FW 範例 |
+|---------|------------|--------|
+| Channel | 397 個版本 | `82CBW5QF`, `82F1W7DA`, `PKGY1124B_FWY1121A` |
+| A400 | 4 個版本 | `Y0812A`, `X0325A`, `W0207A`, `W0728A` |
+| Frey3B | 4 個版本 | `FWX0926C`, `FWX0509DE`, `FWW1219B` |
+| Bennington | 3 個版本 | `Y1103C`, `Y0418A`, `X0925B` |
+
+### 11.2 新增意圖類型
+
+#### IntentType 新增
+
+```python
+# library/saf_integration/smart_query/intent_types.py
+
+class IntentType(Enum):
+    # ... 現有意圖 ...
+    
+    # 🆕 Phase 4: FW 版本查詢
+    QUERY_PROJECT_TEST_SUMMARY_BY_FW = "query_project_test_summary_by_fw"
+```
+
+#### 意圖參數定義
+
+| 意圖 | 參數 | 說明 |
+|------|------|------|
+| `query_project_test_summary_by_fw` | `project_name` | 專案名稱（必填） |
+| | `fw_version` | FW 版本號（必填，支援部分匹配） |
+
+### 11.3 Intent Analyzer Prompt 更新
+
+在 `INTENT_ANALYSIS_PROMPT` 中新增：
+
+```markdown
+### 8. query_project_test_summary_by_fw - 按 FW 版本查詢測試結果 (Phase 4 新增)
+用戶想了解專案特定 FW（韌體）版本的測試結果時使用。
+- 常見問法：
+  - 「XX 專案 FW YYY 的測試結果」
+  - 「XX 的 YYY 版本測試狀況」
+  - 「查看 XX 專案 FW YYY 的 Pass/Fail」
+  - 「XX YYY 版本有多少測試通過？」
+  - 「XX 專案韌體 YYY 的測試進度」
+  - 「想看 XX 的 FW YYY 測試結果」
+- 參數：
+  - project_name (專案名稱，如 DEMETER、Channel、A400)
+  - fw_version (FW 版本號，如 Y1114B、82CBW5QF、X0325A)
+- 【重要】此意圖用於指定 FW 版本的查詢
+- 【區分】如果用戶沒有指定 FW 版本，請使用 query_project_test_summary
+
+### 意圖判斷範例
+
+| 用戶問題 | 正確意圖 | 參數 |
+|---------|---------|------|
+| 「DEMETER 的測試結果」 | query_project_test_summary | project_name: DEMETER |
+| 「DEMETER FW Y1114B 的測試結果」 | query_project_test_summary_by_fw | project_name: DEMETER, fw_version: Y1114B |
+| 「Channel 82CBW5QF 版本測試狀況」 | query_project_test_summary_by_fw | project_name: Channel, fw_version: 82CBW5QF |
+```
+
+### 11.4 TestSummaryByFWHandler 設計
+
+#### 處理流程
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    🧑 用戶問題                                           │
+│            「DEMETER 專案 FW Y1114B 的測試結果」                         │
+└─────────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    🧠 Intent Analyzer                                    │
+│                                                                          │
+│  識別結果：                                                              │
+│  {                                                                       │
+│    "intent": "query_project_test_summary_by_fw",                        │
+│    "parameters": {                                                       │
+│      "project_name": "DEMETER",                                         │
+│      "fw_version": "Y1114B"                                             │
+│    },                                                                    │
+│    "confidence": 0.95                                                    │
+│  }                                                                       │
+└─────────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    🔀 TestSummaryByFWHandler                             │
+│                                                                          │
+│  Step 1: 查詢專案所有版本                                                │
+│          GET /api/v1/projects                                           │
+│          過濾 projectName = "DEMETER"                                   │
+│                                                                          │
+│  Step 2: 模糊匹配 FW 版本                                                │
+│          用戶輸入: "Y1114B"                                              │
+│          實際 FW:  "[MR1.2][Y1114B_629fa1a_Y1114A_8572096]"             │
+│          匹配策略: fw.lower().contains(input.lower())                   │
+│                                                                          │
+│  Step 3: 取得對應的 projectUid                                          │
+│          projectUid = "b77416d3547548fc8d332248744bf2d1"                │
+│                                                                          │
+│  Step 4: 調用 Test Summary API                                          │
+│          GET /api/v1/projects/{projectUid}/test-summary                 │
+│                                                                          │
+│  Step 5: 格式化回應（包含 FW 版本資訊）                                  │
+└─────────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+                    📊 返回指定 FW 版本的測試結果
+```
+
+#### Handler 程式碼設計
+
+```python
+# library/saf_integration/smart_query/handlers/test_summary_by_fw_handler.py
+
+"""
+按 FW 版本查詢測試結果 Handler
+==============================
+
+Phase 4 新增功能，支援查詢特定 FW 版本的測試結果。
+
+作者：AI Platform Team
+創建日期：2025-12-06
+"""
+
+import logging
+from typing import Optional, List, Dict, Any
+
+from ..intent_types import IntentResult, IntentType
+from .base_handler import BaseQueryHandler, QueryResult
+
+logger = logging.getLogger(__name__)
+
+
+class TestSummaryByFWHandler(BaseQueryHandler):
+    """按 FW 版本查詢測試結果 Handler"""
+    
+    intent_type = IntentType.QUERY_PROJECT_TEST_SUMMARY_BY_FW
+    
+    def execute(self, intent_result: IntentResult) -> QueryResult:
+        """
+        執行 FW 版本查詢
+        
+        Args:
+            intent_result: 意圖分析結果，包含 project_name 和 fw_version
+            
+        Returns:
+            QueryResult: 查詢結果
+        """
+        project_name = intent_result.parameters.get('project_name')
+        fw_version = intent_result.parameters.get('fw_version')
+        
+        if not project_name or not fw_version:
+            return self._missing_params_error(project_name, fw_version)
+        
+        # Step 1: 查詢該專案的所有版本
+        all_projects = self.api_client.get_all_projects()
+        
+        # Step 2: 模糊匹配 FW 版本，找到對應的 projectUid
+        matched_project = self._find_project_by_fw(
+            all_projects, project_name, fw_version
+        )
+        
+        if not matched_project:
+            return self._not_found_response(project_name, fw_version)
+        
+        project_uid = matched_project.get('projectUid')
+        matched_fw = matched_project.get('fw')
+        
+        # Step 3: 調用 test-summary API
+        try:
+            test_summary = self.api_client.get_project_test_summary(project_uid)
+        except Exception as e:
+            logger.error(f"調用 Test Summary API 失敗: {e}")
+            return self._api_error_response(project_name, fw_version, str(e))
+        
+        # Step 4: 格式化回應（包含 FW 版本資訊）
+        return self._format_response(test_summary, project_name, matched_fw)
+    
+    def _find_project_by_fw(
+        self, 
+        projects: List[Dict], 
+        project_name: str, 
+        fw_version: str
+    ) -> Optional[Dict]:
+        """
+        模糊匹配 FW 版本，找到對應的專案
+        
+        匹配策略：
+        1. 先精確匹配 projectName（不區分大小寫）
+        2. 再模糊匹配 fw 欄位（用戶輸入是否包含在 fw 中）
+        
+        Args:
+            projects: 所有專案列表
+            project_name: 專案名稱
+            fw_version: 用戶輸入的 FW 版本
+            
+        Returns:
+            匹配的專案 dict，或 None
+        """
+        fw_lower = fw_version.lower()
+        project_name_lower = project_name.lower()
+        
+        candidates = []
+        
+        for p in projects:
+            p_name = p.get('projectName', '').lower()
+            p_fw = p.get('fw', '').lower()
+            
+            # 專案名稱必須匹配
+            if p_name != project_name_lower:
+                continue
+            
+            # FW 模糊匹配
+            if fw_lower in p_fw:
+                candidates.append({
+                    'project': p,
+                    'match_score': len(fw_lower) / len(p_fw) if p_fw else 0
+                })
+        
+        if not candidates:
+            return None
+        
+        # 返回匹配度最高的（最精確的匹配）
+        candidates.sort(key=lambda x: x['match_score'], reverse=True)
+        return candidates[0]['project']
+    
+    def _format_response(
+        self, 
+        test_summary: Dict, 
+        project_name: str, 
+        fw_version: str
+    ) -> QueryResult:
+        """格式化回應，包含 FW 版本資訊"""
+        
+        summary = test_summary.get('summary', {})
+        categories = test_summary.get('categories', [])
+        capacities = test_summary.get('capacities', [])
+        
+        total_pass = summary.get('total_pass', 0)
+        total_fail = summary.get('total_fail', 0)
+        overall_total = summary.get('overall_total', 0)
+        pass_rate = summary.get('overall_pass_rate', 0)
+        
+        # 格式化 Markdown
+        lines = [
+            f"## 📊 **{project_name}** 專案測試結果統計",
+            f"### 📌 FW 版本：`{fw_version}`",
+            "",
+            "### 整體統計",
+            f"- **總通過數**：{total_pass}",
+            f"- **總失敗數**：{total_fail}",
+            f"- **通過率**：{pass_rate:.1f}%" if overall_total > 0 else "- **通過率**：N/A",
+            ""
+        ]
+        
+        # 按類別統計
+        if categories:
+            lines.append("### 📁 按測試類別")
+            lines.append("")
+            lines.append("| 類別 | Pass | Fail | 總數 | 通過率 |")
+            lines.append("|------|------|------|------|--------|")
+            for cat in categories:
+                cat_name = cat.get('category', 'Unknown')
+                cat_pass = cat.get('pass', 0)
+                cat_fail = cat.get('fail', 0)
+                cat_total = cat_pass + cat_fail
+                cat_rate = f"{(cat_pass/cat_total*100):.1f}%" if cat_total > 0 else "N/A"
+                lines.append(f"| {cat_name} | {cat_pass} | {cat_fail} | {cat_total} | {cat_rate} |")
+            lines.append("")
+        
+        # 按容量統計
+        if capacities:
+            lines.append("### 💾 按容量規格")
+            lines.append("")
+            lines.append("| 容量 | Pass | Fail | 總數 | 通過率 |")
+            lines.append("|------|------|------|------|--------|")
+            for cap in capacities:
+                cap_name = cap.get('capacity', 'Unknown')
+                cap_pass = cap.get('pass', 0)
+                cap_fail = cap.get('fail', 0)
+                cap_total = cap_pass + cap_fail
+                cap_rate = f"{(cap_pass/cap_total*100):.1f}%" if cap_total > 0 else "N/A"
+                lines.append(f"| {cap_name} | {cap_pass} | {cap_fail} | {cap_total} | {cap_rate} |")
+            lines.append("")
+        
+        formatted_answer = "\n".join(lines)
+        
+        return QueryResult.success(
+            intent=self.intent_type.value,
+            data=test_summary,
+            formatted_answer=formatted_answer,
+            metadata={
+                'project_name': project_name,
+                'fw_version': fw_version,
+                'total_pass': total_pass,
+                'total_fail': total_fail
+            }
+        )
+    
+    def _not_found_response(self, project_name: str, fw_version: str) -> QueryResult:
+        """找不到專案或 FW 版本的回應"""
+        return QueryResult.not_found(
+            intent=self.intent_type.value,
+            message=f"找不到專案 '{project_name}' 的 FW 版本 '{fw_version}'",
+            suggestions=[
+                f"請確認專案名稱 '{project_name}' 是否正確",
+                f"請確認 FW 版本 '{fw_version}' 是否存在",
+                f"您可以先查詢「{project_name} 有哪些 FW 版本？」"
+            ]
+        )
+    
+    def _missing_params_error(self, project_name: str, fw_version: str) -> QueryResult:
+        """缺少必要參數的回應"""
+        missing = []
+        if not project_name:
+            missing.append('project_name')
+        if not fw_version:
+            missing.append('fw_version')
+        
+        return QueryResult.error(
+            intent=self.intent_type.value,
+            error_message=f"缺少必要參數：{', '.join(missing)}",
+            suggestions=[
+                "請提供專案名稱和 FW 版本",
+                "範例：「DEMETER 專案 FW Y1114B 的測試結果」"
+            ]
+        )
+```
+
+### 11.5 Query Router 更新
+
+```python
+# library/saf_integration/smart_query/query_router.py
+
+from .handlers.test_summary_by_fw_handler import TestSummaryByFWHandler
+
+INTENT_HANDLERS = {
+    # ... 現有 handlers ...
+    
+    # Phase 4: FW 版本查詢
+    IntentType.QUERY_PROJECT_TEST_SUMMARY_BY_FW: TestSummaryByFWHandler,
+}
+```
+
+### 11.6 測試案例設計
+
+```python
+# tests/test_saf_smart_query/test_cases.py
+
+# ============================================================
+# 8. 按 FW 版本查詢測試結果 (Phase 4 新增)
+# ============================================================
+FW_VERSION_QUERY_TESTS = [
+    TestCase(
+        name="FW版本查詢_DEMETER",
+        query="DEMETER 專案 FW Y1114B 的測試結果",
+        expected_intent="query_project_test_summary_by_fw",
+        expected_params={"project_name": "DEMETER", "fw_version": "Y1114B"},
+        min_confidence=0.7,
+        description="按 FW 版本查詢測試結果"
+    ),
+    TestCase(
+        name="FW版本查詢_Channel",
+        query="Channel 的 82CBW5QF 版本測試狀況",
+        expected_intent="query_project_test_summary_by_fw",
+        expected_params={"project_name": "Channel", "fw_version": "82CBW5QF"},
+        min_confidence=0.7,
+        description="Channel 多版本查詢"
+    ),
+    TestCase(
+        name="FW版本查詢_A400",
+        query="A400 專案 X0325A 的測試結果如何",
+        expected_intent="query_project_test_summary_by_fw",
+        expected_params={"project_name": "A400", "fw_version": "X0325A"},
+        min_confidence=0.7,
+        description="A400 FW 版本查詢"
+    ),
+    TestCase(
+        name="FW版本查詢_口語化",
+        query="想看一下 Frey3B 的 FWX0926C 測試結果",
+        expected_intent="query_project_test_summary_by_fw",
+        expected_params={"project_name": "Frey3B", "fw_version": "FWX0926C"},
+        min_confidence=0.6,
+        description="口語化 FW 版本查詢"
+    ),
+    TestCase(
+        name="FW版本查詢_韌體說法",
+        query="Bennington 專案韌體 Y1103C 有多少測試通過",
+        expected_intent="query_project_test_summary_by_fw",
+        expected_params={"project_name": "Bennington", "fw_version": "Y1103C"},
+        min_confidence=0.6,
+        description="使用「韌體」而非「FW」"
+    ),
+]
+```
+
+### 11.7 FW 版本模糊匹配策略
+
+#### 匹配挑戰
+
+| 用戶輸入 | 實際 FW 欄位值 | 匹配難度 |
+|---------|---------------|---------|
+| `Y1114B` | `[MR1.2][Y1114B_629fa1a_Y1114A_8572096]` | 中（包含在字串中） |
+| `82CBW5QF` | `82CBW5QF` | 低（完全匹配） |
+| `X0325A` | `X0325A` | 低（完全匹配） |
+| `FWX0926C` | `FWX0926C` | 低（完全匹配） |
+
+#### 匹配策略
+
+```python
+def _fuzzy_match_fw(user_input: str, actual_fw: str) -> bool:
+    """
+    模糊匹配 FW 版本
+    
+    策略：
+    1. 不區分大小寫
+    2. 用戶輸入是否包含在實際 FW 中
+    3. 或實際 FW 是否包含在用戶輸入中
+    """
+    input_lower = user_input.lower().strip()
+    fw_lower = actual_fw.lower().strip()
+    
+    # 策略 1: 用戶輸入包含在 FW 中
+    if input_lower in fw_lower:
+        return True
+    
+    # 策略 2: FW 包含在用戶輸入中（處理用戶輸入更詳細的情況）
+    if fw_lower in input_lower:
+        return True
+    
+    return False
+```
+
+### 11.8 回應格式範例
+
+#### 查詢：「DEMETER 專案 FW Y1114B 的測試結果」
+
+```markdown
+## 📊 **DEMETER** 專案測試結果統計
+### 📌 FW 版本：`[MR1.2][Y1114B_629fa1a_Y1114A_8572096]`
+
+### 整體統計
+- **總通過數**：9
+- **總失敗數**：100
+- **通過率**：8.3%
+
+### 📁 按測試類別
+
+| 類別 | Pass | Fail | 總數 | 通過率 |
+|------|------|------|------|--------|
+| Chamber Tempeture Test | 0 | 7 | 7 | 0.0% |
+| Compatibility | 0 | 1 | 1 | 0.0% |
+| NVMe_Validation_Tool | 0 | 45 | 45 | 0.0% |
+| Reliability and Power Cycle | 6 | 40 | 46 | 13.0% |
+| Wear Leveling | 3 | 0 | 3 | 100.0% |
+
+### 💾 按容量規格
+
+| 容量 | Pass | Fail | 總數 | 通過率 |
+|------|------|------|------|--------|
+| 256GB | 4 | 33 | 37 | 10.8% |
+| 512GB | 2 | 49 | 51 | 3.9% |
+| 1024GB | 3 | 18 | 21 | 14.3% |
+
+💡 **提示**：您也可以查詢其他 FW 版本的測試結果
+```
+
+### 11.9 擴展功能規劃（未來考慮）
+
+#### 11.9.1 列出專案所有 FW 版本
+
+新增意圖：`query_project_fw_versions`
+
+```
+用戶：「DEMETER 有哪些 FW 版本？」
+回應：
+## DEMETER 專案的 FW 版本列表
+共有 3 個版本：
+1. [MR1.2][Y1114B_629fa1a_Y1114A_8572096]
+2. W0817A
+3. ...
+```
+
+#### 11.9.2 多版本比較
+
+新增意圖：`compare_fw_versions`
+
+```
+用戶：「比較 DEMETER 的 Y1114B 和 W0817A 測試結果」
+回應：版本 A vs 版本 B 的對比表格
+```
+
+### 11.10 預估時程
+
+| 步驟 | 任務 | 預估時間 |
+|------|------|----------|
+| 11.1 | 更新 `intent_types.py`（新增意圖） | 15 分鐘 |
+| 11.2 | 更新 `intent_analyzer.py`（更新 Prompt） | 30 分鐘 |
+| 11.3 | 新增 `test_summary_by_fw_handler.py` | 1 小時 |
+| 11.4 | 更新 `query_router.py`（註冊新 Handler） | 10 分鐘 |
+| 11.5 | 新增測試案例 | 30 分鐘 |
+| 11.6 | 測試和調試 | 1 小時 |
+| **總計** | | **約 3.5 小時** |
+
+### 11.11 Phase 4 實作檢查清單
+
+- [ ] **Intent Types**
+  - [ ] 新增 `QUERY_PROJECT_TEST_SUMMARY_BY_FW` 意圖
+
+- [ ] **Intent Analyzer**
+  - [ ] 更新 `INTENT_ANALYSIS_PROMPT` 添加 FW 版本意圖說明
+  - [ ] 添加意圖判斷範例
+
+- [ ] **Test Summary By FW Handler**
+  - [ ] 實作 `execute()` 方法
+  - [ ] 實作 `_find_project_by_fw()` 模糊匹配方法
+  - [ ] 實作 `_format_response()` 方法（包含 FW 版本資訊）
+  - [ ] 實作錯誤處理方法
+
+- [ ] **Query Router**
+  - [ ] 註冊 `TestSummaryByFWHandler`
+
+- [ ] **測試**
+  - [ ] 測試 FW 模糊匹配邏輯
+  - [ ] 測試意圖識別準確度
+  - [ ] 測試完整查詢流程
+  - [ ] 測試錯誤處理（找不到專案、找不到 FW 版本）
+
+---
+
 ## 📅 文檔更新記錄
 
 | 版本 | 日期 | 更新內容 | 作者 |
@@ -2191,6 +2749,24 @@ def _register_handlers(self):
 | v1.4 | 2025-12-05 | 完成 B-1b-2 方案配置，新增雙 App 協作架構設計 | AI Platform Team |
 | v1.5 | 2025-12-05 | 移除方案 A/C，只保留方案 B（Django 智能路由 API） | AI Platform Team |
 | v1.6 | 2025-12-06 | 新增 Phase 3：Test Summary API 整合設計 | AI Platform Team |
+| v1.7 | 2025-12-06 | 新增 Phase 4：FW 版本查詢功能設計 | AI Platform Team |
+
+### v1.7 更新詳情
+
+**新增內容**：
+- ✅ 新增第 11 章：Phase 4 FW 版本查詢功能設計
+- ✅ 詳細分析 FW 版本資料結構（同一專案多版本）
+- ✅ 設計 `query_project_test_summary_by_fw` 意圖
+- ✅ 完整的 `TestSummaryByFWHandler` 程式碼設計
+- ✅ FW 版本模糊匹配策略設計
+- ✅ 測試案例設計
+- ✅ 擴展功能規劃（列出 FW 版本、版本比較）
+- ✅ 實作檢查清單
+
+**技術要點**：
+- FW 版本匹配需要模糊匹配（用戶輸入 `Y1114B`，實際 FW 為 `[MR1.2][Y1114B_629fa1a_...]`）
+- 需要 2 次 API 調用（先查專案列表找 projectUid，再查 test-summary）
+- 預估實作時間：約 3.5 小時
 
 ### v1.6 更新詳情
 

@@ -20,6 +20,7 @@ from .query_handlers import (
     ProjectDetailHandler,
     ProjectSummaryHandler,
     TestSummaryHandler,
+    TestSummaryByFWHandler,
     StatisticsHandler,
 )
 
@@ -46,6 +47,9 @@ class QueryRouter:
         # Phase 3: TestSummaryHandler 處理測試摘要相關意圖
         test_summary_handler = TestSummaryHandler()
         
+        # Phase 4: TestSummaryByFWHandler 處理 FW 版本查詢意圖
+        test_summary_by_fw_handler = TestSummaryByFWHandler()
+        
         self._handlers = {
             # Phase 1-2 處理器
             IntentType.QUERY_PROJECTS_BY_CUSTOMER: CustomerHandler(),
@@ -57,6 +61,9 @@ class QueryRouter:
             IntentType.QUERY_PROJECT_TEST_SUMMARY: test_summary_handler,
             IntentType.QUERY_PROJECT_TEST_BY_CATEGORY: test_summary_handler,
             IntentType.QUERY_PROJECT_TEST_BY_CAPACITY: test_summary_handler,
+            
+            # Phase 4: FW 版本查詢處理器
+            IntentType.QUERY_PROJECT_TEST_SUMMARY_BY_FW: test_summary_by_fw_handler,
             
             # 統計類型使用專門的處理器
             IntentType.COUNT_PROJECTS: self._statistics_handler,
@@ -171,6 +178,7 @@ class QueryRouter:
 • 「SM2264 控制器用在哪些專案？」- 查詢使用指定控制器的專案
 • 「DEMETER 專案的詳細資訊」- 查詢專案詳情
 • 「DEMETER 的測試結果」- 查詢專案測試摘要
+• 「DEMETER 專案 FW Y1114B 的測試結果」- 查詢特定 FW 版本的測試結果
 • 「WD 有幾個專案？」- 統計專案數量
 • 「有哪些客戶？」- 列出所有客戶
 • 「有哪些控制器？」- 列出所有控制器

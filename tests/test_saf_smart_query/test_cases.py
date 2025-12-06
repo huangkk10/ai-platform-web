@@ -322,6 +322,84 @@ TEST_BY_CAPACITY_TESTS = [
 ]
 
 # ============================================================
+# 4.3 按 FW 版本查詢專案測試 (Phase 4 新增)
+# ============================================================
+TEST_BY_FW_VERSION_TESTS = [
+    TestCase(
+        name="FW版本測試_標準格式",
+        query="DEMETER 專案 FW Y1114B 的測試結果",
+        expected_intent="query_project_test_summary_by_fw",
+        expected_params={"project_name": "DEMETER", "fw_version": "Y1114B"},
+        min_confidence=0.7,
+        description="標準 FW 版本測試查詢"
+    ),
+    TestCase(
+        name="FW版本測試_Channel",
+        query="Channel 的 82CBW5QF 版本測試狀況",
+        expected_intent="query_project_test_summary_by_fw",
+        expected_params={"project_name": "Channel", "fw_version": "82CBW5QF"},
+        min_confidence=0.7,
+        description="Channel 專案的 FW 版本查詢"
+    ),
+    TestCase(
+        name="FW版本測試_A400",
+        query="A400 專案 X0325A 的測試結果如何",
+        expected_intent="query_project_test_summary_by_fw",
+        expected_params={"project_name": "A400", "fw_version": "X0325A"},
+        min_confidence=0.7,
+        description="A400 專案的 FW 版本查詢"
+    ),
+    TestCase(
+        name="FW版本測試_Frey3B",
+        query="想看一下 Frey3B 的 FWX0926C 測試結果",
+        expected_intent="query_project_test_summary_by_fw",
+        expected_params={"project_name": "Frey3B", "fw_version": "FWX0926C"},
+        min_confidence=0.6,
+        description="Frey3B 專案的 FW 版本查詢（口語化）"
+    ),
+    TestCase(
+        name="FW版本測試_通過數量",
+        query="Bennington 專案韌體 Y1103C 有多少測試通過",
+        expected_intent="query_project_test_summary_by_fw",
+        expected_params={"project_name": "Bennington", "fw_version": "Y1103C"},
+        min_confidence=0.6,
+        description="帶數量詢問的 FW 版本查詢"
+    ),
+    TestCase(
+        name="FW版本測試_韌體版本",
+        query="Garuda 韌體版本 22Z4VBL3 測試情況",
+        expected_intent="query_project_test_summary_by_fw",
+        expected_params={"project_name": "Garuda", "fw_version": "22Z4VBL3"},
+        min_confidence=0.6,
+        description="使用「韌體版本」關鍵字"
+    ),
+    TestCase(
+        name="FW版本測試_firmware",
+        query="Hydro firmware FDC_Y1121A_7b80259 的測試結果",
+        expected_intent="query_project_test_summary_by_fw",
+        expected_params={"project_name": "Hydro", "fw_version": "FDC_Y1121A_7b80259"},
+        min_confidence=0.6,
+        description="使用英文 firmware 關鍵字"
+    ),
+    TestCase(
+        name="FW版本測試_版本號",
+        query="KC600 版本 S4800122 測試報告",
+        expected_intent="query_project_test_summary_by_fw",
+        expected_params={"project_name": "KC600", "fw_version": "S4800122"},
+        min_confidence=0.6,
+        description="使用「版本」關鍵字"
+    ),
+    TestCase(
+        name="FW版本測試_Springsteen",
+        query="Springsteen 專案 G200X6EC 的測試結果",
+        expected_intent="query_project_test_summary_by_fw",
+        expected_params={"project_name": "Springsteen", "fw_version": "G200X6EC"},
+        min_confidence=0.7,
+        description="Springsteen 專案的 FW 版本查詢（真實資料）"
+    ),
+]
+
+# ============================================================
 # 5. 統計專案數量
 # ============================================================
 COUNT_PROJECTS_TESTS = [
@@ -500,6 +578,7 @@ ALL_TEST_SUITES = [
     ("4. 專案測試摘要（基本）", PROJECT_SUMMARY_TESTS),
     ("4.1 按類別查詢測試（Phase 3）", TEST_BY_CATEGORY_TESTS),
     ("4.2 按容量查詢測試（Phase 3）", TEST_BY_CAPACITY_TESTS),
+    ("4.3 按 FW 版本查詢測試（Phase 4）", TEST_BY_FW_VERSION_TESTS),
     ("5. 統計專案數量", COUNT_PROJECTS_TESTS),
     ("6. 列出所有客戶", LIST_CUSTOMERS_TESTS),
     ("7. 列出所有控制器", LIST_CONTROLLERS_TESTS),

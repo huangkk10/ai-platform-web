@@ -62,6 +62,8 @@ class SAFResponseGenerator:
             IntentType.QUERY_PROJECT_TEST_SUMMARY: self._generate_test_summary_response,
             IntentType.QUERY_PROJECT_TEST_BY_CATEGORY: self._generate_test_by_category_response,
             IntentType.QUERY_PROJECT_TEST_BY_CAPACITY: self._generate_test_by_capacity_response,
+            # Phase 4: FW 版本查詢回應生成器
+            IntentType.QUERY_PROJECT_TEST_SUMMARY_BY_FW: self._generate_test_summary_by_fw_response,
             IntentType.COUNT_PROJECTS: self._generate_count_response,
             IntentType.LIST_ALL_CUSTOMERS: self._generate_customers_list_response,
             IntentType.LIST_ALL_CONTROLLERS: self._generate_controllers_list_response,
@@ -337,6 +339,97 @@ class SAFResponseGenerator:
             'answer': answer,
             'table': [data],
             'summary': f"{project_name} {capacity}：{pass_count} Pass, {fail_count} Fail"
+        }
+    
+    # ============================================================
+    # Phase 4: FW 版本查詢回應生成方法
+    # ============================================================
+    
+    def _generate_test_summary_by_fw_response(self, result_data: Dict,
+                                               full_result: Dict) -> Dict[str, Any]:
+        """
+        生成按 FW 版本查詢測試結果的回答
+        
+        Args:
+            result_data: 查詢結果資料
+            full_result: 完整查詢結果
+            
+        Returns:
+            Dict: 包含 answer 和 table 的回應
+        """
+        data = result_data.get('data', {})
+        
+        if not data:
+            return {
+                'answer': "找不到該 FW 版本的測試結果。",
+                'table': []
+            }
+        
+        project_name = data.get('projectName', '未知專案')
+        fw_version = data.get('fwVersion', '未知版本')
+        customer = data.get('customer', '-')
+        controller = data.get('controller', '-')
+        summary = data.get('summary', {})
+        categories = data.get('categories', [])
+        capacities = data.get('capacities', [])
+        
+        # 構建回答
+        total_pass = summary.get('pass', 0)
+        total_fail = summary.get('fail', 0)
+        pass_rate = summary.get('passRate', 'N/A')
+        
+        # 標題區
+        answer = f"專案 '{project_name}' FW 版本 '{fw_version}' 測試結果：\n"
+        answer += f"✅ Pass: {total_pass}  ❌ Fail: {total_fail}  📊 通過率: {pass_rate}\n\n"
+        
+        # 專案資訊表格
+        answer += "| 項目 | 內容 |\n"
+        answer += "|------|------|\n"
+        answer += f"| 專案名稱 | {project_name} |\n"
+        answer += f"| FW 版本 | {fw_version} |\n"
+        answer += f"| 客戶 | {customer} |\n"
+        answer += f"| 控制器 | {controller} |\n"
+        
+        # 如果有類別統計
+        if categories:
+            answer += "\n### 📁 按測試類別\n\n"
+            answer += "| 類別 | Pass | Fail | 總數 |\n"
+            answer += "|------|------|------|------|\n"
+            for cat in categories:
+                # categories 可能是字典或字串
+                if isinstance(cat, dict):
+                    cat_name = cat.get('name', '-')
+                    cat_pass = cat.get('pass', 0)
+                    cat_fail = cat.get('fail', 0)
+                    cat_total = cat.get('total', cat_pass + cat_fail)
+                    answer += f"| {cat_name} | {cat_pass} | {cat_fail} | {cat_total} |\n"
+                else:
+                    # 如果只是字串，只顯示名稱
+                    answer += f"| {cat} | - | - | - |\n"
+        
+        # 如果有容量統計
+        if capacities:
+            answer += "\n### 💾 可用容量規格\n\n"
+            # capacities 可能是字串列表（如 ['512GB', '1TB']）或字典列表
+            first_item = capacities[0] if capacities else None
+            if isinstance(first_item, dict):
+                # 字典格式：有詳細統計
+                answer += "| 容量 | Pass | Fail | 總數 |\n"
+                answer += "|------|------|------|------|\n"
+                for cap in capacities:
+                    cap_name = cap.get('name', '-')
+                    cap_pass = cap.get('pass', 0)
+                    cap_fail = cap.get('fail', 0)
+                    cap_total = cap.get('total', cap_pass + cap_fail)
+                    answer += f"| {cap_name} | {cap_pass} | {cap_fail} | {cap_total} |\n"
+            else:
+                # 字串列表格式：只顯示可用容量
+                answer += "可用容量：" + ", ".join(str(c) for c in capacities) + "\n"
+        
+        return {
+            'answer': answer,
+            'table': [data],
+            'summary': f"{project_name} FW {fw_version}：{total_pass} Pass, {total_fail} Fail ({pass_rate})"
         }
     
     def _generate_count_response(self, result_data: Dict,

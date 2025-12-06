@@ -121,7 +121,22 @@ INTENT_ANALYSIS_PROMPT = """
 - 參數：project_name (專案名稱), capacity (容量規格: 128GB/256GB/512GB/1TB/2TB/4TB/8TB)
 - 【口語對應】一T/1T → 1TB, 二T/2T → 2TB, 半T → 512GB
 
-### 8. count_projects - 統計專案數量
+### 8. query_project_test_summary_by_fw - 按 FW 版本查詢測試結果 (Phase 4 新增)
+用戶想了解專案特定 FW（韌體）版本的測試結果時使用。
+- 常見問法：
+  - 「XX 專案 FW YYY 的測試結果」
+  - 「XX 的 YYY 版本測試狀況」
+  - 「查看 XX 專案 FW YYY 的 Pass/Fail」
+  - 「XX YYY 版本有多少測試通過？」
+  - 「XX 專案韌體 YYY 的測試進度」
+  - 「想看 XX 的 FW YYY 測試結果」
+- 參數：
+  - project_name (專案名稱，如 DEMETER、Channel、A400)
+  - fw_version (FW 版本號，如 Y1114B、82CBW5QF、X0325A、FWX0926C)
+- 【重要】此意圖用於指定 FW 版本的查詢
+- 【區分】如果用戶沒有指定 FW 版本，請使用 query_project_test_summary
+
+### 9. count_projects - 統計專案數量
 用戶想知道專案數量時使用。
 - 常見問法：
   - 「有多少專案」「幾個專案」「專案數量」「總共多少專案」
@@ -129,21 +144,21 @@ INTENT_ANALYSIS_PROMPT = """
   - 「統計專案數量」「專案總數」
 - 參數：customer (可選，若指定特定客戶)
 
-### 9. list_all_customers - 列出所有客戶
+### 10. list_all_customers - 列出所有客戶
 用戶想知道系統中有哪些客戶時使用。
 - 常見問法：
   - 「有哪些客戶」「客戶列表」「列出所有客戶」
   - 「系統裡有什麼客戶」「支援哪些客戶」「客戶有誰」
 - 參數：無
 
-### 10. list_all_controllers - 列出所有控制器
+### 11. list_all_controllers - 列出所有控制器
 用戶想知道系統中有哪些控制器型號時使用。
 - 常見問法：
   - 「有哪些控制器」「控制器列表」「列出所有控制器」
   - 「支援哪些控制器型號」「可以查詢哪些控制器」
 - 參數：無
 
-### 11. unknown - 無法識別的意圖
+### 12. unknown - 無法識別的意圖
 當問題與 SAF 專案管理系統無關時使用。
 
 ## 已知資訊
@@ -251,6 +266,24 @@ INTENT_ANALYSIS_PROMPT = """
 
 輸入：PHOENIX 的功能測試結果如何
 輸出：{"intent": "query_project_test_by_category", "parameters": {"project_name": "PHOENIX", "category": "Functionality"}, "confidence": 0.93}
+
+輸入：DEMETER 專案 FW Y1114B 的測試結果
+輸出：{"intent": "query_project_test_summary_by_fw", "parameters": {"project_name": "DEMETER", "fw_version": "Y1114B"}, "confidence": 0.95}
+
+輸入：Channel 的 82CBW5QF 版本測試狀況
+輸出：{"intent": "query_project_test_summary_by_fw", "parameters": {"project_name": "Channel", "fw_version": "82CBW5QF"}, "confidence": 0.93}
+
+輸入：A400 專案 X0325A 的測試結果如何
+輸出：{"intent": "query_project_test_summary_by_fw", "parameters": {"project_name": "A400", "fw_version": "X0325A"}, "confidence": 0.93}
+
+輸入：想看一下 Frey3B 的 FWX0926C 測試結果
+輸出：{"intent": "query_project_test_summary_by_fw", "parameters": {"project_name": "Frey3B", "fw_version": "FWX0926C"}, "confidence": 0.90}
+
+輸入：Bennington 專案韌體 Y1103C 有多少測試通過
+輸出：{"intent": "query_project_test_summary_by_fw", "parameters": {"project_name": "Bennington", "fw_version": "Y1103C"}, "confidence": 0.90}
+
+輸入：Springsteen 專案 G200X6EC 的測試結果
+輸出：{"intent": "query_project_test_summary_by_fw", "parameters": {"project_name": "Springsteen", "fw_version": "G200X6EC"}, "confidence": 0.92}
 
 輸入：有哪些客戶
 輸出：{"intent": "list_all_customers", "parameters": {}, "confidence": 0.95}
