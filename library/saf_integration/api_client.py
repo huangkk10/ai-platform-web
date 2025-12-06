@@ -432,6 +432,74 @@ class SAFAPIClient:
             logger.error(f"Test Summary API 請求異常: {str(e)}")
             return None
 
+    def get_firmware_summary(self, project_uid: str) -> Optional[Dict[str, Any]]:
+        """
+        獲取 Firmware 詳細統計摘要
+        
+        使用 /api/v1/projects/{project_uid}/firmware-summary API
+        
+        提供的資訊：
+        - overview: 總測試項目、Pass/Fail、完成率、通過率
+        - sample_stats: 樣本總數、已使用、使用率
+        - test_item_stats: 項目數、執行率、失敗率
+        
+        Args:
+            project_uid: 專案 UID（特定 FW 版本的唯一識別碼）
+            
+        Returns:
+            Firmware 統計資料，如果失敗則返回 None
+        """
+        if not project_uid:
+            logger.warning("get_firmware_summary: project_uid 為空")
+            return None
+        
+        # 構建 URL
+        url = f"{self.base_url}/api/v1/projects/{project_uid}/firmware-summary"
+        
+        # 檢查快取
+        cache_key = f"firmware_summary:{project_uid}"
+        if self.cache_manager:
+            cached_data = self.cache_manager.get(cache_key)
+            if cached_data:
+                logger.debug(f"從快取獲取 Firmware 統計: {project_uid}")
+                return cached_data
+        
+        # 獲取認證 headers
+        headers = self.auth_manager.get_auth_headers()
+        
+        try:
+            logger.info(f"調用 Firmware Summary API: {url}")
+            response = requests.get(url, headers=headers, timeout=self.timeout)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('success'):
+                    result = data.get('data')
+                    # 存入快取（TTL 較短，因為統計資料可能常更新）
+                    if self.cache_manager and result:
+                        self.cache_manager.set(cache_key, result, ttl=300)  # 5 分鐘
+                    logger.info(f"獲取 Firmware 統計成功: {project_uid}")
+                    return result
+                else:
+                    logger.warning(f"Firmware Summary API 返回失敗: {data.get('message')}")
+                    return None
+            elif response.status_code == 404:
+                logger.warning(f"專案不存在: {project_uid}")
+                return None
+            else:
+                logger.error(f"Firmware Summary API HTTP 錯誤: {response.status_code}")
+                return None
+                
+        except requests.exceptions.Timeout:
+            logger.error(f"Firmware Summary API 請求超時: {project_uid}")
+            return None
+        except requests.exceptions.ConnectionError as e:
+            logger.error(f"Firmware Summary API 連線錯誤: {str(e)}")
+            return None
+        except Exception as e:
+            logger.error(f"Firmware Summary API 請求異常: {str(e)}")
+            return None
+
 
 # 全局客戶端實例
 _client_instance: Optional[SAFAPIClient] = None

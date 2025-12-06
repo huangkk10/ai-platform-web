@@ -22,6 +22,7 @@ from .query_handlers import (
     TestSummaryHandler,
     TestSummaryByFWHandler,
     CompareFWVersionsHandler,
+    FWDetailSummaryHandler,
     StatisticsHandler,
 )
 
@@ -54,6 +55,9 @@ class QueryRouter:
         # Phase 5: CompareFWVersionsHandler 處理 FW 版本比較意圖
         compare_fw_versions_handler = CompareFWVersionsHandler()
         
+        # Phase 6.2: FWDetailSummaryHandler 處理 FW 詳細統計意圖
+        fw_detail_summary_handler = FWDetailSummaryHandler()
+        
         self._handlers = {
             # Phase 1-2 處理器
             IntentType.QUERY_PROJECTS_BY_CUSTOMER: CustomerHandler(),
@@ -71,6 +75,9 @@ class QueryRouter:
             
             # Phase 5: FW 版本比較處理器
             IntentType.COMPARE_FW_VERSIONS: compare_fw_versions_handler,
+            
+            # Phase 6.2: FW 詳細統計處理器
+            IntentType.QUERY_FW_DETAIL_SUMMARY: fw_detail_summary_handler,
             
             # 統計類型使用專門的處理器
             IntentType.COUNT_PROJECTS: self._statistics_handler,

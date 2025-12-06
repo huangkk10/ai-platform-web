@@ -152,7 +152,25 @@ INTENT_ANALYSIS_PROMPT = """
 - 【重要】必須提供兩個 FW 版本才能進行比較
 - 【區分】如果只有一個 FW 版本，請使用 query_project_test_summary_by_fw
 
-### 10. count_projects - 統計專案數量
+### 10. query_fw_detail_summary - 查詢 FW 詳細統計 (Phase 6.2 新增)
+用戶想了解專案特定 FW 版本的整體統計指標時使用。
+此意圖提供：完成率、通過率、樣本使用率、執行率、失敗率等詳細統計。
+- 常見問法：
+  - 「XX 專案 FW YYY 的詳細統計」「XX YYY 版本的統計資訊」
+  - 「XX 專案 FW YYY 的完成率是多少」「XX YYY 進度如何」
+  - 「XX 專案 FW YYY 使用了多少樣本」「XX YYY 樣本使用率」
+  - 「XX 專案 FW YYY 的執行率」「XX YYY 失敗率多少」
+  - 「XX 專案 FW YYY 測試概覽」「XX YYY 總覽」
+  - 「XX 專案 FW YYY 的通過率」「XX YYY 測試進度」
+- 參數：
+  - project_name (專案名稱，如 Springsteen、DEMETER)
+  - fw_version (FW 版本號，如 G200X6EC、Y1114B)
+- 【重要】此意圖用於獲取整體統計指標，而非按類別或容量的 Pass/Fail 明細
+- 【區分】
+  - 如果用戶問「測試結果」「Pass/Fail」「哪些通過/失敗」→ 使用 query_project_test_summary_by_fw
+  - 如果用戶問「統計」「完成率」「進度」「樣本」「使用率」「執行率」→ 使用 query_fw_detail_summary
+
+### 11. count_projects - 統計專案數量
 用戶想知道專案數量時使用。
 - 常見問法：
   - 「有多少專案」「幾個專案」「專案數量」「總共多少專案」
@@ -160,21 +178,21 @@ INTENT_ANALYSIS_PROMPT = """
   - 「統計專案數量」「專案總數」
 - 參數：customer (可選，若指定特定客戶)
 
-### 11. list_all_customers - 列出所有客戶
+### 12. list_all_customers - 列出所有客戶
 用戶想知道系統中有哪些客戶時使用。
 - 常見問法：
   - 「有哪些客戶」「客戶列表」「列出所有客戶」
   - 「系統裡有什麼客戶」「支援哪些客戶」「客戶有誰」
 - 參數：無
 
-### 12. list_all_controllers - 列出所有控制器
+### 13. list_all_controllers - 列出所有控制器
 用戶想知道系統中有哪些控制器型號時使用。
 - 常見問法：
   - 「有哪些控制器」「控制器列表」「列出所有控制器」
   - 「支援哪些控制器型號」「可以查詢哪些控制器」
 - 參數：無
 
-### 13. unknown - 無法識別的意圖
+### 14. unknown - 無法識別的意圖
 當問題與 SAF 專案管理系統無關時使用。
 
 ## 已知資訊
@@ -318,6 +336,33 @@ INTENT_ANALYSIS_PROMPT = """
 
 輸入：對比 Bennington 專案韌體 Y1103C 和 Y1102B
 輸出：{"intent": "compare_fw_versions", "parameters": {"project_name": "Bennington", "fw_version_1": "Y1103C", "fw_version_2": "Y1102B"}, "confidence": 0.90}
+
+輸入：Springsteen 專案 G200X6EC 的詳細統計
+輸出：{"intent": "query_fw_detail_summary", "parameters": {"project_name": "Springsteen", "fw_version": "G200X6EC"}, "confidence": 0.95}
+
+輸入：DEMETER FW Y1114B 的完成率是多少
+輸出：{"intent": "query_fw_detail_summary", "parameters": {"project_name": "DEMETER", "fw_version": "Y1114B"}, "confidence": 0.93}
+
+輸入：Channel 的 82CBW5QF 版本進度如何
+輸出：{"intent": "query_fw_detail_summary", "parameters": {"project_name": "Channel", "fw_version": "82CBW5QF"}, "confidence": 0.90}
+
+輸入：A400 專案 X0325A 使用了多少樣本
+輸出：{"intent": "query_fw_detail_summary", "parameters": {"project_name": "A400", "fw_version": "X0325A"}, "confidence": 0.92}
+
+輸入：Frey3B 的 FWX0926C 樣本使用率
+輸出：{"intent": "query_fw_detail_summary", "parameters": {"project_name": "Frey3B", "fw_version": "FWX0926C"}, "confidence": 0.90}
+
+輸入：Bennington 專案韌體 Y1103C 的執行率
+輸出：{"intent": "query_fw_detail_summary", "parameters": {"project_name": "Bennington", "fw_version": "Y1103C"}, "confidence": 0.90}
+
+輸入：Springsteen G200X6EC 測試概覽
+輸出：{"intent": "query_fw_detail_summary", "parameters": {"project_name": "Springsteen", "fw_version": "G200X6EC"}, "confidence": 0.92}
+
+輸入：DEMETER Y1114B 的通過率
+輸出：{"intent": "query_fw_detail_summary", "parameters": {"project_name": "DEMETER", "fw_version": "Y1114B"}, "confidence": 0.90}
+
+輸入：Channel 82CBW5QF 失敗率多少
+輸出：{"intent": "query_fw_detail_summary", "parameters": {"project_name": "Channel", "fw_version": "82CBW5QF"}, "confidence": 0.90}
 
 輸入：有哪些客戶
 輸出：{"intent": "list_all_customers", "parameters": {}, "confidence": 0.95}

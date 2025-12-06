@@ -43,6 +43,9 @@ class IntentType(Enum):
     # 🆕 Phase 5.1: 比較兩個指定的 FW 版本
     COMPARE_FW_VERSIONS = "compare_fw_versions"
     
+    # 🆕 Phase 6.2: 查詢 FW 詳細統計（使用 /firmware-summary API）
+    QUERY_FW_DETAIL_SUMMARY = "query_fw_detail_summary"
+    
     # 統計專案數量
     COUNT_PROJECTS = "count_projects"
     
@@ -88,6 +91,7 @@ class IntentType(Enum):
             self.QUERY_PROJECT_TEST_BY_CAPACITY: "查詢專案特定容量的測試結果",
             self.QUERY_PROJECT_TEST_SUMMARY_BY_FW: "按 FW 版本查詢專案測試結果",
             self.COMPARE_FW_VERSIONS: "比較兩個指定的 FW 版本測試結果",
+            self.QUERY_FW_DETAIL_SUMMARY: "查詢 FW 詳細統計（完成率、樣本、執行率）",
             self.COUNT_PROJECTS: "統計專案數量",
             self.LIST_ALL_CUSTOMERS: "列出所有客戶",
             self.LIST_ALL_CONTROLLERS: "列出所有控制器",
@@ -107,6 +111,7 @@ class IntentType(Enum):
             self.QUERY_PROJECT_TEST_BY_CAPACITY: ["project_name", "capacity"],
             self.QUERY_PROJECT_TEST_SUMMARY_BY_FW: ["project_name", "fw_version"],
             self.COMPARE_FW_VERSIONS: ["project_name", "fw_version_1", "fw_version_2"],
+            self.QUERY_FW_DETAIL_SUMMARY: ["project_name", "fw_version"],
             self.COUNT_PROJECTS: [],  # customer 是可選的
             self.LIST_ALL_CUSTOMERS: [],
             self.LIST_ALL_CONTROLLERS: [],

@@ -13,6 +13,7 @@ SAF Query Handlers 模組
 - TestSummaryHandler: 查詢專案測試結果統計（Phase 3 新增）
 - TestSummaryByFWHandler: 按 FW 版本查詢測試結果（Phase 4 新增）
 - CompareFWVersionsHandler: 比較兩個 FW 版本測試結果（Phase 5 新增）
+- FWDetailSummaryHandler: FW 詳細統計（完成率、樣本、執行率）（Phase 6.2 新增）
 - StatisticsHandler: 統計查詢（數量、客戶列表、控制器列表）
 
 作者：AI Platform Team
@@ -20,6 +21,7 @@ SAF Query Handlers 模組
 更新日期：2025-12-24（Phase 3: 添加 TestSummaryHandler）
 更新日期：2025-12-26（Phase 4: 添加 TestSummaryByFWHandler）
 更新日期：2025-12-07（Phase 5: 添加 CompareFWVersionsHandler）
+更新日期：2025-12-07（Phase 6.2: 添加 FWDetailSummaryHandler）
 """
 
 from .base_handler import BaseHandler, QueryResult, QueryStatus
@@ -30,6 +32,7 @@ from .project_summary_handler import ProjectSummaryHandler
 from .test_summary_handler import TestSummaryHandler
 from .test_summary_by_fw_handler import TestSummaryByFWHandler
 from .compare_fw_versions_handler import CompareFWVersionsHandler
+from .fw_detail_summary_handler import FWDetailSummaryHandler
 from .statistics_handler import StatisticsHandler
 
 __all__ = [
@@ -43,5 +46,6 @@ __all__ = [
     'TestSummaryHandler',
     'TestSummaryByFWHandler',
     'CompareFWVersionsHandler',
+    'FWDetailSummaryHandler',
     'StatisticsHandler',
 ]
