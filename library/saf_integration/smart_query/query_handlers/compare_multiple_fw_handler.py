@@ -67,6 +67,8 @@ class CompareMultipleFWHandler(BaseHandler):
                 "fw_versions": ["FW1", "FW2", "FW3"],
                 # 方式 B：自動選擇最近 N 個
                 "latest_count": 3,
+                # 可選：SubVersion 過濾（如 AA、AB、AC）
+                "sub_version": "AA",
                 # 可選：是否包含圖表資料
                 "include_chart_data": True
             }
@@ -87,6 +89,7 @@ class CompareMultipleFWHandler(BaseHandler):
         project_name = parameters.get('project_name')
         fw_versions = parameters.get('fw_versions', [])
         latest_count = parameters.get('latest_count', 0)
+        sub_version = parameters.get('sub_version')  # 新增：SubVersion 過濾
         include_chart_data = parameters.get('include_chart_data', True)
         
         # 如果沒有指定版本也沒有指定 latest_count，預設取最近 3 個
@@ -96,7 +99,7 @@ class CompareMultipleFWHandler(BaseHandler):
         try:
             # Step 1: 確定要比較的版本列表
             versions_to_compare, all_versions_info = self._resolve_versions(
-                project_name, fw_versions, latest_count
+                project_name, fw_versions, latest_count, sub_version
             )
             
             if not versions_to_compare:
@@ -135,7 +138,8 @@ class CompareMultipleFWHandler(BaseHandler):
                 project_name, 
                 versions_data, 
                 trends,
-                all_versions_info
+                all_versions_info,
+                sub_version
             )
             
             # Step 5: 生成圖表資料（如果需要）
@@ -169,7 +173,8 @@ class CompareMultipleFWHandler(BaseHandler):
     
     def _resolve_versions(self, project_name: str, 
                          fw_versions: List[str],
-                         latest_count: int) -> Tuple[List[str], List[Dict]]:
+                         latest_count: int,
+                         sub_version: str = None) -> Tuple[List[str], List[Dict]]:
         """
         解析要比較的版本列表
         
@@ -177,15 +182,22 @@ class CompareMultipleFWHandler(BaseHandler):
             project_name: 專案名稱
             fw_versions: 用戶指定的版本列表
             latest_count: 要比較的最近版本數量
+            sub_version: SubVersion 過濾（如 AA、AB、AC）
             
         Returns:
             Tuple[List[str], List[Dict]]: (版本名稱列表, 所有版本資訊)
         """
         # 如果用戶指定了具體版本，直接從全部專案中搜尋（不受 max_versions 限制）
         if fw_versions:
-            return self._resolve_specified_versions(project_name, fw_versions)
+            return self._resolve_specified_versions(project_name, fw_versions, sub_version)
         
         # 獲取專案最新 FW 版本（用於 latest_count 場景）
+        # 如果有 sub_version，需要過濾後再取最近 N 個
+        if sub_version:
+            return self._resolve_latest_versions_with_subversion(
+                project_name, latest_count, sub_version
+            )
+        
         list_result = self.list_handler.execute({
             'project_name': project_name,
             'max_versions': max(latest_count * 2, 50),  # 獲取足夠多的版本
@@ -209,14 +221,88 @@ class CompareMultipleFWHandler(BaseHandler):
         
         return [], all_versions
     
+    def _resolve_latest_versions_with_subversion(self, project_name: str,
+                                                  latest_count: int,
+                                                  sub_version: str) -> Tuple[List[str], List[Dict]]:
+        """
+        獲取特定 SubVersion 的最近 N 個版本
+        
+        Args:
+            project_name: 專案名稱
+            latest_count: 要獲取的版本數量
+            sub_version: SubVersion 過濾（如 AA、AB、AC）
+            
+        Returns:
+            Tuple[List[str], List[Dict]]: (版本名稱列表, 版本資訊列表)
+        """
+        # 直接從 API 獲取所有專案
+        all_projects = self.api_client.get_all_projects(flatten=True)
+        
+        if not all_projects:
+            logger.error("無法獲取專案列表")
+            return [], []
+        
+        # 找到所有匹配專案名稱和 SubVersion 的專案
+        project_name_lower = project_name.lower()
+        sub_version_upper = sub_version.upper() if sub_version else None
+        
+        matching_projects = [
+            p for p in all_projects
+            if project_name_lower in p.get('projectName', '').lower()
+            and (not sub_version_upper or p.get('subVersion', '').upper() == sub_version_upper)
+        ]
+        
+        if not matching_projects:
+            logger.warning(f"找不到 SubVersion={sub_version} 的專案: {project_name}")
+            return [], []
+        
+        # 建立 FW 版本映射（去重）
+        seen_fw = set()
+        all_versions = []
+        for p in matching_projects:
+            fw = p.get('fw', '')
+            if fw and fw.lower() not in seen_fw:
+                seen_fw.add(fw.lower())
+                # 處理 createdAt 可能是字典或字符串的情況
+                created_at = p.get('createdAt', '')
+                if isinstance(created_at, dict):
+                    # 如果是字典格式（如 {'seconds': {'low': xxx}}）
+                    seconds = created_at.get('seconds', {})
+                    if isinstance(seconds, dict):
+                        created_at_value = seconds.get('low', 0)
+                    else:
+                        created_at_value = seconds
+                else:
+                    created_at_value = created_at
+                    
+                all_versions.append({
+                    'fw_version': fw,
+                    'project_uid': p.get('projectUid'),
+                    'sub_version': p.get('subVersion'),
+                    'nand': p.get('nand'),
+                    'created_at': created_at_value
+                })
+        
+        # 按創建時間排序（最新在前）
+        all_versions.sort(key=lambda x: x.get('created_at', 0) if isinstance(x.get('created_at', 0), (int, float)) else 0, reverse=True)
+        
+        logger.info(f"專案 {project_name} SubVersion={sub_version} 共有 {len(all_versions)} 個 FW 版本")
+        
+        # 取最近 N 個版本
+        latest_versions = [v['fw_version'] for v in all_versions[:latest_count]]
+        
+        return latest_versions, all_versions
+    
     def _resolve_specified_versions(self, project_name: str, 
-                                   fw_versions: List[str]) -> Tuple[List[str], List[Dict]]:
+                                   fw_versions: List[str],
+                                   sub_version: str = None) -> Tuple[List[str], List[Dict]]:
         """
         解析用戶指定的 FW 版本（從全部專案中搜尋）
         
         Args:
             project_name: 專案名稱
             fw_versions: 用戶指定的版本列表
+            sub_version: SubVersion 過濾（如 AA、AB、AC）
             
         Returns:
             Tuple[List[str], List[Dict]]: (找到的版本名稱列表, 版本資訊列表)
@@ -230,6 +316,8 @@ class CompareMultipleFWHandler(BaseHandler):
         
         # 找到所有匹配專案名稱的專案
         project_name_lower = project_name.lower()
+        sub_version_upper = sub_version.upper() if sub_version else None
+        
         matching_projects = [
             p for p in all_projects
             if project_name_lower in p.get('projectName', '').lower()
@@ -238,6 +326,18 @@ class CompareMultipleFWHandler(BaseHandler):
         if not matching_projects:
             logger.error(f"找不到專案: {project_name}")
             return [], []
+        
+        # 如果指定了 sub_version，進一步過濾
+        if sub_version_upper:
+            filtered_projects = [
+                p for p in matching_projects
+                if p.get('subVersion', '').upper() == sub_version_upper
+            ]
+            if filtered_projects:
+                matching_projects = filtered_projects
+                logger.info(f"已過濾 SubVersion={sub_version}，剩餘 {len(matching_projects)} 個專案")
+            else:
+                logger.warning(f"找不到 SubVersion={sub_version} 的專案，使用所有專案")
         
         # 建立 FW 版本映射（大小寫不敏感）
         available_versions = {}
@@ -533,7 +633,8 @@ class CompareMultipleFWHandler(BaseHandler):
     def _format_response(self, project_name: str,
                         versions_data: List[Dict],
                         trends: Dict[str, Any],
-                        all_versions_info: List[Dict]) -> str:
+                        all_versions_info: List[Dict],
+                        sub_version: str = None) -> str:
         """
         格式化回應訊息（增強版）
         
@@ -542,14 +643,18 @@ class CompareMultipleFWHandler(BaseHandler):
             versions_data: 各版本統計資料
             trends: 趨勢分析結果
             all_versions_info: 所有可用版本資訊
+            sub_version: SubVersion 過濾（如 AA、AB、AC）
             
         Returns:
             str: Markdown 格式的回應
         """
         version_names = [v['fw_version'] for v in versions_data]
         
+        # 構建標題（包含 SubVersion 資訊）
+        title_suffix = f" (SubVersion: {sub_version})" if sub_version else ""
+        
         lines = [
-            f"## 📊 {project_name} 多版本趨勢比較",
+            f"## 📊 {project_name}{title_suffix} 多版本趨勢比較",
             "",
             f"比較版本（{len(versions_data)} 個）：**{'** → **'.join(version_names)}**",
             ""

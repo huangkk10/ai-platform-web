@@ -192,10 +192,18 @@ INTENT_ANALYSIS_PROMPT = """
   - 「看一下 XX 版本演進趨勢」「XX 專案 FW 趨勢分析」
   - 「XX 的 V1、V2、V3 版本比較」「XX 多版本對比」
   - 「比較 XX 的 FW 版本 A, B 和 C」「XX 版本趨勢圖」
+  - 「XX AA 版本最近三個 FW 比較」「XX 512GB 版本趨勢」
 - 參數：
   - project_name (專案名稱，如 Springsteen、DEMETER、Channel)
   - fw_versions (選填，FW 版本列表，如 ["A", "B", "C"]，至少 3 個)
   - latest_count (選填，自動取最近 N 個版本，如 3、5)
+  - sub_version (選填，SubVersion/容量版本代碼，如 AA、AB、AC、AD)
+- 【SubVersion 說明】：
+  - AA = 512GB 版本
+  - AB = 1024GB 版本
+  - AC = 2048GB 版本
+  - AD = 4096GB 版本
+  - 用戶可能直接說「AA」「AB」或「512GB」「1024GB」等
 - 【重要】此意圖用於 3 個或更多版本的趨勢比較
 - 【區分】
   - 如果用戶指定了兩個具體 FW 版本 → 使用 compare_fw_versions
@@ -437,6 +445,18 @@ INTENT_ANALYSIS_PROMPT = """
 
 輸入：分析 A400 最近 5 個版本的變化
 輸出：{"intent": "compare_multiple_fw", "parameters": {"project_name": "A400", "latest_count": 5}, "confidence": 0.92}
+
+輸入：Springsteen AA 版本最近三個 FW 趨勢
+輸出：{"intent": "compare_multiple_fw", "parameters": {"project_name": "Springsteen", "latest_count": 3, "sub_version": "AA"}, "confidence": 0.94}
+
+輸入：Springsteen AA 的 G200X8CA、G200X82B、G200X5HB 比較
+輸出：{"intent": "compare_multiple_fw", "parameters": {"project_name": "Springsteen", "fw_versions": ["G200X8CA", "G200X82B", "G200X5HB"], "sub_version": "AA"}, "confidence": 0.95}
+
+輸入：Channel AB 1024GB 版本最近三個 FW 比較
+輸出：{"intent": "compare_multiple_fw", "parameters": {"project_name": "Channel", "latest_count": 3, "sub_version": "AB"}, "confidence": 0.93}
+
+輸入：Springsteen 512GB 版本 FW 趨勢
+輸出：{"intent": "compare_multiple_fw", "parameters": {"project_name": "Springsteen", "latest_count": 3, "sub_version": "AA"}, "confidence": 0.92}
 
 輸入：看一下 Frey3B 版本演進趨勢
 輸出：{"intent": "compare_multiple_fw", "parameters": {"project_name": "Frey3B", "latest_count": 3}, "confidence": 0.90}

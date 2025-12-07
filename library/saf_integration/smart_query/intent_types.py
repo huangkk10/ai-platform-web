@@ -138,6 +138,12 @@ class IntentType(Enum):
             self.QUERY_PROJECT_TEST_SUMMARY: ["category", "capacity"],  # 可選：過濾特定類別或容量
             self.QUERY_PROJECT_TEST_BY_CATEGORY: ["capacity"],  # 可選：同時按容量過濾
             self.QUERY_PROJECT_TEST_BY_CAPACITY: ["category"],  # 可選：同時按類別過濾
+            self.QUERY_PROJECT_TEST_SUMMARY_BY_FW: ["sub_version"],  # 可選：指定 SubVersion (容量版本)
+            self.COMPARE_FW_VERSIONS: ["sub_version"],  # 可選：指定 SubVersion
+            self.COMPARE_LATEST_FW: ["sub_version"],  # 可選：指定 SubVersion
+            self.LIST_FW_VERSIONS: ["sub_version"],  # 可選：指定 SubVersion
+            self.COMPARE_MULTIPLE_FW: ["sub_version"],  # 可選：指定 SubVersion (如 AA, AB, AC)
+            self.QUERY_FW_DETAIL_SUMMARY: ["sub_version"],  # 可選：指定 SubVersion
             self.COUNT_PROJECTS: ["customer"],  # 可選：按客戶統計
             self.LIST_ALL_CUSTOMERS: [],
             self.LIST_ALL_CONTROLLERS: [],
