@@ -3,6 +3,7 @@ SAF 回答生成器
 ==============
 
 根據查詢結果生成自然語言回答，包含 Markdown Table 格式。
+支援圖表視覺化（圓餅圖、折線圖、柱狀圖）。
 
 作者：AI Platform Team
 創建日期：2025-12-05
@@ -13,6 +14,7 @@ from typing import Dict, Any, List, Optional
 
 from .intent_types import IntentType
 from .query_handlers import QueryResult, QueryStatus
+from library.common.chart_formatter import ChartFormatter
 
 logger = logging.getLogger(__name__)
 
@@ -433,11 +435,119 @@ class SAFResponseGenerator:
                 # 字串列表格式：只顯示可用容量
                 answer += "可用容量：" + ", ".join(str(c) for c in capacities) + "\n"
         
+        # 📊 添加圖表視覺化
+        answer += self._generate_test_summary_charts(
+            project_name=project_name,
+            fw_version=fw_version,
+            total_pass=total_pass,
+            total_fail=total_fail,
+            categories=categories
+        )
+        
         return {
             'answer': answer,
             'table': [data],
             'summary': f"{project_name} FW {fw_version}：{total_pass} Pass, {total_fail} Fail ({pass_rate})"
         }
+    
+    def _generate_test_summary_charts(
+        self,
+        project_name: str,
+        fw_version: str,
+        total_pass: int,
+        total_fail: int,
+        categories: List[Dict]
+    ) -> str:
+        """
+        📊 生成測試摘要圖表視覺化
+        
+        生成兩種圓餅圖：
+        1. Pass/Fail 整體分佈
+        2. 各測試類別 Fail 分佈（只顯示 Fail > 0 的類別）
+        
+        Args:
+            project_name: 專案名稱
+            fw_version: FW 版本
+            total_pass: 總通過數
+            total_fail: 總失敗數
+            categories: 類別統計列表
+            
+        Returns:
+            str: 包含圖表標記的 Markdown 字串
+        """
+        charts_md = "\n\n### 📊 測試結果視覺化\n\n"
+        
+        try:
+            # ===== 圖表 1: Pass/Fail 整體分佈圓餅圖 =====
+            if total_pass > 0 or total_fail > 0:
+                pass_fail_chart = ChartFormatter.pie_chart(
+                    title=f"{project_name} {fw_version} Pass/Fail 分佈",
+                    items=[
+                        {"name": "Pass", "value": total_pass, "color": "#52c41a"},
+                        {"name": "Fail", "value": total_fail, "color": "#ff4d4f"}
+                    ],
+                    description=f"總計 {total_pass + total_fail} 個測試案例",
+                    options={
+                        "height": 280,
+                        "showLegend": True,
+                        "innerRadius": 0  # 一般圓餅圖
+                    }
+                )
+                charts_md += pass_fail_chart + "\n\n"
+            
+            # ===== 圖表 2: 各類別 Fail 分佈圓餅圖 =====
+            # 只顯示 Fail > 0 的類別
+            fail_by_category = []
+            category_colors = [
+                '#ff4d4f',   # 紅色
+                '#faad14',   # 橙色
+                '#722ed1',   # 紫色
+                '#13c2c2',   # 青色
+                '#1890ff',   # 藍色
+                '#eb2f96',   # 洋紅
+                '#a0d911',   # 青檸
+                '#2f54eb',   # 深藍
+                '#fa8c16',   # 深橙
+                '#52c41a'    # 綠色
+            ]
+            
+            for cat in categories:
+                if isinstance(cat, dict):
+                    cat_name = cat.get('name', '')
+                    cat_fail = cat.get('fail', 0)
+                    if cat_fail > 0 and cat_name:
+                        fail_by_category.append({
+                            "name": cat_name,
+                            "value": cat_fail
+                        })
+            
+            # 排序：Fail 數量由大到小
+            fail_by_category.sort(key=lambda x: x['value'], reverse=True)
+            
+            # 分配顏色
+            for i, item in enumerate(fail_by_category):
+                item['color'] = category_colors[i % len(category_colors)]
+            
+            if fail_by_category:
+                category_fail_chart = ChartFormatter.pie_chart(
+                    title="各測試類別 Fail 分佈",
+                    items=fail_by_category,
+                    description=f"顯示 {len(fail_by_category)} 個有 Fail 的測試類別",
+                    options={
+                        "height": 300,
+                        "showLegend": True,
+                        "innerRadius": 60  # 甜甜圈圖
+                    }
+                )
+                charts_md += category_fail_chart
+            
+            logger.info(f"📊 已生成測試摘要圖表：Pass/Fail 分佈 + {len(fail_by_category)} 個類別 Fail 分佈")
+            
+        except Exception as e:
+            logger.error(f"生成測試摘要圖表時發生錯誤: {str(e)}")
+            charts_md += f"*（圖表生成失敗：{str(e)}）*\n"
+        
+        return charts_md
     
     # ============================================================
     # Phase 5: FW 版本比較回應生成方法

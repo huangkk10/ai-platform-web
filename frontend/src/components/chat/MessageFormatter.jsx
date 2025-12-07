@@ -7,6 +7,7 @@ import useMessageFormatter from '../../hooks/useMessageFormatter';
 import { loadImagesData } from '../../utils/imageProcessor';
 import { fixAllMarkdownTables } from '../../utils/markdownTableFixer';
 import { convertImageReferencesToMarkdown } from '../../utils/imageReferenceConverter';
+import { ChartRenderer } from './charts';
 import '../markdown/ReactMarkdown.css';
 
 /**
@@ -18,6 +19,7 @@ import '../markdown/ReactMarkdown.css';
  * - 處理包含圖片的 AI 回應消息
  * - 處理 IMG:ID 格式的混合內容
  * - 智能圖片內嵌顯示
+ * - 📊 支援 :::chart 圖表渲染
  */
 const MessageFormatter = ({ 
   content, 
@@ -41,6 +43,63 @@ const MessageFormatter = ({
   // 🎯 新增：檢測內容是否包含 Markdown 表格
   const hasMarkdownTable = content && /\|.*\|[\r\n]+\|[\s\-:|]+\|/.test(content);
 
+  // 📊 新增：檢測內容是否包含圖表標記
+  const hasChartMarker = content && /:::chart\s*\n/i.test(content);
+
+  /**
+   * 📊 解析圖表標記
+   * 格式: :::chart\n{ JSON config }\n:::
+   * 
+   * @param {string} text - 要解析的文本
+   * @returns {Array} - 解析後的片段數組 [{type: 'text'|'chart', content: string|object}]
+   */
+  const parseChartMarkers = (text) => {
+    if (!text) return [{ type: 'text', content: '' }];
+    
+    const chartRegex = /:::chart\s*\n([\s\S]*?)\n:::/gi;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+    
+    while ((match = chartRegex.exec(text)) !== null) {
+      // 添加圖表前的文本
+      if (match.index > lastIndex) {
+        const textBefore = text.substring(lastIndex, match.index).trim();
+        if (textBefore) {
+          parts.push({ type: 'text', content: textBefore });
+        }
+      }
+      
+      // 解析圖表 JSON
+      try {
+        const chartConfig = JSON.parse(match[1]);
+        parts.push({ type: 'chart', content: chartConfig });
+        console.log('📊 解析圖表配置成功:', chartConfig.type, chartConfig.title);
+      } catch (e) {
+        console.error('📊 圖表 JSON 解析失敗:', e.message);
+        // 解析失敗時顯示原始文本
+        parts.push({ type: 'text', content: match[0] });
+      }
+      
+      lastIndex = match.index + match[0].length;
+    }
+    
+    // 添加最後剩餘的文本
+    if (lastIndex < text.length) {
+      const remainingText = text.substring(lastIndex).trim();
+      if (remainingText) {
+        parts.push({ type: 'text', content: remainingText });
+      }
+    }
+    
+    // 如果沒有找到任何匹配，返回原始文本
+    if (parts.length === 0) {
+      parts.push({ type: 'text', content: text });
+    }
+    
+    return parts;
+  };
+
   /**
    * 渲染純文字消息 (主要用於用戶消息)
    * 當 skipMetadataImages=true 時，不處理 metadata 中的圖片（讓表格內的圖片自己處理）
@@ -51,6 +110,7 @@ const MessageFormatter = ({
     let processedContent = content;
     // 修復表格分隔線格式
     processedContent = fixAllMarkdownTables(processedContent);
+
     // 🎯 關鍵：將 [IMG:ID] 轉換為 Markdown 圖片格式 ![IMG:ID](IMG:ID)
     // 這樣 ReactMarkdown 才會調用 CustomImage 組件
     processedContent = convertImageReferencesToMarkdown(processedContent);
@@ -323,7 +383,63 @@ const MessageFormatter = ({
     );
   };
 
+  /**
+   * 📊 渲染包含圖表的混合內容
+   * 解析 :::chart 標記，分段渲染文字和圖表
+   */
+  const renderContentWithCharts = () => {
+    const parts = parseChartMarkers(content);
+    
+    console.log('📊 解析圖表內容，共 ' + parts.length + ' 個片段');
+    
+    return (
+      <div className={`message-with-charts ${className}`} style={style}>
+        {parts.map((part, index) => {
+          if (part.type === 'chart') {
+            return (
+              <ChartRenderer 
+                key={`chart-${index}`}
+                config={part.content}
+                showCard={true}
+              />
+            );
+          } else {
+            // 處理文字部分
+            let processedText = part.content;
+            processedText = fixAllMarkdownTables(processedText);
+            processedText = convertImageReferencesToMarkdown(processedText);
+            
+            return (
+              <div 
+                key={`text-${index}`}
+                className="markdown-preview-content markdown-content"
+              >
+                <ReactMarkdown {...markdownConfig}>
+                  {processedText}
+                </ReactMarkdown>
+              </div>
+            );
+          }
+        })}
+        
+        {/* 引用來源顯示（只在 AI 回覆時） */}
+        {messageType === 'assistant' && metadata?.retriever_resources && (
+          <RetrievalSourcesDisplay 
+            retrieverResources={metadata.retriever_resources}
+            maxDisplay={5}
+          />
+        )}
+      </div>
+    );
+  };
+
   // 根據內容格式和消息類型選擇適當的渲染策略
+  // 📊 優先檢查圖表標記
+  if (hasChartMarker) {
+    console.log('📊 檢測到圖表標記，使用圖表混合渲染模式');
+    return renderContentWithCharts();
+  }
+  
   // 🎯 關鍵修復：優先檢查表格，因為表格可能包含 [IMG:ID]
   if (hasMarkdownTable) {
     // 如果內容包含 Markdown 表格，使用純文字渲染

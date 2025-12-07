@@ -11,6 +11,7 @@ CompareMultipleFWHandler - 多版本 FW 趨勢比較
 - 計算趨勢（上升/下降/波動）
 - 按類別和容量分組比較
 - 輸出圖表用 JSON 資料
+- 📊 支援圖表視覺化
 
 作者：AI Platform Team
 創建日期：2025-12-08
@@ -23,6 +24,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from .base_handler import BaseHandler, QueryResult
 from .list_fw_versions_handler import ListFWVersionsHandler
 from .test_summary_by_fw_handler import TestSummaryByFWHandler
+from library.common.chart_formatter import ChartFormatter
 
 logger = logging.getLogger(__name__)
 
@@ -772,7 +774,108 @@ class CompareMultipleFWHandler(BaseHandler):
                 f"- 您可以指定其他版本進行比較"
             ])
         
+        # ===== Section 6: 圖表視覺化 =====
+        lines.extend(self._generate_trend_chart(project_name, versions_data, version_names, sub_version))
+        
         return "\n".join(lines)
+    
+    def _generate_trend_chart(self, project_name: str, 
+                               versions_data: List[Dict],
+                               version_names: List[str],
+                               sub_version: str = None) -> List[str]:
+        """
+        📊 生成趨勢視覺化圖表
+        
+        Args:
+            project_name: 專案名稱
+            versions_data: 各版本統計資料
+            version_names: 版本名稱列表
+            sub_version: SubVersion 過濾（如 AA、AB、AC）
+            
+        Returns:
+            List[str]: 包含圖表標記的 Markdown 行列表
+        """
+        lines = [
+            "",
+            "### 📊 趨勢視覺化",
+            ""
+        ]
+        
+        try:
+            # 準備圖表資料
+            pass_values = [v.get('pass', 0) for v in versions_data]
+            fail_values = [v.get('fail', 0) for v in versions_data]
+            total_values = [v.get('total', 0) for v in versions_data]
+            pass_rate_values = [v.get('pass_rate', 0) for v in versions_data]
+            
+            # 構建標題
+            title_suffix = f" ({sub_version})" if sub_version else ""
+            
+            # 生成測試結果趨勢折線圖
+            chart_title = f"{project_name}{title_suffix} 測試結果趨勢"
+            
+            chart_md = ChartFormatter.line_chart(
+                title=chart_title,
+                labels=version_names,
+                datasets=[
+                    {
+                        "name": "Pass",
+                        "data": pass_values,
+                        "color": "#52c41a"  # 綠色
+                    },
+                    {
+                        "name": "Fail", 
+                        "data": fail_values,
+                        "color": "#ff4d4f"  # 紅色
+                    },
+                    {
+                        "name": "Total",
+                        "data": total_values,
+                        "color": "#1890ff"  # 藍色
+                    }
+                ],
+                description=f"顯示 {len(version_names)} 個 FW 版本的測試結果變化趨勢",
+                options={
+                    "showGrid": True,
+                    "showLegend": True,
+                    "showDots": True,
+                    "height": 320
+                }
+            )
+            
+            lines.append(chart_md)
+            lines.append("")
+            
+            # 生成通過率柱狀圖
+            pass_rate_chart_title = f"{project_name}{title_suffix} 通過率比較"
+            
+            pass_rate_chart_md = ChartFormatter.bar_chart(
+                title=pass_rate_chart_title,
+                labels=version_names,
+                datasets=[
+                    {
+                        "name": "通過率 (%)",
+                        "data": pass_rate_values,
+                        "color": "#1890ff"  # 藍色
+                    }
+                ],
+                description="各 FW 版本的測試通過率對比",
+                options={
+                    "showGrid": True,
+                    "showLegend": False,
+                    "height": 280
+                }
+            )
+            
+            lines.append(pass_rate_chart_md)
+            
+            logger.info(f"📊 已生成趨勢圖表：{chart_title}")
+            
+        except Exception as e:
+            logger.error(f"生成圖表時發生錯誤: {str(e)}")
+            lines.append(f"*（圖表生成失敗：{str(e)}）*")
+        
+        return lines
     
     def _format_statistics_summary(self, versions_data: List[Dict],
                                    pass_values: List[int],
