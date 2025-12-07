@@ -458,6 +458,51 @@ class SAFResponseGenerator:
                 'table': []
             }
         
+        # 優先使用 Handler 返回的 message（包含完整的比較資訊）
+        handler_message = result_data.get('message', '')
+        if handler_message:
+            # Handler 已經生成了完整的格式化訊息
+            project_name = data.get('projectName', '未知專案')
+            fw_1 = data.get('fw_1', {})
+            fw_2 = data.get('fw_2', {})
+            diff = data.get('diff', {})
+            
+            fw_version_1 = fw_1.get('version', '版本1')
+            fw_version_2 = fw_2.get('version', '版本2')
+            trend = diff.get('trend', 'stable')
+            
+            trend_icon = {
+                'improved': '📈 改善',
+                'declined': '📉 退步',
+                'stable': '➡️ 持平'
+            }.get(trend, '➡️ 持平')
+            
+            # 生成表格資料（用於前端顯示）
+            table_data = [
+                {
+                    'fw_version': fw_version_1,
+                    'pass': fw_1.get('pass', 0),
+                    'fail': fw_1.get('fail', 0),
+                    'total': fw_1.get('total', 0),
+                    'passRate': fw_1.get('passRate', 'N/A')
+                },
+                {
+                    'fw_version': fw_version_2,
+                    'pass': fw_2.get('pass', 0),
+                    'fail': fw_2.get('fail', 0),
+                    'total': fw_2.get('total', 0),
+                    'passRate': fw_2.get('passRate', 'N/A')
+                }
+            ]
+            
+            return {
+                'answer': handler_message,  # 直接使用 Handler 的完整訊息
+                'table': table_data,
+                'summary': f"{project_name} {fw_version_1} vs {fw_version_2}: {trend_icon}",
+                'diff': diff
+            }
+        
+        # Fallback: 如果沒有 handler_message，使用舊邏輯
         project_name = data.get('projectName', '未知專案')
         fw_1 = data.get('fw_1', {})
         fw_2 = data.get('fw_2', {})

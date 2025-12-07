@@ -7,11 +7,13 @@ CompareFWVersionsHandler - 比較兩個 FW 版本測試結果
 
 功能：
 - 調用 Phase 4 的 FW 版本查詢獲取兩個版本的測試數據
+- 調用 Phase 6.2 的 firmware-summary API 獲取整體指標（完成率、樣本等）
 - 計算 Pass/Fail/PassRate 差異
 - 分析趨勢（改善/退步/持平）
 
 作者：AI Platform Team
 創建日期：2025-12-07
+更新日期：2025-12-07（整合 firmware-summary 整體指標）
 """
 
 import logging
@@ -110,17 +112,25 @@ class CompareFWVersionsHandler(BaseHandler):
                     parameters
                 )
             
-            # Step 3: 計算比較結果
+            # Step 3: 獲取 firmware-summary 整體指標（完成率、樣本等）
+            firmware_stats_1 = self._get_firmware_stats(result_1.metadata.get('project_uid'))
+            firmware_stats_2 = self._get_firmware_stats(result_2.metadata.get('project_uid'))
+            
+            # Step 4: 計算比較結果
             comparison = self._calculate_comparison(
                 result_1.data,
-                result_2.data
+                result_2.data,
+                firmware_stats_1,
+                firmware_stats_2
             )
             
-            # Step 4: 格式化並返回結果
+            # Step 5: 格式化並返回結果
             return self._format_comparison_response(
                 comparison=comparison,
                 fw_data_1=result_1.data,
                 fw_data_2=result_2.data,
+                firmware_stats_1=firmware_stats_1,
+                firmware_stats_2=firmware_stats_2,
                 parameters=parameters
             )
             
@@ -128,10 +138,46 @@ class CompareFWVersionsHandler(BaseHandler):
             logger.error(f"FW 版本比較錯誤: {str(e)}")
             return self._handle_api_error(e, parameters)
     
+    def _get_firmware_stats(self, project_uid: str) -> Optional[Dict[str, Any]]:
+        """
+        獲取 firmware-summary 整體指標
+        
+        Args:
+            project_uid: 專案 UID
+            
+        Returns:
+            整體指標字典，獲取失敗返回 None
+        """
+        if not project_uid:
+            return None
+        
+        try:
+            stats = self.api_client.get_firmware_summary(project_uid)
+            if stats:
+                overview = stats.get('overview', {})
+                sample_stats = stats.get('sample_stats', {})
+                test_item_stats = stats.get('test_item_stats', {})
+                
+                return {
+                    'completion_rate': overview.get('completion_rate', 0),
+                    'pass_rate': overview.get('pass_rate', 0),
+                    'total_samples': sample_stats.get('total_samples', 0),
+                    'samples_used': sample_stats.get('samples_used', 0),
+                    'utilization_rate': sample_stats.get('utilization_rate', 0),
+                    'execution_rate': test_item_stats.get('execution_rate', 0),
+                    'fail_rate': test_item_stats.get('fail_rate', 0)
+                }
+        except Exception as e:
+            logger.warning(f"獲取 firmware-summary 失敗 (uid={project_uid}): {str(e)}")
+        
+        return None
+    
     def _calculate_comparison(
         self,
         data_1: Dict[str, Any],
-        data_2: Dict[str, Any]
+        data_2: Dict[str, Any],
+        firmware_stats_1: Optional[Dict[str, Any]] = None,
+        firmware_stats_2: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
         計算兩個 FW 版本的比較結果
@@ -139,6 +185,8 @@ class CompareFWVersionsHandler(BaseHandler):
         Args:
             data_1: 第一個 FW 版本的測試數據
             data_2: 第二個 FW 版本的測試數據
+            firmware_stats_1: 第一個 FW 版本的整體指標（可選）
+            firmware_stats_2: 第二個 FW 版本的整體指標（可選）
             
         Returns:
             比較結果字典
@@ -171,7 +219,7 @@ class CompareFWVersionsHandler(BaseHandler):
         else:
             trend = 'stable'
         
-        return {
+        result = {
             'pass_change': pass_change,
             'fail_change': fail_change,
             'pass_rate_change': pass_rate_change,
@@ -192,12 +240,48 @@ class CompareFWVersionsHandler(BaseHandler):
                 }
             }
         }
+        
+        # 添加整體指標比較（如果有）
+        if firmware_stats_1 or firmware_stats_2:
+            stats_1 = firmware_stats_1 or {}
+            stats_2 = firmware_stats_2 or {}
+            
+            result['overall_metrics'] = {
+                'fw_1': {
+                    'completion_rate': stats_1.get('completion_rate', 0),
+                    'pass_rate': stats_1.get('pass_rate', 0),
+                    'total_samples': stats_1.get('total_samples', 0),
+                    'samples_used': stats_1.get('samples_used', 0),
+                    'utilization_rate': stats_1.get('utilization_rate', 0),
+                    'execution_rate': stats_1.get('execution_rate', 0),
+                    'fail_rate': stats_1.get('fail_rate', 0)
+                },
+                'fw_2': {
+                    'completion_rate': stats_2.get('completion_rate', 0),
+                    'pass_rate': stats_2.get('pass_rate', 0),
+                    'total_samples': stats_2.get('total_samples', 0),
+                    'samples_used': stats_2.get('samples_used', 0),
+                    'utilization_rate': stats_2.get('utilization_rate', 0),
+                    'execution_rate': stats_2.get('execution_rate', 0),
+                    'fail_rate': stats_2.get('fail_rate', 0)
+                },
+                'diff': {
+                    'completion_rate_change': stats_1.get('completion_rate', 0) - stats_2.get('completion_rate', 0),
+                    'execution_rate_change': stats_1.get('execution_rate', 0) - stats_2.get('execution_rate', 0),
+                    'fail_rate_change': stats_1.get('fail_rate', 0) - stats_2.get('fail_rate', 0),
+                    'samples_used_change': stats_1.get('samples_used', 0) - stats_2.get('samples_used', 0)
+                }
+            }
+        
+        return result
     
     def _format_comparison_response(
         self,
         comparison: Dict[str, Any],
         fw_data_1: Dict[str, Any],
         fw_data_2: Dict[str, Any],
+        firmware_stats_1: Optional[Dict[str, Any]],
+        firmware_stats_2: Optional[Dict[str, Any]],
         parameters: Dict[str, Any]
     ) -> QueryResult:
         """
@@ -207,6 +291,8 @@ class CompareFWVersionsHandler(BaseHandler):
             comparison: 比較計算結果
             fw_data_1: 第一個 FW 版本的完整數據
             fw_data_2: 第二個 FW 版本的完整數據
+            firmware_stats_1: 第一個 FW 版本的整體指標
+            firmware_stats_2: 第二個 FW 版本的整體指標
             parameters: 原始查詢參數
             
         Returns:
@@ -249,6 +335,10 @@ class CompareFWVersionsHandler(BaseHandler):
             }
         }
         
+        # 添加整體指標數據
+        if 'overall_metrics' in comparison:
+            formatted_data['overall_metrics'] = comparison['overall_metrics']
+        
         # 生成趨勢描述
         trend_desc = {
             'improved': '📈 改善',
@@ -264,18 +354,94 @@ class CompareFWVersionsHandler(BaseHandler):
                 return f"{val} ⬇️"
             return "0 ➡️"
         
+        def format_percent_change(val):
+            if val > 0:
+                return f"+{val:.1f}% ⬆️"
+            elif val < 0:
+                return f"{val:.1f}% ⬇️"
+            return "0.0% ➡️"
+        
         # 構建友好的訊息
-        message = (
-            f"📊 {project_name} 專案 FW 版本比較\n"
-            f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"🔹 {fw_version_1}：Pass {summary_1['pass']} | Fail {summary_1['fail']} | 通過率 {summary_1['pass_rate']:.1f}%\n"
-            f"🔹 {fw_version_2}：Pass {summary_2['pass']} | Fail {summary_2['fail']} | 通過率 {summary_2['pass_rate']:.1f}%\n"
-            f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"📈 變化：Pass {format_change(comparison['pass_change'])} | "
-            f"Fail {format_change(comparison['fail_change'])} | "
-            f"通過率 {comparison['pass_rate_change_formatted']}\n"
-            f"📊 趨勢：{trend_desc}"
-        )
+        message_parts = [
+            f"📊 {project_name} 專案 FW 版本比較",
+            f"版本對比：{fw_version_1} vs {fw_version_2}",
+            "",
+            "### 測試結果比較",
+            f"| 指標 | {fw_version_1} | {fw_version_2} | 變化 |",
+            "|------|--------|--------|------|",
+            f"| Pass | {summary_1['pass']} | {summary_2['pass']} | {format_change(comparison['pass_change'])} |",
+            f"| Fail | {summary_1['fail']} | {summary_2['fail']} | {format_change(comparison['fail_change'])} |",
+            f"| 通過率 | {summary_1['pass_rate']:.1f}% | {summary_2['pass_rate']:.1f}% | {comparison['pass_rate_change_formatted']} |",
+        ]
+        
+        # 添加整體指標比較（如果有）
+        if 'overall_metrics' in comparison:
+            metrics = comparison['overall_metrics']
+            m1 = metrics['fw_1']
+            m2 = metrics['fw_2']
+            diff = metrics['diff']
+            
+            message_parts.extend([
+                "",
+                "### 📈 整體指標比較",
+                f"| 指標 | {fw_version_1} | {fw_version_2} | 變化 |",
+                "|------|--------|--------|------|",
+                f"| 完成率 | {m1['completion_rate']:.1f}% | {m2['completion_rate']:.1f}% | {format_percent_change(diff['completion_rate_change'])} |",
+                f"| 執行率 | {m1['execution_rate']:.1f}% | {m2['execution_rate']:.1f}% | {format_percent_change(diff['execution_rate_change'])} |",
+                f"| 失敗率 | {m1['fail_rate']:.1f}% | {m2['fail_rate']:.1f}% | {format_percent_change(diff['fail_rate_change'])} |",
+                f"| 樣本使用 | {m1['samples_used']}/{m1['total_samples']} | {m2['samples_used']}/{m2['total_samples']} | {format_change(diff['samples_used_change'])} |",
+            ])
+        
+        # 添加按測試類別比較
+        categories_1 = fw_data_1.get('categories', [])
+        categories_2 = fw_data_2.get('categories', [])
+        
+        if categories_1 or categories_2:
+            # 建立類別名稱到數據的映射
+            cat_map_1 = {cat['name']: cat for cat in categories_1}
+            cat_map_2 = {cat['name']: cat for cat in categories_2}
+            
+            # 合併所有類別名稱
+            all_categories = sorted(set(cat_map_1.keys()) | set(cat_map_2.keys()))
+            
+            # 過濾只顯示有測試結果的類別
+            active_categories = [
+                cat for cat in all_categories
+                if (cat_map_1.get(cat, {}).get('total', 0) > 0 or 
+                    cat_map_2.get(cat, {}).get('total', 0) > 0)
+            ]
+            
+            if active_categories:
+                message_parts.extend([
+                    "",
+                    "### 📁 按測試類別比較",
+                    f"| 類別 | {fw_version_1} (Pass/Fail) | {fw_version_2} (Pass/Fail) | Pass 變化 | Fail 變化 |",
+                    "|------|--------|--------|--------|--------|",
+                ])
+                
+                for cat_name in active_categories:
+                    cat_1 = cat_map_1.get(cat_name, {'pass': 0, 'fail': 0, 'total': 0})
+                    cat_2 = cat_map_2.get(cat_name, {'pass': 0, 'fail': 0, 'total': 0})
+                    
+                    pass_change = cat_1.get('pass', 0) - cat_2.get('pass', 0)
+                    fail_change = cat_1.get('fail', 0) - cat_2.get('fail', 0)
+                    
+                    # 格式化顯示
+                    fw1_display = f"{cat_1.get('pass', 0)}/{cat_1.get('fail', 0)}"
+                    fw2_display = f"{cat_2.get('pass', 0)}/{cat_2.get('fail', 0)}"
+                    
+                    message_parts.append(
+                        f"| {cat_name} | {fw1_display} | {fw2_display} | {format_change(pass_change)} | {format_change(fail_change)} |"
+                    )
+        
+        # 趨勢分析
+        message_parts.extend([
+            "",
+            f"### 📊 趨勢分析",
+            f"{trend_desc}：{fw_version_1} 相較於 {fw_version_2} 表現{'更好' if comparison['trend'] == 'improved' else '較差' if comparison['trend'] == 'declined' else '相當'}"
+        ])
+        
+        message = "\n".join(message_parts)
         
         result = QueryResult.success(
             data=formatted_data,
@@ -289,7 +455,8 @@ class CompareFWVersionsHandler(BaseHandler):
                 'pass_change': comparison['pass_change'],
                 'fail_change': comparison['fail_change'],
                 'pass_rate_change': comparison['pass_rate_change'],
-                'trend': comparison['trend']
+                'trend': comparison['trend'],
+                'has_overall_metrics': 'overall_metrics' in comparison
             }
         )
         
