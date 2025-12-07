@@ -208,18 +208,21 @@ class SAFAPIClient:
     def get_projects(
         self,
         page: int = 1,
-        size: int = 200
+        size: int = 100  # SAF API 最大限制 100
     ) -> List[Dict[str, Any]]:
         """
         獲取專案列表
         
         Args:
             page: 頁碼
-            size: 每頁數量
+            size: 每頁數量 (SAF API 最大限制 100)
             
         Returns:
             專案列表
         """
+        # 確保 size 不超過 API 限制
+        size = min(size, 100)
+        
         result = self._make_request(
             endpoint_name="projects",
             params={"page": page, "size": size}

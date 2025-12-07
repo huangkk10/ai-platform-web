@@ -43,6 +43,10 @@ class IntentType(Enum):
     # 🆕 Phase 5.1: 比較兩個指定的 FW 版本
     COMPARE_FW_VERSIONS = "compare_fw_versions"
     
+    # 🆕 Phase 5.2: 智能版本選擇
+    COMPARE_LATEST_FW = "compare_latest_fw"           # 自動比較最新兩版本
+    LIST_FW_VERSIONS = "list_fw_versions"             # 列出可比較的 FW 版本
+    
     # 🆕 Phase 6.2: 查詢 FW 詳細統計（使用 /firmware-summary API）
     QUERY_FW_DETAIL_SUMMARY = "query_fw_detail_summary"
     
@@ -91,6 +95,8 @@ class IntentType(Enum):
             self.QUERY_PROJECT_TEST_BY_CAPACITY: "查詢專案特定容量的測試結果",
             self.QUERY_PROJECT_TEST_SUMMARY_BY_FW: "按 FW 版本查詢專案測試結果",
             self.COMPARE_FW_VERSIONS: "比較兩個指定的 FW 版本測試結果",
+            self.COMPARE_LATEST_FW: "自動比較最新兩個 FW 版本",
+            self.LIST_FW_VERSIONS: "列出專案可比較的 FW 版本",
             self.QUERY_FW_DETAIL_SUMMARY: "查詢 FW 詳細統計（完成率、樣本、執行率）",
             self.COUNT_PROJECTS: "統計專案數量",
             self.LIST_ALL_CUSTOMERS: "列出所有客戶",

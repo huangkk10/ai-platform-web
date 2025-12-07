@@ -136,7 +136,7 @@ INTENT_ANALYSIS_PROMPT = """
 - 【重要】此意圖用於指定 FW 版本的查詢
 - 【區分】如果用戶沒有指定 FW 版本，請使用 query_project_test_summary
 
-### 9. compare_fw_versions - 比較兩個指定的 FW 版本 (Phase 5 新增)
+### 9. compare_fw_versions - 比較兩個指定的 FW 版本 (Phase 5.1)
 用戶想比較同一專案中兩個不同 FW 版本的測試結果時使用。
 - 常見問法：
   - 「XX 專案的 YYY 和 ZZZ 比較」
@@ -152,7 +152,38 @@ INTENT_ANALYSIS_PROMPT = """
 - 【重要】必須提供兩個 FW 版本才能進行比較
 - 【區分】如果只有一個 FW 版本，請使用 query_project_test_summary_by_fw
 
-### 10. query_fw_detail_summary - 查詢 FW 詳細統計 (Phase 6.2 新增)
+### 10. compare_latest_fw - 自動比較最新兩個 FW 版本 (Phase 5.2 新增)
+用戶想比較專案的 FW 版本，但沒有指定具體版本名稱時使用。
+系統會自動選擇最新/最活躍的兩個版本進行比較。
+- 常見問法：
+  - 「XX 最新的 FW 比較」「XX 專案最新版本比較」
+  - 「比較 XX 最近兩個版本」「XX 的 FW 進度比較」
+  - 「看一下 XX 最新版本差異」「XX 最新 FW 測試差異」
+  - 「XX 專案 FW 更新比較」「比較 XX 最新韌體」
+  - 「XX 版本演進比較」「XX 的 FW 變化」
+- 參數：
+  - project_name (專案名稱，如 DEMETER、Springsteen、Channel)
+- 【重要】此意圖用於用戶沒有指定具體 FW 版本時
+- 【區分】
+  - 如果用戶指定了兩個具體 FW 版本 → 使用 compare_fw_versions
+  - 如果用戶說「最新」「最近」「版本比較」但沒有版本號 → 使用 compare_latest_fw
+
+### 11. list_fw_versions - 列出專案可比較的 FW 版本 (Phase 5.2 新增)
+用戶想知道專案有哪些 FW 版本可以比較或查詢時使用。
+- 常見問法：
+  - 「XX 有哪些 FW 版本」「XX 專案的版本列表」
+  - 「列出 XX 的所有 FW」「XX 可以比較哪些版本」
+  - 「XX 專案有幾個 FW」「查看 XX 的韌體版本」
+  - 「XX 的 FW 版本有哪些」「顯示 XX 版本」
+  - 「XX 有什麼版本可以查」「XX FW 清單」
+- 參數：
+  - project_name (專案名稱，如 DEMETER、Springsteen、Channel)
+- 【重要】此意圖用於查詢版本列表，不是比較
+- 【區分】
+  - 如果用戶問「有哪些版本」「版本列表」「幾個版本」 → 使用 list_fw_versions
+  - 如果用戶問「比較」但沒指定版本 → 使用 compare_latest_fw
+
+### 12. query_fw_detail_summary - 查詢 FW 詳細統計 (Phase 6.2 新增)
 用戶想了解專案特定 FW 版本的整體統計指標時使用。
 此意圖提供：完成率、通過率、樣本使用率、執行率、失敗率等詳細統計。
 - 常見問法：
@@ -170,7 +201,7 @@ INTENT_ANALYSIS_PROMPT = """
   - 如果用戶問「測試結果」「Pass/Fail」「哪些通過/失敗」→ 使用 query_project_test_summary_by_fw
   - 如果用戶問「統計」「完成率」「進度」「樣本」「使用率」「執行率」→ 使用 query_fw_detail_summary
 
-### 11. count_projects - 統計專案數量
+### 13. count_projects - 統計專案數量
 用戶想知道專案數量時使用。
 - 常見問法：
   - 「有多少專案」「幾個專案」「專案數量」「總共多少專案」
@@ -336,6 +367,45 @@ INTENT_ANALYSIS_PROMPT = """
 
 輸入：對比 Bennington 專案韌體 Y1103C 和 Y1102B
 輸出：{"intent": "compare_fw_versions", "parameters": {"project_name": "Bennington", "fw_version_1": "Y1103C", "fw_version_2": "Y1102B"}, "confidence": 0.90}
+
+輸入：Springsteen 最新的 FW 比較
+輸出：{"intent": "compare_latest_fw", "parameters": {"project_name": "Springsteen"}, "confidence": 0.95}
+
+輸入：比較 DEMETER 最近兩個版本
+輸出：{"intent": "compare_latest_fw", "parameters": {"project_name": "DEMETER"}, "confidence": 0.93}
+
+輸入：Channel 的 FW 進度比較
+輸出：{"intent": "compare_latest_fw", "parameters": {"project_name": "Channel"}, "confidence": 0.90}
+
+輸入：看一下 A400 最新版本差異
+輸出：{"intent": "compare_latest_fw", "parameters": {"project_name": "A400"}, "confidence": 0.92}
+
+輸入：Bennington 專案 FW 更新比較
+輸出：{"intent": "compare_latest_fw", "parameters": {"project_name": "Bennington"}, "confidence": 0.90}
+
+輸入：Springsteen 版本演進比較
+輸出：{"intent": "compare_latest_fw", "parameters": {"project_name": "Springsteen"}, "confidence": 0.88}
+
+輸入：DEMETER 有哪些 FW 版本
+輸出：{"intent": "list_fw_versions", "parameters": {"project_name": "DEMETER"}, "confidence": 0.95}
+
+輸入：列出 Springsteen 的所有 FW
+輸出：{"intent": "list_fw_versions", "parameters": {"project_name": "Springsteen"}, "confidence": 0.93}
+
+輸入：Channel 可以比較哪些版本
+輸出：{"intent": "list_fw_versions", "parameters": {"project_name": "Channel"}, "confidence": 0.90}
+
+輸入：A400 專案有幾個 FW
+輸出：{"intent": "list_fw_versions", "parameters": {"project_name": "A400"}, "confidence": 0.92}
+
+輸入：查看 Bennington 的韌體版本
+輸出：{"intent": "list_fw_versions", "parameters": {"project_name": "Bennington"}, "confidence": 0.90}
+
+輸入：Frey3B 的 FW 版本有哪些
+輸出：{"intent": "list_fw_versions", "parameters": {"project_name": "Frey3B"}, "confidence": 0.92}
+
+輸入：顯示 TITAN 版本
+輸出：{"intent": "list_fw_versions", "parameters": {"project_name": "TITAN"}, "confidence": 0.88}
 
 輸入：Springsteen 專案 G200X6EC 的詳細統計
 輸出：{"intent": "query_fw_detail_summary", "parameters": {"project_name": "Springsteen", "fw_version": "G200X6EC"}, "confidence": 0.95}

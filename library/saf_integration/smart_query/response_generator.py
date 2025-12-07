@@ -64,8 +64,11 @@ class SAFResponseGenerator:
             IntentType.QUERY_PROJECT_TEST_BY_CAPACITY: self._generate_test_by_capacity_response,
             # Phase 4: FW 版本查詢回應生成器
             IntentType.QUERY_PROJECT_TEST_SUMMARY_BY_FW: self._generate_test_summary_by_fw_response,
-            # Phase 5: FW 版本比較回應生成器
+            # Phase 5.1: FW 版本比較回應生成器
             IntentType.COMPARE_FW_VERSIONS: self._generate_compare_fw_versions_response,
+            # Phase 5.2: 智能版本選擇回應生成器
+            IntentType.COMPARE_LATEST_FW: self._generate_compare_latest_fw_response,
+            IntentType.LIST_FW_VERSIONS: self._generate_list_fw_versions_response,
             IntentType.COUNT_PROJECTS: self._generate_count_response,
             IntentType.LIST_ALL_CUSTOMERS: self._generate_customers_list_response,
             IntentType.LIST_ALL_CONTROLLERS: self._generate_controllers_list_response,
@@ -573,6 +576,151 @@ class SAFResponseGenerator:
             'table': table_data,
             'summary': f"{project_name} {fw_version_1} vs {fw_version_2}: {trend_icon}",
             'diff': diff
+        }
+    
+    # ============================================================
+    # Phase 5.2: 智能版本選擇回應生成方法
+    # ============================================================
+    
+    def _generate_compare_latest_fw_response(self, result_data: Dict,
+                                              full_result: Dict) -> Dict[str, Any]:
+        """
+        生成自動比較最新 FW 版本的回答
+        
+        此方法直接使用 Handler 返回的 message，因為：
+        1. CompareLatestFWHandler 已經加入了自動選擇的說明
+        2. 比較邏輯由 CompareFWVersionsHandler 處理，格式一致
+        
+        Args:
+            result_data: 查詢結果資料
+            full_result: 完整查詢結果
+            
+        Returns:
+            Dict: 包含 answer 和 table 的回應
+        """
+        # 優先使用 Handler 返回的 message
+        handler_message = result_data.get('message', '')
+        
+        if handler_message:
+            data = result_data.get('data', {})
+            project_name = data.get('projectName', '未知專案')
+            fw_1 = data.get('fw_1', {})
+            fw_2 = data.get('fw_2', {})
+            diff = data.get('diff', {})
+            metadata = result_data.get('metadata', {})
+            
+            fw_version_1 = fw_1.get('version', '版本1')
+            fw_version_2 = fw_2.get('version', '版本2')
+            trend = diff.get('trend', 'stable')
+            
+            trend_icon = {
+                'improved': '📈 改善',
+                'declined': '📉 退步',
+                'stable': '➡️ 持平'
+            }.get(trend, '➡️ 持平')
+            
+            # 生成表格資料
+            table_data = []
+            if fw_1:
+                table_data.append({
+                    'fw_version': fw_version_1,
+                    'pass': fw_1.get('pass', 0),
+                    'fail': fw_1.get('fail', 0),
+                    'total': fw_1.get('total', 0),
+                    'passRate': fw_1.get('passRate', 'N/A')
+                })
+            if fw_2:
+                table_data.append({
+                    'fw_version': fw_version_2,
+                    'pass': fw_2.get('pass', 0),
+                    'fail': fw_2.get('fail', 0),
+                    'total': fw_2.get('total', 0),
+                    'passRate': fw_2.get('passRate', 'N/A')
+                })
+            
+            return {
+                'answer': handler_message,
+                'table': table_data,
+                'summary': f"[自動選擇] {project_name} {fw_version_1} vs {fw_version_2}: {trend_icon}",
+                'diff': diff,
+                'metadata': {
+                    'auto_selected': metadata.get('auto_selected', True),
+                    'total_versions': metadata.get('total_versions', 0)
+                }
+            }
+        
+        # Fallback
+        return {
+            'answer': "無法生成比較結果。",
+            'table': []
+        }
+    
+    def _generate_list_fw_versions_response(self, result_data: Dict,
+                                             full_result: Dict) -> Dict[str, Any]:
+        """
+        生成列出 FW 版本的回答
+        
+        直接使用 Handler 返回的 message，因為 ListFWVersionsHandler
+        已經格式化了完整的版本列表表格。
+        
+        Args:
+            result_data: 查詢結果資料
+            full_result: 完整查詢結果
+            
+        Returns:
+            Dict: 包含 answer 和 table 的回應
+        """
+        # 優先使用 Handler 返回的 message
+        handler_message = result_data.get('message', '')
+        
+        if handler_message:
+            data = result_data.get('data', {})
+            project_name = data.get('project_name', '未知專案')
+            fw_versions = data.get('fw_versions', [])
+            total_versions = data.get('total_versions', len(fw_versions))
+            
+            # 生成表格資料（給前端用）
+            table_data = []
+            for fw in fw_versions:
+                table_data.append({
+                    'fw_version': fw.get('fw_version', 'N/A'),
+                    'completion_rate': fw.get('completion_rate', 0),
+                    'pass': fw.get('pass', 0),
+                    'fail': fw.get('fail', 0),
+                    'samples_used': fw.get('samples_used', 0),
+                    'total_samples': fw.get('total_samples', 0)
+                })
+            
+            return {
+                'answer': handler_message,
+                'table': table_data,
+                'summary': f"{project_name} 共有 {total_versions} 個 FW 版本"
+            }
+        
+        # Fallback: 如果沒有 handler_message
+        data = result_data.get('data', {})
+        project_name = data.get('project_name', '未知專案')
+        fw_versions = data.get('fw_versions', [])
+        
+        if not fw_versions:
+            return {
+                'answer': f"找不到 {project_name} 的 FW 版本資訊。",
+                'table': []
+            }
+        
+        # 簡易格式化
+        answer = f"## 📋 {project_name} FW 版本列表\n\n"
+        answer += f"共找到 **{len(fw_versions)}** 個版本：\n\n"
+        
+        for i, fw in enumerate(fw_versions, 1):
+            version = fw.get('fw_version', 'N/A')
+            completion = fw.get('completion_rate', 0)
+            answer += f"{i}. **{version}** - 完成率 {completion:.1f}%\n"
+        
+        return {
+            'answer': answer,
+            'table': fw_versions,
+            'summary': f"{project_name} 共有 {len(fw_versions)} 個 FW 版本"
         }
     
     def _generate_count_response(self, result_data: Dict,

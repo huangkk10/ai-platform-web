@@ -26,6 +26,7 @@ class EndpointConfig:
 
 
 # SAF API Endpoint 定義
+# 注意: SAF API 的 size 參數最大值為 100，超過會返回 422 錯誤
 SAF_ENDPOINTS: Dict[str, Dict[str, Any]] = {
     "projects": {
         "path": "/api/v1/projects",
@@ -33,7 +34,7 @@ SAF_ENDPOINTS: Dict[str, Dict[str, Any]] = {
         "description": "查詢 SAF 專案列表（完整資訊）",
         "params": {
             "page": 1,
-            "size": 200  # 預設取得較多資料以便搜尋
+            "size": 100  # SAF API 最大限制 100
         },
         "search_fields": ["projectName", "customer", "controller", "nand", "fw", "productCategory"],
         "transformer": "project_to_dify_record",
@@ -54,7 +55,7 @@ SAF_ENDPOINTS: Dict[str, Dict[str, Any]] = {
         "description": "取得所有專案名稱清單（輕量級）",
         "params": {
             "page": 1,
-            "size": 1000  # 取得所有專案
+            "size": 100  # SAF API 最大限制 100（需分頁獲取全部）
         },
         "search_fields": ["projectName"],
         "transformer": "project_names_to_dify_record",

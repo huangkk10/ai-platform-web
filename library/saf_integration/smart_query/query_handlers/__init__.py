@@ -12,7 +12,9 @@ SAF Query Handlers 模組
 - ProjectSummaryHandler: 查詢專案測試摘要（舊版）
 - TestSummaryHandler: 查詢專案測試結果統計（Phase 3 新增）
 - TestSummaryByFWHandler: 按 FW 版本查詢測試結果（Phase 4 新增）
-- CompareFWVersionsHandler: 比較兩個 FW 版本測試結果（Phase 5 新增）
+- CompareFWVersionsHandler: 比較兩個 FW 版本測試結果（Phase 5.1 新增）
+- CompareLatestFWHandler: 自動比較最新兩個 FW 版本（Phase 5.2.1 新增）
+- ListFWVersionsHandler: 列出專案可比較的 FW 版本（Phase 5.2.2 新增）
 - FWDetailSummaryHandler: FW 詳細統計（完成率、樣本、執行率）（Phase 6.2 新增）
 - StatisticsHandler: 統計查詢（數量、客戶列表、控制器列表）
 
@@ -20,7 +22,8 @@ SAF Query Handlers 模組
 創建日期：2025-12-05
 更新日期：2025-12-24（Phase 3: 添加 TestSummaryHandler）
 更新日期：2025-12-26（Phase 4: 添加 TestSummaryByFWHandler）
-更新日期：2025-12-07（Phase 5: 添加 CompareFWVersionsHandler）
+更新日期：2025-12-07（Phase 5.1: 添加 CompareFWVersionsHandler）
+更新日期：2025-12-07（Phase 5.2: 添加 CompareLatestFWHandler, ListFWVersionsHandler）
 更新日期：2025-12-07（Phase 6.2: 添加 FWDetailSummaryHandler）
 """
 
@@ -32,6 +35,8 @@ from .project_summary_handler import ProjectSummaryHandler
 from .test_summary_handler import TestSummaryHandler
 from .test_summary_by_fw_handler import TestSummaryByFWHandler
 from .compare_fw_versions_handler import CompareFWVersionsHandler
+from .compare_latest_fw_handler import CompareLatestFWHandler
+from .list_fw_versions_handler import ListFWVersionsHandler
 from .fw_detail_summary_handler import FWDetailSummaryHandler
 from .statistics_handler import StatisticsHandler
 
@@ -46,6 +51,9 @@ __all__ = [
     'TestSummaryHandler',
     'TestSummaryByFWHandler',
     'CompareFWVersionsHandler',
+    'CompareLatestFWHandler',
+    'ListFWVersionsHandler',
     'FWDetailSummaryHandler',
     'StatisticsHandler',
 ]
+
