@@ -183,7 +183,26 @@ INTENT_ANALYSIS_PROMPT = """
   - 如果用戶問「有哪些版本」「版本列表」「幾個版本」 → 使用 list_fw_versions
   - 如果用戶問「比較」但沒指定版本 → 使用 compare_latest_fw
 
-### 12. query_fw_detail_summary - 查詢 FW 詳細統計 (Phase 6.2 新增)
+### 12. compare_multiple_fw - 比較多個 FW 版本趨勢 (Phase 5.4 新增)
+用戶想比較專案的三個或更多 FW 版本的趨勢變化時使用。
+- 常見問法：
+  - 「XX 專案的 A、B、C 三個版本比較」「比較 XX 的多個 FW 版本」
+  - 「XX 最近三個版本的趨勢」「XX 最近 5 個 FW 版本的比較」
+  - 「XX 專案 FW A、B、C、D 的測試趨勢」「分析 XX 最近幾版的變化」
+  - 「看一下 XX 版本演進趨勢」「XX 專案 FW 趨勢分析」
+  - 「XX 的 V1、V2、V3 版本比較」「XX 多版本對比」
+  - 「比較 XX 的 FW 版本 A, B 和 C」「XX 版本趨勢圖」
+- 參數：
+  - project_name (專案名稱，如 Springsteen、DEMETER、Channel)
+  - fw_versions (選填，FW 版本列表，如 ["A", "B", "C"]，至少 3 個)
+  - latest_count (選填，自動取最近 N 個版本，如 3、5)
+- 【重要】此意圖用於 3 個或更多版本的趨勢比較
+- 【區分】
+  - 如果用戶指定了兩個具體 FW 版本 → 使用 compare_fw_versions
+  - 如果用戶說「最新兩個」「最近兩個」→ 使用 compare_latest_fw
+  - 如果用戶說「三個版本」「多個版本」「最近幾個」「趨勢」→ 使用 compare_multiple_fw
+
+### 13. query_fw_detail_summary - 查詢 FW 詳細統計 (Phase 6.2 新增)
 用戶想了解專案特定 FW 版本的整體統計指標時使用。
 此意圖提供：完成率、通過率、樣本使用率、執行率、失敗率等詳細統計。
 - 常見問法：
@@ -406,6 +425,30 @@ INTENT_ANALYSIS_PROMPT = """
 
 輸入：顯示 TITAN 版本
 輸出：{"intent": "list_fw_versions", "parameters": {"project_name": "TITAN"}, "confidence": 0.88}
+
+輸入：比較 Springsteen 的 G200X6EC、G200X5DC、G200X4CB 三個版本
+輸出：{"intent": "compare_multiple_fw", "parameters": {"project_name": "Springsteen", "fw_versions": ["G200X6EC", "G200X5DC", "G200X4CB"]}, "confidence": 0.95}
+
+輸入：DEMETER 最近三個版本的趨勢
+輸出：{"intent": "compare_multiple_fw", "parameters": {"project_name": "DEMETER", "latest_count": 3}, "confidence": 0.93}
+
+輸入：Channel 專案 FW A、B、C、D 的測試趨勢
+輸出：{"intent": "compare_multiple_fw", "parameters": {"project_name": "Channel", "fw_versions": ["A", "B", "C", "D"]}, "confidence": 0.95}
+
+輸入：分析 A400 最近 5 個版本的變化
+輸出：{"intent": "compare_multiple_fw", "parameters": {"project_name": "A400", "latest_count": 5}, "confidence": 0.92}
+
+輸入：看一下 Frey3B 版本演進趨勢
+輸出：{"intent": "compare_multiple_fw", "parameters": {"project_name": "Frey3B", "latest_count": 3}, "confidence": 0.90}
+
+輸入：Bennington 專案 FW 趨勢分析
+輸出：{"intent": "compare_multiple_fw", "parameters": {"project_name": "Bennington", "latest_count": 3}, "confidence": 0.90}
+
+輸入：TITAN 多版本對比
+輸出：{"intent": "compare_multiple_fw", "parameters": {"project_name": "TITAN", "latest_count": 3}, "confidence": 0.88}
+
+輸入：比較 VULCAN 的 V1、V2、V3 版本
+輸出：{"intent": "compare_multiple_fw", "parameters": {"project_name": "VULCAN", "fw_versions": ["V1", "V2", "V3"]}, "confidence": 0.92}
 
 輸入：Springsteen 專案 G200X6EC 的詳細統計
 輸出：{"intent": "query_fw_detail_summary", "parameters": {"project_name": "Springsteen", "fw_version": "G200X6EC"}, "confidence": 0.95}

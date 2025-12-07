@@ -47,6 +47,9 @@ class IntentType(Enum):
     COMPARE_LATEST_FW = "compare_latest_fw"           # 自動比較最新兩版本
     LIST_FW_VERSIONS = "list_fw_versions"             # 列出可比較的 FW 版本
     
+    # 🆕 Phase 5.4: 多版本趨勢分析
+    COMPARE_MULTIPLE_FW = "compare_multiple_fw"       # 比較多個 FW 版本（3個或以上）
+    
     # 🆕 Phase 6.2: 查詢 FW 詳細統計（使用 /firmware-summary API）
     QUERY_FW_DETAIL_SUMMARY = "query_fw_detail_summary"
     

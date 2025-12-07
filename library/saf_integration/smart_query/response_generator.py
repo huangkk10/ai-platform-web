@@ -69,6 +69,8 @@ class SAFResponseGenerator:
             # Phase 5.2: 智能版本選擇回應生成器
             IntentType.COMPARE_LATEST_FW: self._generate_compare_latest_fw_response,
             IntentType.LIST_FW_VERSIONS: self._generate_list_fw_versions_response,
+            # Phase 5.4: 多版本趨勢比較回應生成器
+            IntentType.COMPARE_MULTIPLE_FW: self._generate_compare_multiple_fw_response,
             IntentType.COUNT_PROJECTS: self._generate_count_response,
             IntentType.LIST_ALL_CUSTOMERS: self._generate_customers_list_response,
             IntentType.LIST_ALL_CONTROLLERS: self._generate_controllers_list_response,
@@ -723,6 +725,71 @@ class SAFResponseGenerator:
             'summary': f"{project_name} 共有 {len(fw_versions)} 個 FW 版本"
         }
     
+    def _generate_compare_multiple_fw_response(self, result_data: Dict,
+                                                full_result: Dict) -> Dict[str, Any]:
+        """
+        生成多版本 FW 趨勢比較的回答（Phase 5.4）
+        
+        直接使用 Handler 返回的 message，因為 CompareMultipleFWHandler
+        已經格式化了完整的趨勢比較表格。
+        
+        Args:
+            result_data: 查詢結果資料
+            full_result: 完整查詢結果
+            
+        Returns:
+            Dict: 包含 answer、table、chart_data 的回應
+        """
+        # 優先使用 Handler 返回的 message
+        handler_message = result_data.get('message', '')
+        
+        if handler_message:
+            data = result_data.get('data', {})
+            project_name = data.get('project_name', '未知專案')
+            versions_count = data.get('versions_count', 0)
+            versions_compared = data.get('versions_compared', [])
+            chart_data = data.get('chart_data', {})
+            
+            # 生成表格資料（給前端用）
+            versions_data = data.get('versions_data', [])
+            table_data = []
+            for v in versions_data:
+                table_data.append({
+                    'fw_version': v.get('fw_version', 'N/A'),
+                    'pass': v.get('pass', 0),
+                    'fail': v.get('fail', 0),
+                    'pass_rate': v.get('pass_rate', 0),
+                    'completion_rate': v.get('completion_rate', 0)
+                })
+            
+            return {
+                'answer': handler_message,
+                'table': table_data,
+                'chart_data': chart_data,
+                'summary': f"{project_name} 共比較 {versions_count} 個版本：{', '.join(versions_compared)}"
+            }
+        
+        # Fallback: 如果沒有 handler_message
+        data = result_data.get('data', {})
+        project_name = data.get('project_name', '未知專案')
+        versions_data = data.get('versions_data', [])
+        
+        if not versions_data:
+            return {
+                'answer': f"找不到 {project_name} 的多版本比較資料。",
+                'table': []
+            }
+        
+        # 簡易格式化
+        answer = f"## 📊 {project_name} 多版本趨勢比較\n\n"
+        answer += f"共比較 **{len(versions_data)}** 個版本。\n"
+        
+        return {
+            'answer': answer,
+            'table': versions_data,
+            'summary': f"{project_name} 共比較 {len(versions_data)} 個版本"
+        }
+
     def _generate_count_response(self, result_data: Dict,
                                   full_result: Dict) -> Dict[str, Any]:
         """生成專案數量統計的回答"""

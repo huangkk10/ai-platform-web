@@ -24,6 +24,7 @@ from .query_handlers import (
     CompareFWVersionsHandler,
     CompareLatestFWHandler,
     ListFWVersionsHandler,
+    CompareMultipleFWHandler,
     FWDetailSummaryHandler,
     StatisticsHandler,
 )
@@ -61,6 +62,9 @@ class QueryRouter:
         compare_latest_fw_handler = CompareLatestFWHandler()
         list_fw_versions_handler = ListFWVersionsHandler()
         
+        # Phase 5.4: 多版本趨勢比較處理器
+        compare_multiple_fw_handler = CompareMultipleFWHandler()
+        
         # Phase 6.2: FWDetailSummaryHandler 處理 FW 詳細統計意圖
         fw_detail_summary_handler = FWDetailSummaryHandler()
         
@@ -85,6 +89,9 @@ class QueryRouter:
             # Phase 5.2: 智能版本選擇處理器
             IntentType.COMPARE_LATEST_FW: compare_latest_fw_handler,
             IntentType.LIST_FW_VERSIONS: list_fw_versions_handler,
+            
+            # Phase 5.4: 多版本趨勢比較處理器
+            IntentType.COMPARE_MULTIPLE_FW: compare_multiple_fw_handler,
             
             # Phase 6.2: FW 詳細統計處理器
             IntentType.QUERY_FW_DETAIL_SUMMARY: fw_detail_summary_handler,
