@@ -73,6 +73,8 @@ class SAFResponseGenerator:
             IntentType.LIST_FW_VERSIONS: self._generate_list_fw_versions_response,
             # Phase 5.4: 多版本趨勢比較回應生成器
             IntentType.COMPARE_MULTIPLE_FW: self._generate_compare_multiple_fw_response,
+            # Phase 7: PL 查詢回應生成器
+            IntentType.QUERY_PROJECTS_BY_PL: self._generate_pl_projects_response,
             IntentType.COUNT_PROJECTS: self._generate_count_response,
             IntentType.LIST_ALL_CUSTOMERS: self._generate_customers_list_response,
             IntentType.LIST_ALL_CONTROLLERS: self._generate_controllers_list_response,
@@ -125,6 +127,123 @@ class SAFResponseGenerator:
             'summary': f"{count} 個專案使用 {controller} 控制器"
         }
     
+    # ============================================================
+    # Phase 7: PL 查詢回應生成方法
+    # ============================================================
+    
+    def _generate_pl_projects_response(self, result_data: Dict,
+                                        full_result: Dict) -> Dict[str, Any]:
+        """
+        生成 PL（專案負責人）專案查詢的回答
+        
+        支援分組顯示：當查詢結果包含多種 PL 格式時，
+        會按實際 PL 名稱分組顯示。
+        
+        Args:
+            result_data: 查詢結果資料
+            full_result: 完整查詢結果
+            
+        Returns:
+            Dict: 包含 answer 和 table 的回應
+        """
+        data = result_data.get('data', {})
+        parameters = result_data.get('parameters', {})
+        pl = parameters.get('pl', '未知 PL')
+        
+        # 新格式：包含分組資訊
+        if isinstance(data, dict) and 'groups' in data:
+            return self._generate_pl_grouped_response(data, pl)
+        
+        # 向後相容：舊格式（扁平列表）
+        if isinstance(data, list):
+            return self._generate_pl_flat_response(data, pl)
+        
+        # 其他情況：空結果
+        return {
+            'answer': f"找不到專案負責人 **{pl}** 的專案。",
+            'table': [],
+            'summary': f"找不到 {pl} 的專案"
+        }
+    
+    def _generate_pl_grouped_response(self, data: Dict, pl: str) -> Dict[str, Any]:
+        """
+        生成按 PL 分組的回應
+        
+        Args:
+            data: 包含 groups 的資料結構
+            pl: 查詢的 PL 名稱
+            
+        Returns:
+            Dict: 格式化的回應
+        """
+        query_pl = data.get('query_pl', pl)
+        total_count = data.get('total_count', 0)
+        groups = data.get('groups', [])
+        flat_projects = data.get('projects', [])
+        
+        if total_count == 0:
+            return {
+                'answer': f"找不到專案負責人 **{query_pl}** 的專案。",
+                'table': [],
+                'summary': f"找不到 {query_pl} 的專案"
+            }
+        
+        # 生成回答
+        group_count = len(groups)
+        
+        if group_count == 1:
+            # 單一 PL 格式
+            answer = f"**{query_pl}** 負責 **{total_count}** 個專案：\n\n"
+            answer += self._generate_projects_table(flat_projects)
+        else:
+            # 多種 PL 格式 - 按分組顯示
+            answer = f"找到 **{total_count}** 個與 **{query_pl}** 相關的專案（{group_count} 種 PL 格式）：\n\n"
+            
+            for group in groups:
+                pl_name = group.get('pl_name', '未知')
+                count = group.get('count', 0)
+                projects = group.get('projects', [])
+                
+                answer += f"### PL: {pl_name} ({count} 個專案)\n\n"
+                answer += self._generate_projects_table(projects)
+                answer += "\n"
+        
+        return {
+            'answer': answer,
+            'table': flat_projects,
+            'groups': groups,
+            'summary': f"{query_pl} 相關專案共 {total_count} 個（{group_count} 種 PL 格式）"
+        }
+    
+    def _generate_pl_flat_response(self, data: List, pl: str) -> Dict[str, Any]:
+        """
+        生成扁平列表的 PL 回應（向後相容）
+        
+        Args:
+            data: 專案列表
+            pl: PL 名稱
+            
+        Returns:
+            Dict: 格式化的回應
+        """
+        count = len(data)
+        
+        if count == 0:
+            return {
+                'answer': f"找不到專案負責人 **{pl}** 的專案。",
+                'table': [],
+                'summary': f"找不到 {pl} 的專案"
+            }
+        
+        answer = f"**{pl}** 負責 **{count}** 個專案：\n\n"
+        answer += self._generate_projects_table(data)
+        
+        return {
+            'answer': answer,
+            'table': data,
+            'summary': f"{pl} 負責 {count} 個專案"
+        }
+
     def _generate_project_detail_response(self, result_data: Dict,
                                            full_result: Dict) -> Dict[str, Any]:
         """生成專案詳情查詢的回答"""
