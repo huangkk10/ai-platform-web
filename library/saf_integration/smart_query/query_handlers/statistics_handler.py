@@ -121,11 +121,16 @@ class StatisticsHandler(BaseHandler):
         if customer:
             projects_list = self._filter_projects(projects_list, 'customer', customer)
         
-        count = len(projects_list)
+        # 去重：根據 projectName 去除重複的專案
+        # SAF API 可能返回多個子專案（同一個專案名稱多個記錄）
+        original_count = len(projects_list)
+        unique_projects = self._deduplicate_projects_by_name(projects_list)
+        count = len(unique_projects)
         
         # 構建統計資料
         stats_data = {
             'total_count': count,
+            'original_count': original_count,  # 原始記錄數（含重複）
             'customer': customer if customer else '全部',
         }
         

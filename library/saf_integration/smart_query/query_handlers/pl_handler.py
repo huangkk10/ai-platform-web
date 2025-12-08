@@ -77,20 +77,33 @@ class PLHandler(BaseHandler):
                     message=f"找不到專案負責人 '{pl}' 的專案"
                 )
             
+            # 去重：根據 projectName 去除重複的專案
+            # SAF API 可能返回多個子專案（同一個專案名稱多個記錄）
+            unique_projects = self._deduplicate_projects_by_name(filtered_projects)
+            
             # 格式化所有專案
             formatted_projects = [
-                self._format_project_data(p) for p in filtered_projects
+                self._format_project_data(p) for p in unique_projects
             ]
             
             # 按實際 PL 名稱分組
             groups = self._group_projects_by_pl(formatted_projects)
             
-            # 構建結果訊息
+            # 構建結果訊息（顯示去重前後的數量差異）
             group_count = len(groups)
+            original_count = len(filtered_projects)
+            unique_count = len(formatted_projects)
+            
             if group_count == 1:
-                message = f"找到 {len(formatted_projects)} 個 {pl} 負責的專案"
+                if original_count != unique_count:
+                    message = f"找到 {unique_count} 個 {pl} 負責的不同專案（原始 {original_count} 筆記錄）"
+                else:
+                    message = f"找到 {unique_count} 個 {pl} 負責的專案"
             else:
-                message = f"找到 {len(formatted_projects)} 個與 '{pl}' 相關的專案（{group_count} 種 PL 格式）"
+                if original_count != unique_count:
+                    message = f"找到 {unique_count} 個與 '{pl}' 相關的不同專案（原始 {original_count} 筆，{group_count} 種 PL 格式）"
+                else:
+                    message = f"找到 {unique_count} 個與 '{pl}' 相關的專案（{group_count} 種 PL 格式）"
             
             # 構建結果資料（包含分組資訊）
             result_data = {

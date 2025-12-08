@@ -262,6 +262,44 @@ class BaseHandler(ABC):
         
         return sorted(list(values))
     
+    def _deduplicate_projects_by_name(self, projects: List[Dict]) -> List[Dict]:
+        """
+        根據 projectName 去重，只保留唯一的專案名稱
+        
+        當 SAF API 返回多個子專案時（例如 BM9H1 有多個 sub-project），
+        此方法會去重，只保留第一個出現的專案記錄。
+        
+        Args:
+            projects: 原始專案列表（可能包含重複的 projectName）
+            
+        Returns:
+            List[Dict]: 去重後的專案列表（每個 projectName 只出現一次）
+        """
+        if not projects:
+            return []
+        
+        seen_names = set()
+        unique_projects = []
+        
+        for project in projects:
+            project_name = project.get('projectName') or project.get('name', '')
+            
+            # 跳過空的專案名稱
+            if not project_name:
+                continue
+            
+            # 只保留第一次出現的專案名稱
+            if project_name not in seen_names:
+                seen_names.add(project_name)
+                unique_projects.append(project)
+        
+        logger.debug(
+            f"去重結果: 原始 {len(projects)} 筆 -> 去重後 {len(unique_projects)} 筆 "
+            f"(移除 {len(projects) - len(unique_projects)} 個重複專案)"
+        )
+        
+        return unique_projects
+    
     def _format_project_data(self, project: Dict) -> Dict[str, Any]:
         """
         格式化單個專案資料

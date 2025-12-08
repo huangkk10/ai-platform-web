@@ -654,10 +654,42 @@ class SAFIntentAnalyzer:
             
             # 創建 IntentResult
             intent_type = IntentType.from_string(intent_data.get('intent', 'unknown'))
+            parameters = intent_data.get('parameters', {})
+            
+            # 檢測意圖是否與查詢明顯不匹配
+            should_use_fallback = False
+            
+            # 情況 1：Dify 返回 unknown
+            if intent_type == IntentType.UNKNOWN:
+                logger.info("Dify 返回 unknown，嘗試 fallback 分析")
+                should_use_fallback = True
+            
+            # 情況 2：查詢中包含特定客戶名，但 Dify 返回了 list_all_customers（列出所有客戶）
+            # 例如：「Samsung 有幾個案子」應該是 count_projects(customer=Samsung)，不是 list_all_customers
+            elif intent_type == IntentType.LIST_ALL_CUSTOMERS:
+                detected_customer = self._detect_customer(original_query)
+                if detected_customer:
+                    logger.info(f"查詢包含特定客戶 '{detected_customer}'，但 Dify 返回 list_all_customers，嘗試 fallback")
+                    should_use_fallback = True
+            
+            # 情況 3：查詢中包含特定客戶名，但返回的意圖沒有 customer 參數
+            elif intent_type in [IntentType.COUNT_PROJECTS, IntentType.QUERY_PROJECTS_BY_CUSTOMER]:
+                detected_customer = self._detect_customer(original_query)
+                if detected_customer and not parameters.get('customer'):
+                    logger.info(f"查詢包含特定客戶 '{detected_customer}'，但參數中缺少 customer，補充參數")
+                    parameters['customer'] = detected_customer
+            
+            # 如果需要使用 fallback
+            if should_use_fallback:
+                fallback_result = self._fallback_analysis(original_query)
+                # 只有當 fallback 識別出有效意圖時才使用
+                if fallback_result.intent != IntentType.UNKNOWN:
+                    logger.info(f"Fallback 識別成功: {fallback_result.intent}, 參數: {fallback_result.parameters}")
+                    return fallback_result
             
             return IntentResult(
                 intent=intent_type,
-                parameters=intent_data.get('parameters', {}),
+                parameters=parameters,
                 confidence=float(intent_data.get('confidence', 0.5)),
                 raw_response=answer
             )
