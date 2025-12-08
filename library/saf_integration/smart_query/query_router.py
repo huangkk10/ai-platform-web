@@ -107,6 +107,7 @@ class QueryRouter:
             IntentType.COUNT_PROJECTS: self._statistics_handler,
             IntentType.LIST_ALL_CUSTOMERS: self._statistics_handler,
             IntentType.LIST_ALL_CONTROLLERS: self._statistics_handler,
+            IntentType.LIST_ALL_PLS: self._statistics_handler,
         }
         
         logger.info(f"QueryRouter 已註冊 {len(self._handlers)} 個處理器")
@@ -150,7 +151,8 @@ class QueryRouter:
             if intent_type in [
                 IntentType.COUNT_PROJECTS,
                 IntentType.LIST_ALL_CUSTOMERS,
-                IntentType.LIST_ALL_CONTROLLERS
+                IntentType.LIST_ALL_CONTROLLERS,
+                IntentType.LIST_ALL_PLS
             ]:
                 return self._handle_statistics_query(intent_type, parameters)
             
@@ -191,6 +193,8 @@ class QueryRouter:
             return handler.list_customers(parameters)
         elif intent_type == IntentType.LIST_ALL_CONTROLLERS:
             return handler.list_controllers(parameters)
+        elif intent_type == IntentType.LIST_ALL_PLS:
+            return handler.list_pls(parameters)
         else:
             return QueryResult.error(
                 f"未知的統計類型: {intent_type.value}",

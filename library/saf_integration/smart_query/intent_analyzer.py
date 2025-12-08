@@ -822,7 +822,20 @@ class SAFIntentAnalyzer:
                 raw_response="Fallback: list controllers query"
             )
         
-        # 6. 檢查是否是專案詳情或摘要查詢
+        # 6. PL（專案負責人）列表查詢
+        query_lower = query.lower()
+        pl_keywords = ['pl', 'pm', '負責人', '專案負責人', 'project leader', 'project manager']
+        list_keywords = ['有哪些', '有那些', '列表', '全部', '所有', '多少']
+        
+        if any(pk in query_lower for pk in pl_keywords) and any(lk in query for lk in list_keywords):
+            return IntentResult(
+                intent=IntentType.LIST_ALL_PLS,
+                parameters={},
+                confidence=0.6,
+                raw_response="Fallback: list pls query"
+            )
+        
+        # 7. 檢查是否是專案詳情或摘要查詢
         project_name = self._detect_project_name(query)
         if project_name:
             # 檢查是否有測試類別或容量關鍵字

@@ -35,7 +35,7 @@ class StatisticsHandler(BaseHandler):
         
         Args:
             parameters: {
-                "query_type": "count_projects" | "list_customers" | "list_controllers",
+                "query_type": "count_projects" | "list_customers" | "list_controllers" | "list_pls",
                 "customer": "WD" (可選，用於 count_projects)
             }
             
@@ -53,6 +53,8 @@ class StatisticsHandler(BaseHandler):
                 return self._list_all_customers(parameters)
             elif query_type == 'list_controllers':
                 return self._list_all_controllers(parameters)
+            elif query_type == 'list_pls':
+                return self._list_all_pls(parameters)
             else:
                 return QueryResult.error(
                     f"不支援的統計類型: {query_type}",
@@ -229,6 +231,56 @@ class StatisticsHandler(BaseHandler):
         
         self._log_result(result)
         return result
+    
+    def _list_all_pls(self, parameters: Dict[str, Any]) -> QueryResult:
+        """
+        列出所有專案負責人 (PL)
+        
+        Returns:
+            QueryResult: PL 列表及其負責的專案數量
+        """
+        # 獲取所有專案
+        projects_list = self.api_client.get_all_projects()
+        
+        if not projects_list:
+            return QueryResult.error(
+                "無法獲取專案列表",
+                self.handler_name,
+                parameters
+            )
+        
+        # 去重專案（按 projectName）
+        unique_projects = self._deduplicate_projects_by_name(projects_list)
+        
+        # 提取唯一 PL
+        pls = self._extract_unique_values(unique_projects, 'pl')
+        
+        # 統計每個 PL 的專案數
+        pl_stats = self._group_by_field(unique_projects, 'pl')
+        
+        result = QueryResult.success(
+            data={
+                'pls': pls,
+                'pl_count': len(pls),
+                'pl_stats': pl_stats
+            },
+            count=len(pls),
+            query_type="list_pls",
+            parameters=parameters,
+            message=f"共有 {len(pls)} 位專案負責人"
+        )
+        
+        self._log_result(result)
+        return result
+    
+    def list_pls(self, parameters: Dict[str, Any]) -> QueryResult:
+        """
+        列出所有專案負責人（公開方法）
+        
+        Returns:
+            QueryResult: PL 列表
+        """
+        return self._list_all_pls(parameters)
     
     def _group_by_customer(self, projects: List[Dict]) -> Dict[str, int]:
         """

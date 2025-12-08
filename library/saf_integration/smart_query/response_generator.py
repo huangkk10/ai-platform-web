@@ -78,6 +78,7 @@ class SAFResponseGenerator:
             IntentType.COUNT_PROJECTS: self._generate_count_response,
             IntentType.LIST_ALL_CUSTOMERS: self._generate_customers_list_response,
             IntentType.LIST_ALL_CONTROLLERS: self._generate_controllers_list_response,
+            IntentType.LIST_ALL_PLS: self._generate_pls_list_response,
             IntentType.UNKNOWN: self._generate_unknown_response,
         }
         
@@ -1104,6 +1105,44 @@ class SAFResponseGenerator:
             'table': [{'controller': c, 'project_count': controller_stats.get(c, 0)} 
                      for c in controllers],
             'summary': f"共 {count} 種控制器"
+        }
+    
+    def _generate_pls_list_response(self, result_data: Dict,
+                                     full_result: Dict) -> Dict[str, Any]:
+        """生成專案負責人 (PL) 列表的回答"""
+        data = result_data.get('data', {})
+        pls = data.get('pls', [])
+        pl_stats = data.get('pl_stats', {})
+        count = len(pls)
+        
+        if count == 0:
+            return {
+                'answer': "目前沒有任何專案負責人資料。",
+                'table': []
+            }
+        
+        # 按專案數量排序（降序）
+        sorted_pls = sorted(pls, key=lambda x: pl_stats.get(x, 0), reverse=True)
+        
+        # 取第一名用於提示
+        top_pl = sorted_pls[0] if sorted_pls else 'Ryder'
+        
+        answer = f"目前共有 **{count}** 位專案負責人 (PL)：\n\n"
+        answer += "| 專案負責人 | 專案數量 |\n"
+        answer += "|------------|----------|\n"
+        
+        # 按專案數量排序顯示
+        for pl in sorted_pls:
+            project_count = pl_stats.get(pl, 0)
+            answer += f"| {pl} | {project_count} |\n"
+        
+        answer += f"\n\n如需查看特定 PL 負責的專案，可以詢問「{top_pl} 負責哪些專案？」"
+        
+        return {
+            'answer': answer,
+            'table': [{'pl': p, 'project_count': pl_stats.get(p, 0)} 
+                     for p in sorted_pls],
+            'summary': f"共 {count} 位專案負責人"
         }
     
     def _generate_unknown_response(self, result_data: Dict,
