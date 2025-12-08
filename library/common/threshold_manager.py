@@ -109,7 +109,6 @@ class ThresholdManager:
                     'stage1_threshold': float(setting.stage1_threshold),
                     'stage1_title_weight': setting.stage1_title_weight,
                     'stage1_content_weight': setting.stage1_content_weight,
-                    'stage1_post_boost_threshold': float(setting.stage1_post_boost_threshold),  # 🆕 Title Boost 後二次篩選閾值
                     
                     # 第二階段
                     'stage2_threshold': float(setting.stage2_threshold),

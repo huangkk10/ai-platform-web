@@ -76,63 +76,12 @@ class BaseKnowledgeBaseAPIHandler(ABC):
         return cls.model_class
     
     @classmethod
-    def _get_threshold_from_settings(cls, dify_threshold: float = 0.0) -> float:
-        """
-        從 SearchThresholdSetting 獲取 threshold 設定
-        
-        🎯 優先使用我們自己的 stage2_threshold 設定，
-        而非 Dify 傳過來的 score_threshold
-        
-        Args:
-            dify_threshold: Dify 傳過來的 threshold（作為 fallback）
-            
-        Returns:
-            float: 應該使用的 threshold 值
-        """
-        try:
-            from api.models import SearchThresholdSetting
-            
-            # 映射 source_table 到 assistant_type
-            table_to_type = {
-                'protocol_guide': 'protocol_assistant',
-                'rvt_guide': 'rvt_assistant',
-                'know_issue': 'know_issue_assistant',
-            }
-            
-            source_table = cls.source_table
-            assistant_type = table_to_type.get(source_table)
-            
-            if not assistant_type:
-                logger.warning(f"未知的 source_table: {source_table}，使用 Dify threshold: {dify_threshold}")
-                return dify_threshold
-            
-            setting = SearchThresholdSetting.objects.get(assistant_type=assistant_type)
-            
-            # 🔑 使用 stage2_threshold（全文搜尋階段的 threshold）
-            # 因為外部知識庫 API 返回的結果會作為引用來源顯示
-            our_threshold = float(setting.stage2_threshold)
-            
-            logger.info(
-                f"✅ 使用 SearchThresholdSetting 的 stage2_threshold: {our_threshold:.2f} "
-                f"(Dify 傳的值: {dify_threshold:.2f})"
-            )
-            
-            return our_threshold
-            
-        except Exception as e:
-            logger.warning(f"無法讀取 SearchThresholdSetting: {str(e)}，使用 Dify threshold: {dify_threshold}")
-            return dify_threshold
-    
-    @classmethod
     def handle_dify_search_api(cls, request):
         """
         處理 Dify 知識庫外部搜索 API
         
         統一的 Dify 知識庫搜索實現，子類通常不需要覆寫。
         如果需要特殊的搜索邏輯，可以覆寫 perform_search 方法。
-        
-        🔑 2025-01-21 更新：現在會使用 SearchThresholdSetting 的 stage2_threshold
-        作為引用來源的過濾閾值，確保前端設定的 threshold 生效。
         """
         try:
             # 記錄請求來源
@@ -145,10 +94,7 @@ class BaseKnowledgeBaseAPIHandler(ABC):
             retrieval_setting = data.get('retrieval_setting', {})
             
             top_k = retrieval_setting.get('top_k', 5)
-            dify_threshold = retrieval_setting.get('score_threshold', 0.0)
-            
-            # 🔑 使用我們自己的 threshold 設定，而非 Dify 傳過來的值
-            score_threshold = cls._get_threshold_from_settings(dify_threshold)
+            score_threshold = retrieval_setting.get('score_threshold', 0.0)
             
             logger.info(f"{cls.__name__} search - Query: {query}, Top K: {top_k}, Score threshold: {score_threshold}")
             
