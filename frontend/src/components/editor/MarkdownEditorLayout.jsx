@@ -35,6 +35,11 @@ import {
   validateMarkdownStructure, 
   formatValidationMessage 
 } from '../../utils/markdownValidator';
+import { 
+  parseSummaryBlocks, 
+  addHeadingAnchors, 
+  summaryBlockStyles 
+} from '../../utils/markdownSummaryParser';
 
 // 存儲圖片管理器回調的全局變數（使用閉包）
 let globalImageManagerHandler = null;
@@ -206,6 +211,188 @@ const customToolbarStyles = `
     max-width: 100px !important;
     height: auto !important;
   }
+
+  /* ========================================
+     🆕 摘要區塊樣式 (Summary Block Styles)
+     ======================================== */
+
+  /* 摘要區塊容器 */
+  .rc-md-editor .markdown-summary-block,
+  .markdown-summary-block {
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%) !important;
+    border: 1px solid #bae6fd !important;
+    border-left: 4px solid #0284c7 !important;
+    border-radius: 8px !important;
+    margin: 16px 0 !important;
+    overflow: hidden !important;
+    box-shadow: 0 2px 8px rgba(2, 132, 199, 0.1) !important;
+  }
+
+  /* 摘要標題區域 */
+  .rc-md-editor .markdown-summary-header,
+  .markdown-summary-header {
+    background: rgba(2, 132, 199, 0.1) !important;
+    padding: 12px 16px !important;
+    font-weight: 600 !important;
+    font-size: 16px !important;
+    color: #0369a1 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    border-bottom: 1px solid rgba(2, 132, 199, 0.15) !important;
+  }
+
+  /* 摘要圖標 */
+  .rc-md-editor .markdown-summary-header .summary-icon,
+  .markdown-summary-header .summary-icon {
+    font-size: 18px !important;
+  }
+
+  /* 摘要標題文字 */
+  .rc-md-editor .markdown-summary-header .summary-title,
+  .markdown-summary-header .summary-title {
+    flex: 1 !important;
+  }
+
+  /* 摘要內容區域 */
+  .rc-md-editor .markdown-summary-content,
+  .markdown-summary-content {
+    padding: 12px 16px !important;
+  }
+
+  /* 摘要列表 */
+  .rc-md-editor .markdown-summary-content .summary-list,
+  .markdown-summary-content .summary-list {
+    list-style: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* 摘要列表項目 */
+  .rc-md-editor .markdown-summary-content .summary-item,
+  .markdown-summary-content .summary-item {
+    margin: 6px 0 !important;
+    padding: 4px 0 !important;
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+  }
+
+  /* 列表項目前的圖標 - 基礎 */
+  .rc-md-editor .markdown-summary-content .summary-item::before,
+  .markdown-summary-content .summary-item::before {
+    content: '' !important;
+    display: inline-block !important;
+    margin-right: 8px !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* H1 標題 - 無縮排，藍色圓點 */
+  .rc-md-editor .markdown-summary-content .summary-item-h1,
+  .markdown-summary-content .summary-item-h1 {
+    padding-left: 0 !important;
+    font-weight: 600 !important;
+    font-size: 15px !important;
+  }
+
+  .rc-md-editor .markdown-summary-content .summary-item-h1::before,
+  .markdown-summary-content .summary-item-h1::before {
+    content: '●' !important;
+    color: #0284c7 !important;
+    font-size: 10px !important;
+  }
+
+  /* H2 標題 - 16px 縮排，青色方點 */
+  .rc-md-editor .markdown-summary-content .summary-item-h2,
+  .markdown-summary-content .summary-item-h2 {
+    padding-left: 16px !important;
+    font-weight: 500 !important;
+    font-size: 14px !important;
+  }
+
+  .rc-md-editor .markdown-summary-content .summary-item-h2::before,
+  .markdown-summary-content .summary-item-h2::before {
+    content: '■' !important;
+    color: #0891b2 !important;
+    font-size: 8px !important;
+  }
+
+  /* H3 標題 - 32px 縮排，灰色破折號 */
+  .rc-md-editor .markdown-summary-content .summary-item-h3,
+  .markdown-summary-content .summary-item-h3 {
+    padding-left: 32px !important;
+    font-weight: 400 !important;
+    font-size: 13px !important;
+  }
+
+  .rc-md-editor .markdown-summary-content .summary-item-h3::before,
+  .markdown-summary-content .summary-item-h3::before {
+    content: '–' !important;
+    color: #64748b !important;
+    font-size: 12px !important;
+  }
+
+  /* 摘要連結樣式 */
+  .rc-md-editor .markdown-summary-content .summary-link,
+  .markdown-summary-content .summary-link {
+    color: #0284c7 !important;
+    text-decoration: none !important;
+    transition: all 0.2s ease !important;
+    padding: 2px 4px !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+  }
+
+  .rc-md-editor .markdown-summary-content .summary-link:hover,
+  .markdown-summary-content .summary-link:hover {
+    color: #0369a1 !important;
+    background-color: rgba(2, 132, 199, 0.1) !important;
+    text-decoration: underline !important;
+  }
+
+  /* 純文字摘要 */
+  .rc-md-editor .markdown-summary-content .summary-text,
+  .markdown-summary-content .summary-text {
+    color: #374151 !important;
+    line-height: 1.6 !important;
+  }
+
+  /* ========================================
+     🆕 錨點標題樣式 (Anchor Heading Styles)
+     ======================================== */
+
+  /* 帶錨點的標題 */
+  .rc-md-editor .anchor-heading,
+  .anchor-heading {
+    scroll-margin-top: 20px !important; /* 跳轉時預留頂部空間 */
+    position: relative !important;
+  }
+
+  /* 錨點高亮動畫 */
+  .rc-md-editor .anchor-heading.highlight-anchor,
+  .anchor-heading.highlight-anchor {
+    animation: anchorHighlight 2s ease-out !important;
+  }
+
+  @keyframes anchorHighlight {
+    0% {
+      background-color: #fef08a;
+      border-radius: 4px;
+      padding: 2px 8px;
+      margin-left: -8px;
+    }
+    100% {
+      background-color: transparent;
+      padding: 0;
+      margin-left: 0;
+    }
+  }
+
+  /* 預覽區平滑滾動 */
+  .rc-md-editor .html-wrap,
+  .rc-md-editor .sec-html {
+    scroll-behavior: smooth !important;
+  }
 `;
 
 // 初始化 Markdown 解析器（啟用 HTML 支援）
@@ -227,6 +414,8 @@ const mdParser = new MarkdownIt({
  * 新增功能：
  * - 支援 HTML 標籤（如 <br>）在預覽中正確顯示
  * - 將換行符自動轉換為 <br> 標籤
+ * - 🆕 支援 ::: summary 摘要區塊語法
+ * - 🆕 為標題自動生成錨點 ID
  * 
  * @param {string} text - Markdown 文本
  * @returns {string} - 渲染後的 HTML
@@ -235,6 +424,9 @@ const renderMarkdownWithImages = (text) => {
   try {
     // 步驟 1：修復表格格式
     let processed = fixAllMarkdownTables(text);
+    
+    // 🆕 步驟 1.5：解析摘要區塊（::: summary ... :::）
+    processed = parseSummaryBlocks(processed);
     
     // 步驟 2：將 [IMG:ID] 轉換為 ![IMG:ID](http://..../api/content-images/ID/)
     processed = convertImageReferencesToMarkdown(processed);
@@ -272,6 +464,9 @@ const renderMarkdownWithImages = (text) => {
         />`;
       }
     );
+    
+    // 🆕 步驟 5：為標題添加錨點 ID（支援摘要區塊跳轉）
+    htmlString = addHeadingAnchors(htmlString, true);
     
     return htmlString;
   } catch (error) {
@@ -682,6 +877,106 @@ const MarkdownEditorLayout = ({
       clearTimeout(bindTimeout);
     };
   }, [formData?.content]); // 當內容改變時重新綁定（錨點可能改變）
+
+  // ======================================================================
+  // 🆕 摘要區塊連結點擊 - 平滑滾動到錨點
+  // ======================================================================
+  useEffect(() => {
+    // 延遲綁定，確保預覽區 DOM 已渲染
+    const bindTimeout = setTimeout(() => {
+      const previewWrapper = document.querySelector('.sec-html');
+      const previewEl = previewWrapper?.querySelector('.html-wrap');
+      
+      if (!previewEl) {
+        console.warn('⚠️ 摘要連結：找不到預覽區 DOM');
+        return;
+      }
+      
+      /**
+       * 處理摘要區塊中連結的點擊事件
+       * 實現平滑滾動到目標錨點
+       */
+      const handleSummaryLinkClick = (event) => {
+        const target = event.target;
+        
+        // 檢查是否點擊了摘要連結
+        if (!target.classList.contains('summary-link')) {
+          return;
+        }
+        
+        const href = target.getAttribute('href');
+        if (!href || !href.startsWith('#')) {
+          return;
+        }
+        
+        event.preventDefault();
+        
+        const anchorId = href.slice(1); // 移除 # 符號
+        
+        // 嘗試在預覽區中找到目標錨點
+        // 使用 CSS.escape 處理特殊字元（如中文）
+        let targetElement = null;
+        
+        try {
+          // 方法 1：直接使用 ID 選擇器
+          targetElement = previewEl.querySelector(`#${CSS.escape(anchorId)}`);
+        } catch (e) {
+          console.warn('CSS.escape 失敗，嘗試其他方法:', e);
+        }
+        
+        // 方法 2：如果方法 1 失敗，使用 getElementById
+        if (!targetElement) {
+          targetElement = document.getElementById(anchorId);
+        }
+        
+        // 方法 3：如果仍然找不到，遍歷所有帶 id 的標題
+        if (!targetElement) {
+          const allHeadings = previewEl.querySelectorAll('[id]');
+          for (const heading of allHeadings) {
+            if (heading.id === anchorId) {
+              targetElement = heading;
+              break;
+            }
+          }
+        }
+        
+        if (targetElement) {
+          console.log(`📍 摘要連結：跳轉到錨點 #${anchorId}`);
+          
+          // 平滑滾動到目標位置
+          targetElement.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+          });
+          
+          // 添加高亮效果
+          targetElement.classList.add('highlight-anchor');
+          
+          // 2 秒後移除高亮
+          setTimeout(() => {
+            targetElement.classList.remove('highlight-anchor');
+          }, 2000);
+        } else {
+          console.warn(`⚠️ 摘要連結：找不到錨點 #${anchorId}`);
+        }
+      };
+      
+      // 綁定點擊事件
+      previewEl.addEventListener('click', handleSummaryLinkClick);
+      console.log('✅ 摘要連結點擊事件已綁定');
+      
+      // 清理函數
+      return () => {
+        previewEl.removeEventListener('click', handleSummaryLinkClick);
+        console.log('🧹 摘要連結點擊事件已解綁');
+      };
+    }, 500); // 延遲 500ms 確保 DOM 渲染完成
+    
+    // 組件卸載時清理
+    return () => {
+      clearTimeout(bindTimeout);
+    };
+  }, [formData?.content]); // 當內容改變時重新綁定
 
   // 處理儲存 - 支援暫存圖片上傳
   const handleSave = useCallback(async () => {
@@ -1357,6 +1652,8 @@ const MarkdownEditorLayout = ({
     }}>
       {/* 注入自定義樣式 */}
       <style>{customToolbarStyles}</style>
+      {/* 注入摘要區塊樣式 */}
+      <style>{summaryBlockStyles}</style>
 
       {/* 主要編輯區域 */}
       {loading ? (
