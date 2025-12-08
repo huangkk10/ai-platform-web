@@ -36,7 +36,7 @@ SAF_ENDPOINTS: Dict[str, Dict[str, Any]] = {
             "page": 1,
             "size": 100  # SAF API 最大限制 100
         },
-        "search_fields": ["projectName", "customer", "controller", "nand", "fw", "productCategory"],
+        "search_fields": ["projectName", "customer", "controller", "nand", "fw", "productCategory", "pl"],
         "transformer": "project_to_dify_record",
         "enabled": True
     },

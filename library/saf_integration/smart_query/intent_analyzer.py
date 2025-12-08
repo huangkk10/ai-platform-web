@@ -228,7 +228,21 @@ INTENT_ANALYSIS_PROMPT = """
   - 如果用戶問「測試結果」「Pass/Fail」「哪些通過/失敗」→ 使用 query_project_test_summary_by_fw
   - 如果用戶問「統計」「完成率」「進度」「樣本」「使用率」「執行率」→ 使用 query_fw_detail_summary
 
-### 13. count_projects - 統計專案數量
+### 14. query_projects_by_pl - 按專案負責人查詢專案 (Phase 7 新增)
+用戶想知道某位專案負責人（PL / Project Leader）負責哪些專案時使用。
+- 常見問法：
+  - 「Ryder 負責哪些專案」「ryder.lin 的專案」
+  - 「Jeffery 管理的專案有哪些」「查詢 PL 是 Wei-Zhen 的專案」
+  - 「哪些專案是 bruce.zhang 負責的」「列出 Zhenyuan 的專案」
+  - 「XX 的專案有哪些」（當 XX 是人名時）
+  - 「專案負責人是 XX 的專案」「誰負責 XX 專案」
+- 參數：pl (專案負責人名稱)
+- 【重要區分】
+  - 如果名稱是公司名（WD, Samsung）→ 使用 query_projects_by_customer
+  - 如果名稱是人名（Ryder, Jeffery, ryder.lin）→ 使用 query_projects_by_pl
+- 已知 PL 名稱：Ryder, ryder.lin, Jeffery, jeffery.kuo, bruce.zhang, Wei-Zhen, Zhenyuan
+
+### 15. count_projects - 統計專案數量
 用戶想知道專案數量時使用。
 - 常見問法：
   - 「有多少專案」「幾個專案」「專案數量」「總共多少專案」
@@ -236,21 +250,21 @@ INTENT_ANALYSIS_PROMPT = """
   - 「統計專案數量」「專案總數」
 - 參數：customer (可選，若指定特定客戶)
 
-### 12. list_all_customers - 列出所有客戶
+### 16. list_all_customers - 列出所有客戶
 用戶想知道系統中有哪些客戶時使用。
 - 常見問法：
   - 「有哪些客戶」「客戶列表」「列出所有客戶」
   - 「系統裡有什麼客戶」「支援哪些客戶」「客戶有誰」
 - 參數：無
 
-### 13. list_all_controllers - 列出所有控制器
+### 17. list_all_controllers - 列出所有控制器
 用戶想知道系統中有哪些控制器型號時使用。
 - 常見問法：
   - 「有哪些控制器」「控制器列表」「列出所有控制器」
   - 「支援哪些控制器型號」「可以查詢哪些控制器」
 - 參數：無
 
-### 14. unknown - 無法識別的意圖
+### 18. unknown - 無法識別的意圖
 當問題與 SAF 專案管理系統無關時使用。
 
 ## 已知資訊
@@ -259,6 +273,7 @@ INTENT_ANALYSIS_PROMPT = """
 控制器型號：SM2263, SM2264, SM2267, SM2269, SM2264XT, SM2269XT, SM2508
 測試類別：Compliance, Functionality, Performance, Interoperability, Stress, Compatibility
 容量規格：128GB, 256GB, 512GB, 1TB, 2TB, 4TB, 8TB
+專案負責人 (PL)：Ryder, ryder.lin, Jeffery, jeffery.kuo, bruce.zhang, Wei-Zhen, Zhenyuan
 
 ## 輸出格式
 
@@ -496,6 +511,27 @@ INTENT_ANALYSIS_PROMPT = """
 
 輸入：Channel 82CBW5QF 失敗率多少
 輸出：{"intent": "query_fw_detail_summary", "parameters": {"project_name": "Channel", "fw_version": "82CBW5QF"}, "confidence": 0.90}
+
+輸入：Ryder 負責哪些專案？
+輸出：{"intent": "query_projects_by_pl", "parameters": {"pl": "Ryder"}, "confidence": 0.95}
+
+輸入：ryder.lin 的專案
+輸出：{"intent": "query_projects_by_pl", "parameters": {"pl": "ryder.lin"}, "confidence": 0.93}
+
+輸入：Jeffery 管理的專案有哪些
+輸出：{"intent": "query_projects_by_pl", "parameters": {"pl": "Jeffery"}, "confidence": 0.93}
+
+輸入：查詢 PL 是 Wei-Zhen 的專案
+輸出：{"intent": "query_projects_by_pl", "parameters": {"pl": "Wei-Zhen"}, "confidence": 0.92}
+
+輸入：哪些專案是 bruce.zhang 負責的
+輸出：{"intent": "query_projects_by_pl", "parameters": {"pl": "bruce.zhang"}, "confidence": 0.90}
+
+輸入：列出 Zhenyuan 的專案
+輸出：{"intent": "query_projects_by_pl", "parameters": {"pl": "Zhenyuan"}, "confidence": 0.92}
+
+輸入：專案負責人是 jeffery.kuo 的專案
+輸出：{"intent": "query_projects_by_pl", "parameters": {"pl": "jeffery.kuo"}, "confidence": 0.90}
 
 輸入：有哪些客戶
 輸出：{"intent": "list_all_customers", "parameters": {}, "confidence": 0.95}

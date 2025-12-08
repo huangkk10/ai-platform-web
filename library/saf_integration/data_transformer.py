@@ -104,6 +104,7 @@ class SAFDataTransformer:
             "project_id": project_id,
             "project_name": project_name,
             "customer": customer,
+            "pl": project.get("pl", ""),
             "created_at": project.get("createdAt", ""),
             "storage_type": project.get("storageType", ""),
             "project_status": project.get("projectStatus", ""),
@@ -131,6 +132,10 @@ class SAFDataTransformer:
         # 基本資訊
         lines.append(f"專案名稱: {project.get('projectName', 'N/A')}")
         lines.append(f"客戶: {project.get('customer', 'N/A')}")
+        
+        # 專案負責人 (PL)
+        if project.get("pl"):
+            lines.append(f"專案負責人 (PL): {project.get('pl')}")
         
         # 專案詳情
         if project.get("storageType"):

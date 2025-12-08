@@ -53,6 +53,9 @@ class IntentType(Enum):
     # 🆕 Phase 6.2: 查詢 FW 詳細統計（使用 /firmware-summary API）
     QUERY_FW_DETAIL_SUMMARY = "query_fw_detail_summary"
     
+    # 🆕 Phase 7: 按專案負責人 (PL) 查詢專案
+    QUERY_PROJECTS_BY_PL = "query_projects_by_pl"
+    
     # 統計專案數量
     COUNT_PROJECTS = "count_projects"
     
@@ -101,6 +104,7 @@ class IntentType(Enum):
             self.COMPARE_LATEST_FW: "自動比較最新兩個 FW 版本",
             self.LIST_FW_VERSIONS: "列出專案可比較的 FW 版本",
             self.QUERY_FW_DETAIL_SUMMARY: "查詢 FW 詳細統計（完成率、樣本、執行率）",
+            self.QUERY_PROJECTS_BY_PL: "按專案負責人 (PL) 查詢專案",
             self.COUNT_PROJECTS: "統計專案數量",
             self.LIST_ALL_CUSTOMERS: "列出所有客戶",
             self.LIST_ALL_CONTROLLERS: "列出所有控制器",
@@ -121,6 +125,7 @@ class IntentType(Enum):
             self.QUERY_PROJECT_TEST_SUMMARY_BY_FW: ["project_name", "fw_version"],
             self.COMPARE_FW_VERSIONS: ["project_name", "fw_version_1", "fw_version_2"],
             self.QUERY_FW_DETAIL_SUMMARY: ["project_name", "fw_version"],
+            self.QUERY_PROJECTS_BY_PL: ["pl"],
             self.COUNT_PROJECTS: [],  # customer 是可選的
             self.LIST_ALL_CUSTOMERS: [],
             self.LIST_ALL_CONTROLLERS: [],
@@ -144,6 +149,7 @@ class IntentType(Enum):
             self.LIST_FW_VERSIONS: ["sub_version"],  # 可選：指定 SubVersion
             self.COMPARE_MULTIPLE_FW: ["sub_version"],  # 可選：指定 SubVersion (如 AA, AB, AC)
             self.QUERY_FW_DETAIL_SUMMARY: ["sub_version"],  # 可選：指定 SubVersion
+            self.QUERY_PROJECTS_BY_PL: [],  # PL 查詢沒有可選參數
             self.COUNT_PROJECTS: ["customer"],  # 可選：按客戶統計
             self.LIST_ALL_CUSTOMERS: [],
             self.LIST_ALL_CONTROLLERS: [],
@@ -275,6 +281,16 @@ KNOWN_CONTROLLERS = [
     'SM2271',
 ]
 
+# 已知專案負責人（用於意圖分析）
+KNOWN_PLS = [
+    # 常見格式：簡稱
+    'Ryder', 'Jeffery', 'Wei-Zhen', 'Zhenyuan', 'Bruce',
+    # 常見格式：email 前綴
+    'ryder.lin', 'jeffery.kuo', 'bruce.zhang',
+    # 完整名稱
+    'Zhenyuan Peng',
+]
+
 # 已知測試類別（用於測試摘要查詢）
 KNOWN_TEST_CATEGORIES = [
     # 完整名稱
@@ -334,5 +350,9 @@ INTENT_KEYWORDS = {
     ],
     IntentType.LIST_ALL_CONTROLLERS: [
         '有哪些控制器', '控制器列表', '控制器型號', '支援的控制器'
+    ],
+    IntentType.QUERY_PROJECTS_BY_PL: [
+        '負責', '專案負責人', 'PL', 'project leader', '管理的專案',
+        '誰負責', '負責人是', '的專案'
     ],
 }

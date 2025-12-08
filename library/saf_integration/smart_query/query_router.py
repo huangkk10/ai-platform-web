@@ -17,6 +17,7 @@ from .query_handlers import (
     QueryResult,
     CustomerHandler,
     ControllerHandler,
+    PLHandler,
     ProjectDetailHandler,
     ProjectSummaryHandler,
     TestSummaryHandler,
@@ -68,12 +69,18 @@ class QueryRouter:
         # Phase 6.2: FWDetailSummaryHandler 處理 FW 詳細統計意圖
         fw_detail_summary_handler = FWDetailSummaryHandler()
         
+        # Phase 7: PLHandler 處理按專案負責人查詢意圖
+        pl_handler = PLHandler()
+        
         self._handlers = {
             # Phase 1-2 處理器
             IntentType.QUERY_PROJECTS_BY_CUSTOMER: CustomerHandler(),
             IntentType.QUERY_PROJECTS_BY_CONTROLLER: ControllerHandler(),
             IntentType.QUERY_PROJECT_DETAIL: ProjectDetailHandler(),
             IntentType.QUERY_PROJECT_SUMMARY: ProjectSummaryHandler(),
+            
+            # Phase 7: PL 查詢處理器
+            IntentType.QUERY_PROJECTS_BY_PL: pl_handler,
             
             # Phase 3: 測試摘要處理器（3 個意圖共用）
             IntentType.QUERY_PROJECT_TEST_SUMMARY: test_summary_handler,
