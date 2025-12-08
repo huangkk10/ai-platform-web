@@ -93,7 +93,6 @@ const ThresholdSettingsPage = () => {
       stage1_title_weight: record.stage1_title_weight,
       stage1_content_weight: record.stage1_content_weight,
       stage1_rrf_k: record.stage1_rrf_k || 60,  // 🆕 RRF K 值
-      stage1_post_boost_threshold: parseFloat(record.stage1_post_boost_threshold || 0.70) * 100,  // 🆕 Boost 後 Threshold
       // 二階設定
       stage2_threshold: parseFloat(record.stage2_threshold) * 100,
       stage2_title_weight: record.stage2_title_weight,
@@ -118,7 +117,6 @@ const ThresholdSettingsPage = () => {
         stage1_title_weight: values.stage1_title_weight,
         stage1_content_weight: values.stage1_content_weight,
         stage1_rrf_k: values.stage1_rrf_k,  // 🆕 RRF K 值
-        stage1_post_boost_threshold: (values.stage1_post_boost_threshold / 100).toFixed(2),  // 🆕 Boost 後 Threshold
         stage2_threshold: (values.stage2_threshold / 100).toFixed(2),
         stage2_title_weight: values.stage2_title_weight,
         stage2_content_weight: values.stage2_content_weight,
@@ -228,24 +226,6 @@ const ThresholdSettingsPage = () => {
             <Tag color="purple" style={{ fontSize: '14px' }}>
               {value || 60}
             </Tag>
-          )
-        },
-        {
-          title: (
-            <Space>
-              Boost 後 Threshold
-              <Tooltip title="Title Boost 後的過濾門檻（0-100%）。用於過濾標題加分後的結果，建議設 70-80%，比一階 Threshold 低以保留更多相關結果">
-                <InfoCircleOutlined />
-              </Tooltip>
-            </Space>
-          ),
-          dataIndex: 'stage1_post_boost_threshold',
-          key: 'stage1_post_boost_threshold',
-          width: 150,
-          render: (value) => (
-            <Text style={{ fontSize: '14px', color: '#fa8c16' }}>
-              {(parseFloat(value || 0.70) * 100).toFixed(0)}%
-            </Text>
           )
         }
       ]
@@ -638,55 +618,6 @@ const ThresholdSettingsPage = () => {
                 </Space>
               }
               type="info"
-              showIcon
-              style={{ marginBottom: 16 }}
-            />
-
-            {/* 🆕 Boost 後 Threshold 設定 */}
-            <Form.Item
-              label={
-                <Space>
-                  <span>Boost 後 Threshold</span>
-                  <Tooltip title="Title Boost 後的過濾門檻。用於過濾標題加分後的結果，建議設 70-80%，比一階 Threshold 低以保留更多相關結果">
-                    <InfoCircleOutlined />
-                  </Tooltip>
-                </Space>
-              }
-              name="stage1_post_boost_threshold"
-              rules={[
-                { required: true, message: '請設定 Boost 後 Threshold' },
-                { type: 'number', min: 0, max: 100, message: 'Threshold 必須在 0 到 100 之間' }
-              ]}
-            >
-              <Slider
-                min={0}
-                max={100}
-                step={5}
-                marks={{
-                  0: '0%',
-                  50: '50%',
-                  70: '70% (推薦)',
-                  100: '100%'
-                }}
-                tooltip={{
-                  formatter: (value) => `${value}%`
-                }}
-              />
-            </Form.Item>
-
-            <Alert
-              message={
-                <Space direction="vertical" size={2}>
-                  <span><strong>🎯 Boost 後 Threshold 說明：</strong></span>
-                  <span>• <strong>目的</strong>：在 Title Boost 加分後，決定哪些結果能通過過濾</span>
-                  <span>• <strong>問題場景</strong>：若與一階 Threshold 相同（如 90%），會過濾掉原始分數較低但仍相關的結果</span>
-                  <span>• <strong>推薦設定</strong>：70-80%，比一階 Threshold 低 10-20%</span>
-                  <span style={{ marginTop: 4, color: '#fa8c16' }}>
-                    ⚠️ 設定過高可能導致「全文搜尋只找到一個來源」的問題
-                  </span>
-                </Space>
-              }
-              type="warning"
               showIcon
             />
           </Card>
