@@ -75,6 +75,9 @@ class SAFResponseGenerator:
             IntentType.COMPARE_MULTIPLE_FW: self._generate_compare_multiple_fw_response,
             # Phase 7: PL 查詢回應生成器
             IntentType.QUERY_PROJECTS_BY_PL: self._generate_pl_projects_response,
+            # Phase 8: 日期/月份查詢回應生成器
+            IntentType.QUERY_PROJECTS_BY_DATE: self._generate_date_projects_response,
+            IntentType.QUERY_PROJECTS_BY_MONTH: self._generate_date_projects_response,
             IntentType.COUNT_PROJECTS: self._generate_count_response,
             IntentType.LIST_ALL_CUSTOMERS: self._generate_customers_list_response,
             IntentType.LIST_ALL_CONTROLLERS: self._generate_controllers_list_response,
@@ -244,6 +247,151 @@ class SAFResponseGenerator:
             'table': data,
             'summary': f"{pl} 負責 {count} 個專案"
         }
+
+    # ============================================================
+    # Phase 8: 日期/月份查詢回應生成方法
+    # ============================================================
+
+    def _generate_date_projects_response(self, result_data: Dict,
+                                          full_result: Dict) -> Dict[str, Any]:
+        """
+        生成日期/月份專案查詢的回答
+        
+        支援格式：
+        - 月份查詢：「2025年12月有哪些專案」
+        - 年份查詢：「今年有哪些專案」
+        - 相對查詢：「本月」「上個月」
+        
+        Args:
+            result_data: 查詢結果資料
+            full_result: 完整查詢結果
+            
+        Returns:
+            Dict: 包含 answer 和 table 的回應
+        """
+        data = result_data.get('data', {})
+        parameters = result_data.get('parameters', {})
+        
+        # 判斷資料格式：新格式（有 summary）或舊格式（直接列表）
+        if isinstance(data, dict):
+            projects = data.get('projects', [])
+            summary = data.get('summary', {})
+            query_info = data.get('query_info', {})
+        else:
+            projects = data if isinstance(data, list) else []
+            summary = {}
+            query_info = parameters
+        
+        total_count = len(projects)
+        
+        # 構建時間描述
+        time_desc = self._build_time_description(query_info or parameters)
+        
+        if total_count == 0:
+            return {
+                'answer': f"在 **{time_desc}** 期間找不到任何新建立的專案。",
+                'table': [],
+                'summary': f"{time_desc} 無專案"
+            }
+        
+        # 生成回答
+        answer = f"## 📅 {time_desc} 新建專案列表\n\n"
+        answer += f"在 **{time_desc}** 期間共有 **{total_count}** 個專案建立：\n\n"
+        
+        # 如果有月度統計，顯示分組
+        if 'by_month' in data and data['by_month']:
+            answer += self._generate_monthly_grouped_table(data['by_month'], projects)
+        else:
+            # 簡單表格
+            answer += self._generate_date_projects_table(projects)
+        
+        return {
+            'answer': answer,
+            'table': projects,
+            'summary': f"{time_desc} 共 {total_count} 個專案"
+        }
+    
+    def _build_time_description(self, query_info: Dict) -> str:
+        """
+        構建時間描述字串
+        
+        Args:
+            query_info: 查詢參數
+            
+        Returns:
+            str: 時間描述（如「2025年12月」「本月」「今年」）
+        """
+        date_range = query_info.get('date_range', '')
+        year = query_info.get('year')
+        month = query_info.get('month')
+        
+        if date_range == 'this_month':
+            return "本月"
+        elif date_range == 'last_month':
+            return "上個月"
+        elif date_range == 'this_year':
+            return "今年"
+        elif year and month:
+            return f"{year}年{month}月"
+        elif year:
+            return f"{year}年"
+        elif month:
+            return f"{month}月"
+        else:
+            return "指定期間"
+    
+    def _generate_date_projects_table(self, projects: List[Dict]) -> str:
+        """
+        生成日期專案的 Markdown 表格
+        
+        Args:
+            projects: 專案列表
+            
+        Returns:
+            str: Markdown 表格
+        """
+        if not projects:
+            return ""
+        
+        table = "| 專案名稱 | 客戶 | 控制器 | 建立日期 | PL |\n"
+        table += "|----------|------|--------|----------|----|\n"
+        
+        for project in projects:
+            name = project.get('projectName', '-')
+            customer = project.get('customer', '-')
+            controller = project.get('controller', '-')
+            created_date = project.get('createdDate', '-')
+            pl = project.get('pl', '-')
+            
+            table += f"| {name} | {customer} | {controller} | {created_date} | {pl} |\n"
+        
+        return table + "\n"
+    
+    def _generate_monthly_grouped_table(self, by_month: List[Dict], projects: List[Dict]) -> str:
+        """
+        生成按月份分組的表格
+        
+        Args:
+            by_month: 月度統計
+            projects: 專案列表
+            
+        Returns:
+            str: Markdown 格式的分組表格
+        """
+        # 先顯示月度統計
+        table = "### 📊 月度統計\n\n"
+        table += "| 月份 | 專案數 |\n"
+        table += "|------|--------|\n"
+        
+        for month_data in by_month:
+            month = month_data.get('month', '-')
+            count = month_data.get('count', 0)
+            table += f"| {month} | {count} |\n"
+        
+        table += "\n### 📋 專案明細\n\n"
+        table += self._generate_date_projects_table(projects)
+        
+        return table
 
     def _generate_project_detail_response(self, result_data: Dict,
                                            full_result: Dict) -> Dict[str, Any]:

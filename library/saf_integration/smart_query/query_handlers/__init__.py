@@ -9,6 +9,7 @@ SAF Query Handlers 模組
 - CustomerHandler: 按客戶查詢專案
 - ControllerHandler: 按控制器查詢專案
 - PLHandler: 按專案負責人查詢專案（Phase 7 新增）
+- DateHandler: 按日期/月份查詢專案（Phase 8 新增）
 - ProjectDetailHandler: 查詢專案詳細資訊
 - ProjectSummaryHandler: 查詢專案測試摘要（舊版）
 - TestSummaryHandler: 查詢專案測試結果統計（Phase 3 新增）
@@ -29,12 +30,14 @@ SAF Query Handlers 模組
 更新日期：2025-12-07（Phase 6.2: 添加 FWDetailSummaryHandler）
 更新日期：2025-12-08（Phase 5.4: 添加 CompareMultipleFWHandler）
 更新日期：2025-12-08（Phase 7: 添加 PLHandler）
+更新日期：2025-12-08（Phase 8: 添加 DateHandler）
 """
 
 from .base_handler import BaseHandler, QueryResult, QueryStatus
 from .customer_handler import CustomerHandler
 from .controller_handler import ControllerHandler
 from .pl_handler import PLHandler
+from .date_handler import DateHandler
 from .project_detail_handler import ProjectDetailHandler
 from .project_summary_handler import ProjectSummaryHandler
 from .test_summary_handler import TestSummaryHandler
@@ -53,6 +56,7 @@ __all__ = [
     'CustomerHandler',
     'ControllerHandler',
     'PLHandler',
+    'DateHandler',
     'ProjectDetailHandler',
     'ProjectSummaryHandler',
     'TestSummaryHandler',

@@ -18,6 +18,7 @@ from .query_handlers import (
     CustomerHandler,
     ControllerHandler,
     PLHandler,
+    DateHandler,
     ProjectDetailHandler,
     ProjectSummaryHandler,
     TestSummaryHandler,
@@ -72,6 +73,9 @@ class QueryRouter:
         # Phase 7: PLHandler 處理按專案負責人查詢意圖
         pl_handler = PLHandler()
         
+        # Phase 8: DateHandler 處理日期/月份查詢意圖
+        date_handler = DateHandler()
+        
         self._handlers = {
             # Phase 1-2 處理器
             IntentType.QUERY_PROJECTS_BY_CUSTOMER: CustomerHandler(),
@@ -102,6 +106,10 @@ class QueryRouter:
             
             # Phase 6.2: FW 詳細統計處理器
             IntentType.QUERY_FW_DETAIL_SUMMARY: fw_detail_summary_handler,
+            
+            # Phase 8: 日期/月份查詢處理器
+            IntentType.QUERY_PROJECTS_BY_DATE: date_handler,
+            IntentType.QUERY_PROJECTS_BY_MONTH: date_handler,
             
             # 統計類型使用專門的處理器
             IntentType.COUNT_PROJECTS: self._statistics_handler,

@@ -59,6 +59,10 @@ class IntentType(Enum):
     # 🆕 Phase 7: 列出所有專案負責人 (PL)
     LIST_ALL_PLS = "list_all_pls"
     
+    # 🆕 Phase 8: 按日期/月份查詢專案
+    QUERY_PROJECTS_BY_DATE = "query_projects_by_date"     # 查詢指定日期的專案
+    QUERY_PROJECTS_BY_MONTH = "query_projects_by_month"   # 查詢指定月份的專案
+    
     # 統計專案數量
     COUNT_PROJECTS = "count_projects"
     

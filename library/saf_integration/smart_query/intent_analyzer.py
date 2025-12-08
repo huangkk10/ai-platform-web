@@ -264,7 +264,34 @@ INTENT_ANALYSIS_PROMPT = """
   - 「支援哪些控制器型號」「可以查詢哪些控制器」
 - 參數：無
 
-### 18. unknown - 無法識別的意圖
+### 18. query_projects_by_month - 按月份查詢專案 (Phase 8 新增)
+用戶想知道特定月份有哪些專案轉入/建立時使用。
+- 常見問法：
+  - 「2025年12月有哪些專案」「2025/12 的案子」「12月有幾個專案」
+  - 「本月有哪些轉案」「這個月新增的專案」「當月的專案」
+  - 「上個月轉進的案子」「上月的專案」
+  - 「幾月轉進的案子」「12月建立的專案」
+- 參數：
+  - year (選填，年份，如 2025，不填則為當年)
+  - month (月份，1-12)
+  - date_range (選填，'this_month' 或 'last_month')
+- 【區分】
+  - 如果指定具體月份 → 使用 query_projects_by_month
+  - 如果只指定年份不指定月份 → 使用 query_projects_by_date
+
+### 19. query_projects_by_date - 按年份/日期範圍查詢專案 (Phase 8 新增)
+用戶想知道特定年份或日期範圍內有哪些專案時使用。
+- 常見問法：
+  - 「今年有哪些專案」「2025年的專案」「今年轉進幾個案子」
+  - 「2024年建立的專案」「去年的案子」
+- 參數：
+  - year (年份，如 2025)
+  - date_range (選填，'this_year' 表示今年)
+- 【區分】
+  - 如果只指定年份 → 使用 query_projects_by_date
+  - 如果指定具體月份 → 使用 query_projects_by_month
+
+### 20. unknown - 無法識別的意圖
 當問題與 SAF 專案管理系統無關時使用。
 
 ## 已知資訊
@@ -532,6 +559,24 @@ INTENT_ANALYSIS_PROMPT = """
 
 輸入：專案負責人是 jeffery.kuo 的專案
 輸出：{"intent": "query_projects_by_pl", "parameters": {"pl": "jeffery.kuo"}, "confidence": 0.90}
+
+輸入：2025年12月有哪些專案？
+輸出：{"intent": "query_projects_by_month", "parameters": {"year": 2025, "month": 12}, "confidence": 0.95}
+
+輸入：本月有哪些轉案
+輸出：{"intent": "query_projects_by_month", "parameters": {"date_range": "this_month"}, "confidence": 0.93}
+
+輸入：上個月轉進的案子
+輸出：{"intent": "query_projects_by_month", "parameters": {"date_range": "last_month"}, "confidence": 0.93}
+
+輸入：12月有幾個專案
+輸出：{"intent": "query_projects_by_month", "parameters": {"month": 12}, "confidence": 0.90}
+
+輸入：今年有哪些專案
+輸出：{"intent": "query_projects_by_date", "parameters": {"date_range": "this_year"}, "confidence": 0.93}
+
+輸入：2024年的專案
+輸出：{"intent": "query_projects_by_date", "parameters": {"year": 2024}, "confidence": 0.92}
 
 輸入：有哪些客戶
 輸出：{"intent": "list_all_customers", "parameters": {}, "confidence": 0.95}
@@ -835,7 +880,12 @@ class SAFIntentAnalyzer:
                 raw_response="Fallback: list pls query"
             )
         
-        # 7. 檢查是否是專案詳情或摘要查詢
+        # 7. 日期/月份查詢 (Phase 8)
+        date_result = self._detect_date_query(query)
+        if date_result:
+            return date_result
+        
+        # 8. 檢查是否是專案詳情或摘要查詢
         project_name = self._detect_project_name(query)
         if project_name:
             # 檢查是否有測試類別或容量關鍵字
@@ -1049,6 +1099,115 @@ class SAFIntentAnalyzer:
         for keyword, standard_capacity in capacity_mapping.items():
             if keyword in query_upper:
                 return standard_capacity
+        
+        return None
+
+    def _detect_date_query(self, query: str) -> Optional[IntentResult]:
+        """
+        檢測日期/月份相關查詢 (Phase 8)
+        
+        支援的查詢格式：
+        - 「2025年12月有哪些專案」「2025/12 的案子」
+        - 「本月有哪些轉案」「這個月新增的專案」
+        - 「上個月轉進的案子」「上月的專案」
+        - 「今年的專案」「2025年有幾個案子」
+        - 「12月有哪些專案」「幾月轉進的」
+        
+        Args:
+            query: 用戶查詢
+            
+        Returns:
+            Optional[IntentResult]: 如果是日期查詢，返回 IntentResult；否則 None
+        """
+        from datetime import datetime
+        
+        # 日期相關關鍵字
+        date_keywords = [
+            '月', '年', '日期', '本月', '這個月', '上月', '上個月', '今年', 
+            '幾月', '月份', '轉案', '轉進', '新增', '建立'
+        ]
+        
+        # 專案相關關鍵字（需要同時出現）
+        project_keywords = ['專案', '案子', '項目', 'project', '有哪些', '有那些', '多少', '幾個']
+        
+        query_lower = query.lower()
+        
+        # 檢查是否同時包含日期關鍵字和專案關鍵字
+        has_date_keyword = any(kw in query for kw in date_keywords)
+        has_project_keyword = any(kw in query_lower for kw in project_keywords)
+        
+        if not (has_date_keyword and has_project_keyword):
+            return None
+        
+        # 解析日期參數
+        parameters = {}
+        current_year = datetime.now().year
+        current_month = datetime.now().month
+        
+        # 1. 檢測「本月」「這個月」
+        if '本月' in query or '這個月' in query or '當月' in query:
+            parameters['date_range'] = 'this_month'
+            parameters['year'] = current_year
+            parameters['month'] = current_month
+        
+        # 2. 檢測「上月」「上個月」
+        elif '上月' in query or '上個月' in query:
+            parameters['date_range'] = 'last_month'
+            if current_month == 1:
+                parameters['year'] = current_year - 1
+                parameters['month'] = 12
+            else:
+                parameters['year'] = current_year
+                parameters['month'] = current_month - 1
+        
+        # 3. 檢測「今年」
+        elif '今年' in query and '月' not in query:
+            parameters['date_range'] = 'this_year'
+            parameters['year'] = current_year
+        
+        # 4. 檢測具體年月 (例如: 2025年12月, 2025/12, 2025-12)
+        else:
+            # 嘗試匹配 "YYYY年MM月" 格式
+            year_month_pattern = r'(\d{4})\s*年?\s*(\d{1,2})\s*月'
+            match = re.search(year_month_pattern, query)
+            if match:
+                parameters['year'] = int(match.group(1))
+                parameters['month'] = int(match.group(2))
+            else:
+                # 嘗試匹配 "YYYY年" 格式（只有年份）
+                year_pattern = r'(\d{4})\s*年'
+                match = re.search(year_pattern, query)
+                if match:
+                    year = int(match.group(1))
+                    parameters['year'] = year
+                    parameters['date_range'] = 'this_year'
+                else:
+                    # 嘗試匹配 "MM月" 格式（只有月份，假設當年）
+                    month_pattern = r'(\d{1,2})\s*月'
+                    match = re.search(month_pattern, query)
+                    if match:
+                        parameters['year'] = current_year
+                        parameters['month'] = int(match.group(1))
+        
+        # 如果成功解析出日期參數
+        if parameters:
+            # 驗證月份有效性
+            if 'month' in parameters:
+                if not (1 <= parameters['month'] <= 12):
+                    return None
+            
+            # 決定意圖類型
+            if 'month' in parameters:
+                intent_type = IntentType.QUERY_PROJECTS_BY_MONTH
+            else:
+                intent_type = IntentType.QUERY_PROJECTS_BY_DATE
+            
+            return IntentResult(
+                intent=intent_type,
+                parameters=parameters,
+                confidence=0.65,
+                raw_response=f"Fallback: detected date query with params={parameters}"
+            )
         
         return None
 
