@@ -29,6 +29,9 @@ from .query_handlers import (
     CompareMultipleFWHandler,
     FWDetailSummaryHandler,
     StatisticsHandler,
+    # Phase 9: Sub Version 查詢處理器
+    ListSubVersionsHandler,
+    ListFWBySubVersionHandler,
 )
 
 logger = logging.getLogger(__name__)
@@ -76,6 +79,10 @@ class QueryRouter:
         # Phase 8: DateHandler 處理日期/月份查詢意圖
         date_handler = DateHandler()
         
+        # Phase 9: Sub Version 查詢處理器
+        list_sub_versions_handler = ListSubVersionsHandler()
+        list_fw_by_sub_version_handler = ListFWBySubVersionHandler()
+        
         self._handlers = {
             # Phase 1-2 處理器
             IntentType.QUERY_PROJECTS_BY_CUSTOMER: CustomerHandler(),
@@ -110,6 +117,10 @@ class QueryRouter:
             # Phase 8: 日期/月份查詢處理器
             IntentType.QUERY_PROJECTS_BY_DATE: date_handler,
             IntentType.QUERY_PROJECTS_BY_MONTH: date_handler,
+            
+            # Phase 9: Sub Version 查詢處理器
+            IntentType.LIST_SUB_VERSIONS: list_sub_versions_handler,
+            IntentType.LIST_FW_BY_SUB_VERSION: list_fw_by_sub_version_handler,
             
             # 統計類型使用專門的處理器
             IntentType.COUNT_PROJECTS: self._statistics_handler,

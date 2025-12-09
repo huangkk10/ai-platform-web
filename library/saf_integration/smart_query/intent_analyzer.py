@@ -291,7 +291,40 @@ INTENT_ANALYSIS_PROMPT = """
   - 如果只指定年份 → 使用 query_projects_by_date
   - 如果指定具體月份 → 使用 query_projects_by_month
 
-### 20. unknown - 無法識別的意圖
+### 20. list_sub_versions - 列出專案所有 Sub Version (Phase 9 新增)
+用戶想知道某專案有哪些容量版本（Sub Version）時使用。
+Sub Version 是指專案的不同容量變體，如 AA=512GB, AB=1024GB, AC=2048GB, AD=4096GB。
+- 常見問法：
+  - 「Springsteen 有哪幾版 sub version」「Springsteen 有哪些容量版本」
+  - 「DEMETER 的 sub version 有哪些」「Channel 有幾個容量版本」
+  - 「XX 專案有哪些版本（AA/AB/AC/AD）」「列出 XX 的 SubVersion」
+  - 「XX 有哪些 sub version」「XX 的容量版本」
+- 參數：
+  - project_name (專案名稱，如 Springsteen、DEMETER)
+- 【區分】
+  - 如果用戶問「有哪些 FW 版本」→ 使用 list_fw_versions
+  - 如果用戶問「有哪些 sub version / 容量版本 / AA/AB/AC/AD」→ 使用 list_sub_versions
+
+### 21. list_fw_by_sub_version - 列出特定 Sub Version 的 FW 版本 (Phase 9 新增)
+用戶想知道某專案特定容量版本下有哪些 FW 時使用。
+- 常見問法：
+  - 「Springsteen AC 有哪些 FW」「Springsteen 2048GB 版本的 FW」
+  - 「DEMETER AA 有幾個 FW」「Channel AB 版本的韌體列表」
+  - 「XX 專案 AC 版本有哪些韌體版本」「列出 XX AA 的 FW」
+  - 「XX 512GB 有哪些 FW 版本」「XX 1TB 版本的韌體」
+- 參數：
+  - project_name (專案名稱)
+  - sub_version (Sub Version 代碼，如 AA、AB、AC、AD，或容量如 512GB、1024GB)
+- 【SubVersion 與容量對應】：
+  - AA = 512GB
+  - AB = 1024GB / 1TB
+  - AC = 2048GB / 2TB
+  - AD = 4096GB / 4TB
+- 【重要】
+  - 用戶可能直接說 AA/AB/AC/AD，也可能說 512GB/1024GB/2048GB/4096GB
+  - 需要正確識別並提取 sub_version 參數
+
+### 22. unknown - 無法識別的意圖
 當問題與 SAF 專案管理系統無關時使用。
 
 ## 已知資訊
@@ -301,6 +334,7 @@ INTENT_ANALYSIS_PROMPT = """
 測試類別：Compliance, Functionality, Performance, Interoperability, Stress, Compatibility
 容量規格：128GB, 256GB, 512GB, 1TB, 2TB, 4TB, 8TB
 專案負責人 (PL)：Ryder, ryder.lin, Jeffery, jeffery.kuo, bruce.zhang, Wei-Zhen, Zhenyuan
+Sub Version 代碼：AA (512GB), AB (1024GB/1TB), AC (2048GB/2TB), AD (4096GB/4TB)
 
 ## 輸出格式
 
@@ -583,6 +617,36 @@ INTENT_ANALYSIS_PROMPT = """
 
 輸入：控制器列表
 輸出：{"intent": "list_all_controllers", "parameters": {}, "confidence": 0.95}
+
+輸入：Springsteen 有哪幾版 sub version
+輸出：{"intent": "list_sub_versions", "parameters": {"project_name": "Springsteen"}, "confidence": 0.95}
+
+輸入：DEMETER 的 sub version 有哪些
+輸出：{"intent": "list_sub_versions", "parameters": {"project_name": "DEMETER"}, "confidence": 0.93}
+
+輸入：Channel 有哪些容量版本
+輸出：{"intent": "list_sub_versions", "parameters": {"project_name": "Channel"}, "confidence": 0.92}
+
+輸入：A400 有幾個 SubVersion
+輸出：{"intent": "list_sub_versions", "parameters": {"project_name": "A400"}, "confidence": 0.90}
+
+輸入：springsteen AC 有哪些 FW
+輸出：{"intent": "list_fw_by_sub_version", "parameters": {"project_name": "Springsteen", "sub_version": "AC"}, "confidence": 0.95}
+
+輸入：DEMETER AA 有幾個 FW
+輸出：{"intent": "list_fw_by_sub_version", "parameters": {"project_name": "DEMETER", "sub_version": "AA"}, "confidence": 0.93}
+
+輸入：Channel 2048GB 版本的 FW
+輸出：{"intent": "list_fw_by_sub_version", "parameters": {"project_name": "Channel", "sub_version": "AC"}, "confidence": 0.92}
+
+輸入：Frey3B AB 版本有哪些韌體
+輸出：{"intent": "list_fw_by_sub_version", "parameters": {"project_name": "Frey3B", "sub_version": "AB"}, "confidence": 0.92}
+
+輸入：A400 512GB 有哪些 FW 版本
+輸出：{"intent": "list_fw_by_sub_version", "parameters": {"project_name": "A400", "sub_version": "AA"}, "confidence": 0.90}
+
+輸入：Springsteen 1TB 版本的韌體列表
+輸出：{"intent": "list_fw_by_sub_version", "parameters": {"project_name": "Springsteen", "sub_version": "AB"}, "confidence": 0.90}
 
 輸入：今天天氣如何？
 輸出：{"intent": "unknown", "parameters": {}, "confidence": 0.10}
@@ -885,8 +949,32 @@ class SAFIntentAnalyzer:
         if date_result:
             return date_result
         
-        # 8. 檢查是否是專案詳情或摘要查詢
+        # 8. Sub Version 相關查詢 (Phase 9)
         project_name = self._detect_project_name(query)
+        detected_sub_version = self._detect_sub_version(query)
+        
+        if project_name and detected_sub_version:
+            # 查詢特定 Sub Version 的 FW 列表
+            return IntentResult(
+                intent=IntentType.LIST_FW_BY_SUB_VERSION,
+                parameters={
+                    'project_name': project_name,
+                    'sub_version': detected_sub_version
+                },
+                confidence=0.6,
+                raw_response=f"Fallback: list FW by sub version for {project_name} {detected_sub_version}"
+            )
+        
+        if project_name and self._has_sub_version_keywords(query):
+            # 列出專案所有 Sub Version
+            return IntentResult(
+                intent=IntentType.LIST_SUB_VERSIONS,
+                parameters={'project_name': project_name},
+                confidence=0.6,
+                raw_response=f"Fallback: list sub versions for {project_name}"
+            )
+        
+        # 9. 檢查是否是專案詳情或摘要查詢
         if project_name:
             # 檢查是否有測試類別或容量關鍵字
             detected_category = self._detect_test_category(query)
@@ -1101,6 +1189,60 @@ class SAFIntentAnalyzer:
                 return standard_capacity
         
         return None
+
+    def _detect_sub_version(self, query: str) -> Optional[str]:
+        """
+        檢測查詢中的 Sub Version（容量版本）(Phase 9)
+        
+        支援格式：
+        - 直接代碼：AA, AB, AC, AD
+        - 容量描述：512GB, 1024GB, 2048GB, 4096GB, 1TB, 2TB, 4TB
+        
+        Args:
+            query: 用戶查詢
+            
+        Returns:
+            Optional[str]: 檢測到的 Sub Version 代碼（AA/AB/AC/AD），或 None
+        """
+        query_upper = query.upper()
+        
+        # 直接匹配 Sub Version 代碼（確保是獨立的詞）
+        for sv in ['AA', 'AB', 'AC', 'AD']:
+            # 使用正則確保是獨立的詞（避免匹配到 AAAA 這種）
+            if re.search(rf'\b{sv}\b', query_upper):
+                return sv
+        
+        # 容量到 Sub Version 的映射
+        capacity_to_sv = {
+            '512GB': 'AA', '512G': 'AA',
+            '1024GB': 'AB', '1024G': 'AB', '1TB': 'AB', '1T': 'AB',
+            '2048GB': 'AC', '2048G': 'AC', '2TB': 'AC', '2T': 'AC',
+            '4096GB': 'AD', '4096G': 'AD', '4TB': 'AD', '4T': 'AD',
+        }
+        
+        for capacity, sv in capacity_to_sv.items():
+            if capacity in query_upper:
+                return sv
+        
+        return None
+    
+    def _has_sub_version_keywords(self, query: str) -> bool:
+        """
+        檢查查詢是否包含 Sub Version 相關關鍵字 (Phase 9)
+        
+        Args:
+            query: 用戶查詢
+            
+        Returns:
+            bool: 是否包含 Sub Version 相關關鍵字
+        """
+        query_lower = query.lower()
+        sv_keywords = [
+            'sub version', 'subversion', 'sub_version', 'sv',
+            '容量版本', '版本 aa', '版本 ab', '版本 ac', '版本 ad',
+            'aa版', 'ab版', 'ac版', 'ad版',
+        ]
+        return any(kw in query_lower for kw in sv_keywords)
 
     def _detect_date_query(self, query: str) -> Optional[IntentResult]:
         """

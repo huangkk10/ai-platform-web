@@ -78,6 +78,9 @@ class SAFResponseGenerator:
             # Phase 8: 日期/月份查詢回應生成器
             IntentType.QUERY_PROJECTS_BY_DATE: self._generate_date_projects_response,
             IntentType.QUERY_PROJECTS_BY_MONTH: self._generate_date_projects_response,
+            # Phase 9: Sub Version 查詢回應生成器
+            IntentType.LIST_SUB_VERSIONS: self._generate_sub_versions_response,
+            IntentType.LIST_FW_BY_SUB_VERSION: self._generate_fw_by_sub_version_response,
             IntentType.COUNT_PROJECTS: self._generate_count_response,
             IntentType.LIST_ALL_CUSTOMERS: self._generate_customers_list_response,
             IntentType.LIST_ALL_CONTROLLERS: self._generate_controllers_list_response,
@@ -1344,6 +1347,58 @@ class SAFResponseGenerator:
             'answer': answer,
             'table': [],
             'summary': message
+        }
+    
+    # ============================================================
+    # Phase 9: Sub Version 查詢回應生成方法
+    # ============================================================
+    
+    def _generate_sub_versions_response(self, result_data: Dict,
+                                         full_result: Dict) -> Dict[str, Any]:
+        """
+        生成 Sub Version 列表回答
+        
+        直接使用 Handler 回傳的 message（已經是完整格式化的 Markdown）
+        
+        Args:
+            result_data: 查詢結果資料
+            full_result: 完整查詢結果
+            
+        Returns:
+            Dict: 包含格式化回答
+        """
+        message = result_data.get('message', '')
+        data = result_data.get('data', {})
+        
+        # Handler 已經生成完整的 Markdown 格式回答，直接使用
+        return {
+            'answer': message,
+            'table': data.get('sub_versions', []),
+            'summary': f"列出 {data.get('project_name', '')} 的 {data.get('total_sub_versions', 0)} 個 Sub Version"
+        }
+    
+    def _generate_fw_by_sub_version_response(self, result_data: Dict,
+                                              full_result: Dict) -> Dict[str, Any]:
+        """
+        生成特定 Sub Version 的 FW 版本列表回答
+        
+        直接使用 Handler 回傳的 message（已經是完整格式化的 Markdown）
+        
+        Args:
+            result_data: 查詢結果資料
+            full_result: 完整查詢結果
+            
+        Returns:
+            Dict: 包含格式化回答
+        """
+        message = result_data.get('message', '')
+        data = result_data.get('data', {})
+        
+        # Handler 已經生成完整的 Markdown 格式回答，直接使用
+        return {
+            'answer': message,
+            'table': data.get('fw_versions', []),
+            'summary': f"列出 {data.get('project_name', '')} {data.get('sub_version', '')} 的 {data.get('displayed_versions', 0)} 個 FW 版本"
         }
     
     def _generate_default_response(self, result_data: Dict,

@@ -19,6 +19,8 @@ SAF Query Handlers 模組
 - ListFWVersionsHandler: 列出專案可比較的 FW 版本（Phase 5.2.2 新增）
 - CompareMultipleFWHandler: 比較多個 FW 版本趨勢（Phase 5.4 新增）
 - FWDetailSummaryHandler: FW 詳細統計（完成率、樣本、執行率）（Phase 6.2 新增）
+- ListSubVersionsHandler: 列出專案所有 Sub Version（Phase 9 新增）
+- ListFWBySubVersionHandler: 列出特定 Sub Version 的 FW 版本（Phase 9 新增）
 - StatisticsHandler: 統計查詢（數量、客戶列表、控制器列表）
 
 作者：AI Platform Team
@@ -31,6 +33,7 @@ SAF Query Handlers 模組
 更新日期：2025-12-08（Phase 5.4: 添加 CompareMultipleFWHandler）
 更新日期：2025-12-08（Phase 7: 添加 PLHandler）
 更新日期：2025-12-08（Phase 8: 添加 DateHandler）
+更新日期：2025-12-09（Phase 9: 添加 ListSubVersionsHandler, ListFWBySubVersionHandler）
 """
 
 from .base_handler import BaseHandler, QueryResult, QueryStatus
@@ -48,6 +51,9 @@ from .list_fw_versions_handler import ListFWVersionsHandler
 from .compare_multiple_fw_handler import CompareMultipleFWHandler
 from .fw_detail_summary_handler import FWDetailSummaryHandler
 from .statistics_handler import StatisticsHandler
+# Phase 9: Sub Version 查詢處理器
+from .list_sub_versions_handler import ListSubVersionsHandler
+from .list_fw_by_sub_version_handler import ListFWBySubVersionHandler
 
 __all__ = [
     'BaseHandler',
@@ -67,5 +73,8 @@ __all__ = [
     'CompareMultipleFWHandler',
     'FWDetailSummaryHandler',
     'StatisticsHandler',
+    # Phase 9: Sub Version 查詢處理器
+    'ListSubVersionsHandler',
+    'ListFWBySubVersionHandler',
 ]
 
