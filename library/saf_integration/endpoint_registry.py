@@ -81,6 +81,17 @@ SAF_ENDPOINTS: Dict[str, Dict[str, Any]] = {
         "path_params": ["project_uid"],
         "transformer": "test_summary_to_dify_record",
         "enabled": True
+    },
+    # 🆕 Phase 4: Test Details API（包含完整 test items 明細）
+    "project_test_details": {
+        "path": "/api/v1/projects/{project_uid}/test-details",
+        "method": "GET",
+        "description": "查詢專案測試詳細資料（含所有 test items）",
+        "params": {},
+        "path_params": ["project_uid"],
+        "transformer": "test_details_to_dify_record",
+        "enabled": True,
+        "requires_auth": True  # 需要 Authorization 和 Authorization-Name headers
     }
 }
 

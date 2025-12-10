@@ -324,14 +324,108 @@ Sub Version 是指專案的不同容量變體，如 AA=512GB, AB=1024GB, AC=2048
   - 用戶可能直接說 AA/AB/AC/AD，也可能說 512GB/1024GB/2048GB/4096GB
   - 需要正確識別並提取 sub_version 參數
 
-### 22. unknown - 無法識別的意圖
+### 22. query_projects_by_test_category - 跨專案測試類別搜尋 (Phase 10 新增)
+用戶想知道哪些專案有執行過特定測試類別時使用。
+這是跨專案的搜尋功能，會搜尋所有專案並返回包含該測試類別的專案列表。
+- 常見問法：
+  - 「哪些案子有測試過 PCIe CV5」「哪些專案做過 Performance 測試」
+  - 「有做過 NVMe 測試的專案有哪些」「哪些專案測過 OAKGATE」
+  - 「找出所有測試過 MANDi 的專案」「有跑過 CrystalDiskMark 的案子」
+  - 「哪些產品有做過 Compatibility 測試」「哪些專案完成了 USB4 認證」
+  - 「列出有 SATA 測試的案子」「哪些專案有 Functionality 測試」
+  - 「有 Performance 測試的專案」「做過效能測試的案子」
+- 參數：
+  - test_category (測試類別名稱，如 PCIe、NVMe、Performance、OAKGATE、MANDi)
+  - customer (選填，限定特定客戶)
+  - status_filter (選填，'pass' 只找有通過的、'fail' 只找有失敗的、'all' 全部)
+- 【重要區分】
+  - 如果用戶說「XX 專案的 Performance 測試結果」→ 使用 query_project_test_by_category（單一專案）
+  - 如果用戶說「哪些案子有做過 Performance 測試」→ 使用 query_projects_by_test_category（跨專案搜尋）
+  - 關鍵判斷：是否有指定「專案名稱」
+    - 有專案名稱 → 單一專案查詢
+    - 無專案名稱，問「哪些專案」→ 跨專案搜尋
+- 【測試類別對應】：
+  - PCIe / PCIe CV5 → PCIe
+  - NVMe / NVMe Validation → NVMe_Validation_Tool
+  - 效能 / Performance → Performance
+  - 功能 / Functionality → Functionality
+  - 相容性 / Compatibility → Compatibility
+
+### 23. query_project_fw_test_categories - 專案 FW 測試類別查詢 (Phase 11 新增)
+用戶想知道某個專案的特定 FW 版本有哪些測試類別時使用。
+這是單一專案內的查詢，返回該 FW 版本下的所有測試類別列表及統計。
+- 常見問法：
+  - 「DEMETER 的 Y1114B FW 有哪些測試類別」
+  - 「XX 專案 512GB 版本有哪些 Category」
+  - 「這個案子 1024GB 的 FW 有什麼測試」
+  - 「Project Alpha 的 FW v2.1 包含哪些測試類別」
+  - 「XX 專案這個 FW 做了哪些測試」
+  - 「某案子某版本的測試類別清單」
+- 參數：
+  - project_name (專案名稱，必須)
+  - fw_version (FW 版本，必須，可以是版本號如 Y1114B，或容量如 512GB)
+- 【重要區分】
+  - 如果用戶說「DEMETER 的測試結果」→ 使用 query_project_test_summary（查詢測試結果）
+  - 如果用戶說「DEMETER 的 Y1114B 有哪些測試類別」→ 使用 query_project_fw_test_categories（查詢類別清單）
+  - 如果用戶說「哪些案子有做過 Performance」→ 使用 query_projects_by_test_category（跨專案搜尋）
+  - 關鍵判斷：
+    - 有專案名稱 + 有 FW 版本 + 問「有哪些類別」→ query_project_fw_test_categories
+    - 有專案名稱 + 無 FW 版本 → query_project_test_summary
+    - 無專案名稱 + 問「哪些專案」→ query_projects_by_test_category
+
+### 24. query_project_fw_category_test_items - 專案 FW 類別測項查詢 (Phase 12 新增)
+用戶想知道某個專案特定 FW 版本的特定測試類別有哪些測試項目（Test Items）時使用。
+這是查詢單一類別內的詳細測試項目列表。
+- 常見問法：
+  - 「Springsteen GD10YBJD_Opal Functionality 類別有哪些測項」
+  - 「DEMETER 的 Y1114B 的 NVMe_Validation_Tool 有什麼測試項目」
+  - 「XX 專案 512GB 版本 Performance 類別有哪些測項」
+  - 「這個案子 1024GB 的 MANDi 測試包含哪些項目」
+  - 「XX 專案 FW YYY 的 Reliability 測試有哪些測項」
+  - 「某案子某版本的 Protocol 類別測試項目清單」
+- 參數：
+  - project_name (專案名稱，必須)
+  - fw_version (FW 版本，必須，如 GD10YBJD_Opal、Y1114B)
+  - category_name (測試類別名稱，必須，如 Functionality、Performance、MANDi、Protocol)
+- 【重要區分】
+  - 如果用戶說「XX FW YYY 有哪些測試類別」→ 使用 query_project_fw_test_categories（查詢類別清單）
+  - 如果用戶說「XX FW YYY 的 Functionality 類別有哪些測項」→ 使用 query_project_fw_category_test_items（查詢特定類別的測項）
+  - 如果用戶說「XX FW YYY 有哪些測項」（沒有指定類別）→ 使用 query_project_fw_all_test_items（查詢全部測項）
+  - 關鍵判斷：
+    - 有專案名稱 + 有 FW 版本 + 有類別名稱 + 問「有哪些測項」→ query_project_fw_category_test_items
+    - 有專案名稱 + 有 FW 版本 + 無類別名稱 + 問「有哪些測項」→ query_project_fw_all_test_items
+    - 有專案名稱 + 有 FW 版本 + 問「有哪些類別」→ query_project_fw_test_categories
+
+### 25. query_project_fw_all_test_items - 專案 FW 全部測項查詢 (Phase 12 新增)
+用戶想知道某個專案特定 FW 版本的所有測試項目（Test Items）時使用。
+這是查詢該 FW 版本下所有類別的全部測試項目，按類別分組顯示。
+- 常見問法：
+  - 「Springsteen GD10YBJD_Opal 有哪些測項」
+  - 「DEMETER 的 Y1114B 有哪些測試項目」
+  - 「XX 專案 512GB 版本的全部測項」
+  - 「這個案子 1024GB 有什麼測試項目」
+  - 「XX 專案 FW YYY 總共有哪些測試項目」
+  - 「列出某案子某版本的所有測項」
+- 參數：
+  - project_name (專案名稱，必須)
+  - fw_version (FW 版本，必須，如 GD10YBJD_Opal、Y1114B)
+- 【重要區分】
+  - 如果用戶說「XX FW YYY 有哪些測試類別」→ 使用 query_project_fw_test_categories（查詢類別清單）
+  - 如果用戶說「XX FW YYY 有哪些測項」（沒有指定類別）→ 使用 query_project_fw_all_test_items（查詢全部測項）
+  - 如果用戶說「XX FW YYY 的 Functionality 類別有哪些測項」→ 使用 query_project_fw_category_test_items（查詢特定類別的測項）
+  - 關鍵判斷：
+    - 問「有哪些測項」或「有哪些測試項目」且沒有指定類別 → query_project_fw_all_test_items
+    - 問「有哪些測項」或「有哪些測試項目」且有指定類別 → query_project_fw_category_test_items
+    - 問「有哪些類別」或「有什麼測試」→ query_project_fw_test_categories
+
+### 26. unknown - 無法識別的意圖
 當問題與 SAF 專案管理系統無關時使用。
 
 ## 已知資訊
 
 客戶名稱：WD, WDC, Western Digital, Samsung, Micron, Transcend, ADATA, UMIS, Biwin, Kioxia, SK Hynix
 控制器型號：SM2263, SM2264, SM2267, SM2269, SM2264XT, SM2269XT, SM2508
-測試類別：Compliance, Functionality, Performance, Interoperability, Stress, Compatibility
+測試類別：PCIe, NVMe, Performance, OAKGATE, MANDi, Functionality, Compatibility, USB4, SATA, CrystalDiskMark
 容量規格：128GB, 256GB, 512GB, 1TB, 2TB, 4TB, 8TB
 專案負責人 (PL)：Ryder, ryder.lin, Jeffery, jeffery.kuo, bruce.zhang, Wei-Zhen, Zhenyuan
 Sub Version 代碼：AA (512GB), AB (1024GB/1TB), AC (2048GB/2TB), AD (4096GB/4TB)
@@ -647,6 +741,93 @@ Sub Version 代碼：AA (512GB), AB (1024GB/1TB), AC (2048GB/2TB), AD (4096GB/4T
 
 輸入：Springsteen 1TB 版本的韌體列表
 輸出：{"intent": "list_fw_by_sub_version", "parameters": {"project_name": "Springsteen", "sub_version": "AB"}, "confidence": 0.90}
+
+輸入：哪些案子有測試過 Performance
+輸出：{"intent": "query_projects_by_test_category", "parameters": {"test_category": "Performance"}, "confidence": 0.95}
+
+輸入：有做過 NVMe 測試的專案有哪些
+輸出：{"intent": "query_projects_by_test_category", "parameters": {"test_category": "NVMe"}, "confidence": 0.93}
+
+輸入：哪些專案做過 PCIe CV5 測試
+輸出：{"intent": "query_projects_by_test_category", "parameters": {"test_category": "PCIe"}, "confidence": 0.92}
+
+輸入：找出所有測試過 OAKGATE 的專案
+輸出：{"intent": "query_projects_by_test_category", "parameters": {"test_category": "OAKGATE"}, "confidence": 0.93}
+
+輸入：有跑過 MANDi 的案子
+輸出：{"intent": "query_projects_by_test_category", "parameters": {"test_category": "MANDi"}, "confidence": 0.90}
+
+輸入：哪些專案完成了 USB4 認證
+輸出：{"intent": "query_projects_by_test_category", "parameters": {"test_category": "USB4"}, "confidence": 0.92}
+
+輸入：列出有 Compatibility 測試的案子
+輸出：{"intent": "query_projects_by_test_category", "parameters": {"test_category": "Compatibility"}, "confidence": 0.93}
+
+輸入：WD 有哪些案子做過 Performance 測試
+輸出：{"intent": "query_projects_by_test_category", "parameters": {"test_category": "Performance", "customer": "WD"}, "confidence": 0.93}
+
+輸入：有 CrystalDiskMark 測試的專案
+輸出：{"intent": "query_projects_by_test_category", "parameters": {"test_category": "CrystalDiskMark"}, "confidence": 0.90}
+
+輸入：哪些專案的效能測試有 Pass
+輸出：{"intent": "query_projects_by_test_category", "parameters": {"test_category": "Performance", "status_filter": "pass"}, "confidence": 0.90}
+
+輸入：DEMETER 的 Y1114B FW 有哪些測試類別
+輸出：{"intent": "query_project_fw_test_categories", "parameters": {"project_name": "DEMETER", "fw_version": "Y1114B"}, "confidence": 0.95}
+
+輸入：這個案子 512GB 版本有哪些 Category
+輸出：{"intent": "query_project_fw_test_categories", "parameters": {"project_name": "這個案子", "fw_version": "512GB"}, "confidence": 0.93}
+
+輸入：Springsteen 的 128GB FW 有做哪些測試類別
+輸出：{"intent": "query_project_fw_test_categories", "parameters": {"project_name": "Springsteen", "fw_version": "128GB"}, "confidence": 0.92}
+
+輸入：Project Alpha 的 FW v2.1 包含哪些測試類別
+輸出：{"intent": "query_project_fw_test_categories", "parameters": {"project_name": "Project Alpha", "fw_version": "FW v2.1"}, "confidence": 0.93}
+
+輸入：Channel 的 FWY0512A 有哪些 Category
+輸出：{"intent": "query_project_fw_test_categories", "parameters": {"project_name": "Channel", "fw_version": "FWY0512A"}, "confidence": 0.94}
+
+輸入：這個專案 1024GB 的 FW 有什麼測試
+輸出：{"intent": "query_project_fw_test_categories", "parameters": {"project_name": "這個專案", "fw_version": "1024GB"}, "confidence": 0.90}
+
+輸入：A400 專案 AB 版本有哪些測試類別
+輸出：{"intent": "query_project_fw_test_categories", "parameters": {"project_name": "A400", "fw_version": "AB"}, "confidence": 0.92}
+
+輸入：WD DEMETER 的 AC 版本做了哪些測試
+輸出：{"intent": "query_project_fw_test_categories", "parameters": {"project_name": "DEMETER", "fw_version": "AC"}, "confidence": 0.91}
+
+輸入：Springsteen GD10YBJD_Opal Functionality 類別有哪些測項
+輸出：{"intent": "query_project_fw_category_test_items", "parameters": {"project_name": "Springsteen", "fw_version": "GD10YBJD_Opal", "category_name": "Functionality"}, "confidence": 0.95}
+
+輸入：DEMETER 的 Y1114B 的 NVMe_Validation_Tool 有什麼測試項目
+輸出：{"intent": "query_project_fw_category_test_items", "parameters": {"project_name": "DEMETER", "fw_version": "Y1114B", "category_name": "NVMe_Validation_Tool"}, "confidence": 0.94}
+
+輸入：Channel 專案 FW 82CBW5QF 的 Performance 類別有哪些測項
+輸出：{"intent": "query_project_fw_category_test_items", "parameters": {"project_name": "Channel", "fw_version": "82CBW5QF", "category_name": "Performance"}, "confidence": 0.93}
+
+輸入：這個案子 512GB 版本 MANDi 測試包含哪些項目
+輸出：{"intent": "query_project_fw_category_test_items", "parameters": {"project_name": "這個案子", "fw_version": "512GB", "category_name": "MANDi"}, "confidence": 0.92}
+
+輸入：A400 專案 X0325A 的 Reliability 測試有哪些測項
+輸出：{"intent": "query_project_fw_category_test_items", "parameters": {"project_name": "A400", "fw_version": "X0325A", "category_name": "Reliability"}, "confidence": 0.93}
+
+輸入：Springsteen GD10YBJD_Opal 有哪些測項
+輸出：{"intent": "query_project_fw_all_test_items", "parameters": {"project_name": "Springsteen", "fw_version": "GD10YBJD_Opal"}, "confidence": 0.95}
+
+輸入：DEMETER 的 Y1114B 有哪些測試項目
+輸出：{"intent": "query_project_fw_all_test_items", "parameters": {"project_name": "DEMETER", "fw_version": "Y1114B"}, "confidence": 0.94}
+
+輸入：Channel 專案 FW 82CBW5QF 全部測項有哪些
+輸出：{"intent": "query_project_fw_all_test_items", "parameters": {"project_name": "Channel", "fw_version": "82CBW5QF"}, "confidence": 0.93}
+
+輸入：這個案子 1024GB 有什麼測試項目
+輸出：{"intent": "query_project_fw_all_test_items", "parameters": {"project_name": "這個案子", "fw_version": "1024GB"}, "confidence": 0.92}
+
+輸入：A400 專案 X0325A 總共有哪些測試項目
+輸出：{"intent": "query_project_fw_all_test_items", "parameters": {"project_name": "A400", "fw_version": "X0325A"}, "confidence": 0.93}
+
+輸入：列出 Frey3B 的 FWX0926C 所有測項
+輸出：{"intent": "query_project_fw_all_test_items", "parameters": {"project_name": "Frey3B", "fw_version": "FWX0926C"}, "confidence": 0.92}
 
 輸入：今天天氣如何？
 輸出：{"intent": "unknown", "parameters": {}, "confidence": 0.10}

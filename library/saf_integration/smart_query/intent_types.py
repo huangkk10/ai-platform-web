@@ -67,6 +67,16 @@ class IntentType(Enum):
     LIST_SUB_VERSIONS = "list_sub_versions"               # 列出專案所有 Sub Version
     LIST_FW_BY_SUB_VERSION = "list_fw_by_sub_version"     # 列出特定 Sub Version 的 FW 版本
     
+    # 🆕 Phase 10: 跨專案測試類別搜尋
+    QUERY_PROJECTS_BY_TEST_CATEGORY = "query_projects_by_test_category"  # 哪些案子有測試過 XX？
+    
+    # 🆕 Phase 11: 專案 FW 測試類別查詢
+    QUERY_PROJECT_FW_TEST_CATEGORIES = "query_project_fw_test_categories"  # 專案 FW 有哪些測試類別？
+    
+    # 🆕 Phase 12: 專案 FW 測項查詢
+    QUERY_PROJECT_FW_CATEGORY_TEST_ITEMS = "query_project_fw_category_test_items"  # 專案 FW 特定類別有哪些測項？
+    QUERY_PROJECT_FW_ALL_TEST_ITEMS = "query_project_fw_all_test_items"  # 專案 FW 有哪些測項？
+    
     # 統計專案數量
     COUNT_PROJECTS = "count_projects"
     
@@ -118,6 +128,10 @@ class IntentType(Enum):
             self.QUERY_PROJECTS_BY_PL: "按專案負責人 (PL) 查詢專案",
             self.LIST_SUB_VERSIONS: "列出專案所有 Sub Version（容量版本）",
             self.LIST_FW_BY_SUB_VERSION: "列出特定 Sub Version 的 FW 版本",
+            self.QUERY_PROJECTS_BY_TEST_CATEGORY: "跨專案搜尋特定測試類別（哪些案子有測試過 XX）",
+            self.QUERY_PROJECT_FW_TEST_CATEGORIES: "查詢專案 FW 的測試類別（有哪些 Category）",
+            self.QUERY_PROJECT_FW_CATEGORY_TEST_ITEMS: "查詢專案 FW 特定類別的測項（有哪些 Test Items）",
+            self.QUERY_PROJECT_FW_ALL_TEST_ITEMS: "查詢專案 FW 的所有測項（列出全部 Test Items）",
             self.COUNT_PROJECTS: "統計專案數量",
             self.LIST_ALL_CUSTOMERS: "列出所有客戶",
             self.LIST_ALL_CONTROLLERS: "列出所有控制器",
@@ -141,6 +155,10 @@ class IntentType(Enum):
             self.QUERY_PROJECTS_BY_PL: ["pl"],
             self.LIST_SUB_VERSIONS: ["project_name"],  # Phase 9: 列出 Sub Version
             self.LIST_FW_BY_SUB_VERSION: ["project_name", "sub_version"],  # Phase 9: 列出特定 Sub Version 的 FW
+            self.QUERY_PROJECTS_BY_TEST_CATEGORY: ["test_category"],  # Phase 10: 跨專案測試類別搜尋
+            self.QUERY_PROJECT_FW_TEST_CATEGORIES: ["project_name", "fw_version"],  # Phase 11: 專案 FW 測試類別
+            self.QUERY_PROJECT_FW_CATEGORY_TEST_ITEMS: ["project_name", "fw_version", "category_name"],  # Phase 12: 專案 FW 類別測項
+            self.QUERY_PROJECT_FW_ALL_TEST_ITEMS: ["project_name", "fw_version"],  # Phase 12: 專案 FW 全部測項
             self.COUNT_PROJECTS: [],  # customer 是可選的
             self.LIST_ALL_CUSTOMERS: [],
             self.LIST_ALL_CONTROLLERS: [],
@@ -167,6 +185,10 @@ class IntentType(Enum):
             self.QUERY_PROJECTS_BY_PL: [],  # PL 查詢沒有可選參數
             self.LIST_SUB_VERSIONS: [],  # Phase 9: 無可選參數
             self.LIST_FW_BY_SUB_VERSION: ["include_stats"],  # Phase 9: 可選是否包含統計
+            self.QUERY_PROJECTS_BY_TEST_CATEGORY: ["customer", "status_filter"],  # Phase 10: 可選客戶和狀態篩選
+            self.QUERY_PROJECT_FW_TEST_CATEGORIES: ["capacity"],  # Phase 11: 可選容量過濾
+            self.QUERY_PROJECT_FW_CATEGORY_TEST_ITEMS: ["capacity"],  # Phase 12: 可選容量過濾
+            self.QUERY_PROJECT_FW_ALL_TEST_ITEMS: ["capacity"],  # Phase 12: 可選容量過濾
             self.COUNT_PROJECTS: ["customer"],  # 可選：按客戶統計
             self.LIST_ALL_CUSTOMERS: [],
             self.LIST_ALL_CONTROLLERS: [],

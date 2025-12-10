@@ -32,6 +32,13 @@ from .query_handlers import (
     # Phase 9: Sub Version 查詢處理器
     ListSubVersionsHandler,
     ListFWBySubVersionHandler,
+    # Phase 10: 跨專案測試類別搜尋處理器
+    TestCategorySearchHandler,
+    # Phase 11: FW 測試類別查詢處理器
+    FWTestCategoriesHandler,
+    # Phase 12: FW 測項查詢處理器
+    FWCategoryTestItemsHandler,
+    FWAllTestItemsHandler,
 )
 
 logger = logging.getLogger(__name__)
@@ -121,6 +128,16 @@ class QueryRouter:
             # Phase 9: Sub Version 查詢處理器
             IntentType.LIST_SUB_VERSIONS: list_sub_versions_handler,
             IntentType.LIST_FW_BY_SUB_VERSION: list_fw_by_sub_version_handler,
+            
+            # Phase 10: 跨專案測試類別搜尋處理器
+            IntentType.QUERY_PROJECTS_BY_TEST_CATEGORY: TestCategorySearchHandler(),
+            
+            # Phase 11: FW 測試類別查詢處理器
+            IntentType.QUERY_PROJECT_FW_TEST_CATEGORIES: FWTestCategoriesHandler(),
+            
+            # Phase 12: FW 測項查詢處理器
+            IntentType.QUERY_PROJECT_FW_CATEGORY_TEST_ITEMS: FWCategoryTestItemsHandler(),
+            IntentType.QUERY_PROJECT_FW_ALL_TEST_ITEMS: FWAllTestItemsHandler(),
             
             # 統計類型使用專門的處理器
             IntentType.COUNT_PROJECTS: self._statistics_handler,

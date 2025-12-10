@@ -54,6 +54,13 @@ from .statistics_handler import StatisticsHandler
 # Phase 9: Sub Version 查詢處理器
 from .list_sub_versions_handler import ListSubVersionsHandler
 from .list_fw_by_sub_version_handler import ListFWBySubVersionHandler
+# Phase 10: 跨專案測試類別搜尋處理器
+from .test_category_search_handler import TestCategorySearchHandler
+# Phase 11: FW 測試類別查詢處理器
+from .fw_test_categories_handler import FWTestCategoriesHandler
+# Phase 12: FW 測項查詢處理器
+from .fw_category_test_items_handler import FWCategoryTestItemsHandler
+from .fw_all_test_items_handler import FWAllTestItemsHandler
 
 __all__ = [
     'BaseHandler',
@@ -76,5 +83,12 @@ __all__ = [
     # Phase 9: Sub Version 查詢處理器
     'ListSubVersionsHandler',
     'ListFWBySubVersionHandler',
+    # Phase 10: 跨專案測試類別搜尋處理器
+    'TestCategorySearchHandler',
+    # Phase 11: FW 測試類別查詢處理器
+    'FWTestCategoriesHandler',
+    # Phase 12: FW 測項查詢處理器
+    'FWCategoryTestItemsHandler',
+    'FWAllTestItemsHandler',
 ]
 

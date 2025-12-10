@@ -503,6 +503,88 @@ class SAFAPIClient:
             logger.error(f"Firmware Summary API 請求異常: {str(e)}")
             return None
 
+    def get_project_test_details(self, project_uid: str) -> Optional[Dict[str, Any]]:
+        """
+        獲取專案測試詳細資料（包含所有 test items 明細）
+        
+        使用 /api/v1/projects/{project_uid}/test-details API
+        
+        提供的資訊：
+        - project_uid: 專案 UID
+        - project_name: 專案名稱
+        - fw_name: Firmware 名稱
+        - sub_version: 子版本
+        - capacities: 可用容量列表
+        - total_items: 測試項目總數
+        - details: 每個測試項目的詳細資料（含 category、test_item、各容量結果）
+        - summary: 總體統計（ongoing、passed、conditional_passed、failed、interrupted）
+        
+        欄位順序：Ongoing / Passed / Conditional Passed / Failed / Interrupted
+        
+        Args:
+            project_uid: 專案 UID（特定 FW 版本的唯一識別碼）
+            
+        Returns:
+            測試詳細資料，如果失敗則返回 None
+        """
+        if not project_uid:
+            logger.warning("get_project_test_details: project_uid 為空")
+            return None
+        
+        # 獲取 endpoint 配置
+        config = get_endpoint_config("project_test_details")
+        if not config:
+            logger.error("找不到 project_test_details endpoint 配置")
+            return None
+        
+        # 構建 URL
+        path = config['path'].replace('{project_uid}', project_uid)
+        url = f"{self.base_url}{path}"
+        
+        # 檢查快取
+        cache_key = f"test_details:{project_uid}"
+        if self.cache_manager:
+            cached_data = self.cache_manager.get(cache_key)
+            if cached_data:
+                logger.debug(f"從快取獲取測試詳細資料: {project_uid}")
+                return cached_data
+        
+        # 獲取認證 headers
+        headers = self.auth_manager.get_auth_headers()
+        
+        try:
+            logger.info(f"調用 Test Details API: {url}")
+            response = requests.get(url, headers=headers, timeout=self.timeout)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('success'):
+                    result = data.get('data')
+                    # 存入快取（TTL 較短，因為測試資料可能常更新）
+                    if self.cache_manager and result:
+                        self.cache_manager.set(cache_key, result, ttl=300)  # 5 分鐘
+                    logger.info(f"獲取測試詳細資料成功: {project_uid}")
+                    return result
+                else:
+                    logger.warning(f"Test Details API 返回失敗: {data.get('message')}")
+                    return None
+            elif response.status_code == 404:
+                logger.warning(f"專案不存在: {project_uid}")
+                return None
+            else:
+                logger.error(f"Test Details API HTTP 錯誤: {response.status_code}")
+                return None
+                
+        except requests.exceptions.Timeout:
+            logger.error(f"Test Details API 請求超時: {project_uid}")
+            return None
+        except requests.exceptions.ConnectionError as e:
+            logger.error(f"Test Details API 連線錯誤: {str(e)}")
+            return None
+        except Exception as e:
+            logger.error(f"Test Details API 請求異常: {str(e)}")
+            return None
+
 
 # 全局客戶端實例
 _client_instance: Optional[SAFAPIClient] = None
