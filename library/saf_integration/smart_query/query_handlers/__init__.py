@@ -61,6 +61,8 @@ from .fw_test_categories_handler import FWTestCategoriesHandler
 # Phase 12: FW 測項查詢處理器
 from .fw_category_test_items_handler import FWCategoryTestItemsHandler
 from .fw_all_test_items_handler import FWAllTestItemsHandler
+# Phase 13: FW 日期範圍查詢處理器
+from .list_fw_by_date_range_handler import ListFWByDateRangeHandler
 
 __all__ = [
     'BaseHandler',
@@ -90,5 +92,7 @@ __all__ = [
     # Phase 12: FW 測項查詢處理器
     'FWCategoryTestItemsHandler',
     'FWAllTestItemsHandler',
+    # Phase 13: FW 日期範圍查詢處理器
+    'ListFWByDateRangeHandler',
 ]
 

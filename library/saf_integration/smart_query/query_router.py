@@ -39,6 +39,8 @@ from .query_handlers import (
     # Phase 12: FW 測項查詢處理器
     FWCategoryTestItemsHandler,
     FWAllTestItemsHandler,
+    # Phase 13: FW 日期範圍查詢處理器
+    ListFWByDateRangeHandler,
 )
 
 logger = logging.getLogger(__name__)
@@ -138,6 +140,9 @@ class QueryRouter:
             # Phase 12: FW 測項查詢處理器
             IntentType.QUERY_PROJECT_FW_CATEGORY_TEST_ITEMS: FWCategoryTestItemsHandler(),
             IntentType.QUERY_PROJECT_FW_ALL_TEST_ITEMS: FWAllTestItemsHandler(),
+            
+            # Phase 13: FW 日期範圍查詢處理器
+            IntentType.LIST_FW_BY_DATE_RANGE: ListFWByDateRangeHandler(),
             
             # 統計類型使用專門的處理器
             IntentType.COUNT_PROJECTS: self._statistics_handler,

@@ -77,6 +77,9 @@ class IntentType(Enum):
     QUERY_PROJECT_FW_CATEGORY_TEST_ITEMS = "query_project_fw_category_test_items"  # 專案 FW 特定類別有哪些測項？
     QUERY_PROJECT_FW_ALL_TEST_ITEMS = "query_project_fw_all_test_items"  # 專案 FW 有哪些測項？
     
+    # 🆕 Phase 13: 按日期範圍查詢專案 FW 版本
+    LIST_FW_BY_DATE_RANGE = "list_fw_by_date_range"  # 專案在指定日期範圍內有哪些 FW？
+    
     # 統計專案數量
     COUNT_PROJECTS = "count_projects"
     
@@ -132,6 +135,7 @@ class IntentType(Enum):
             self.QUERY_PROJECT_FW_TEST_CATEGORIES: "查詢專案 FW 的測試類別（有哪些 Category）",
             self.QUERY_PROJECT_FW_CATEGORY_TEST_ITEMS: "查詢專案 FW 特定類別的測項（有哪些 Test Items）",
             self.QUERY_PROJECT_FW_ALL_TEST_ITEMS: "查詢專案 FW 的所有測項（列出全部 Test Items）",
+            self.LIST_FW_BY_DATE_RANGE: "按日期範圍查詢專案 FW 版本（專案這個月有哪些 FW）",
             self.COUNT_PROJECTS: "統計專案數量",
             self.LIST_ALL_CUSTOMERS: "列出所有客戶",
             self.LIST_ALL_CONTROLLERS: "列出所有控制器",
@@ -159,6 +163,7 @@ class IntentType(Enum):
             self.QUERY_PROJECT_FW_TEST_CATEGORIES: ["project_name", "fw_version"],  # Phase 11: 專案 FW 測試類別
             self.QUERY_PROJECT_FW_CATEGORY_TEST_ITEMS: ["project_name", "fw_version", "category_name"],  # Phase 12: 專案 FW 類別測項
             self.QUERY_PROJECT_FW_ALL_TEST_ITEMS: ["project_name", "fw_version"],  # Phase 12: 專案 FW 全部測項
+            self.LIST_FW_BY_DATE_RANGE: ["project_name"],  # Phase 13: 專案 FW 日期範圍查詢
             self.COUNT_PROJECTS: [],  # customer 是可選的
             self.LIST_ALL_CUSTOMERS: [],
             self.LIST_ALL_CONTROLLERS: [],
@@ -189,6 +194,7 @@ class IntentType(Enum):
             self.QUERY_PROJECT_FW_TEST_CATEGORIES: ["capacity"],  # Phase 11: 可選容量過濾
             self.QUERY_PROJECT_FW_CATEGORY_TEST_ITEMS: ["capacity"],  # Phase 12: 可選容量過濾
             self.QUERY_PROJECT_FW_ALL_TEST_ITEMS: ["capacity"],  # Phase 12: 可選容量過濾
+            self.LIST_FW_BY_DATE_RANGE: ["sub_version", "year", "month", "start_month", "end_month", "date_range"],  # Phase 13: 可選參數
             self.COUNT_PROJECTS: ["customer"],  # 可選：按客戶統計
             self.LIST_ALL_CUSTOMERS: [],
             self.LIST_ALL_CONTROLLERS: [],

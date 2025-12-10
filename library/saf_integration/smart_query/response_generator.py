@@ -81,6 +81,8 @@ class SAFResponseGenerator:
             # Phase 9: Sub Version 查詢回應生成器
             IntentType.LIST_SUB_VERSIONS: self._generate_sub_versions_response,
             IntentType.LIST_FW_BY_SUB_VERSION: self._generate_fw_by_sub_version_response,
+            # Phase 13: FW 日期範圍查詢回應生成器
+            IntentType.LIST_FW_BY_DATE_RANGE: self._generate_fw_by_date_range_response,
             IntentType.COUNT_PROJECTS: self._generate_count_response,
             IntentType.LIST_ALL_CUSTOMERS: self._generate_customers_list_response,
             IntentType.LIST_ALL_CONTROLLERS: self._generate_controllers_list_response,
@@ -1399,6 +1401,31 @@ class SAFResponseGenerator:
             'answer': message,
             'table': data.get('fw_versions', []),
             'summary': f"列出 {data.get('project_name', '')} {data.get('sub_version', '')} 的 {data.get('displayed_versions', 0)} 個 FW 版本"
+        }
+    
+    def _generate_fw_by_date_range_response(self, result_data: Dict,
+                                             full_result: Dict) -> Dict[str, Any]:
+        """
+        生成按日期範圍查詢 FW 版本的回答
+        
+        直接使用 Handler 回傳的 message（已經是完整格式化的 Markdown）
+        
+        Args:
+            result_data: 查詢結果資料
+            full_result: 完整查詢結果
+            
+        Returns:
+            Dict: 包含格式化回答
+        """
+        message = result_data.get('message', '')
+        data = result_data.get('data', {})
+        date_range = data.get('date_range', {})
+        
+        # Handler 已經生成完整的 Markdown 格式回答，直接使用
+        return {
+            'answer': message,
+            'table': data.get('fw_versions', []),
+            'summary': f"列出 {data.get('project_name', '')} 在 {date_range.get('description', '')} 的 {data.get('total_in_range', 0)} 個 FW 版本"
         }
     
     def _generate_default_response(self, result_data: Dict,

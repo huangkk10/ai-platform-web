@@ -418,7 +418,38 @@ Sub Version 是指專案的不同容量變體，如 AA=512GB, AB=1024GB, AC=2048
     - 問「有哪些測項」或「有哪些測試項目」且有指定類別 → query_project_fw_category_test_items
     - 問「有哪些類別」或「有什麼測試」→ query_project_fw_test_categories
 
-### 26. unknown - 無法識別的意圖
+### 26. list_fw_by_date_range - 按日期範圍查詢專案 FW 版本 (Phase 13 新增)
+用戶想知道某專案在特定日期範圍內有哪些 FW 版本時使用。
+這是查詢專案在指定時間段內發布的 FW 版本列表。
+- 常見問法：
+  - 「Springsteen 12月有哪些 FW」「Springsteen 這個月有幾個 FW 版本」
+  - 「DEMETER 本月的 FW」「DEMETER 上個月有哪些韌體版本」
+  - 「XX 專案 2025年1月的 FW 版本」「XX 今年有哪些 FW」
+  - 「Springsteen 最近有哪些 FW」「DEMETER 近期的韌體」
+  - 「XX 專案 10月到12月的 FW」「XX 上半年的 FW 版本」
+  - 「這個月 XX 有發布什麼 FW」「上週 XX 有新的 FW 嗎」
+  - 「Springsteen AC 2025年有哪些 FW」「DEMETER AA 本月的 FW」（同時指定 Sub Version 和日期）
+  - 「Channel AB 12月的韌體版本」「XX 專案 AC 版本今年的 FW」
+- 參數：
+  - project_name (專案名稱，必須)
+  - year (選填，年份，如 2025)
+  - month (選填，月份，1-12)
+  - start_month (選填，開始月份，用於範圍查詢)
+  - end_month (選填，結束月份，用於範圍查詢)
+  - date_range (選填，'this_month'、'last_month'、'this_week'、'last_week'、'recent')
+  - sub_version (選填，Sub Version 代碼如 AA、AB、AC、AD)
+- 【重要區分】
+  - 如果用戶問「XX 有哪些 FW 版本」（無日期）→ 使用 list_fw_versions（列出所有 FW）
+  - 如果用戶問「XX 12月有哪些 FW」或「XX 本月的 FW」→ 使用 list_fw_by_date_range（按日期過濾）
+  - 如果用戶問「12月有哪些專案」（無專案名稱）→ 使用 query_projects_by_month（查詢專案）
+  - 如果用戶問「XX AC 2025年有哪些 FW」→ 使用 list_fw_by_date_range（同時帶 sub_version 和 year）
+  - 關鍵判斷：
+    - 有專案名稱 + 有日期/月份/年份 + 問「有哪些 FW」→ list_fw_by_date_range
+    - 有專案名稱 + 無日期 + 問「有哪些 FW」→ list_fw_versions
+    - 無專案名稱 + 有月份 + 問「有哪些專案」→ query_projects_by_month
+    - 有專案名稱 + 有 Sub Version + 有日期/年份 → list_fw_by_date_range（帶 sub_version）
+
+### 27. unknown - 無法識別的意圖
 當問題與 SAF 專案管理系統無關時使用。
 
 ## 已知資訊
@@ -829,6 +860,54 @@ Sub Version 代碼：AA (512GB), AB (1024GB/1TB), AC (2048GB/2TB), AD (4096GB/4T
 輸入：列出 Frey3B 的 FWX0926C 所有測項
 輸出：{"intent": "query_project_fw_all_test_items", "parameters": {"project_name": "Frey3B", "fw_version": "FWX0926C"}, "confidence": 0.92}
 
+輸入：Springsteen 12月有哪些 FW
+輸出：{"intent": "list_fw_by_date_range", "parameters": {"project_name": "Springsteen", "month": 12}, "confidence": 0.95}
+
+輸入：DEMETER 本月的 FW
+輸出：{"intent": "list_fw_by_date_range", "parameters": {"project_name": "DEMETER", "date_range": "this_month"}, "confidence": 0.94}
+
+輸入：Channel 上個月有哪些 FW 版本
+輸出：{"intent": "list_fw_by_date_range", "parameters": {"project_name": "Channel", "date_range": "last_month"}, "confidence": 0.93}
+
+輸入：Springsteen 2025年1月的 FW 版本
+輸出：{"intent": "list_fw_by_date_range", "parameters": {"project_name": "Springsteen", "year": 2025, "month": 1}, "confidence": 0.94}
+
+輸入：DEMETER 這個月有幾個 FW
+輸出：{"intent": "list_fw_by_date_range", "parameters": {"project_name": "DEMETER", "date_range": "this_month"}, "confidence": 0.93}
+
+輸入：Channel 最近有哪些 FW
+輸出：{"intent": "list_fw_by_date_range", "parameters": {"project_name": "Channel", "date_range": "recent"}, "confidence": 0.92}
+
+輸入：Springsteen 10月到12月的 FW
+輸出：{"intent": "list_fw_by_date_range", "parameters": {"project_name": "Springsteen", "year": 2025, "start_month": 10, "end_month": 12}, "confidence": 0.93}
+
+輸入：DEMETER 這週有新的 FW 嗎
+輸出：{"intent": "list_fw_by_date_range", "parameters": {"project_name": "DEMETER", "date_range": "this_week"}, "confidence": 0.91}
+
+輸入：Channel 上週發布了什麼 FW
+輸出：{"intent": "list_fw_by_date_range", "parameters": {"project_name": "Channel", "date_range": "last_week"}, "confidence": 0.90}
+
+輸入：Springsteen 今年有哪些 FW
+輸出：{"intent": "list_fw_by_date_range", "parameters": {"project_name": "Springsteen", "year": 2025}, "confidence": 0.92}
+
+輸入：Springsteen AC 2025年有哪些 FW
+輸出：{"intent": "list_fw_by_date_range", "parameters": {"project_name": "Springsteen", "sub_version": "AC", "year": 2025}, "confidence": 0.95}
+
+輸入：DEMETER AA 本月的 FW
+輸出：{"intent": "list_fw_by_date_range", "parameters": {"project_name": "DEMETER", "sub_version": "AA", "date_range": "this_month"}, "confidence": 0.94}
+
+輸入：Channel AB 12月的韌體版本
+輸出：{"intent": "list_fw_by_date_range", "parameters": {"project_name": "Channel", "sub_version": "AB", "month": 12}, "confidence": 0.93}
+
+輸入：Springsteen 的 AC 版本今年有哪些 FW
+輸出：{"intent": "list_fw_by_date_range", "parameters": {"project_name": "Springsteen", "sub_version": "AC", "year": 2025}, "confidence": 0.94}
+
+輸入：DEMETER AD 上個月有幾個 FW
+輸出：{"intent": "list_fw_by_date_range", "parameters": {"project_name": "DEMETER", "sub_version": "AD", "date_range": "last_month"}, "confidence": 0.93}
+
+輸入：Channel 2TB 版本 2025年的 FW
+輸出：{"intent": "list_fw_by_date_range", "parameters": {"project_name": "Channel", "sub_version": "AC", "year": 2025}, "confidence": 0.92}
+
 輸入：今天天氣如何？
 輸出：{"intent": "unknown", "parameters": {}, "confidence": 0.10}
 
@@ -942,8 +1021,23 @@ class SAFIntentAnalyzer:
             # 解析 JSON
             intent_data = json.loads(clean_answer)
             
+            # 獲取原始意圖字串
+            raw_intent = intent_data.get('intent', 'unknown')
+            
+            # 處理 Dify 可能返回的組合意圖（映射到我們支援的 Intent）
+            combined_intent_mapping = {
+                'list_fw_by_sub_version_and_year': 'list_fw_by_date_range',
+                'list_fw_by_sub_version_and_month': 'list_fw_by_date_range',
+                'list_fw_by_sub_version_and_date': 'list_fw_by_date_range',
+                'query_fw_by_sub_version_and_year': 'list_fw_by_date_range',
+            }
+            
+            if raw_intent in combined_intent_mapping:
+                logger.info(f"映射組合意圖 '{raw_intent}' -> '{combined_intent_mapping[raw_intent]}'")
+                raw_intent = combined_intent_mapping[raw_intent]
+            
             # 創建 IntentResult
-            intent_type = IntentType.from_string(intent_data.get('intent', 'unknown'))
+            intent_type = IntentType.from_string(raw_intent)
             parameters = intent_data.get('parameters', {})
             
             # 檢測意圖是否與查詢明顯不匹配
@@ -1424,10 +1518,68 @@ class SAFIntentAnalyzer:
             'aa版', 'ab版', 'ac版', 'ad版',
         ]
         return any(kw in query_lower for kw in sv_keywords)
+    
+    def _parse_date_parameters_for_fw(self, query: str) -> Optional[Dict[str, Any]]:
+        """
+        解析 FW 日期查詢的日期參數 (Phase 13)
+        
+        Args:
+            query: 用戶查詢
+            
+        Returns:
+            Optional[Dict]: 日期參數字典，如果無法解析則返回 None
+        """
+        from datetime import datetime
+        
+        parameters = {}
+        current_year = datetime.now().year
+        current_month = datetime.now().month
+        
+        # 1. 檢測「本月」「這個月」
+        if '本月' in query or '這個月' in query or '當月' in query:
+            parameters['date_range'] = 'this_month'
+        
+        # 2. 檢測「上月」「上個月」
+        elif '上月' in query or '上個月' in query:
+            parameters['date_range'] = 'last_month'
+        
+        # 3. 檢測「今年」（需要沒有月份）
+        elif '今年' in query:
+            parameters['date_range'] = 'this_year'
+            parameters['year'] = current_year
+        
+        # 4. 檢測「YYYY年」（只有年份）
+        else:
+            # 嘗試匹配 "YYYY年MM月" 格式
+            year_month_pattern = r'(\d{4})\s*年\s*(\d{1,2})\s*月'
+            match = re.search(year_month_pattern, query)
+            if match:
+                parameters['year'] = int(match.group(1))
+                parameters['month'] = int(match.group(2))
+            else:
+                # 嘗試匹配 "YYYY年" 格式（只有年份）
+                year_pattern = r'(\d{4})\s*年'
+                match = re.search(year_pattern, query)
+                if match:
+                    parameters['year'] = int(match.group(1))
+                else:
+                    # 嘗試匹配 "MM月" 格式（只有月份，假設當年）
+                    month_pattern = r'(\d{1,2})\s*月'
+                    match = re.search(month_pattern, query)
+                    if match:
+                        parameters['year'] = current_year
+                        parameters['month'] = int(match.group(1))
+        
+        # 驗證月份有效性
+        if 'month' in parameters:
+            if not (1 <= parameters['month'] <= 12):
+                return None
+        
+        return parameters if parameters else None
 
     def _detect_date_query(self, query: str) -> Optional[IntentResult]:
         """
-        檢測日期/月份相關查詢 (Phase 8)
+        檢測日期/月份相關查詢 (Phase 8, 擴展 Phase 13)
         
         支援的查詢格式：
         - 「2025年12月有哪些專案」「2025/12 的案子」
@@ -1435,6 +1587,11 @@ class SAFIntentAnalyzer:
         - 「上個月轉進的案子」「上月的專案」
         - 「今年的專案」「2025年有幾個案子」
         - 「12月有哪些專案」「幾月轉進的」
+        
+        Phase 13 擴展（FW 日期查詢）：
+        - 「Springsteen 12月有哪些 FW」
+        - 「Springsteen AC 2025年有哪些 FW」
+        - 「DEMETER 本月的 FW」
         
         Args:
             query: 用戶查詢
@@ -1450,6 +1607,9 @@ class SAFIntentAnalyzer:
             '幾月', '月份', '轉案', '轉進', '新增', '建立'
         ]
         
+        # FW 相關關鍵字
+        fw_keywords = ['fw', 'firmware', '韌體', '版本']
+        
         # 專案相關關鍵字（需要同時出現）
         project_keywords = ['專案', '案子', '項目', 'project', '有哪些', '有那些', '多少', '幾個']
         
@@ -1458,7 +1618,35 @@ class SAFIntentAnalyzer:
         # 檢查是否同時包含日期關鍵字和專案關鍵字
         has_date_keyword = any(kw in query for kw in date_keywords)
         has_project_keyword = any(kw in query_lower for kw in project_keywords)
+        has_fw_keyword = any(kw in query_lower for kw in fw_keywords)
         
+        # 檢測專案名稱和 Sub Version
+        detected_project = self._detect_project_name(query)
+        detected_sub_version = self._detect_sub_version(query)
+        
+        # 如果有專案名稱 + 日期關鍵字 + FW 關鍵字 → 這是 FW 日期查詢
+        if detected_project and has_date_keyword and has_fw_keyword:
+            # 解析日期參數
+            date_params = self._parse_date_parameters_for_fw(query)
+            
+            if date_params:
+                parameters = {
+                    'project_name': detected_project,
+                    **date_params
+                }
+                
+                # 如果有 Sub Version，加入參數
+                if detected_sub_version:
+                    parameters['sub_version'] = detected_sub_version
+                
+                return IntentResult(
+                    intent=IntentType.LIST_FW_BY_DATE_RANGE,
+                    parameters=parameters,
+                    confidence=0.7,
+                    raw_response=f"Fallback: detected FW date query with params={parameters}"
+                )
+        
+        # 原有邏輯：專案日期查詢
         if not (has_date_keyword and has_project_keyword):
             return None
         
