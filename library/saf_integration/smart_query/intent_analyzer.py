@@ -1255,6 +1255,21 @@ class SAFIntentAnalyzer:
             detected_category = self._detect_test_category(query)
             detected_capacity = self._detect_capacity(query)
             
+            # ★★★ 新增：檢測 FW 版本 ★★★
+            # FW 版本格式：通常是 CODE_Name_Capacity 或 簡短代碼
+            # 例如：PH10YC3H_Pyrite_4K, GD10YBJD_Opal, Y1114B, X0325A 等
+            detected_fw_version = self._detect_fw_version_for_fallback(query)
+            
+            # 如果有 FW 版本且有測試相關關鍵字，優先使用 FW 詳細摘要
+            if detected_fw_version and ('測試' in query or '結果' in query or '摘要' in query 
+                                         or 'pass' in query_lower or 'fail' in query_lower or '如何' in query):
+                return IntentResult(
+                    intent=IntentType.QUERY_FW_DETAIL_SUMMARY,
+                    parameters={'project_name': project_name, 'fw_version': detected_fw_version},
+                    confidence=0.6,
+                    raw_response=f"Fallback: FW detail summary query for {project_name} fw={detected_fw_version}"
+                )
+            
             if detected_category:
                 # 按類別查詢測試結果
                 params = {'project_name': project_name, 'category': detected_category}
@@ -1376,6 +1391,43 @@ class SAFIntentAnalyzer:
         
         return None
     
+    def _detect_fw_version_for_fallback(self, query: str) -> Optional[str]:
+        """
+        檢測查詢中的 FW 版本（用於 fallback）
+        
+        FW 版本常見格式：
+        1. CODE_Name_Capacity: PH10YC3H_Pyrite_4K, GD10YBJD_Opal
+        2. 簡短代碼: Y1114B, X0325A, FWX0926C, 82CBW5QF
+        3. 帶 FW 前綴: FW PH10YC3H_Pyrite_4K
+        
+        Args:
+            query: 用戶查詢
+            
+        Returns:
+            Optional[str]: 檢測到的 FW 版本，或 None
+        """
+        # 模式 1：完整 FW 格式 CODE_Name_Capacity (如 PH10YC3H_Pyrite_4K)
+        # 格式：大寫字母+數字+字母_單詞_數字K/M
+        full_fw_pattern = r'\b([A-Z]{2,}\d+[A-Z0-9]*_[A-Za-z]+(?:_[A-Za-z0-9]+)*)\b'
+        full_matches = re.findall(full_fw_pattern, query)
+        if full_matches:
+            return full_matches[0]
+        
+        # 模式 2：帶 "FW" 關鍵字後面的版本號
+        fw_keyword_pattern = r'(?:FW|fw|Fw)\s+([A-Za-z0-9_]+(?:_[A-Za-z0-9]+)*)'
+        fw_keyword_matches = re.findall(fw_keyword_pattern, query)
+        if fw_keyword_matches:
+            return fw_keyword_matches[0]
+        
+        # 模式 3：簡短 FW 代碼（如 Y1114B, X0325A, 82CBW5QF）
+        # 格式：字母+數字組合，至少5個字符
+        short_fw_pattern = r'\b([A-Z]{1,2}\d{3,}[A-Z]{1,2}|\d{2}[A-Z]{3}[0-9A-Z]+|FW[A-Z]\d{4}[A-Z])\b'
+        short_matches = re.findall(short_fw_pattern, query.upper())
+        if short_matches:
+            return short_matches[0]
+        
+        return None
+
     def _has_count_keywords(self, query: str) -> bool:
         """檢查是否包含數量相關關鍵字"""
         count_keywords = ['多少', '幾個', '數量', 'count', '總共', '專案數']

@@ -116,9 +116,14 @@ class FWDetailSummaryHandler(BaseHandler):
                     message=f"無法獲取專案 '{project_name}' FW '{matched_fw}' 的詳細統計"
                 )
             
-            # Step 3: 格式化並返回結果
+            # Step 2.5: 調用 Test Details API 獲取更完整的狀態資訊（Ongoing, Interrupted 等）
+            test_details = self.api_client.get_project_test_details(project_uid)
+            test_details_summary = test_details.get('summary', {}) if test_details else {}
+            
+            # Step 3: 格式化並返回結果（FW Dashboard 風格）
             return self._format_response(
                 firmware_summary=firmware_summary,
+                test_details_summary=test_details_summary,
                 project_name=project_name,
                 fw_version=matched_fw,
                 project=matched_project,
@@ -250,16 +255,25 @@ class FWDetailSummaryHandler(BaseHandler):
     def _format_response(
         self,
         firmware_summary: Dict[str, Any],
+        test_details_summary: Dict[str, Any],
         project_name: str,
         fw_version: str,
         project: Dict[str, Any],
         parameters: Dict[str, Any]
     ) -> QueryResult:
         """
-        格式化 Firmware Summary 回應
+        格式化 Firmware Summary 回應（FW Dashboard 風格）
+        
+        輸出格式對照 FW Dashboard 的表格：
+        - External Summary (task_name)
+        - Total Sample Quantity / Sample Utilization Rate
+        - Ongoing / Pass / Fail / Conditional Pass / Interrupt / Drop / Debugging
+        - Sample x Test Item Completion Rate / Fail Rate
+        - Test Item Execution Rate / Fail Rate
         
         Args:
-            firmware_summary: API 返回的統計資料
+            firmware_summary: firmware-summary API 返回的統計資料
+            test_details_summary: test-details API 返回的 summary（含 Ongoing, Interrupted）
             project_name: 專案名稱
             fw_version: FW 版本
             project: 專案資料
@@ -273,79 +287,90 @@ class FWDetailSummaryHandler(BaseHandler):
         sample_stats = firmware_summary.get('sample_stats', {})
         test_item_stats = firmware_summary.get('test_item_stats', {})
         
-        # 提取概覽指標
-        total_test_items = overview.get('total_test_items', 0)
-        passed = overview.get('passed', 0)
-        failed = overview.get('failed', 0)
-        conditional_passed = overview.get('conditional_passed', 0)
-        completion_rate = overview.get('completion_rate', 0)
-        pass_rate = overview.get('pass_rate', 0)
+        # 從 firmware_summary 提取
+        sub_version = firmware_summary.get('sub_version', '')
+        task_name = firmware_summary.get('task_name', '')
         
-        # 提取樣本統計
+        # 樣本統計
         total_samples = sample_stats.get('total_samples', 0)
         samples_used = sample_stats.get('samples_used', 0)
         utilization_rate = sample_stats.get('utilization_rate', 0)
         
-        # 提取測試項目統計
+        # 從 test_details_summary 提取更完整的狀態統計
+        # （優先使用 test_details，因為它有 Ongoing 和 Interrupted）
+        ongoing = test_details_summary.get('total_ongoing', 0)
+        passed = test_details_summary.get('total_passed', overview.get('passed', 0))
+        failed = test_details_summary.get('total_failed', overview.get('failed', 0))
+        conditional_passed = test_details_summary.get('total_conditional_passed', overview.get('conditional_passed', 0))
+        interrupted = test_details_summary.get('total_interrupted', 0)
+        
+        # Drop 和 Debugging 在 API 中可能沒有，暫時設為 0
+        dropped = 0
+        debugging = 0
+        
+        # 測試項目統計
+        total_test_items = overview.get('total_test_items', 0)
         total_items = test_item_stats.get('total_items', 0)
         passed_items = test_item_stats.get('passed_items', 0)
         failed_items = test_item_stats.get('failed_items', 0)
         execution_rate = test_item_stats.get('execution_rate', 0)
         fail_rate = test_item_stats.get('fail_rate', 0)
+        completion_rate = overview.get('completion_rate', 0)
+        pass_rate = overview.get('pass_rate', 0)
         
-        # 建構回應訊息
+        # 計算 Sample x Test Item 相關指標
+        # completion: 已完成的 sample x test item 組合
+        completed_count = passed + failed + conditional_passed
+        sample_test_completion = f"{completed_count}/{total_test_items}" if total_test_items > 0 else "N/A"
+        sample_test_completion_rate = f"{round(completed_count / total_test_items * 100) if total_test_items > 0 else 0}%"
+        
+        sample_test_fail = f"{failed}/{total_test_items}" if total_test_items > 0 else "N/A"
+        sample_test_fail_rate = f"{round(failed / total_test_items * 100) if total_test_items > 0 else 0}%"
+        
+        test_execution = f"{passed_items + failed_items}/{total_items}" if total_items > 0 else "N/A"
+        test_item_fail = f"{failed_items}/{total_items}" if total_items > 0 else "N/A"
+        
+        # 建構回應訊息（FW Dashboard 風格）
         response_parts = []
         
         # 標題
-        response_parts.append(f"## 📈 {project_name} {fw_version} 詳細統計\n")
+        fw_display = f"{fw_version} ({sub_version})" if sub_version else fw_version
+        response_parts.append(f"## 📊 {project_name} - {fw_display} 測試結果\n")
         
-        # 基本資訊
-        response_parts.append("### 基本資訊")
-        response_parts.append(f"- **專案**: {project_name}")
-        response_parts.append(f"- **FW 版本**: {fw_version}")
-        sub_version = firmware_summary.get('sub_version', '')
-        if sub_version:
-            response_parts.append(f"- **Sub Version**: {sub_version}")
-        task_name = firmware_summary.get('task_name', '')
+        # External Summary
         if task_name:
-            response_parts.append(f"- **Task**: {task_name}")
-        response_parts.append("")
+            response_parts.append(f"**External Summary**: {task_name}")
+            response_parts.append("")
         
-        # 測試概覽
-        response_parts.append("### 📊 測試概覽 (Overview)")
+        # 主要統計表格（對照 FW Dashboard 格式）
+        response_parts.append("### � 測試統計")
+        response_parts.append("")
         response_parts.append("| 指標 | 數值 |")
         response_parts.append("|------|------|")
-        response_parts.append(f"| 總測試項目 | {total_test_items} |")
-        response_parts.append(f"| 已通過 | {passed} |")
-        response_parts.append(f"| 已失敗 | {failed} |")
-        if conditional_passed > 0:
-            response_parts.append(f"| 條件通過 | {conditional_passed} |")
-        response_parts.append(f"| **完成率** | {completion_rate}% |")
-        response_parts.append(f"| **通過率** | {pass_rate}% |")
+        response_parts.append(f"| Total Sample Quantity | {total_samples} |")
+        response_parts.append(f"| Sample Utilization Rate | {samples_used}/{total_samples} ({utilization_rate}%) |")
+        response_parts.append(f"| Ongoing | {ongoing} |")
+        response_parts.append(f"| Pass | {passed} |")
+        response_parts.append(f"| Fail | {failed} |")
+        response_parts.append(f"| Conditional Pass | {conditional_passed} |")
+        response_parts.append(f"| Interrupt | {interrupted} |")
+        response_parts.append(f"| Drop | {dropped} |")
+        response_parts.append(f"| Debugging | {debugging} |")
         response_parts.append("")
         
-        # 樣本統計
-        response_parts.append("### 🧪 樣本統計 (Sample Stats)")
-        response_parts.append("| 指標 | 數值 |")
-        response_parts.append("|------|------|")
-        response_parts.append(f"| 總樣本數 | {total_samples} |")
-        response_parts.append(f"| 已使用樣本 | {samples_used} |")
-        response_parts.append(f"| **使用率** | {utilization_rate}% |")
+        # 完成率相關指標
+        response_parts.append("### � 完成率指標")
         response_parts.append("")
-        
-        # 測試項目統計
-        response_parts.append("### 📋 測試項目統計 (Test Item Stats)")
         response_parts.append("| 指標 | 數值 |")
         response_parts.append("|------|------|")
-        response_parts.append(f"| 總項目數 | {total_items} |")
-        response_parts.append(f"| 通過項目 | {passed_items} |")
-        response_parts.append(f"| 失敗項目 | {failed_items} |")
-        response_parts.append(f"| **執行率** | {execution_rate}% |")
-        response_parts.append(f"| **失敗率** | {fail_rate}% |")
+        response_parts.append(f"| Sample x Test Item Completion Rate | {sample_test_completion} ({sample_test_completion_rate}) |")
+        response_parts.append(f"| Sample x Test Item Fail Rate | {sample_test_fail} ({sample_test_fail_rate}) |")
+        response_parts.append(f"| Test Item Execution Rate | {test_execution} ({execution_rate}%) |")
+        response_parts.append(f"| Test Item Fail Rate | {test_item_fail} ({fail_rate}%) |")
         response_parts.append("")
         
         # 狀態摘要
-        response_parts.append("### 狀態摘要")
+        response_parts.append("### 💡 狀態摘要")
         
         # 進度狀態
         if completion_rate >= 100:
@@ -355,7 +380,7 @@ class FWDetailSummaryHandler(BaseHandler):
         elif completion_rate >= 50:
             response_parts.append(f"- ⏳ **測試進度**: 進行中 ({completion_rate}%)")
         else:
-            response_parts.append(f"- 🔴 **測試進度**: 剛開始 ({completion_rate}%)")
+            response_parts.append(f"- � **測試進度**: 執行中 ({completion_rate}%)")
         
         # 通過率狀態
         if pass_rate >= 90:
@@ -368,8 +393,12 @@ class FWDetailSummaryHandler(BaseHandler):
             response_parts.append(f"- 🔴 **測試品質**: 需改善 ({pass_rate}% 通過率)")
         
         # 失敗項目警告
-        if failed_items > 0:
-            response_parts.append(f"- ⚠️ **待處理**: {failed_items} 個測試項目失敗 (失敗率 {fail_rate}%)")
+        if failed > 0:
+            response_parts.append(f"- ⚠️ **待處理**: {failed} 個測試項目失敗")
+        
+        # 進行中項目
+        if ongoing > 0:
+            response_parts.append(f"- 🔄 **進行中**: {ongoing} 個測試項目執行中")
         
         message = "\n".join(response_parts)
         
@@ -380,25 +409,34 @@ class FWDetailSummaryHandler(BaseHandler):
             "sub_version": sub_version,
             "task_name": task_name,
             "project_uid": project.get('projectUid', ''),
-            "overview": {
-                "total_test_items": total_test_items,
-                "passed": passed,
-                "failed": failed,
-                "conditional_passed": conditional_passed,
-                "completion_rate": completion_rate,
-                "pass_rate": pass_rate
-            },
             "sample_stats": {
                 "total_samples": total_samples,
                 "samples_used": samples_used,
                 "utilization_rate": utilization_rate
             },
-            "test_item_stats": {
-                "total_items": total_items,
-                "passed_items": passed_items,
-                "failed_items": failed_items,
+            "status_counts": {
+                "ongoing": ongoing,
+                "passed": passed,
+                "failed": failed,
+                "conditional_passed": conditional_passed,
+                "interrupted": interrupted,
+                "dropped": dropped,
+                "debugging": debugging
+            },
+            "completion_rates": {
+                "sample_test_completion": sample_test_completion,
+                "sample_test_completion_rate": sample_test_completion_rate,
+                "sample_test_fail": sample_test_fail,
+                "sample_test_fail_rate": sample_test_fail_rate,
+                "test_execution": test_execution,
                 "execution_rate": execution_rate,
+                "test_item_fail": test_item_fail,
                 "fail_rate": fail_rate
+            },
+            "overview": {
+                "total_test_items": total_test_items,
+                "completion_rate": completion_rate,
+                "pass_rate": pass_rate
             }
         }
         
@@ -408,7 +446,7 @@ class FWDetailSummaryHandler(BaseHandler):
             query_type=self.handler_name,
             parameters=parameters,
             metadata={
-                "api_endpoint": "firmware-summary",
+                "api_endpoint": "firmware-summary + test-details",
                 "project_uid": project.get('projectUid', ''),
                 "matched_fw": fw_version
             }
