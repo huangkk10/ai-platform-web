@@ -15,11 +15,29 @@ web_server:
   # web_port: 80
   # web_protocol: "http"
 
-# 資料庫配置（如需要）
-database:
-  # postgres_host: "localhost"
-  # postgres_port: 5432
-  # postgres_db: "ai_platform"
+# 資料庫服務器配置
+# ⚠️ 重要：資料庫已遷移到獨立主機，修改此配置後需同步更新 docker-compose.yml
+# 參考文檔：docs/deployment/database-migration-plan.md
+database_server:
+  host: "10.10.173.29"          # 資料庫主機 IP
+  port: 5432                     # PostgreSQL 端口
+  database: "ai_platform"        # 資料庫名稱
+  user: "postgres"               # 資料庫用戶
+  password: "postgres123"        # 資料庫密碼
+  
+  # SSH 連線資訊（用於維護）
+  ssh_user: "svd-ai"
+  ssh_password: "1"              # ⚠️ 建議改用 SSH key
+  
+  # Adminer Web 管理介面
+  adminer_port: 9090
+  adminer_url: "http://10.10.173.29:9090"
+
+# 舊的資料庫配置（已廢棄，保留供參考）
+# database:
+#   postgres_host: "localhost"   # 原本使用 postgres_db 容器
+#   postgres_port: 5432
+#   postgres_db: "ai_platform"
 
 # API 配置
 api:

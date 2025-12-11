@@ -1,0 +1,67 @@
+# PostgreSQL Database Server for AI Platform
+# 部署位置：10.10.173.29
+# 維護說明：此配置由主專案 ai-platform-web 統一管理
+#
+# 使用方式：
+#   docker compose up -d
+#   docker compose ps
+#   docker compose logs -f postgres
+#
+# 同步方式（從主專案更新）：
+#   scp -r user@10.10.172.127:/home/user/codes/ai-platform-web/deployments/database-server/* ~/postgres-db-server/
+#   或使用 git sparse-checkout
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: postgres_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ai_platform}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
+      PGDATA: /var/lib/postgresql/data/pgdata
+      TZ: Asia/Taipei
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - /etc/localtime:/etc/localtime:ro
+      - ./scripts/init-pgvector.sql:/docker-entrypoint-initdb.d/init-pgvector.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - db_network
+    # 資源限制（可選）
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 2G
+    #     reservations:
+    #       memory: 512M
+
+  adminer:
+    image: adminer:latest
+    container_name: adminer_db
+    restart: unless-stopped
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+      TZ: Asia/Taipei
+    ports:
+      - "9090:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - db_network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  db_network:
+    driver: bridge
