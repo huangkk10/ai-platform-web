@@ -1249,13 +1249,31 @@ class SAFIntentAnalyzer:
                 raw_response=f"Fallback: list sub versions for {project_name}"
             )
         
-        # 9. 檢查是否是專案詳情或摘要查詢
+        # 9. ★★★ 新增：最新 FW 版本比較查詢 ★★★
+        # 檢測「比較」+「最新」關鍵字組合
+        compare_keywords = ['比較', '對比', 'compare', 'vs']
+        latest_keywords = ['最新', '最近', '新版', 'latest', 'recent', '兩個', '兩版']
+        fw_keywords = ['fw', 'firmware', '韌體', '版本']
+        
+        has_compare = any(kw in query_lower for kw in compare_keywords)
+        has_latest = any(kw in query for kw in latest_keywords)
+        has_fw = any(kw in query_lower for kw in fw_keywords)
+        
+        if project_name and has_compare and (has_latest or has_fw):
+            return IntentResult(
+                intent=IntentType.COMPARE_LATEST_FW,
+                parameters={'project_name': project_name},
+                confidence=0.7,
+                raw_response=f"Fallback: compare latest FW versions for {project_name}"
+            )
+        
+        # 10. 檢查是否是專案詳情或摘要查詢
         if project_name:
             # 檢查是否有測試類別或容量關鍵字
             detected_category = self._detect_test_category(query)
             detected_capacity = self._detect_capacity(query)
             
-            # ★★★ 新增：檢測 FW 版本 ★★★
+            # ★★★ 檢測 FW 版本 ★★★
             # FW 版本格式：通常是 CODE_Name_Capacity 或 簡短代碼
             # 例如：PH10YC3H_Pyrite_4K, GD10YBJD_Opal, Y1114B, X0325A 等
             detected_fw_version = self._detect_fw_version_for_fallback(query)

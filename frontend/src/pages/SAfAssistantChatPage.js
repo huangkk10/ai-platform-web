@@ -26,7 +26,8 @@ const SAF_WELCOME_MESSAGE = `🔧 **歡迎使用 SAF Assistant！**
 - 📊 **專案詳細資訊** → 「DEMETER 專案的詳細資訊」「查詢 Garuda 專案」
 - 📈 **專案測試摘要** → 「DEMETER 的測試結果如何？」「TITAN 有多少測試通過？」
 - 🎯 **FW 版本測試結果** → 「Springsteen FW PH10YC3H_Pyrite_4K 測試結果如何？」
-- 📁 **按類別查詢測試** → 「TITAN 的 Compliance 測試結果」「XX 專案的效能測試」
+- � **FW 版本比較** → 「Springsteen 最新兩個 FW 版本比較」
+- �📁 **按類別查詢測試** → 「TITAN 的 Compliance 測試結果」「XX 專案的效能測試」
 - 💾 **按容量查詢測試** → 「NV3 1TB 的測試狀況」「XX 512GB 測試結果」
 - 🔢 **統計專案數量** → 「WD 有幾個專案？」「總共有多少專案？」
 - 👥 **列出所有客戶** → 「有哪些客戶？」「列出所有客戶」
