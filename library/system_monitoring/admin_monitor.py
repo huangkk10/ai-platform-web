@@ -16,6 +16,7 @@ from datetime import datetime
 from .resource_monitor import SystemResourceMonitor, create_resource_monitor
 from .service_monitor import ServiceMonitor, create_service_monitor
 from .system_stats import SystemStatsCollector, create_stats_collector
+from .remote_db_monitor import RemoteDatabaseMonitor, create_remote_db_monitor
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +67,7 @@ class AdminSystemMonitor:
         self.resource_monitor = create_resource_monitor()
         self.service_monitor = create_service_monitor(config)
         self.stats_collector = create_stats_collector()
+        self.remote_db_monitor = create_remote_db_monitor(config)  # 新增：遠端資料庫監控
         
         # 從配置文件載入資料庫表配置
         self.config = config or self._load_default_config()
@@ -402,8 +404,45 @@ class AdminSystemMonitor:
                 'database': {'status': full_report.database_status}
             },
             'database_stats': database_stats,
-            'alerts': full_report.alerts
+            'alerts': full_report.alerts,
+            # 新增：遠端資料庫主機資訊
+            'remote_database': self._get_remote_database_info(connection)
         }
+    
+    def _get_remote_database_info(self, connection=None) -> Dict[str, Any]:
+        """
+        獲取遠端資料庫主機資訊
+        
+        Args:
+            connection: Django database connection object
+            
+        Returns:
+            Dict[str, Any]: 遠端資料庫資訊
+        """
+        try:
+            disk_info = self.remote_db_monitor.get_database_disk_info(connection)
+            connection_info = self.remote_db_monitor.get_database_connection_info(connection)
+            host_disk_info = self.remote_db_monitor.get_host_disk_info_via_ssh()  # 新增：SSH 獲取主機磁碟
+            
+            return {
+                'host': disk_info.host,
+                'status': disk_info.status,
+                'disk': {
+                    'database_size': disk_info.database_size,
+                    'total_size': disk_info.total_databases_size,
+                    'total_size_bytes': disk_info.total_databases_size_bytes,
+                    'data_directory': disk_info.data_directory
+                },
+                'host_disk': host_disk_info.to_dict(),  # 新增：主機磁碟資訊
+                'connection': connection_info
+            }
+        except Exception as e:
+            self.logger.error(f"獲取遠端資料庫資訊失敗: {str(e)}")
+            return {
+                'host': self.remote_db_monitor.get_database_host(),
+                'status': 'error',
+                'error': str(e)
+            }
 
 
 def create_admin_monitor(config=None) -> AdminSystemMonitor:

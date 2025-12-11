@@ -431,6 +431,144 @@ const SettingsPage = () => {
                 </Card>
               </Col>
             </Row>
+            
+            {/* 遠端資料庫主機資訊 */}
+            {systemStatus.remote_database && (
+              <>
+                <Divider style={{ margin: '24px 0 16px' }}>
+                  <Space>
+                    <DatabaseOutlined style={{ color: '#722ed1' }} />
+                    <Text type="secondary">資料庫主機 ({systemStatus.remote_database.host})</Text>
+                  </Space>
+                </Divider>
+                
+                <Row gutter={[24, 24]} justify="center" align="middle">
+                  <Col span={6}>
+                    <Card 
+                      size="small" 
+                      style={{ 
+                        textAlign: 'center', 
+                        padding: '20px',
+                        minHeight: '180px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        borderColor: '#13c2c2',
+                        borderWidth: '1px'
+                      }}
+                    >
+                      <div style={{ marginBottom: '16px' }}>
+                        <Progress
+                          type="circle"
+                          percent={Math.round(systemStatus.remote_database.host_disk?.use_percent || 0)}
+                          strokeColor={percent => percent > 85 ? '#ff4d4f' : percent > 70 ? '#faad14' : '#52c41a'}
+                          size={100}
+                          strokeWidth={6}
+                        />
+                      </div>
+                      <Text strong style={{ fontSize: '14px', lineHeight: '20px' }}>
+                        主機磁碟使用率
+                      </Text>
+                      <Text type="secondary" style={{ fontSize: '12px', marginTop: '4px' }}>
+                        {systemStatus.remote_database.host_disk?.used_size || '?'} / {systemStatus.remote_database.host_disk?.total_size || '?'}
+                      </Text>
+                    </Card>
+                  </Col>
+                  
+                  <Col span={6}>
+                    <Card 
+                      size="small" 
+                      style={{ 
+                        textAlign: 'center', 
+                        padding: '20px',
+                        minHeight: '180px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        borderColor: '#722ed1',
+                        borderWidth: '1px'
+                      }}
+                    >
+                      <div style={{ marginBottom: '16px' }}>
+                        <DatabaseOutlined style={{ fontSize: '48px', color: '#722ed1' }} />
+                      </div>
+                      <Text strong style={{ fontSize: '18px', color: '#722ed1' }}>
+                        {systemStatus.remote_database.disk?.total_size || '未知'}
+                      </Text>
+                      <Text strong style={{ fontSize: '14px', lineHeight: '20px', marginTop: '8px' }}>
+                        資料庫總大小
+                      </Text>
+                      <Text type="secondary" style={{ fontSize: '12px', marginTop: '4px' }}>
+                        當前 DB: {systemStatus.remote_database.disk?.database_size || '未知'}
+                      </Text>
+                    </Card>
+                  </Col>
+                  
+                  <Col span={6}>
+                    <Card 
+                      size="small" 
+                      style={{ 
+                        textAlign: 'center', 
+                        padding: '20px',
+                        minHeight: '180px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        alignItems: 'center'
+                      }}
+                    >
+                      <div style={{ marginBottom: '16px' }}>
+                        <Progress
+                          type="circle"
+                          percent={Math.round(systemStatus.remote_database.connection?.connection_usage_percent || 0)}
+                          format={() => `${systemStatus.remote_database.connection?.active_connections || 0}`}
+                          strokeColor={percent => percent > 80 ? '#ff4d4f' : percent > 60 ? '#faad14' : '#52c41a'}
+                          size={100}
+                          strokeWidth={6}
+                        />
+                      </div>
+                      <Text strong style={{ fontSize: '14px', lineHeight: '20px' }}>
+                        資料庫連接數
+                      </Text>
+                      <Text type="secondary" style={{ fontSize: '12px', marginTop: '4px' }}>
+                        最大: {systemStatus.remote_database.connection?.max_connections || 0}
+                      </Text>
+                    </Card>
+                  </Col>
+                  
+                  <Col span={6}>
+                    <Card 
+                      size="small" 
+                      style={{ 
+                        textAlign: 'center', 
+                        padding: '20px',
+                        minHeight: '180px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        alignItems: 'center'
+                      }}
+                    >
+                      <div style={{ marginBottom: '16px' }}>
+                        {systemStatus.remote_database.status === 'healthy' ? (
+                          <CheckCircleOutlined style={{ fontSize: '48px', color: '#52c41a' }} />
+                        ) : (
+                          <WarningOutlined style={{ fontSize: '48px', color: '#faad14' }} />
+                        )}
+                      </div>
+                      <Text strong style={{ fontSize: '14px', lineHeight: '20px' }}>
+                        {systemStatus.remote_database.status === 'healthy' ? '連線正常' : '連線異常'}
+                      </Text>
+                      <Text type="secondary" style={{ fontSize: '12px', marginTop: '4px' }}>
+                        {systemStatus.remote_database.connection?.version?.split(' ')[0] || 'PostgreSQL'}
+                      </Text>
+                    </Card>
+                  </Col>
+                </Row>
+              </>
+            )}
           </Card>
         )}
 
