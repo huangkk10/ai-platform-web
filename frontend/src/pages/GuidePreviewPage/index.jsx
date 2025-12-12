@@ -37,6 +37,8 @@ const renderMarkdownWithImages = (text) => {
     let htmlString = mdParser.render(processed);
     
     // 步驟 4：後處理圖片 HTML（添加 data 屬性供異步載入）
+    // 🔧 修復：使用動態 origin 而非硬編碼的 IP
+    const baseUrl = window.location.origin;
     htmlString = htmlString.replace(
       /<img src="http:\/\/[^"]+\/api\/content-images\/(\d+)\/" alt="([^"]*)"[^>]*>/g,
       (match, imageId, altText) => {
@@ -44,7 +46,7 @@ const renderMarkdownWithImages = (text) => {
           class="content-image-preview" 
           data-image-id="${imageId}" 
           alt="${altText}"
-          src="http://10.10.172.127/api/content-images/${imageId}/"
+          src="${baseUrl}/api/content-images/${imageId}/"
           style="max-width: 100px; height: auto; border: 1px solid #d9d9d9; border-radius: 4px; margin: 0 4px; padding: 4px; background-color: #fafafa; display: inline-block; vertical-align: middle; cursor: pointer;"
         />`;
       }
@@ -161,7 +163,8 @@ const GuidePreviewPage = () => {
         setLoadingImages(prev => new Set(prev).add(imageId));
         
         try {
-          const response = await fetch(`http://10.10.172.127/api/content-images/${imageId}/`, {
+          // 🔧 修復：使用相對路徑而非硬編碼的 IP
+          const response = await fetch(`/api/content-images/${imageId}/`, {
             method: 'GET',
             headers: { 'Accept': 'application/json' }
           });

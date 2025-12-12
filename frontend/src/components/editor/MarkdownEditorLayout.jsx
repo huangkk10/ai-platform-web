@@ -452,6 +452,7 @@ const renderMarkdownWithImages = (text) => {
     // 步驟 4：後處理圖片 HTML
     // 將 <img src="http://...api/content-images/32/" alt="IMG:32"> 
     // 轉換為帶有特殊 data 屬性的 img 標籤，以便客戶端 JavaScript 處理
+    // 🔧 修復：使用相對路徑而非硬編碼的 IP
     htmlString = htmlString.replace(
       /<img src="http:\/\/[^"]+\/api\/content-images\/(\d+)\/" alt="([^"]*)"[^>]*>/g,
       (match, imageId, altText) => {
@@ -459,7 +460,7 @@ const renderMarkdownWithImages = (text) => {
           class="content-image-preview" 
           data-image-id="${imageId}" 
           alt="${altText}"
-          src="http://10.10.172.127/api/content-images/${imageId}/"
+          src="/api/content-images/${imageId}/"
           style="max-width: 100%; height: auto; border: 1px solid #d9d9d9; border-radius: 4px; margin: 8px 0;"
         />`;
       }
@@ -2295,7 +2296,8 @@ const MarkdownEditorLayout = ({
 
         try {
           // 獲取圖片數據
-          const response = await fetch(`http://10.10.172.127/api/content-images/${imageId}/`, {
+          // 🔧 修復：使用相對路徑而非硬編碼的 IP
+          const response = await fetch(`/api/content-images/${imageId}/`, {
             method: 'GET',
             headers: {
               'Accept': 'application/json'
