@@ -95,9 +95,104 @@ class DifyConfigManager:
         'saf_analyzer': 'SAF Analyzer',
     }
     
+    # =========================================================================
+    # 開發/生產環境 API Keys 配置
+    # =========================================================================
+    
+    # 開發環境 API Keys（_dev 後綴的 App）
+    # 這些 App 連結到開發機 (10.10.172.127) 的外部知識庫 API
+    DEV_API_KEYS = {
+        'protocol_known_issue': 'app-X6qZZooKjG4WGk6l9hRSq2Y9',  # Protocol_known_issue_system_dev
+        'protocol_guide': 'app-4TbH1O7NkpOFsnxGEF3FLyqd',        # Protocol_Guide_dev
+        'rvt_guide': 'app-xDXNUVPnPkP1We12RonI6Jk6',             # RVT_Guide_dev
+        'report_analyzer_3': 'app-YgLRoc5LVuJyw8aY3KtxjXUg',     # Report_Analyzer_3_dev
+        'ocr_function': 'app-uirotca19FFVak4c2pWo9bFo',          # OCR_Function_dev
+        'saf_intent_analyzer': 'app-vUFtLrLD30RMHSedp31sy0Ua',   # SAF_Intent_Analyzer_dev
+        'saf_analyzer': 'app-0GyoZLrr4tDpT4EO2Kihuvux',          # SAF_Analyzer (暫時使用生產版本)
+    }
+    
+    # 生產環境 API Keys（正式命名的 App，無後綴）
+    # 這些 App 連結到生產機 (10.10.173.29) 的外部知識庫 API
+    PROD_API_KEYS = {
+        'protocol_known_issue': 'app-Sql11xracJ71PtZThNJ4ZQQW',  # Protocol_known_issue_system
+        'protocol_guide': 'app-MgZZOhADkEmdUrj2DtQLJ23G',        # Protocol_Guide
+        'rvt_guide': 'app-Lp4mlfIWHqMWPHTlzF9ywT4F',             # RVT_Guide
+        'report_analyzer_3': 'app-DmCCl8KwXhhjND0WbEf0ULlR',     # Report_Analyzer_3
+        'ocr_function': 'app-eFCJ5fDpoWV7CGKQ7VSoKgi0',          # OCR_Function
+        'saf_intent_analyzer': 'app-vMNSUqgEIoejnXo3fuFvp1hC',   # SAF_Intent_Analyzer
+        'saf_analyzer': 'app-0GyoZLrr4tDpT4EO2Kihuvux',          # SAF_Analyzer
+    }
+    
     def __init__(self):
         """初始化配置管理器"""
         self._configs_cache = {}
+    
+    # =========================================================================
+    # 環境切換方法
+    # =========================================================================
+    
+    @classmethod
+    def _get_environment(cls) -> str:
+        """
+        獲取當前 Dify 環境設定
+        
+        Returns:
+            str: 'development' 或 'production'
+            
+        環境變數：
+            DIFY_ENV: 設定為 'development' 或 'production'
+            預設值: 'production'（安全起見，預設使用生產環境）
+        """
+        import os
+        env = os.environ.get('DIFY_ENV', 'production').lower()
+        if env not in ['development', 'production']:
+            # 無效值時使用生產環境
+            return 'production'
+        return env
+    
+    @classmethod
+    def _get_api_key_for_app(cls, app_type: str) -> str:
+        """
+        根據環境獲取指定應用的 API Key
+        
+        Args:
+            app_type: 應用類型，如 'protocol_known_issue', 'rvt_guide' 等
+            
+        Returns:
+            str: 對應環境的 API Key
+        """
+        env = cls._get_environment()
+        
+        if env == 'development':
+            api_keys = cls.DEV_API_KEYS
+        else:
+            api_keys = cls.PROD_API_KEYS
+        
+        # 如果找不到對應的 key，使用生產環境的 key 作為 fallback
+        return api_keys.get(app_type, cls.PROD_API_KEYS.get(app_type, ''))
+    
+    @classmethod
+    def get_current_environment_info(cls) -> dict:
+        """
+        獲取當前環境資訊（用於調試和日誌）
+        
+        Returns:
+            dict: 包含環境名稱和所使用的 API Keys 前綴
+        """
+        env = cls._get_environment()
+        api_keys = cls.DEV_API_KEYS if env == 'development' else cls.PROD_API_KEYS
+        
+        # 只顯示 API key 前綴（安全考量）
+        safe_keys = {
+            app_type: f"{key[:10]}..." if len(key) > 10 else key
+            for app_type, key in api_keys.items()
+        }
+        
+        return {
+            'environment': env,
+            'api_keys_prefix': safe_keys,
+            'dify_server': cls._get_ai_pc_ip()
+        }
     
     @staticmethod
     def _get_ai_pc_ip():
@@ -110,7 +205,7 @@ class DifyConfigManager:
         ai_pc_ip = cls._get_ai_pc_ip()
         return {
             'api_url': f'http://{ai_pc_ip}/v1/chat-messages',
-            'api_key': 'app-Sql11xracJ71PtZThNJ4ZQQW',
+            'api_key': cls._get_api_key_for_app('protocol_known_issue'),
             'base_url': f'http://{ai_pc_ip}',
             'app_name': 'Protocol Known Issue System',
             'workspace': 'Protocol_known_issue_system',
@@ -126,7 +221,7 @@ class DifyConfigManager:
         ai_pc_ip = cls._get_ai_pc_ip()
         return {
             'api_url': f'http://{ai_pc_ip}/v1/chat-messages',
-            'api_key': 'app-DmCCl8KwXhhjND0WbEf0ULlR',
+            'api_key': cls._get_api_key_for_app('report_analyzer_3'),
             'base_url': f'http://{ai_pc_ip}',
             'app_name': 'Report Analyzer 3',
             'workspace': 'Report_Analyzer_3',
@@ -142,7 +237,7 @@ class DifyConfigManager:
         ai_pc_ip = cls._get_ai_pc_ip()
         return {
             'api_url': f'http://{ai_pc_ip}/v1/chat-messages',
-            'api_key': 'app-MgZZOhADkEmdUrj2DtQLJ23G',
+            'api_key': cls._get_api_key_for_app('protocol_guide'),
             'base_url': f'http://{ai_pc_ip}',
             'app_name': 'Protocol Guide',
             'workspace': 'Protocol_Guide',
@@ -158,7 +253,7 @@ class DifyConfigManager:
         ai_pc_ip = cls._get_ai_pc_ip()
         return {
             'api_url': f'http://{ai_pc_ip}/v1/chat-messages',
-            'api_key': 'app-Lp4mlfIWHqMWPHTlzF9ywT4F',
+            'api_key': cls._get_api_key_for_app('rvt_guide'),
             'base_url': f'http://{ai_pc_ip}',
             'app_name': 'RVT Guide',
             'workspace': 'RVT_Guide',
@@ -174,7 +269,7 @@ class DifyConfigManager:
         ai_pc_ip = cls._get_ai_pc_ip()
         return {
             'api_url': f'http://{ai_pc_ip}/v1/chat-messages',
-            'api_key': 'app-eFCJ5fDpoWV7CGKQ7VSoKgi0',
+            'api_key': cls._get_api_key_for_app('ocr_function'),
             'base_url': f'http://{ai_pc_ip}',
             'app_name': 'OCR Function',
             'workspace': 'OCR_Function',
@@ -190,7 +285,7 @@ class DifyConfigManager:
         ai_pc_ip = cls._get_ai_pc_ip()
         return {
             'api_url': f'http://{ai_pc_ip}/v1/chat-messages',
-            'api_key': 'app-vMNSUqgEIoejnXo3fuFvp1hC',
+            'api_key': cls._get_api_key_for_app('saf_intent_analyzer'),
             'base_url': f'http://{ai_pc_ip}',
             'app_name': 'SAF Intent Analyzer',
             'workspace': 'SAF_Intent_Analyzer',
@@ -206,7 +301,7 @@ class DifyConfigManager:
         ai_pc_ip = cls._get_ai_pc_ip()
         return {
             'api_url': f'http://{ai_pc_ip}/v1/chat-messages',
-            'api_key': 'app-0GyoZLrr4tDpT4EO2Kihuvux',
+            'api_key': cls._get_api_key_for_app('saf_analyzer'),
             'base_url': f'http://{ai_pc_ip}',
             'app_name': 'SAF Analyzer',
             'workspace': 'SAF_Analyzer',

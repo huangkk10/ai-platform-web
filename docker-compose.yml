@@ -79,6 +79,7 @@ services:
     environment:
       - TZ=Asia/Taipei
       - DEBUG=1
+      - DIFY_ENV=development
       - DB_HOST=postgres_db
       - DB_PORT=5432
       - DB_NAME=ai_platform_dev
@@ -115,6 +116,7 @@ services:
     environment:
       - TZ=Asia/Taipei
       - DEBUG=1
+      - DIFY_ENV=development
       - DB_HOST=postgres_db
       - DB_PORT=5432
       - DB_NAME=ai_platform_dev
@@ -151,6 +153,7 @@ services:
     environment:
       - TZ=Asia/Taipei
       - DEBUG=1
+      - DIFY_ENV=development
       - DB_HOST=postgres_db
       - DB_PORT=5432
       - DB_NAME=ai_platform_dev
