@@ -482,11 +482,18 @@ const renderMarkdownWithImages = (text) => {
 
 /**
  * 滾動同步配置常量
+ * 
+ * V5 策略：
+ * 1. 使用「主動方」標記，主動方滾動期間，被動方完全不能反向同步
+ * 2. 滾動時即時同步（比例計算）
+ * 3. 停止後精確對齊（錨點計算）+ 解鎖
  */
 const SCROLL_SYNC_CONFIG = {
-  debounceMs: 50,        // 滾動事件防抖延遲（毫秒）
-  bindDelayMs: 500,      // 組件載入後綁定事件的延遲（毫秒）
-  lineHeight: 24,        // 預估行高（像素）
+  bindDelayMs: 500,            // 組件載入後綁定事件的延遲（毫秒）
+  sourceResetMs: 50,           // scrollSource 重置延遲（毫秒）
+  syncThresholdPx: 5,          // 同步閾值：差異小於此值不同步（避免微調抖動）
+  enableReverseSync: false,    // 是否啟用反向同步（Preview → Editor）- V16 設為 false
+  estimatedLineHeight: 24,     // 編輯器預估行高（像素）
 };
 
 /**
@@ -557,7 +564,7 @@ const calculateAnchorPositions = (anchors, editorEl, previewEl, markdownText) =>
   
   anchors.forEach((anchor) => {
     // 計算編輯器中的位置（基於行號和行高）
-    const editorTop = anchor.lineIndex * SCROLL_SYNC_CONFIG.lineHeight;
+    const editorTop = anchor.lineIndex * SCROLL_SYNC_CONFIG.estimatedLineHeight;
     
     // 在預覽區中找到對應元素
     let previewTop = 0;
@@ -764,16 +771,26 @@ const MarkdownEditorLayout = ({
   }, [contentId, isEditMode]); // 只依賴 contentId 和 isEditMode，loadData 函數穩定
 
   // ======================================================================
-  // 雙向滾動同步 - 基於錨點的智能同步
+  // 雙向滾動同步 - V17：多錨點映射同步
+  // 
+  // 核心設計：
+  // 1. 單向同步：只做 Editor → Preview，不做反向同步
+  // 2. 多錨點映射：使用 Summary + 所有標題 (h1-h6) 作為錨點
+  // 3. 區段內插值：在兩個錨點之間使用線性插值計算位置
+  // 4. 閾值控制：差異小於閾值時不同步，避免微調抖動
+  // 5. requestAnimationFrame：節流優化，確保平滑
+  // 
+  // V17 改進：
+  // - V16 只處理 Summary 區塊，Summary 後使用純比例同步
+  // - V17 將所有標題都作為錨點，大幅提升對齊精度
   // ======================================================================
   useEffect(() => {
-    // 延遲綁定事件，確保 DOM 已完全渲染
     const bindTimeout = setTimeout(() => {
       const editorWrapper = document.querySelector('.sec-md');
       const previewWrapper = document.querySelector('.sec-html');
       
       if (!editorWrapper || !previewWrapper) {
-        console.warn('⚠️ 滾動同步：找不到編輯器或預覽區 DOM');
+        console.warn('❌ V17.3: 找不到 editorWrapper 或 previewWrapper');
         return;
       }
       
@@ -781,102 +798,712 @@ const MarkdownEditorLayout = ({
       const previewEl = previewWrapper.querySelector('.html-wrap');
       
       if (!editorEl || !previewEl) {
-        console.warn('⚠️ 滾動同步：找不到 textarea 或 html-wrap');
+        console.warn('❌ V17.3: 找不到 editorEl 或 previewEl');
+        console.log('  - editorEl:', editorEl);
+        console.log('  - previewEl:', previewEl);
         return;
       }
       
-      console.log('✅ 滾動同步：DOM 元素已找到，綁定事件');
+      // ⭐ V17.3 詳細調試：檢查 DOM 元素狀態
+      const previewStyle = window.getComputedStyle(previewEl);
+      console.log('✅ 滾動同步 V17.3（多錨點映射）：DOM 檢查');
+      console.log('  📍 editorEl:', editorEl.tagName, editorEl.className);
+      console.log('  📍 previewEl:', previewEl.tagName, previewEl.className);
+      console.log('  📏 previewEl 尺寸:', {
+        scrollHeight: previewEl.scrollHeight,
+        clientHeight: previewEl.clientHeight,
+        scrollTop: previewEl.scrollTop,
+        offsetHeight: previewEl.offsetHeight
+      });
+      console.log('  🎨 previewEl CSS:', {
+        overflow: previewStyle.overflow,
+        overflowY: previewStyle.overflowY,
+        height: previewStyle.height,
+        maxHeight: previewStyle.maxHeight,
+        position: previewStyle.position
+      });
       
-      // 滾動鎖定標記，防止循環觸發
-      let isScrolling = false;
-      let scrollTimeout = null;
+      // 🔬 測試：嘗試直接設定 scrollTop 看是否有效
+      const testScrollValue = 100;
+      const beforeTest = previewEl.scrollTop;
+      previewEl.scrollTop = testScrollValue;
+      const afterTest = previewEl.scrollTop;
+      console.log('  🧪 滾動測試:', {
+        before: beforeTest,
+        wanted: testScrollValue,
+        after: afterTest,
+        success: Math.abs(afterTest - testScrollValue) < 5 ? '✅ 成功' : '❌ 失敗'
+      });
+      // 恢復原始位置
+      previewEl.scrollTop = beforeTest;
       
-      // 緩存的錨點位置
-      let cachedPositions = [];
+      // ====== 錨點映射緩存 ======
+      let cachedContent = null;
+      let cachedAnchorMap = null;
       
-      // 重新計算錨點位置
-      const updateAnchorPositions = () => {
-        const markdownText = formData?.content || '';
-        const anchors = parseMarkdownAnchors(markdownText);
-        cachedPositions = calculateAnchorPositions(anchors, editorEl, previewEl, markdownText);
-        // console.log('📍 錨點位置已更新:', cachedPositions.length, '個錨點');
-      };
-      
-      // 初始計算
-      updateAnchorPositions();
-      
-      // 編輯器滾動處理（左 → 右）
-      const handleEditorScroll = () => {
-        if (isScrolling) return;
+      /**
+       * V17.5: 解析編輯器中所有錨點（所有標題，不受 Summary 限制）
+       * 適用於 :::summary 沒有結束標記的格式
+       * @returns {Array<{type: string, text: string, editorLine: number, editorPx: number, previewPx: number|null}>}
+       */
+      const parseEditorAnchors = () => {
+        const content = formData?.content || '';
         
-        clearTimeout(scrollTimeout);
-        scrollTimeout = setTimeout(() => {
-          isScrolling = true;
-          
-          // 更新錨點位置（預覽區可能因圖片載入而改變）
-          updateAnchorPositions();
-          
-          const targetScrollTop = calculateTargetScrollTop(
-            editorEl.scrollTop,
-            cachedPositions,
-            'editorToPreview'
-          );
-          
-          previewEl.scrollTop = targetScrollTop;
-          
-          // 延遲解鎖，避免滾動事件連鎖反應
-          setTimeout(() => {
-            isScrolling = false;
-          }, 50);
-        }, SCROLL_SYNC_CONFIG.debounceMs);
-      };
-      
-      // 預覽區滾動處理（右 → 左）
-      const handlePreviewScroll = () => {
-        if (isScrolling) return;
+        const lines = content.split('\n');
+        const totalLines = lines.length;
+        const lineHeight = totalLines > 0 ? editorEl.scrollHeight / totalLines : SCROLL_SYNC_CONFIG.estimatedLineHeight;
         
-        clearTimeout(scrollTimeout);
-        scrollTimeout = setTimeout(() => {
-          isScrolling = true;
+        const anchors = [];
+        let hasSummaryStart = false;
+        let summaryStartLine = -1;
+        
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          const trimmedLine = line.trim();
           
-          // 更新錨點位置
-          updateAnchorPositions();
+          // 檢測 Summary 開始（記錄位置，但不影響標題解析）
+          if (trimmedLine.startsWith(':::summary') || trimmedLine === ':::summary') {
+            hasSummaryStart = true;
+            summaryStartLine = i;
+            
+            // 添加 Summary 起始作為一個錨點
+            anchors.push({
+              type: 'summary-start',
+              text: '__SUMMARY_START__',
+              editorLine: i,
+              editorPx: i * lineHeight,
+              previewPx: null
+            });
+            continue;
+          }
           
-          const targetScrollTop = calculateTargetScrollTop(
-            previewEl.scrollTop,
-            cachedPositions,
-            'previewToEditor'
-          );
+          // V17.5: 解析所有標題（不管是否在 Summary 內）
+          const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
+          if (headingMatch) {
+            const level = headingMatch[1].length;
+            const text = headingMatch[2].trim();
+            
+            anchors.push({
+              type: `h${level}`,
+              text: text,
+              editorLine: i,
+              editorPx: i * lineHeight,
+              previewPx: null
+            });
+            continue;
+          }
           
-          editorEl.scrollTop = targetScrollTop;
+          // V17.6: 解析 ==Step.X== 格式的步驟標記
+          const stepMatch = line.match(/^==\s*(.+?)\s*==$/);
+          if (stepMatch) {
+            const text = stepMatch[1].trim();
+            
+            anchors.push({
+              type: 'step',
+              text: text,
+              editorLine: i,
+              editorPx: i * lineHeight,
+              previewPx: null
+            });
+            continue;
+          }
           
-          // 延遲解鎖
-          setTimeout(() => {
-            isScrolling = false;
-          }, 50);
-        }, SCROLL_SYNC_CONFIG.debounceMs);
+          // V17.6: 解析圖片標記（圖片會讓預覽區膨脹，需要作為錨點）
+          const imgMatch = line.match(/!\[IMG:(\d+)\]/);
+          if (imgMatch) {
+            anchors.push({
+              type: 'image',
+              text: `IMG:${imgMatch[1]}`,
+              editorLine: i,
+              editorPx: i * lineHeight,
+              previewPx: null
+            });
+          }
+        }
+        
+        // Debug 日誌
+        console.log('[V17.6 parseEditorAnchors]', {
+          totalAnchors: anchors.length,
+          hasSummaryStart,
+          headingCount: anchors.filter(a => a.type.startsWith('h')).length,
+          stepCount: anchors.filter(a => a.type === 'step').length,
+          imageCount: anchors.filter(a => a.type === 'image').length,
+          firstAnchors: anchors.slice(0, 8).map(a => `${a.type}: ${a.text?.substring(0, 20)}`)
+        });
+        
+        return { anchors, lineHeight, totalLines };
       };
       
-      // 綁定事件
-      editorEl.addEventListener('scroll', handleEditorScroll);
-      previewEl.addEventListener('scroll', handlePreviewScroll);
+      /**
+       * V17.6: 從預覽區 DOM 匹配錨點位置
+       * 支援標題、步驟標記（==Step.X==）、圖片
+       * @param {Array} anchors - 編輯器錨點陣列
+       * @returns {Array} - 填入 previewPx 的錨點陣列
+       */
+      const matchPreviewAnchors = (anchors) => {
+        // 取得 Summary 區塊（用於匹配 summary-start 錨點）
+        const summaryBlock = previewEl.querySelector('.markdown-summary-block');
+        
+        // V17.6: 取得所有標題
+        const headingEls = previewEl.querySelectorAll('h1, h2, h3, h4, h5, h6');
+        const headingList = Array.from(headingEls).map(el => ({
+          text: el.textContent.trim(),
+          offsetTop: el.offsetTop,
+          height: el.offsetHeight,
+          used: false
+        }));
+        
+        // V17.6: 取得所有 <mark> 標籤（==text== 會被渲染成 <mark>）
+        const markEls = previewEl.querySelectorAll('mark');
+        const markList = Array.from(markEls).map(el => ({
+          text: el.textContent.trim(),
+          offsetTop: el.offsetTop,
+          height: el.offsetHeight,
+          used: false
+        }));
+        
+        // V17.6: 取得所有圖片
+        const imgEls = previewEl.querySelectorAll('img');
+        const imgList = Array.from(imgEls).map((el, idx) => ({
+          index: idx,
+          offsetTop: el.offsetTop,
+          height: el.offsetHeight,
+          used: false
+        }));
+        
+        // Debug: 顯示找到的元素
+        console.log('[V17.6 預覽區元素]', {
+          headings: headingList.length,
+          marks: markList.length,
+          images: imgList.length,
+          firstMarks: markList.slice(0, 5).map(m => `${m.text.substring(0, 20)} @ ${m.offsetTop}px`)
+        });
+        
+        // 匹配每個錨點
+        let imgMatchIndex = 0; // 圖片按順序匹配
+        
+        anchors.forEach(anchor => {
+          if (anchor.type === 'summary-start') {
+            // 匹配 Summary 區塊起始
+            if (summaryBlock) {
+              anchor.previewPx = summaryBlock.offsetTop;
+            }
+          } else if (anchor.type.startsWith('h')) {
+            // 匹配標題：按順序找第一個未使用的匹配
+            for (const heading of headingList) {
+              if (heading.used) continue;
+              
+              // 精確匹配
+              if (heading.text === anchor.text) {
+                anchor.previewPx = heading.offsetTop;
+                heading.used = true;
+                break;
+              }
+              
+              // 部分匹配
+              if (heading.text.includes(anchor.text) || anchor.text.includes(heading.text)) {
+                anchor.previewPx = heading.offsetTop;
+                heading.used = true;
+                break;
+              }
+            }
+          } else if (anchor.type === 'step') {
+            // V17.6: 匹配 ==Step.X== 標記
+            for (const mark of markList) {
+              if (mark.used) continue;
+              
+              // 精確匹配或包含匹配
+              if (mark.text === anchor.text || 
+                  mark.text.includes(anchor.text) || 
+                  anchor.text.includes(mark.text)) {
+                anchor.previewPx = mark.offsetTop;
+                mark.used = true;
+                break;
+              }
+            }
+          } else if (anchor.type === 'image') {
+            // V17.6: 圖片按順序匹配
+            if (imgMatchIndex < imgList.length) {
+              anchor.previewPx = imgList[imgMatchIndex].offsetTop;
+              imgMatchIndex++;
+            }
+          }
+        });
+        
+        // Debug: 顯示匹配結果
+        const matched = anchors.filter(a => a.previewPx !== null);
+        console.log('[V17.6 matchPreviewAnchors]', {
+          inputAnchors: anchors.length,
+          matchedAnchors: matched.length,
+          byType: {
+            summaryStart: matched.filter(a => a.type === 'summary-start').length,
+            headings: matched.filter(a => a.type.startsWith('h')).length,
+            steps: matched.filter(a => a.type === 'step').length,
+            images: matched.filter(a => a.type === 'image').length
+          }
+        });
+        
+        // 只保留有匹配到的錨點
+        return anchors.filter(a => a.previewPx !== null);
+      };
       
-      console.log('✅ 滾動同步：事件已綁定（雙向模式）');
+      /**
+       * 建立完整的錨點映射表
+       * @returns {{ anchors: Array, editorMax: number, previewMax: number }}
+       */
+      const buildAnchorMap = () => {
+        const content = formData?.content || '';
+        
+        // 使用緩存
+        if (content === cachedContent && cachedAnchorMap) {
+          return cachedAnchorMap;
+        }
+        
+        const { anchors: rawAnchors, lineHeight, totalLines } = parseEditorAnchors();
+        const matchedAnchors = matchPreviewAnchors(rawAnchors);
+        
+        // 按 editorPx 排序
+        matchedAnchors.sort((a, b) => a.editorPx - b.editorPx);
+        
+        const editorMax = editorEl.scrollHeight - editorEl.clientHeight;
+        const previewMax = previewEl.scrollHeight - previewEl.clientHeight;
+        
+        cachedAnchorMap = {
+          anchors: matchedAnchors,
+          editorMax,
+          previewMax,
+          lineHeight,
+          totalLines
+        };
+        
+        cachedContent = content;
+        
+        // Debug 日誌
+        if (matchedAnchors.length > 0) {
+          console.log(`📍 V17.2: 建立 ${matchedAnchors.length} 個錨點映射`);
+          matchedAnchors.slice(0, 5).forEach((a, i) => {
+            console.log(`   [${i}] ${a.type}: "${a.text?.substring(0, 30) || 'SUMMARY'}" | editor: ${Math.round(a.editorPx)}px → preview: ${Math.round(a.previewPx || 0)}px`);
+          });
+          if (matchedAnchors.length > 5) {
+            console.log(`   ... 還有 ${matchedAnchors.length - 5} 個錨點`);
+          }
+        }
+        
+        return cachedAnchorMap;
+      };
       
-      // 清理函數
+      /**
+       * V17 多錨點映射同步算法
+       * @param {number} editorScrollTop - 編輯器當前滾動位置
+       * @returns {number} - 預覽區目標 scrollTop
+       */
+      const calculatePreviewTarget = (editorScrollTop) => {
+        const anchorMap = buildAnchorMap();
+        const { anchors, editorMax, previewMax } = anchorMap;
+        
+        if (editorMax <= 0) return 0;
+        
+        // 沒有錨點：退化為純比例同步
+        if (anchors.length === 0) {
+          const ratio = editorScrollTop / editorMax;
+          return ratio * previewMax;
+        }
+        
+        // 使用二分搜尋找到當前位置的前後錨點
+        let prevAnchor = null;
+        let nextAnchor = null;
+        let prevIdx = -1;
+        
+        // V17.2：二分搜尋邏輯（還原原始邏輯，問題不在這裡）
+        let left = 0;
+        let right = anchors.length - 1;
+        
+        while (left <= right) {
+          const mid = Math.floor((left + right) / 2);
+          const anchor = anchors[mid];
+          
+          // 判斷條件：anchor.editorPx <= 當前滾動位置
+          // 這樣 Summary 的開始位置會被用來匹配，但後續處理會考慮 Summary 結束位置
+          if (anchor.editorPx <= editorScrollTop) {
+            prevIdx = mid;
+            left = mid + 1;
+          } else {
+            right = mid - 1;
+          }
+        }
+        
+        if (prevIdx >= 0) {
+          prevAnchor = anchors[prevIdx];
+        }
+        if (prevIdx + 1 < anchors.length) {
+          nextAnchor = anchors[prevIdx + 1];
+        }
+        
+        // 特殊處理：如果在 Summary 區塊內
+        if (prevAnchor && prevAnchor.type === 'summary' && prevAnchor.editorEndPx) {
+          if (editorScrollTop < prevAnchor.editorEndPx) {
+            // 在 Summary 區塊內：線性映射
+            if (prevAnchor.previewPx !== null && prevAnchor.previewEndPx) {
+              const summaryEditorRange = prevAnchor.editorEndPx - prevAnchor.editorPx;
+              const summaryPreviewRange = prevAnchor.previewEndPx - prevAnchor.previewPx;
+              
+              if (summaryEditorRange > 0) {
+                const progress = (editorScrollTop - prevAnchor.editorPx) / summaryEditorRange;
+                return prevAnchor.previewPx + progress * summaryPreviewRange;
+              }
+            }
+          }
+          // 如果已經過了 Summary 結束位置，使用 Summary 結束作為 prevAnchor
+          // （繼續下面的一般邏輯，但使用 editorEndPx 和 previewEndPx）
+        }
+        
+        // 情況 1：在第一個錨點之前
+        if (!prevAnchor && nextAnchor) {
+          if (nextAnchor.editorPx <= 0) return 0;
+          const ratio = editorScrollTop / nextAnchor.editorPx;
+          return ratio * (nextAnchor.previewPx || 0);
+        }
+        
+        // 情況 2：在最後一個錨點之後
+        if (prevAnchor && !nextAnchor) {
+          // 使用 Summary 的 endPx（如果是 Summary），否則使用 editorPx
+          const prevEditorPx = prevAnchor.type === 'summary' && prevAnchor.editorEndPx 
+            ? prevAnchor.editorEndPx 
+            : prevAnchor.editorPx;
+          const prevPreviewPx = prevAnchor.type === 'summary' && prevAnchor.previewEndPx
+            ? prevAnchor.previewEndPx
+            : (prevAnchor.previewPx || 0);
+          
+          const editorAfter = editorScrollTop - prevEditorPx;
+          const editorRemaining = editorMax - prevEditorPx;
+          const previewRemaining = previewMax - prevPreviewPx;
+          
+          if (editorRemaining <= 0) return prevPreviewPx;
+          
+          const ratio = editorAfter / editorRemaining;
+          return prevPreviewPx + ratio * previewRemaining;
+        }
+        
+        // 情況 3：在兩個錨點之間（最常見）
+        if (prevAnchor && nextAnchor) {
+          // 使用 Summary 的 endPx（如果 prevAnchor 是 Summary 且已過其範圍）
+          let prevEditorPx = prevAnchor.editorPx;
+          let prevPreviewPx = prevAnchor.previewPx || 0;
+          
+          if (prevAnchor.type === 'summary' && prevAnchor.editorEndPx && editorScrollTop >= prevAnchor.editorEndPx) {
+            prevEditorPx = prevAnchor.editorEndPx;
+            prevPreviewPx = prevAnchor.previewEndPx || prevAnchor.previewPx || 0;
+          }
+          
+          const editorRange = nextAnchor.editorPx - prevEditorPx;
+          const previewRange = (nextAnchor.previewPx || 0) - prevPreviewPx;
+          
+          if (editorRange <= 0) return prevPreviewPx;
+          
+          const progress = (editorScrollTop - prevEditorPx) / editorRange;
+          return prevPreviewPx + progress * previewRange;
+        }
+        
+        // Fallback：純比例同步
+        return (editorScrollTop / editorMax) * previewMax;
+      };
+      
+      /**
+       * V17.5: 反向計算 - 從預覽區位置計算編輯器位置
+       * @param {number} previewScrollTop - 預覽區當前滾動位置
+       * @returns {number} - 編輯器目標 scrollTop
+       */
+      const calculateEditorTarget = (previewScrollTop) => {
+        const anchorMap = buildAnchorMap();
+        const { anchors, editorMax, previewMax } = anchorMap;
+        
+        if (previewMax <= 0) return 0;
+        
+        // 沒有錨點：純比例同步
+        if (anchors.length === 0) {
+          return (previewScrollTop / previewMax) * editorMax;
+        }
+        
+        // 找到預覽區位置所在的錨點區間（反向查詢）
+        let lowerAnchor = null;
+        let upperAnchor = null;
+        
+        for (let i = 0; i < anchors.length; i++) {
+          const anchor = anchors[i];
+          if (anchor.previewPx === null) continue;
+          
+          if (anchor.previewPx <= previewScrollTop) {
+            lowerAnchor = anchor;
+          }
+          if (anchor.previewPx > previewScrollTop && !upperAnchor) {
+            upperAnchor = anchor;
+            break;
+          }
+        }
+        
+        // 情況1：在第一個錨點之前
+        if (!lowerAnchor && upperAnchor) {
+          const ratio = previewScrollTop / upperAnchor.previewPx;
+          return ratio * upperAnchor.editorPx;
+        }
+        
+        // 情況2：在最後一個錨點之後
+        if (lowerAnchor && !upperAnchor) {
+          const remainingPreview = previewScrollTop - lowerAnchor.previewPx;
+          const remainingPreviewRange = previewMax - lowerAnchor.previewPx;
+          const remainingEditorRange = editorMax - lowerAnchor.editorPx;
+          
+          if (remainingPreviewRange <= 0) return lowerAnchor.editorPx;
+          
+          const ratio = remainingPreview / remainingPreviewRange;
+          return lowerAnchor.editorPx + ratio * remainingEditorRange;
+        }
+        
+        // 情況3：在兩個錨點之間 - 線性插值
+        if (lowerAnchor && upperAnchor) {
+          const previewRange = upperAnchor.previewPx - lowerAnchor.previewPx;
+          const editorRange = upperAnchor.editorPx - lowerAnchor.editorPx;
+          
+          if (previewRange <= 0) return lowerAnchor.editorPx;
+          
+          const ratio = (previewScrollTop - lowerAnchor.previewPx) / previewRange;
+          return lowerAnchor.editorPx + ratio * editorRange;
+        }
+        
+        // Fallback：純比例同步
+        return (previewScrollTop / previewMax) * editorMax;
+      };
+      
+      // ====== 滾動來源追蹤（防止程式觸發的滾動事件） ======
+      let scrollSource = null;
+      let resetTimer = null;
+      let rafId = null;
+      
+      // ====== V17.5: 反向同步模式 ======
+      let reverseSyncMode = false;
+      
+      /**
+       * 編輯器滾動事件處理（單向：Editor → Preview）
+       */
+      const onEditorScroll = () => {
+        // ✅ V17.7: 滾動左邊編輯器時，自動退出反向同步模式
+        if (reverseSyncMode) {
+          reverseSyncMode = false;
+          console.log('🔄 [V17.7] 反向同步模式：已關閉（編輯器滾動）');
+        }
+        
+        // 如果是由程式設定 preview 觸發的（不應該發生在單向模式，但保留保護）
+        if (scrollSource === 'preview') return;
+        
+        // 使用 requestAnimationFrame 節流
+        if (rafId) return;
+        
+        rafId = requestAnimationFrame(() => {
+          rafId = null;
+          
+          scrollSource = 'editor';
+          clearTimeout(resetTimer);
+          
+          const editorScrollTop = editorEl.scrollTop;
+          const previewMax = previewEl.scrollHeight - previewEl.clientHeight;
+          
+          // 計算目標位置
+          const targetScrollTop = calculatePreviewTarget(editorScrollTop);
+          
+          // 限制範圍
+          const clampedTarget = Math.max(0, Math.min(targetScrollTop, previewMax));
+          
+          // 🔍 V17.3 調試：每 20 次輸出一次詳細資訊
+          const currentDiff = Math.abs(previewEl.scrollTop - clampedTarget);
+          
+          // 獲取錨點映射資訊
+          const anchorMap = buildAnchorMap();
+          const debugInfo = {
+            editorScrollTop: Math.round(editorScrollTop),
+            targetScrollTop: Math.round(targetScrollTop),
+            clampedTarget: Math.round(clampedTarget),
+            currentPreviewScroll: Math.round(previewEl.scrollTop),
+            previewMax: Math.round(previewMax),
+            editorMax: Math.round(anchorMap.editorMax),
+            anchorsCount: anchorMap.anchors.length,
+            diff: Math.round(currentDiff),
+            shouldUpdate: currentDiff > SCROLL_SYNC_CONFIG.syncThresholdPx
+          };
+          
+          // 每 20 次滾動輸出一次詳細錨點資訊
+          if (Math.random() < 0.05) {
+            console.log('[V17.3 詳細]', debugInfo);
+            console.log('[V17.3 錨點]', anchorMap.anchors.slice(0, 8).map(a => ({
+              type: a.type,
+              text: a.text?.substring(0, 20),
+              editorPx: Math.round(a.editorPx),
+              editorEndPx: a.editorEndPx ? Math.round(a.editorEndPx) : null,
+              previewPx: a.previewPx ? Math.round(a.previewPx) : null,
+              previewEndPx: a.previewEndPx ? Math.round(a.previewEndPx) : null
+            })));
+          }
+          
+          // 閾值控制：差異小於閾值時不同步，避免微調抖動
+          if (currentDiff > SCROLL_SYNC_CONFIG.syncThresholdPx) {
+            const beforeSet = previewEl.scrollTop;
+            
+            // ⭐ V17.3：嘗試多種滾動方法
+            // 方法1: scrollTo
+            previewEl.scrollTo({
+              top: clampedTarget,
+              behavior: 'instant'
+            });
+            
+            const afterScrollTo = previewEl.scrollTop;
+            
+            // 方法2: 直接設定 scrollTop（作為備用）
+            if (Math.abs(afterScrollTo - clampedTarget) > 10) {
+              previewEl.scrollTop = clampedTarget;
+            }
+            
+            const afterSet = previewEl.scrollTop;
+            
+            // 🔍 V17.3 調試：每次設定都輸出結果
+            console.log('[V17.3 Set Result]', {
+              wanted: Math.round(clampedTarget),
+              beforeSet: Math.round(beforeSet),
+              afterScrollTo: Math.round(afterScrollTo),
+              afterSet: Math.round(afterSet),
+              success: Math.abs(afterSet - clampedTarget) < 10 ? '✅' : '❌'
+            });
+          }
+          
+          // 重置 scrollSource
+          resetTimer = setTimeout(() => { 
+            scrollSource = null; 
+          }, SCROLL_SYNC_CONFIG.sourceResetMs);
+        });
+      };
+      
+      // ====== V17.5: 預覽區捲動事件處理（反向同步） ======
+      let rafIdReverse = null;
+      
+      const onPreviewScroll = () => {
+        // 只在反向同步模式下才處理
+        if (!reverseSyncMode) return;
+        // 如果是由程式設定 editor 觸發的，跳過
+        if (scrollSource === 'editor') return;
+        
+        // 使用 RAF 節流
+        if (rafIdReverse) return;
+        
+        rafIdReverse = requestAnimationFrame(() => {
+          rafIdReverse = null;
+          
+          scrollSource = 'preview';
+          clearTimeout(resetTimer);
+          
+          const previewScrollTop = previewEl.scrollTop;
+          const editorMax = editorEl.scrollHeight - editorEl.clientHeight;
+          
+          // 計算編輯器目標位置
+          const targetEditorTop = calculateEditorTarget(previewScrollTop);
+          
+          // 限制範圍
+          const clampedTarget = Math.max(0, Math.min(targetEditorTop, editorMax));
+          
+          // 閾值控制
+          const currentDiff = Math.abs(editorEl.scrollTop - clampedTarget);
+          
+          if (currentDiff > SCROLL_SYNC_CONFIG.syncThresholdPx) {
+            editorEl.scrollTo({
+              top: clampedTarget,
+              behavior: 'instant'
+            });
+            
+            console.log('[V17.5 反向同步]', {
+              previewScrollTop: Math.round(previewScrollTop),
+              targetEditorTop: Math.round(clampedTarget),
+              actualEditorTop: Math.round(editorEl.scrollTop)
+            });
+          }
+          
+          // 重置 scrollSource
+          resetTimer = setTimeout(() => { 
+            scrollSource = null; 
+          }, SCROLL_SYNC_CONFIG.sourceResetMs);
+        });
+      };
+      
+      // ====== V17.5: 點擊預覽區標題或摘要連結啟動反向同步 ======
+      const onPreviewHeadingClick = (event) => {
+        // 檢查是否點擊標題（h1~h6）
+        const heading = event.target.closest('h1, h2, h3, h4, h5, h6');
+        
+        // 檢查是否點擊摘要區塊內的連結
+        const summaryLink = event.target.closest('.summary-link, .markdown-summary-content a');
+        
+        // 檢查是否點擊摘要區塊本身
+        const summaryBlock = event.target.closest('.markdown-summary-block');
+        
+        if (heading || summaryLink || summaryBlock) {
+          reverseSyncMode = true;
+          const triggerType = heading ? '標題' : (summaryLink ? '摘要連結' : '摘要區塊');
+          console.log(`🔄 [V17.5] 反向同步模式：已啟動（點擊${triggerType}）`);
+          
+          // 視覺反饋
+          const targetEl = heading || summaryLink || summaryBlock;
+          if (targetEl) {
+            targetEl.style.outline = '2px solid #1890ff';
+            setTimeout(() => {
+              targetEl.style.outline = '';
+            }, 300);
+          }
+        }
+      };
+      
+      // ====== V17.5: 點擊編輯區退出反向同步 ======
+      const onEditorClick = () => {
+        if (reverseSyncMode) {
+          reverseSyncMode = false;
+          console.log('🔄 [V17.5] 反向同步模式：已關閉（點擊編輯區）');
+        }
+      };
+      
+      // ====== 綁定事件 ======
+      // 編輯器捲動（正向同步）
+      editorEl.addEventListener('scroll', onEditorScroll, { passive: true });
+      
+      // 預覽區捲動（反向同步，由點擊標題啟動）
+      previewEl.addEventListener('scroll', onPreviewScroll, { passive: true });
+      
+      // 預覽區標題點擊（啟動反向同步）
+      previewEl.addEventListener('click', onPreviewHeadingClick);
+      
+      // 編輯區點擊（退出反向同步）
+      editorEl.addEventListener('click', onEditorClick);
+      editorEl.addEventListener('focus', onEditorClick);
+      editorEl.addEventListener('keydown', onEditorClick);
+      
+      console.log('✅ 滾動同步 V17.5（多錨點映射 + 反向同步）：已綁定');
+      console.log('   📍 點擊右邊標題 → 啟動反向同步');
+      console.log('   📍 點擊左邊編輯區 → 關閉反向同步');
+      
+      // ====== 清理函數 ======
       return () => {
-        editorEl.removeEventListener('scroll', handleEditorScroll);
-        previewEl.removeEventListener('scroll', handlePreviewScroll);
-        clearTimeout(scrollTimeout);
-        console.log('🧹 滾動同步：事件已解綁');
+        editorEl.removeEventListener('scroll', onEditorScroll);
+        previewEl.removeEventListener('scroll', onPreviewScroll);
+        previewEl.removeEventListener('click', onPreviewHeadingClick);
+        editorEl.removeEventListener('click', onEditorClick);
+        editorEl.removeEventListener('focus', onEditorClick);
+        editorEl.removeEventListener('keydown', onEditorClick);
+        clearTimeout(resetTimer);
+        if (rafId) {
+          cancelAnimationFrame(rafId);
+        }
+        if (rafIdReverse) {
+          cancelAnimationFrame(rafIdReverse);
+        }
       };
     }, SCROLL_SYNC_CONFIG.bindDelayMs);
     
-    // 組件卸載時清理 timeout
-    return () => {
-      clearTimeout(bindTimeout);
-    };
-  }, [formData?.content]); // 當內容改變時重新綁定（錨點可能改變）
+    return () => clearTimeout(bindTimeout);
+  }, [formData?.content]);
 
   // ======================================================================
   // 🆕 摘要區塊連結點擊 - 平滑滾動到錨點
@@ -887,10 +1514,72 @@ const MarkdownEditorLayout = ({
       const previewWrapper = document.querySelector('.sec-html');
       const previewEl = previewWrapper?.querySelector('.html-wrap');
       
+      // V17.7: 同時取得編輯器元素
+      const editorWrapper = document.querySelector('.sec-md');
+      const editorEl = editorWrapper?.querySelector('textarea.input');
+      
       if (!previewEl) {
         console.warn('⚠️ 摘要連結：找不到預覽區 DOM');
         return;
       }
+      
+      /**
+       * V17.7: 根據標題文字找到編輯器中對應的行號
+       * @param {string} headingText - 標題文字
+       * @returns {number} - 行號（-1 表示未找到）
+       */
+      const findEditorLineByHeading = (headingText) => {
+        const content = formData?.content || '';
+        const lines = content.split('\n');
+        
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          // 匹配標題行（# 到 ######）
+          const match = line.match(/^#{1,6}\s+(.+)$/);
+          if (match) {
+            const titleText = match[1].trim();
+            // 比較標題文字（移除可能的錨點 ID）
+            if (titleText === headingText || 
+                titleText.includes(headingText) || 
+                headingText.includes(titleText)) {
+              return i;
+            }
+          }
+        }
+        return -1;
+      };
+      
+      /**
+       * V17.7: 滾動編輯器到指定行
+       * @param {number} lineNumber - 行號
+       */
+      const scrollEditorToLine = (lineNumber) => {
+        if (!editorEl || lineNumber < 0) return;
+        
+        const content = formData?.content || '';
+        const lines = content.split('\n');
+        const totalLines = lines.length;
+        
+        if (totalLines <= 0) return;
+        
+        // 計算行高
+        const lineHeight = editorEl.scrollHeight / totalLines;
+        
+        // 計算目標滾動位置
+        const targetScrollTop = lineNumber * lineHeight;
+        
+        // 限制範圍
+        const maxScroll = editorEl.scrollHeight - editorEl.clientHeight;
+        const clampedTarget = Math.max(0, Math.min(targetScrollTop, maxScroll));
+        
+        // 滾動到目標位置
+        editorEl.scrollTo({
+          top: clampedTarget,
+          behavior: 'smooth'
+        });
+        
+        console.log(`📝 [V17.7] 編輯器滾動到第 ${lineNumber + 1} 行 (${Math.round(clampedTarget)}px)`);
+      };
       
       /**
        * 處理摘要區塊中連結的點擊事件
@@ -943,7 +1632,7 @@ const MarkdownEditorLayout = ({
         if (targetElement) {
           console.log(`📍 摘要連結：跳轉到錨點 #${anchorId}`);
           
-          // 平滑滾動到目標位置
+          // 平滑滾動到目標位置（預覽區）
           targetElement.scrollIntoView({
             behavior: 'smooth',
             block: 'start'
@@ -956,6 +1645,19 @@ const MarkdownEditorLayout = ({
           setTimeout(() => {
             targetElement.classList.remove('highlight-anchor');
           }, 2000);
+          
+          // ✅ V17.7: 同時滾動編輯器到對應行
+          const headingText = targetElement.textContent?.trim() || anchorId;
+          const lineNumber = findEditorLineByHeading(headingText);
+          
+          if (lineNumber >= 0) {
+            // 延遲一點執行，讓預覽區滾動先開始
+            setTimeout(() => {
+              scrollEditorToLine(lineNumber);
+            }, 50);
+          } else {
+            console.warn(`⚠️ [V17.7] 找不到編輯器中對應的標題: ${headingText}`);
+          }
         } else {
           console.warn(`⚠️ 摘要連結：找不到錨點 #${anchorId}`);
         }
@@ -1752,7 +2454,7 @@ const MarkdownEditorLayout = ({
                     fullScreen: true,
                     hideMenu: false
                   },
-                  // 禁用原生滾動同步，使用自定義錨點式同步
+                  // V15：禁用原生同步，使用自定義「排除 Summary」的比例同步
                   syncScrollMode: [],
                   htmlClass: 'custom-html-preview',  // ✅ 添加自定義 HTML class
                   markdownClass: 'custom-md-editor', // 添加自定義 Markdown class
