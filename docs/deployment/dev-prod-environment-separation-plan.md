@@ -808,7 +808,110 @@ echo "🎉 部署完成！"
 | `SAF Intent Analyzer` | SAF_Intent_Analyzer | 意圖分析 | 🟢 低 |
 | `SAF Analyzer` | SAF_Analyzer | SAF 分析 | 🟢 低 |
 
-### 5.4 配置管理方案
+### 5.4 現有 Dify 配置分析（可直接作為開發環境）✅
+
+#### 5.4.1 現有配置總覽
+
+根據 `library/config/dify_config_manager.py`，目前已配置的 Dify App 如下：
+
+| App Type | App Name | Workspace | API Key | Timeout | 用途 |
+|----------|----------|-----------|---------|---------|------|
+| `protocol_known_issue` | Protocol Known Issue System | Protocol_known_issue_system | `app-Sql11xracJ71PtZThNJ4ZQQW` | 75s | Know Issue 查詢 |
+| `protocol_guide` | Protocol Guide | Protocol_Guide | `app-MgZZOhADkEmdUrj2DtQLJ23G` | 75s | Protocol Assistant |
+| `rvt_guide` | RVT Guide | RVT_Guide | `app-Lp4mlfIWHqMWPHTlzF9ywT4F` | 75s | RVT Assistant |
+| `report_analyzer_3` | Report Analyzer 3 | Report_Analyzer_3 | `app-DmCCl8KwXhhjND0WbEf0ULlR` | 120s | 報告分析 |
+| `ocr_function` | OCR Function | OCR_Function | `app-eFCJ5fDpoWV7CGKQ7VSoKgi0` | 90s | OCR 圖像識別 |
+| `saf_intent_analyzer` | SAF Intent Analyzer | SAF_Intent_Analyzer | `app-vMNSUqgEIoejnXo3fuFvp1hC` | 30s | 意圖分析 |
+| `saf_analyzer` | SAF Analyzer | SAF_Analyzer | `app-0GyoZLrr4tDpT4EO2Kihuvux` | 60s | SAF 回答生成 |
+
+#### 5.4.2 規劃決策：現有配置作為開發環境
+
+**✅ 結論：現有的所有 Dify App 和知識庫可以直接作為開發環境使用！**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                       Dify AI Server 10.10.172.37                               │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  ┌───────────────────────────────┐     ┌───────────────────────────────┐       │
+│  │  ◆ 開發環境 (Development)     │     │  ✓ 生產環境 (Production)      │       │
+│  │    【現有配置，直接使用】       │     │    【日後建立】                │       │
+│  ├───────────────────────────────┤     ├───────────────────────────────┤       │
+│  │                               │     │                               │       │
+│  │  📚 知識庫（現有）             │     │  📚 知識庫（待建立）           │       │
+│  │  ├── protocol_guide ✅        │     │  ├── protocol_guide  🔜       │       │
+│  │  ├── rvt_guide ✅             │     │  ├── rvt_guide  🔜            │       │
+│  │  └── know_issue ✅            │     │  └── know_issue  🔜           │       │
+│  │                               │     │                               │       │
+│  │  🤖 App（現有 API Key）        │     │  🤖 App（待建立，新 API Key）  │       │
+│  │  ├── Protocol_Guide ✅        │     │  ├── Protocol_Guide  🔜       │       │
+│  │  │   app-MgZZOhAD...         │     │  │   app-XXXXXXXX...          │       │
+│  │  ├── RVT_Guide ✅             │     │  ├── RVT_Guide  🔜            │       │
+│  │  │   app-Lp4mlfIW...         │     │  │   app-YYYYYYYY...          │       │
+│  │  ├── Protocol_known_issue_    │     │  ├── Protocol_known_issue_   │       │
+│  │  │   system ✅                │     │  │   system  🔜               │       │
+│  │  │   app-Sql11xra...         │     │  │   app-ZZZZZZZZ...          │       │
+│  │  ├── Report_Analyzer_3 ✅     │     │  ├── Report_Analyzer_3  🔜    │       │
+│  │  │   app-DmCCl8Kw...         │     │  │                            │       │
+│  │  ├── OCR_Function ✅          │     │  ├── OCR_Function  🔜         │       │
+│  │  │   app-eFCJ5fDp...         │     │  │                            │       │
+│  │  ├── SAF_Intent_Analyzer ✅   │     │  ├── SAF_Intent_Analyzer  🔜  │       │
+│  │  │   app-vMNSUqgE...         │     │  │                            │       │
+│  │  └── SAF_Analyzer ✅          │     │  └── SAF_Analyzer  🔜         │       │
+│  │      app-0GyoZLrr...         │     │                               │       │
+│  │                               │     │                               │       │
+│  │  🔑 現有 API Keys（開發用）   │     │  🔑 新 API Keys（生產用）🔜    │       │
+│  │                               │     │                               │       │
+│  └───────────────────────────────┘     └───────────────────────────────┘       │
+│               ↑                                     ↑                          │
+│               │                                     │                          │
+│    ✅ 現在就可以使用                      🔜 日後建立並配置                     │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### 5.4.3 開發環境 API Keys（現有，可直接使用）
+
+```python
+# 開發環境使用現有的 API Key（已配置在 dify_config_manager.py）
+DEV_API_KEYS = {
+    'protocol_known_issue': 'app-Sql11xracJ71PtZThNJ4ZQQW',
+    'protocol_guide': 'app-MgZZOhADkEmdUrj2DtQLJ23G',
+    'rvt_guide': 'app-Lp4mlfIWHqMWPHTlzF9ywT4F',
+    'report_analyzer_3': 'app-DmCCl8KwXhhjND0WbEf0ULlR',
+    'ocr_function': 'app-eFCJ5fDpoWV7CGKQ7VSoKgi0',
+    'saf_intent_analyzer': 'app-vMNSUqgEIoejnXo3fuFvp1hC',
+    'saf_analyzer': 'app-0GyoZLrr4tDpT4EO2Kihuvux',
+}
+```
+
+#### 5.4.4 生產環境 API Keys（待建立）
+
+```python
+# 生產環境使用新的 API Key（日後在 Dify 工作室複製 App 後獲取）
+PROD_API_KEYS = {
+    'protocol_known_issue': '',  # 🔜 待建立
+    'protocol_guide': '',        # 🔜 待建立
+    'rvt_guide': '',             # 🔜 待建立
+    'report_analyzer_3': '',     # 🔜 待建立
+    'ocr_function': '',          # 🔜 待建立
+    'saf_intent_analyzer': '',   # 🔜 待建立
+    'saf_analyzer': '',          # 🔜 待建立
+}
+```
+
+#### 5.4.5 環境配置對照表
+
+| 配置項 | 開發環境（現有）| 生產環境（待建立）|
+|--------|---------------|-----------------|
+| **狀態** | ✅ 可立即使用 | 🔜 日後建立 |
+| **Dify Server IP** | 10.10.172.37 | 10.10.172.37（相同）|
+| **App 命名** | 現有名稱 | 複製後可改名或保持 |
+| **API Key** | 現有 Key | 新 Key（複製 App 時產生）|
+| **知識庫** | 現有知識庫 | 複製或重建 |
+| **Prompt** | 現有版本 | 複製現有穩定版 |
+
+### 5.5 配置管理方案
 
 #### 方案：使用環境變數切換 AI_PC_IP
 
@@ -921,9 +1024,9 @@ services:
       - AI_PC_IP=10.10.172.37
 ```
 
-### 5.5 Dify 知識庫分離策略
+### 5.6 Dify 知識庫分離策略
 
-#### 5.5.1 知識庫命名規範
+#### 5.6.1 知識庫命名規範
 
 **同一台 Dify 服務器 (10.10.172.37) 上透過命名區分：**
 
@@ -932,7 +1035,7 @@ services:
 | 開發 | `{name}_dev` | `protocol_guide_dev`, `rvt_guide_dev` |
 | 生產 | `{name}` （正式名稱） | `protocol_guide`, `rvt_guide` |
 
-#### 5.5.2 知識庫同步策略
+#### 5.6.2 知識庫同步策略
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
@@ -961,7 +1064,7 @@ services:
 └────────────────────────────────────────────────────────────────┘
 ```
 
-#### 5.5.3 知識庫同步檢查清單
+#### 5.6.3 知識庫同步檢查清單
 
 當開發環境知識庫驗證完成後，同步到生產環境：
 
@@ -972,9 +1075,9 @@ services:
 - [ ] 測試生產環境 RAG 效果
 - [ ] 更新生產環境 App 的知識庫連結
 
-### 5.6 Dify 工作室 App 分離策略
+### 5.7 Dify 工作室 App 分離策略
 
-#### 5.6.1 App API Key 管理
+#### 5.7.1 App API Key 管理
 
 每個環境的 App 都有獨立的 API Key：
 
@@ -996,7 +1099,7 @@ PROD_API_KEYS = {
 }
 ```
 
-#### 5.6.2 配置管理器更新方案
+#### 5.7.2 配置管理器更新方案
 
 更新 `dify_config_manager.py` 支援多環境（同一台 Dify 服務器，不同 App）：
 
@@ -1051,7 +1154,7 @@ class DifyConfigManager:
             return cls.DEV_CONFIGS.get(app_name)
 ```
 
-### 5.7 Dify 分離實施步驟
+### 5.8 Dify 分離實施步驟
 
 #### Phase 1：準備階段（不影響現有服務）
 
@@ -1107,31 +1210,41 @@ print(f'AI PC IP: {DifyConfigManager._get_ai_pc_ip()}')
 # （部署後執行相同測試，確認使用生產環境的 App）
 ```
 
-### 5.8 Dify 分離後的環境配置對照表
+### 5.9 Dify 分離後的環境配置對照表
 
 | 配置項 | 開發機 (10.10.172.127) | 生產機 (10.10.173.29) |
 |--------|----------------------|---------------------|
 | ENVIRONMENT | `development` | `production` |
 | DIFY_ENV | `development` | `production` |
 | AI_PC_IP | `10.10.172.37` | `10.10.172.37` (**相同**) |
-| Dify App 命名 | `xxx_dev` | `xxx`（正式名稱） |
-| Dify 知識庫 | `xxx_dev` | `xxx`（正式名稱） |
-| API Key | 開發用 Key | 生產用 Key |
-| Prompt 版本 | 實驗版 | 穩定版 |
+| Dify App 命名 | 現有名稱（直接使用）| 複製後新建（待建立）|
+| Dify 知識庫 | 現有知識庫（直接使用）| 複製後新建（待建立）|
+| API Key | 現有 Key（見 5.4.3）| 新 Key（待建立）|
+| Prompt 版本 | 現有穩定版 | 複製自開發環境 |
 
-### 5.9 Dify 分離注意事項
+### 5.10 Dify 分離注意事項
 
 ```
 ⚠️ 重要注意事項（同一台 Dify 服務器，不同 App）：
 
-1. ✅ 生產環境 Prompt 變更前，先在開發環境（_dev App）測試
-2. ✅ 知識庫更新需要雙邊同步（_dev 和正式版不會自動同步）
+1. ✅ 生產環境 Prompt 變更前，先在開發環境測試
+2. ✅ 知識庫更新需要雙邊同步（開發和生產不會自動同步）
 3. ✅ API Key 要分開管理，開發用和生產用不要混用
-4. ✅ 在 Dify 工作室中清楚區分 _dev 和正式 App
-5. ❌ 不要在正式 App 直接實驗新功能
-6. ❌ 不要用開發 API Key（_dev App）連接生產環境
+4. ✅ 在 Dify 工作室中清楚區分開發和生產 App
+5. ❌ 不要在生產 App 直接實驗新功能
+6. ❌ 不要用開發 API Key 連接生產環境
 7. ❌ 不要讓開發和生產共用同一個 App 或知識庫
 ```
+
+### 5.11 執行時程建議
+
+| 階段 | 任務 | 時間 | 狀態 |
+|------|------|------|------|
+| **現在** | ✅ 確認現有配置作為開發環境使用 | 立即 | ✅ 完成 |
+| **Phase 1** | 更新程式碼支援 `DIFY_ENV` 環境切換 | 0.5 天 | 🔜 待執行 |
+| **Phase 2** | 在 Dify 工作室建立生產環境 App（複製現有 App） | 1-2 天 | 🔜 待執行 |
+| **Phase 3** | 獲取生產環境 API Key 並補充到配置中 | 0.5 天 | 🔜 待執行 |
+| **Phase 4** | 測試生產環境 Dify 連接 | 0.5 天 | 🔜 待執行 |
 
 ---
 
@@ -1423,7 +1536,7 @@ docker exec postgres_db psql -U postgres -d ai_platform
 
 **建立日期**：2025-12-11  
 **更新日期**：2025-12-12  
-**版本**：v1.2  
+**版本**：v1.3  
 **作者**：AI Platform Team  
 **狀態**：📋 計畫中（尚未執行）
 
@@ -1434,3 +1547,4 @@ docker exec postgres_db psql -U postgres -d ai_platform
 | v1.0 | 2025-12-11 | 初始版本：Git 分支策略、環境分離基礎架構 |
 | v1.1 | 2025-12-11 | 新增第五階段 Dify AI 服務分離規劃、更新分離資料庫說明 |
 | v1.2 | 2025-12-12 | 確定 Dify AI 共用同一台服務器 (10.10.172.37)，透過命名規範區分開發/生產 |
+| v1.3 | 2025-12-12 | 新增 5.4 現有 Dify 配置分析：確認現有 7 個 App 可直接作為開發環境使用，生產環境 API Key 待日後建立 |
