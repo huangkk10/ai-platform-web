@@ -61,20 +61,30 @@ except ImportError:
 KNOWLEDGE_ID_MAPPING = {
     # Know Issue 相關
     'know_issue_db': 'know_issue',
+    'know_issue_db_dev': 'know_issue',     # 🆕 開發環境
+    'know_issue_db_prod': 'know_issue',    # 🆕 生產環境
     'know_issue': 'know_issue', 
     'know-issue': 'know_issue',
     
     # RVT Guide 相關
     'rvt_guide_db': 'rvt_guide',
+    'rvt_guide_db_dev': 'rvt_guide',       # 🆕 開發環境
+    'rvt_guide_db_prod': 'rvt_guide',      # 🆕 生產環境
     'rvt_guide': 'rvt_guide',
     'rvt-guide': 'rvt_guide',
     'rvt_user_guide': 'rvt_guide',
+    'rvt_assistant_dev': 'rvt_guide',      # 🆕 開發環境
+    'rvt_assistant_prod': 'rvt_guide',     # 🆕 生產環境
     
     # Protocol Guide 相關
     'protocol_guide_db': 'protocol_guide',
+    'protocol_guide_db_dev': 'protocol_guide',    # 🆕 開發環境
+    'protocol_guide_db_prod': 'protocol_guide',   # 🆕 生產環境
     'protocol_guide': 'protocol_guide',
     'protocol-guide': 'protocol_guide',
     'protocol_assistant': 'protocol_guide',
+    'protocol_assistant_dev': 'protocol_guide',   # 🆕 開發環境
+    'protocol_assistant_prod': 'protocol_guide',  # 🆕 生產環境
     
     # OCR Storage Benchmark 相關
     'ocr_storage_benchmark': 'ocr_benchmark',
