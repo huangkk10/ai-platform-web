@@ -416,8 +416,10 @@ def dify_knowledge_search(request):
                         'protocol_assistant': 'protocol_assistant',
                         'protocol_guide': 'protocol_assistant',
                         'protocol_guide_db': 'protocol_assistant',
+                        'protocol_guide_db_dev': 'protocol_assistant',  # ✅ 新增 DEV 環境
                         'rvt_guide': 'rvt_assistant',
                         'rvt_guide_db': 'rvt_assistant',
+                        'rvt_guide_db_dev': 'rvt_assistant',            # ✅ 新增 DEV 環境
                         'rvt_assistant': 'rvt_assistant',
                     }
                     assistant_type = assistant_type_mapping.get(knowledge_id, 'protocol_assistant')
