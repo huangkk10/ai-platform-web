@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { message } from 'antd';
 import { recordChatUsage, CHAT_TYPES } from '../utils/chatUsage';
 import { 
@@ -7,6 +7,8 @@ import {
   shouldRetryConversation,
   isUserCancellation
 } from '../utils/errorMessageMapper';
+import { useIdleReset } from './useIdleReset';
+import { ASSISTANT_IDLE_CONFIG, clearAssistantStorage } from '../config/assistantConfig';
 
 /**
  * useRvtChat Hook
@@ -25,11 +27,51 @@ const useRvtChat = (conversationId, setConversationId, setMessages, user, curren
   const [loadingStartTime, setLoadingStartTime] = useState(null);
   const abortControllerRef = useRef(null);
 
+  // ============================================================
+  // 🆕 閒置自動重置功能（12 小時後自動清除對話和訊息）
+  // ============================================================
+  const idleConfig = ASSISTANT_IDLE_CONFIG.rvt;
+
+  /**
+   * 重置對話回調函數
+   * 當閒置超過 12 小時時自動執行
+   */
+  const handleIdleReset = useCallback(() => {
+    console.log('🔄 [RVT] 閒置超時 - 重置對話並清除訊息');
+    
+    // 1. 清除 conversation_id
+    setConversationId('');
+    
+    // 2. 清除訊息列表
+    setMessages([]);
+    
+    // 3. 清除 localStorage 中的相關資料
+    clearAssistantStorage('rvt');
+    
+    // 4. 重置其他狀態
+    setLoading(false);
+    setLoadingStartTime(null);
+  }, [setConversationId, setMessages]);
+
+  // 使用閒置重置 Hook
+  const { updateLastActivity, checkAndReset } = useIdleReset({
+    idleTimeout: idleConfig.idleTimeout,
+    storageKey: idleConfig.storageKey,
+    onReset: handleIdleReset,
+    enabled: true
+  });
+
   /**
    * 發送訊息到 RVT Assistant API
    * @param {Object} userMessage - 用戶訊息對象
    */
   const sendMessage = async (userMessage) => {
+    // 🆕 檢查閒置狀態，如需要則重置（會清除訊息）
+    checkAndReset();
+    
+    // 🆕 更新活動時間
+    updateLastActivity();
+
     setLoading(true);
     setLoadingStartTime(Date.now());
 

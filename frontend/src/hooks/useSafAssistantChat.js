@@ -21,6 +21,8 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { message } from 'antd';
+import { useIdleReset } from './useIdleReset';
+import { ASSISTANT_IDLE_CONFIG, clearAssistantStorage } from '../config/assistantConfig';
 
 const useSafAssistantChat = (
   conversationId, 
@@ -32,6 +34,40 @@ const useSafAssistantChat = (
   const [loading, setLoading] = useState(false);
   const [loadingStartTime, setLoadingStartTime] = useState(null);
   const abortControllerRef = useRef(null);
+
+  // ============================================================
+  // 🆕 閒置自動重置功能（12 小時後自動清除對話和訊息）
+  // ============================================================
+  const idleConfig = ASSISTANT_IDLE_CONFIG.saf;
+
+  /**
+   * 重置對話回調函數
+   * 當閒置超過 12 小時時自動執行
+   */
+  const handleIdleReset = useCallback(() => {
+    console.log('🔄 [SAF] 閒置超時 - 重置對話並清除訊息');
+    
+    // 1. 清除 conversation_id
+    setConversationId('');
+    
+    // 2. 清除訊息列表
+    setMessages([]);
+    
+    // 3. 清除 localStorage 中的相關資料
+    clearAssistantStorage('saf');
+    
+    // 4. 重置其他狀態
+    setLoading(false);
+    setLoadingStartTime(null);
+  }, [setConversationId, setMessages]);
+
+  // 使用閒置重置 Hook
+  const { updateLastActivity, checkAndReset } = useIdleReset({
+    idleTimeout: idleConfig.idleTimeout,
+    storageKey: idleConfig.storageKey,
+    onReset: handleIdleReset,
+    enabled: true
+  });
 
   // 停止請求
   const stopRequest = useCallback(() => {
@@ -46,6 +82,12 @@ const useSafAssistantChat = (
 
   // 發送訊息
   const sendMessage = useCallback(async (userMessage) => {
+    // 🆕 檢查閒置狀態，如需要則重置（會清除訊息）
+    checkAndReset();
+    
+    // 🆕 更新活動時間
+    updateLastActivity();
+
     console.log('🚀 [SAF Assistant] sendMessage 開始執行');
     console.log('  - userMessage:', userMessage);
     
@@ -176,7 +218,7 @@ const useSafAssistantChat = (
       setLoadingStartTime(null);
       abortControllerRef.current = null;
     }
-  }, [setMessages]);
+  }, [setMessages, checkAndReset, updateLastActivity]);  // 🆕 添加閒置重置依賴
 
   return {
     sendMessage,
