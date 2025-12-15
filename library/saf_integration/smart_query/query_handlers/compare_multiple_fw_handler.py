@@ -811,15 +811,7 @@ class CompareMultipleFWHandler(BaseHandler):
             # 構建標題後綴
             title_suffix = f" ({sub_version})" if sub_version else ""
             
-            # ===== 圖表 0: 測試類別雷達圖 =====
-            radar_chart = self._generate_category_radar_chart(
-                project_name, versions_data, version_names, sub_version
-            )
-            if radar_chart:
-                lines.append(radar_chart)
-                lines.append("")
-            
-            # ===== 圖表 0.5: 測試類別熱力圖 =====
+            # ===== 圖表 0: 測試類別熱力圖 =====
             heatmap_chart = self._generate_category_heatmap(
                 project_name, versions_data, version_names, sub_version
             )
