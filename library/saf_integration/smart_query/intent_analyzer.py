@@ -450,7 +450,28 @@ Sub Version 是指專案的不同容量變體，如 AA=512GB, AB=1024GB, AC=2048
     - 無專案名稱 + 有月份 + 問「有哪些專案」→ query_projects_by_month
     - 有專案名稱 + 有 Sub Version + 有日期/年份 → list_fw_by_date_range（帶 sub_version）
 
-### 27. unknown - 無法識別的意圖
+### 27. query_supported_capacities - 查詢專案 FW 支援的容量 (Phase 14 新增)
+用戶想知道某專案特定 FW 版本支援哪些儲存容量時使用。
+這是查詢該專案 FW 版本的容量支援範圍（256GB/512GB/1024GB/2048GB/4096GB/8192GB）。
+- 常見問法：
+  - 「Springsteen FW PH10YC3H 支援哪些容量」「Springsteen 這版韌體有支援幾種容量」
+  - 「DEMETER 的 Y1114B 有幾種容量」「TITAN 最新 FW 支援多大容量」
+  - 「Channel 這個版本有支援 4TB 嗎」「XX FW 最大支援到多少容量」
+  - 「Springsteen GD10YBJD 可以用 1TB 嗎」「XX 專案 FW YYY 有 2TB 版本嗎」
+  - 「這個案子 PH10YC3H 有支援 512GB 和 1024GB 嗎」
+- 參數：
+  - project_name (專案名稱，必須)
+  - fw_version (FW 版本，必須)
+- 【重要區分】
+  - 如果用戶問「XX 有哪些 sub version / 容量版本」→ 使用 list_sub_versions（查詢 Sub Version）
+  - 如果用戶問「XX FW YYY 支援哪些容量」→ 使用 query_supported_capacities（查詢 FW 容量支援）
+  - 如果用戶問「XX 1TB 版本的測試結果」→ 使用 query_project_test_by_capacity（按容量查測試）
+  - 關鍵判斷：
+    - 有專案名稱 + 有 FW 版本 + 問「支援/有哪些容量」→ query_supported_capacities
+    - 有專案名稱 + 問「有哪些 sub version / 容量版本」→ list_sub_versions
+    - 有專案名稱 + 有容量 + 問測試結果 → query_project_test_by_capacity
+
+### 28. unknown - 無法識別的意圖
 當問題與 SAF 專案管理系統無關時使用。
 
 ## 已知資訊
@@ -914,6 +935,25 @@ Sub Version 代碼：AA (512GB), AB (1024GB/1TB), AC (2048GB/2TB), AD (4096GB/4T
 
 輸入：Channel 2TB 版本 2025年的 FW
 輸出：{"intent": "list_fw_by_date_range", "parameters": {"project_name": "Channel", "sub_version": "AC", "year": 2025}, "confidence": 0.92}
+
+# Phase 14: 查詢專案 FW 支援的容量
+輸入：Springsteen FW PH10YC3H 支援哪些容量
+輸出：{"intent": "query_supported_capacities", "parameters": {"project_name": "Springsteen", "fw_version": "PH10YC3H"}, "confidence": 0.95}
+
+輸入：DEMETER 的 Y1114B 有幾種容量
+輸出：{"intent": "query_supported_capacities", "parameters": {"project_name": "DEMETER", "fw_version": "Y1114B"}, "confidence": 0.94}
+
+輸入：TITAN 最新 FW 支援多大容量
+輸出：{"intent": "query_supported_capacities", "parameters": {"project_name": "TITAN", "fw_version": "latest"}, "confidence": 0.93}
+
+輸入：Channel GD10YBJD 可以用 4TB 嗎
+輸出：{"intent": "query_supported_capacities", "parameters": {"project_name": "Channel", "fw_version": "GD10YBJD"}, "confidence": 0.92}
+
+輸入：Springsteen 這版韌體有支援 512GB 和 1024GB 嗎
+輸出：{"intent": "query_supported_capacities", "parameters": {"project_name": "Springsteen", "fw_version": "current"}, "confidence": 0.90}
+
+輸入：XX 專案 FW YYY 最大支援到多少容量
+輸出：{"intent": "query_supported_capacities", "parameters": {"project_name": "XX", "fw_version": "YYY"}, "confidence": 0.91}
 
 輸入：今天天氣如何？
 輸出：{"intent": "unknown", "parameters": {}, "confidence": 0.10}

@@ -41,6 +41,8 @@ from .query_handlers import (
     FWAllTestItemsHandler,
     # Phase 13: FW 日期範圍查詢處理器
     ListFWByDateRangeHandler,
+    # Phase 14: 支援容量查詢處理器
+    SupportedCapacitiesHandler,
 )
 
 logger = logging.getLogger(__name__)
@@ -143,6 +145,9 @@ class QueryRouter:
             
             # Phase 13: FW 日期範圍查詢處理器
             IntentType.LIST_FW_BY_DATE_RANGE: ListFWByDateRangeHandler(),
+            
+            # Phase 14: 支援容量查詢處理器
+            IntentType.QUERY_SUPPORTED_CAPACITIES: SupportedCapacitiesHandler(),
             
             # 統計類型使用專門的處理器
             IntentType.COUNT_PROJECTS: self._statistics_handler,

@@ -80,6 +80,9 @@ class IntentType(Enum):
     # 🆕 Phase 13: 按日期範圍查詢專案 FW 版本
     LIST_FW_BY_DATE_RANGE = "list_fw_by_date_range"  # 專案在指定日期範圍內有哪些 FW？
     
+    # 🆕 Phase 14: 查詢專案 FW 支援的容量
+    QUERY_SUPPORTED_CAPACITIES = "query_supported_capacities"  # 專案 FW 支援哪些容量？
+    
     # 統計專案數量
     COUNT_PROJECTS = "count_projects"
     
@@ -136,6 +139,7 @@ class IntentType(Enum):
             self.QUERY_PROJECT_FW_CATEGORY_TEST_ITEMS: "查詢專案 FW 特定類別的測項（有哪些 Test Items）",
             self.QUERY_PROJECT_FW_ALL_TEST_ITEMS: "查詢專案 FW 的所有測項（列出全部 Test Items）",
             self.LIST_FW_BY_DATE_RANGE: "按日期範圍查詢專案 FW 版本（專案這個月有哪些 FW）",
+            self.QUERY_SUPPORTED_CAPACITIES: "查詢專案 FW 支援的容量（支援哪些 TB/GB）",
             self.COUNT_PROJECTS: "統計專案數量",
             self.LIST_ALL_CUSTOMERS: "列出所有客戶",
             self.LIST_ALL_CONTROLLERS: "列出所有控制器",
@@ -164,6 +168,7 @@ class IntentType(Enum):
             self.QUERY_PROJECT_FW_CATEGORY_TEST_ITEMS: ["project_name", "fw_version", "category_name"],  # Phase 12: 專案 FW 類別測項
             self.QUERY_PROJECT_FW_ALL_TEST_ITEMS: ["project_name", "fw_version"],  # Phase 12: 專案 FW 全部測項
             self.LIST_FW_BY_DATE_RANGE: ["project_name"],  # Phase 13: 專案 FW 日期範圍查詢
+            self.QUERY_SUPPORTED_CAPACITIES: ["project_name", "fw_version"],  # Phase 14: 專案 FW 支援容量
             self.COUNT_PROJECTS: [],  # customer 是可選的
             self.LIST_ALL_CUSTOMERS: [],
             self.LIST_ALL_CONTROLLERS: [],
