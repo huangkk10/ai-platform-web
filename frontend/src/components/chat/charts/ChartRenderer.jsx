@@ -2,7 +2,7 @@
  * ChartRenderer - 圖表渲染器
  * 
  * 根據圖表配置動態選擇和渲染適當的圖表組件
- * 支援 line、bar、pie 三種類型
+ * 支援 line、bar、pie、radar、heatmap 五種類型
  * 
  * 用法：
  * <ChartRenderer config={{ type: 'line', data: {...}, options: {...} }} />
@@ -14,11 +14,15 @@ import {
   LineChartOutlined, 
   BarChartOutlined, 
   PieChartOutlined,
+  RadarChartOutlined,
+  HeatMapOutlined,
   InfoCircleOutlined 
 } from '@ant-design/icons';
 import TrendLineChart from './TrendLineChart';
 import ComparisonBarChart from './ComparisonBarChart';
 import DistributionPieChart from './DistributionPieChart';
+import RadarChart from './RadarChart';
+import HeatmapChart from './HeatmapChart';
 import './ChartStyles.css';
 
 const { Text, Title } = Typography;
@@ -34,6 +38,10 @@ const getChartIcon = (type) => {
       return <BarChartOutlined style={{ color: '#52c41a', marginRight: 8 }} />;
     case 'pie':
       return <PieChartOutlined style={{ color: '#722ed1', marginRight: 8 }} />;
+    case 'radar':
+      return <RadarChartOutlined style={{ color: '#13c2c2', marginRight: 8 }} />;
+    case 'heatmap':
+      return <HeatMapOutlined style={{ color: '#eb2f96', marginRight: 8 }} />;
     default:
       return <InfoCircleOutlined style={{ color: '#faad14', marginRight: 8 }} />;
   }
@@ -55,7 +63,7 @@ const validateConfig = (config) => {
     return { valid: false, error: '缺少圖表資料 (data)' };
   }
   
-  const validTypes = ['line', 'bar', 'pie'];
+  const validTypes = ['line', 'bar', 'pie', 'radar', 'heatmap'];
   if (!validTypes.includes(config.type)) {
     return { valid: false, error: `不支援的圖表類型: ${config.type}` };
   }
@@ -76,6 +84,10 @@ const renderChart = (config) => {
       return <ComparisonBarChart data={data} options={options} />;
     case 'pie':
       return <DistributionPieChart data={data} options={options} />;
+    case 'radar':
+      return <RadarChart data={data} options={options} />;
+    case 'heatmap':
+      return <HeatmapChart data={data} options={options} />;
     default:
       return <Empty description="不支援的圖表類型" />;
   }

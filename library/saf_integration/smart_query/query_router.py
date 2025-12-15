@@ -331,6 +331,7 @@ class SmartQueryService:
             Dict: 查詢結果，包含意圖分析和查詢結果
         """
         import time
+        import re
         start_time = time.time()
         
         logger.info(f"開始處理查詢: {user_query}")
@@ -343,7 +344,10 @@ class SmartQueryService:
             f"confidence={intent_result.confidence:.2f}"
         )
         
-        # 2. 路由並執行查詢
+        # 2. 意圖修正：處理 compare_latest_fw 被錯誤識別的情況
+        intent_result = self._correct_intent_if_needed(intent_result, user_query)
+        
+        # 3. 路由並執行查詢
         query_result = self.query_router.route(intent_result)
         
         # 3. 計算總時間
@@ -373,6 +377,81 @@ class SmartQueryService:
         )
         
         return result
+
+    def _correct_intent_if_needed(self, intent_result, user_query: str):
+        """
+        意圖修正邏輯
+        
+        當 LLM 錯誤地將多版本比較識別為 compare_latest_fw 時進行修正。
+        
+        修正條件：
+        1. 意圖是 compare_latest_fw
+        2. 查詢包含 ≥3 的數字（如 "3個"、"三個"、"5版本"）
+        
+        Args:
+            intent_result: 原始意圖分析結果
+            user_query: 原始用戶查詢
+            
+        Returns:
+            IntentResult: 修正後的意圖結果（或原始結果如果不需要修正）
+        """
+        import re
+        
+        # 只處理 compare_latest_fw 意圖
+        if intent_result.intent != IntentType.COMPARE_LATEST_FW:
+            return intent_result
+        
+        # 檢測查詢中是否包含 ≥3 的版本數
+        # 數字模式：阿拉伯數字 3~99
+        arabic_pattern = r'(\d+)\s*[個版]'
+        # 中文數字模式：三、四、五、六...、多
+        chinese_pattern = r'([三四五六七八九十多幾])[個版]'
+        
+        version_count = None
+        
+        # 嘗試匹配阿拉伯數字
+        arabic_match = re.search(arabic_pattern, user_query)
+        if arabic_match:
+            version_count = int(arabic_match.group(1))
+            logger.info(f"檢測到阿拉伯數字版本數: {version_count}")
+        
+        # 嘗試匹配中文數字
+        if version_count is None:
+            chinese_match = re.search(chinese_pattern, user_query)
+            if chinese_match:
+                chinese_num = chinese_match.group(1)
+                chinese_to_num = {
+                    '三': 3, '四': 4, '五': 5, '六': 6, '七': 7,
+                    '八': 8, '九': 9, '十': 10, '多': 5, '幾': 5
+                }
+                version_count = chinese_to_num.get(chinese_num, 5)
+                logger.info(f"檢測到中文數字版本數: {chinese_num} -> {version_count}")
+        
+        # 如果版本數 >= 3，修正意圖為 compare_multiple_fw
+        if version_count is not None and version_count >= 3:
+            logger.warning(
+                f"意圖修正: compare_latest_fw -> compare_multiple_fw "
+                f"(檢測到 {version_count} 個版本)"
+            )
+            
+            # 從原始參數中提取 project_name
+            project_name = intent_result.parameters.get('project_name')
+            
+            # 創建修正後的 IntentResult
+            corrected_result = IntentResult(
+                intent=IntentType.COMPARE_MULTIPLE_FW,
+                parameters={
+                    'project_name': project_name,
+                    'latest_count': version_count  # 添加版本數參數
+                },
+                confidence=intent_result.confidence,
+                raw_response=intent_result.raw_response + " [CORRECTED: multiple versions detected]"
+            )
+            
+            return corrected_result
+        
+        # 不需要修正，返回原始結果
+        return intent_result
 
 
 # 全局服務實例（延遲初始化）

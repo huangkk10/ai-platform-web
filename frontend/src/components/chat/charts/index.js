@@ -2,22 +2,26 @@
  * 圖表組件模組導出
  * 
  * 用於 AI Assistant 回應中渲染各類圖表
- * 支援：折線圖 (LineChart)、柱狀圖 (BarChart)、圓餅圖 (PieChart)
+ * 支援：折線圖、柱狀圖、圓餅圖、雷達圖、熱力圖
  * 
  * @author AI Platform Team
- * @version 1.0.0
+ * @version 1.2.0
  */
 
 export { default as ChartRenderer } from './ChartRenderer';
 export { default as TrendLineChart } from './TrendLineChart';
 export { default as ComparisonBarChart } from './ComparisonBarChart';
 export { default as DistributionPieChart } from './DistributionPieChart';
+export { default as RadarChart } from './RadarChart';
+export { default as HeatmapChart } from './HeatmapChart';
 
 // 圖表類型常量
 export const CHART_TYPES = {
   LINE: 'line',
   BAR: 'bar',
   PIE: 'pie',
+  RADAR: 'radar',
+  HEATMAP: 'heatmap',
 };
 
 // 預設配色方案

@@ -153,20 +153,21 @@ INTENT_ANALYSIS_PROMPT = """
 - 【區分】如果只有一個 FW 版本，請使用 query_project_test_summary_by_fw
 
 ### 10. compare_latest_fw - 自動比較最新兩個 FW 版本 (Phase 5.2 新增)
-用戶想比較專案的 FW 版本，但沒有指定具體版本名稱時使用。
-系統會自動選擇最新/最活躍的兩個版本進行比較。
+用戶想比較專案的 FW 版本，但沒有指定具體版本名稱，且只想比較【兩個】版本時使用。
+系統會自動選擇最新的【兩個】版本進行比較。
 - 常見問法：
-  - 「XX 最新的 FW 比較」「XX 專案最新版本比較」
+  - 「XX 最新的 FW 比較」「XX 專案最新版本比較」（沒有指定數量 = 兩個）
   - 「比較 XX 最近兩個版本」「XX 的 FW 進度比較」
   - 「看一下 XX 最新版本差異」「XX 最新 FW 測試差異」
   - 「XX 專案 FW 更新比較」「比較 XX 最新韌體」
   - 「XX 版本演進比較」「XX 的 FW 變化」
 - 參數：
   - project_name (專案名稱，如 DEMETER、Springsteen、Channel)
-- 【重要】此意圖用於用戶沒有指定具體 FW 版本時
-- 【區分】
-  - 如果用戶指定了兩個具體 FW 版本 → 使用 compare_fw_versions
-  - 如果用戶說「最新」「最近」「版本比較」但沒有版本號 → 使用 compare_latest_fw
+- 【重要】此意圖只用於比較【兩個】版本
+- 【⚠️ 關鍵區分 ⚠️】
+  - 如果用戶說「最新 3 個」「最近 3 個」「三個版本」「N 個版本」（N >= 3）→ 【必須】使用 compare_multiple_fw
+  - 如果用戶說「最新」「最近」但【沒有指定數量】或說「兩個」→ 使用 compare_latest_fw
+  - 數字關鍵字：3、三、4、四、5、五、多個 → 使用 compare_multiple_fw
 
 ### 11. list_fw_versions - 列出專案可比較的 FW 版本 (Phase 5.2 新增)
 用戶想知道專案有哪些 FW 版本可以比較或查詢時使用。
@@ -205,10 +206,10 @@ INTENT_ANALYSIS_PROMPT = """
   - AD = 4096GB 版本
   - 用戶可能直接說「AA」「AB」或「512GB」「1024GB」等
 - 【重要】此意圖用於 3 個或更多版本的趨勢比較
-- 【區分】
-  - 如果用戶指定了兩個具體 FW 版本 → 使用 compare_fw_versions
-  - 如果用戶說「最新兩個」「最近兩個」→ 使用 compare_latest_fw
-  - 如果用戶說「三個版本」「多個版本」「最近幾個」「趨勢」→ 使用 compare_multiple_fw
+- 【⚠️ 關鍵區分 ⚠️】
+  - 如果用戶說「最新 3 個」「最近 3 個」「三個版本」「N 個版本」（N >= 3）→ 【必須】使用 compare_multiple_fw
+  - 如果用戶說「最新兩個」「最近兩個」或沒有指定數量 → 使用 compare_latest_fw
+  - 包含數字 3、三、4、四、5、五、6、六 或「多個」「幾個」「趨勢」→ 使用 compare_multiple_fw
 
 ### 13. query_fw_detail_summary - 查詢 FW 詳細統計 (Phase 6.2 新增)
 用戶想了解專案特定 FW 版本的整體統計指標時使用。
@@ -640,6 +641,12 @@ Sub Version 代碼：AA (512GB), AB (1024GB/1TB), AC (2048GB/2TB), AD (4096GB/4T
 
 輸入：DEMETER 最近三個版本的趨勢
 輸出：{"intent": "compare_multiple_fw", "parameters": {"project_name": "DEMETER", "latest_count": 3}, "confidence": 0.93}
+
+輸入：Springsteen 最新 3 個 FW 版本比較
+輸出：{"intent": "compare_multiple_fw", "parameters": {"project_name": "Springsteen", "latest_count": 3}, "confidence": 0.95}
+
+輸入：Springsteen 最近三個 FW 比較
+輸出：{"intent": "compare_multiple_fw", "parameters": {"project_name": "Springsteen", "latest_count": 3}, "confidence": 0.94}
 
 輸入：Channel 專案 FW A、B、C、D 的測試趨勢
 輸出：{"intent": "compare_multiple_fw", "parameters": {"project_name": "Channel", "fw_versions": ["A", "B", "C", "D"]}, "confidence": 0.95}
