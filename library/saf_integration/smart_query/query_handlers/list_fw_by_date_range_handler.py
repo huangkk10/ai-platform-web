@@ -256,11 +256,18 @@ class ListFWByDateRangeHandler(BaseHandler):
             return start_date, end_date, "去年"
         
         elif date_range in ('recent', '最近', '近期'):
-            # 最近一個月
+            # 最近一個月（30 天）
             start_date = now - timedelta(days=30)
             start_date = datetime(start_date.year, start_date.month, start_date.day)
             end_date = now
             return start_date, end_date, "最近 30 天"
+        
+        elif date_range in ('recent_month', '近一個月', '最近一個月', '近30天', '近一月'):
+            # 近一個月（從今天往回推 30 天）- 注意：這不是「上個月」！
+            start_date = now - timedelta(days=30)
+            start_date = datetime(start_date.year, start_date.month, start_date.day)
+            end_date = now
+            return start_date, end_date, "近一個月"
         
         # 處理年月範圍參數
         year = parameters.get('year')

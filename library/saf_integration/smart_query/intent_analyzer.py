@@ -427,6 +427,7 @@ Sub Version 是指專案的不同容量變體，如 AA=512GB, AB=1024GB, AC=2048
   - 「DEMETER 本月的 FW」「DEMETER 上個月有哪些韌體版本」
   - 「XX 專案 2025年1月的 FW 版本」「XX 今年有哪些 FW」
   - 「Springsteen 最近有哪些 FW」「DEMETER 近期的韌體」
+  - 「XX 近一個月有哪些 FW」「XX 專案近一個月的 FW 版本」
   - 「XX 專案 10月到12月的 FW」「XX 上半年的 FW 版本」
   - 「這個月 XX 有發布什麼 FW」「上週 XX 有新的 FW 嗎」
   - 「Springsteen AC 2025年有哪些 FW」「DEMETER AA 本月的 FW」（同時指定 Sub Version 和日期）
@@ -437,8 +438,15 @@ Sub Version 是指專案的不同容量變體，如 AA=512GB, AB=1024GB, AC=2048
   - month (選填，月份，1-12)
   - start_month (選填，開始月份，用於範圍查詢)
   - end_month (選填，結束月份，用於範圍查詢)
-  - date_range (選填，'this_month'、'last_month'、'this_week'、'last_week'、'recent')
+  - date_range (選填，'this_month'、'last_month'、'this_week'、'last_week'、'recent'、'recent_month')
   - sub_version (選填，Sub Version 代碼如 AA、AB、AC、AD)
+- 【date_range 關鍵字對應】- 【必須嚴格遵守】
+  - 「本月」「這個月」→ date_range: "this_month"
+  - 「上個月」「上月」→ date_range: "last_month"（特指上一個完整的月份）
+  - 「近一個月」「最近一個月」「近30天」→ date_range: "recent_month"（從今天往回推30天）【重要：不是 last_month！】
+  - 「最近」「近期」→ date_range: "recent"（最近30天）
+  - 「本週」「這週」→ date_range: "this_week"
+  - 「上週」→ date_range: "last_week"
 - 【重要區分】
   - 如果用戶問「XX 有哪些 FW 版本」（無日期）→ 使用 list_fw_versions（列出所有 FW）
   - 如果用戶問「XX 12月有哪些 FW」或「XX 本月的 FW」→ 使用 list_fw_by_date_range（按日期過濾）
@@ -1070,6 +1078,15 @@ Sub Version 代碼：AA (512GB), AB (1024GB/1TB), AC (2048GB/2TB), AD (4096GB/4T
 
 輸入：Channel 上個月有哪些 FW 版本
 輸出：{"intent": "list_fw_by_date_range", "parameters": {"project_name": "Channel", "date_range": "last_month"}, "confidence": 0.93}
+
+輸入：PVF01 近一個月有那些 FW
+輸出：{"intent": "list_fw_by_date_range", "parameters": {"project_name": "PVF01", "date_range": "recent_month"}, "confidence": 0.94}
+
+輸入：Springsteen 最近一個月的 FW
+輸出：{"intent": "list_fw_by_date_range", "parameters": {"project_name": "Springsteen", "date_range": "recent_month"}, "confidence": 0.94}
+
+輸入：DEMETER 近30天有哪些 FW
+輸出：{"intent": "list_fw_by_date_range", "parameters": {"project_name": "DEMETER", "date_range": "recent_month"}, "confidence": 0.93}
 
 輸入：Springsteen 2025年1月的 FW 版本
 輸出：{"intent": "list_fw_by_date_range", "parameters": {"project_name": "Springsteen", "year": 2025, "month": 1}, "confidence": 0.94}

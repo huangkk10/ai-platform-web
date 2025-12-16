@@ -154,7 +154,7 @@ class DateHandler(BaseHandler):
             return start_date, end_date, "本月"
         
         elif date_range == 'last_month' or date_range == '上月' or date_range == '上個月':
-            # 上個月
+            # 上個月（特指上一個完整的月份）
             if now.month == 1:
                 start_date = datetime(now.year - 1, 12, 1)
                 end_date = datetime(now.year, 1, 1) - timedelta(days=1)
@@ -162,6 +162,20 @@ class DateHandler(BaseHandler):
                 start_date = datetime(now.year, now.month - 1, 1)
                 end_date = datetime(now.year, now.month, 1) - timedelta(days=1)
             return start_date, end_date, "上個月"
+        
+        elif date_range in ('recent_month', '近一個月', '最近一個月', '近30天', '近一月'):
+            # 近一個月（從今天往回推 30 天）- 注意：這不是「上個月」！
+            start_date = now - timedelta(days=30)
+            start_date = datetime(start_date.year, start_date.month, start_date.day)
+            end_date = now
+            return start_date, end_date, "近一個月"
+        
+        elif date_range in ('recent', '最近', '近期'):
+            # 最近（30 天）
+            start_date = now - timedelta(days=30)
+            start_date = datetime(start_date.year, start_date.month, start_date.day)
+            end_date = now
+            return start_date, end_date, "最近 30 天"
         
         elif date_range == 'this_year' or date_range == '今年':
             start_date = datetime(now.year, 1, 1)
