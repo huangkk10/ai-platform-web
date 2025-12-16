@@ -30,6 +30,7 @@ const SAF_WELCOME_MESSAGE = `🔧 **歡迎使用 SAF Assistant！**
 - 📊 **多版本趨勢分析** → 「Springsteen 最新 5 個 FW 版本比較」
 - 💾 **查詢支援容量** → 「Springsteen FW XX 支援哪些容量？」
 - 📁 **按類別查詢測試** → 「TITAN 的 Compliance 測試結果」「XX 專案的效能測試」
+- ⚠️ **Known Issues 查詢** → 「Springsteen 專案有多少 Known Issues？」「哪些專案的 Known Issues 最多？」
 - 🔢 **統計專案數量** → 「WD 有幾個專案？」「總共有多少專案？」
 - 👥 **列出所有客戶** → 「有哪些客戶？」「列出所有客戶」
 - 🎛️ **列出所有控制器** → 「有哪些控制器？」「系統支援哪些控制器」

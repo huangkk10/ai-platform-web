@@ -43,6 +43,8 @@ from .query_handlers import (
     ListFWByDateRangeHandler,
     # Phase 14: 支援容量查詢處理器
     SupportedCapacitiesHandler,
+    # Phase 15: Known Issues 查詢處理器
+    KnownIssuesHandler,
 )
 
 logger = logging.getLogger(__name__)
@@ -149,6 +151,20 @@ class QueryRouter:
             # Phase 14: 支援容量查詢處理器
             IntentType.QUERY_SUPPORTED_CAPACITIES: SupportedCapacitiesHandler(),
             
+            # Phase 15: Known Issues 查詢處理器（12 個意圖共用）
+            IntentType.QUERY_PROJECT_KNOWN_ISSUES: KnownIssuesHandler(),
+            IntentType.QUERY_PROJECT_TEST_ITEM_KNOWN_ISSUES: KnownIssuesHandler(),
+            IntentType.COUNT_PROJECT_KNOWN_ISSUES: KnownIssuesHandler(),
+            IntentType.RANK_PROJECTS_BY_KNOWN_ISSUES: KnownIssuesHandler(),
+            IntentType.QUERY_KNOWN_ISSUES_BY_CREATOR: KnownIssuesHandler(),
+            IntentType.LIST_KNOWN_ISSUES_CREATORS: KnownIssuesHandler(),
+            IntentType.QUERY_KNOWN_ISSUES_WITH_JIRA: KnownIssuesHandler(),
+            IntentType.QUERY_KNOWN_ISSUES_WITHOUT_JIRA: KnownIssuesHandler(),
+            IntentType.QUERY_RECENT_KNOWN_ISSUES: KnownIssuesHandler(),
+            IntentType.QUERY_KNOWN_ISSUES_BY_DATE_RANGE: KnownIssuesHandler(),
+            IntentType.SEARCH_KNOWN_ISSUES_BY_KEYWORD: KnownIssuesHandler(),
+            IntentType.QUERY_ALL_KNOWN_ISSUES_BY_TEST_ITEM: KnownIssuesHandler(),
+            
             # 統計類型使用專門的處理器
             IntentType.COUNT_PROJECTS: self._statistics_handler,
             IntentType.LIST_ALL_CUSTOMERS: self._statistics_handler,
@@ -202,8 +218,12 @@ class QueryRouter:
             ]:
                 return self._handle_statistics_query(intent_type, parameters)
             
-            # 執行查詢
-            result = handler.execute(parameters)
+            # 特殊處理 Known Issues 查詢（需要傳遞 intent 參數）
+            if intent_type in self._get_known_issues_intents():
+                result = handler.execute(parameters, intent=intent_type.value)
+            else:
+                # 執行一般查詢
+                result = handler.execute(parameters)
             
             # 添加意圖信息到 metadata
             result.metadata['intent'] = intent_type.value
@@ -218,6 +238,28 @@ class QueryRouter:
                 query_type=intent_type.value,
                 parameters=parameters
             )
+    
+    def _get_known_issues_intents(self) -> list:
+        """
+        獲取所有 Known Issues 相關的意圖類型
+        
+        Returns:
+            Known Issues 意圖類型列表
+        """
+        return [
+            IntentType.QUERY_PROJECT_KNOWN_ISSUES,
+            IntentType.QUERY_PROJECT_TEST_ITEM_KNOWN_ISSUES,
+            IntentType.COUNT_PROJECT_KNOWN_ISSUES,
+            IntentType.RANK_PROJECTS_BY_KNOWN_ISSUES,
+            IntentType.QUERY_KNOWN_ISSUES_BY_CREATOR,
+            IntentType.LIST_KNOWN_ISSUES_CREATORS,
+            IntentType.QUERY_KNOWN_ISSUES_WITH_JIRA,
+            IntentType.QUERY_KNOWN_ISSUES_WITHOUT_JIRA,
+            IntentType.QUERY_RECENT_KNOWN_ISSUES,
+            IntentType.QUERY_KNOWN_ISSUES_BY_DATE_RANGE,
+            IntentType.SEARCH_KNOWN_ISSUES_BY_KEYWORD,
+            IntentType.QUERY_ALL_KNOWN_ISSUES_BY_TEST_ITEM,
+        ]
     
     def _handle_statistics_query(self, intent_type: IntentType, 
                                   parameters: Dict[str, Any]) -> QueryResult:

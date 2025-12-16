@@ -83,6 +83,30 @@ class IntentType(Enum):
     # 🆕 Phase 14: 查詢專案 FW 支援的容量
     QUERY_SUPPORTED_CAPACITIES = "query_supported_capacities"  # 專案 FW 支援哪些容量？
     
+    # 🆕 Phase 15: Known Issues 查詢（基礎查詢）
+    QUERY_PROJECT_KNOWN_ISSUES = "query_project_known_issues"  # 查詢專案的 Known Issues
+    QUERY_PROJECT_TEST_ITEM_KNOWN_ISSUES = "query_project_test_item_known_issues"  # 按 Test Item 查詢
+    
+    # 🆕 Phase 15: Known Issues 統計分析
+    COUNT_PROJECT_KNOWN_ISSUES = "count_project_known_issues"  # 統計專案 Known Issues 數量
+    RANK_PROJECTS_BY_KNOWN_ISSUES = "rank_projects_by_known_issues"  # 按 Issues 數量排名專案
+    
+    # 🆕 Phase 15: Known Issues 按建立者查詢
+    QUERY_KNOWN_ISSUES_BY_CREATOR = "query_known_issues_by_creator"  # 查詢特定人員建立的 Issues
+    LIST_KNOWN_ISSUES_CREATORS = "list_known_issues_creators"  # 列出所有 Issue 建立者
+    
+    # 🆕 Phase 15: Known Issues JIRA 相關
+    QUERY_KNOWN_ISSUES_WITH_JIRA = "query_known_issues_with_jira"  # 查詢有 JIRA 連結的 Issues
+    QUERY_KNOWN_ISSUES_WITHOUT_JIRA = "query_known_issues_without_jira"  # 查詢沒有 JIRA 的 Issues
+    
+    # 🆕 Phase 15: Known Issues 時間相關
+    QUERY_RECENT_KNOWN_ISSUES = "query_recent_known_issues"  # 查詢最近的 Known Issues
+    QUERY_KNOWN_ISSUES_BY_DATE_RANGE = "query_known_issues_by_date_range"  # 按日期範圍查詢
+    
+    # 🆕 Phase 15: Known Issues 跨專案搜尋
+    SEARCH_KNOWN_ISSUES_BY_KEYWORD = "search_known_issues_by_keyword"  # 按關鍵字搜尋 Issues
+    QUERY_ALL_KNOWN_ISSUES_BY_TEST_ITEM = "query_all_known_issues_by_test_item"  # 跨專案按 Test Item 搜尋
+    
     # 統計專案數量
     COUNT_PROJECTS = "count_projects"
     
@@ -140,6 +164,19 @@ class IntentType(Enum):
             self.QUERY_PROJECT_FW_ALL_TEST_ITEMS: "查詢專案 FW 的所有測項（列出全部 Test Items）",
             self.LIST_FW_BY_DATE_RANGE: "按日期範圍查詢專案 FW 版本（專案這個月有哪些 FW）",
             self.QUERY_SUPPORTED_CAPACITIES: "查詢專案 FW 支援的容量（支援哪些 TB/GB）",
+            # Phase 15: Known Issues 相關
+            self.QUERY_PROJECT_KNOWN_ISSUES: "查詢專案的 Known Issues（已知問題）",
+            self.QUERY_PROJECT_TEST_ITEM_KNOWN_ISSUES: "查詢專案特定測試項目的 Known Issues",
+            self.COUNT_PROJECT_KNOWN_ISSUES: "統計專案 Known Issues 數量",
+            self.RANK_PROJECTS_BY_KNOWN_ISSUES: "按 Known Issues 數量排名專案",
+            self.QUERY_KNOWN_ISSUES_BY_CREATOR: "查詢特定人員建立的 Known Issues",
+            self.LIST_KNOWN_ISSUES_CREATORS: "列出 Known Issues 建立者",
+            self.QUERY_KNOWN_ISSUES_WITH_JIRA: "查詢有 JIRA 連結的 Known Issues",
+            self.QUERY_KNOWN_ISSUES_WITHOUT_JIRA: "查詢沒有 JIRA 連結的 Known Issues",
+            self.QUERY_RECENT_KNOWN_ISSUES: "查詢最近的 Known Issues",
+            self.QUERY_KNOWN_ISSUES_BY_DATE_RANGE: "按日期範圍查詢 Known Issues",
+            self.SEARCH_KNOWN_ISSUES_BY_KEYWORD: "按關鍵字搜尋 Known Issues",
+            self.QUERY_ALL_KNOWN_ISSUES_BY_TEST_ITEM: "跨專案按 Test Item 搜尋 Known Issues",
             self.COUNT_PROJECTS: "統計專案數量",
             self.LIST_ALL_CUSTOMERS: "列出所有客戶",
             self.LIST_ALL_CONTROLLERS: "列出所有控制器",
@@ -169,6 +206,19 @@ class IntentType(Enum):
             self.QUERY_PROJECT_FW_ALL_TEST_ITEMS: ["project_name", "fw_version"],  # Phase 12: 專案 FW 全部測項
             self.LIST_FW_BY_DATE_RANGE: ["project_name"],  # Phase 13: 專案 FW 日期範圍查詢
             self.QUERY_SUPPORTED_CAPACITIES: ["project_name", "fw_version"],  # Phase 14: 專案 FW 支援容量
+            # Phase 15: Known Issues 相關
+            self.QUERY_PROJECT_KNOWN_ISSUES: ["project_name"],
+            self.QUERY_PROJECT_TEST_ITEM_KNOWN_ISSUES: ["project_name", "test_item"],
+            self.COUNT_PROJECT_KNOWN_ISSUES: ["project_name"],
+            self.RANK_PROJECTS_BY_KNOWN_ISSUES: [],  # top_n 和 customer 是可選的
+            self.QUERY_KNOWN_ISSUES_BY_CREATOR: ["creator"],
+            self.LIST_KNOWN_ISSUES_CREATORS: [],  # project_name 是可選的
+            self.QUERY_KNOWN_ISSUES_WITH_JIRA: [],  # project_name 是可選的
+            self.QUERY_KNOWN_ISSUES_WITHOUT_JIRA: [],  # project_name 是可選的
+            self.QUERY_RECENT_KNOWN_ISSUES: [],  # days, limit, project_name 都是可選的
+            self.QUERY_KNOWN_ISSUES_BY_DATE_RANGE: ["start_date"],  # end_date 是可選的
+            self.SEARCH_KNOWN_ISSUES_BY_KEYWORD: ["keyword"],
+            self.QUERY_ALL_KNOWN_ISSUES_BY_TEST_ITEM: ["test_item"],
             self.COUNT_PROJECTS: [],  # customer 是可選的
             self.LIST_ALL_CUSTOMERS: [],
             self.LIST_ALL_CONTROLLERS: [],
@@ -200,6 +250,19 @@ class IntentType(Enum):
             self.QUERY_PROJECT_FW_CATEGORY_TEST_ITEMS: ["capacity"],  # Phase 12: 可選容量過濾
             self.QUERY_PROJECT_FW_ALL_TEST_ITEMS: ["capacity"],  # Phase 12: 可選容量過濾
             self.LIST_FW_BY_DATE_RANGE: ["sub_version", "year", "month", "start_month", "end_month", "date_range"],  # Phase 13: 可選參數
+            # Phase 15: Known Issues 相關
+            self.QUERY_PROJECT_KNOWN_ISSUES: ["show_disabled"],
+            self.QUERY_PROJECT_TEST_ITEM_KNOWN_ISSUES: ["show_disabled"],
+            self.COUNT_PROJECT_KNOWN_ISSUES: [],
+            self.RANK_PROJECTS_BY_KNOWN_ISSUES: ["top_n", "customer"],
+            self.QUERY_KNOWN_ISSUES_BY_CREATOR: ["project_name"],
+            self.LIST_KNOWN_ISSUES_CREATORS: ["project_name"],
+            self.QUERY_KNOWN_ISSUES_WITH_JIRA: ["project_name"],
+            self.QUERY_KNOWN_ISSUES_WITHOUT_JIRA: ["project_name"],
+            self.QUERY_RECENT_KNOWN_ISSUES: ["days", "limit", "project_name"],
+            self.QUERY_KNOWN_ISSUES_BY_DATE_RANGE: ["end_date", "project_name"],
+            self.SEARCH_KNOWN_ISSUES_BY_KEYWORD: ["search_fields", "project_name"],
+            self.QUERY_ALL_KNOWN_ISSUES_BY_TEST_ITEM: ["customer"],
             self.COUNT_PROJECTS: ["customer"],  # 可選：按客戶統計
             self.LIST_ALL_CUSTOMERS: [],
             self.LIST_ALL_CONTROLLERS: [],
@@ -404,5 +467,54 @@ INTENT_KEYWORDS = {
     IntentType.QUERY_PROJECTS_BY_PL: [
         '負責', '專案負責人', 'PL', 'project leader', '管理的專案',
         '誰負責', '負責人是', '的專案'
+    ],
+    # Phase 15: Known Issues 相關關鍵字
+    IntentType.QUERY_PROJECT_KNOWN_ISSUES: [
+        'known issue', 'known issues', '已知問題', 'issue', 'issues',
+        '問題', '已知', '已知的問題', 'known'
+    ],
+    IntentType.QUERY_PROJECT_TEST_ITEM_KNOWN_ISSUES: [
+        'known issue', '測試問題', 'test item issue', '測試項目問題',
+        '的問題', '有什麼問題', '什麼issue'
+    ],
+    IntentType.COUNT_PROJECT_KNOWN_ISSUES: [
+        '幾個known issue', '多少issue', '幾個問題', 'issue數量',
+        '有幾個', '有多少', 'known issue數'
+    ],
+    IntentType.RANK_PROJECTS_BY_KNOWN_ISSUES: [
+        '最多issue', 'issue排名', '問題最多', '哪個專案issue最多',
+        '前幾名', 'top', '排名'
+    ],
+    IntentType.QUERY_KNOWN_ISSUES_BY_CREATOR: [
+        '建立的', '建的', '誰建的', '建立者', 'created by',
+        '誰建立', '建了哪些'
+    ],
+    IntentType.LIST_KNOWN_ISSUES_CREATORS: [
+        '建立者', '誰建的', '建立者列表', '有哪些人建立',
+        '都是誰建的', 'creators'
+    ],
+    IntentType.QUERY_KNOWN_ISSUES_WITH_JIRA: [
+        '有jira', '已開jira', 'jira連結', '有關聯jira',
+        '連結到jira', 'with jira'
+    ],
+    IntentType.QUERY_KNOWN_ISSUES_WITHOUT_JIRA: [
+        '沒有jira', '未開jira', '缺少jira', '沒jira',
+        '沒有開jira', 'without jira', '還沒開jira'
+    ],
+    IntentType.QUERY_RECENT_KNOWN_ISSUES: [
+        '最近', '這週', '這個月', '新增的', 'recent',
+        '最近一週', '最近幾天', '最新'
+    ],
+    IntentType.QUERY_KNOWN_ISSUES_BY_DATE_RANGE: [
+        '日期', '時間範圍', '月份', 'date range',
+        '幾月', '從...到', '期間'
+    ],
+    IntentType.SEARCH_KNOWN_ISSUES_BY_KEYWORD: [
+        '搜尋', '包含', '關鍵字', '備註有', 'search',
+        'keyword', '找出', '找'
+    ],
+    IntentType.QUERY_ALL_KNOWN_ISSUES_BY_TEST_ITEM: [
+        '所有專案', '跨專案', '哪些專案有', '全部專案的',
+        '所有的', 'all projects'
     ],
 }

@@ -585,6 +585,129 @@ class SAFAPIClient:
             logger.error(f"Test Details API 請求異常: {str(e)}")
             return None
 
+    def get_known_issues(
+        self,
+        project_ids: List[int] = None,
+        root_ids: List[int] = None,
+        show_disabled: bool = True
+    ) -> List[Dict[str, Any]]:
+        """
+        獲取 Known Issues (Phase 15 新增)
+        
+        使用 POST /api/v1/projects/known-issues API
+        
+        Args:
+            project_ids: 專案 ID 列表 (對應 API 的 project_id[] 參數)
+            root_ids: Root ID 列表 (對應 API 的 root_id[] 參數)
+            show_disabled: 是否顯示已停用的 Issues (預設 True)
+            
+        Returns:
+            Known Issues 列表，每個 Issue 包含:
+            - id: Issue 內部 ID
+            - project_id: 專案 ID
+            - project_name: 專案名稱
+            - root_id: Root ID
+            - test_item_name: 測試項目名稱
+            - issue_id: Issue 識別碼
+            - case_name: 案例名稱
+            - case_path: 案例路徑
+            - created_by: 建立者
+            - created_at: 建立時間
+            - jira_id: JIRA ID
+            - jira_link: JIRA 連結
+            - note: 備註
+            - is_enable: 是否啟用
+        """
+        url = f"{self.base_url}/api/v1/projects/known-issues"
+        
+        # 構建請求參數
+        params = {
+            "show_disable": show_disabled
+        }
+        
+        # 添加 project_id[] 參數
+        if project_ids:
+            for pid in project_ids:
+                if 'project_id[]' not in params:
+                    params['project_id[]'] = []
+                params['project_id[]'].append(pid)
+        
+        # 添加 root_id[] 參數
+        if root_ids:
+            for rid in root_ids:
+                if 'root_id[]' not in params:
+                    params['root_id[]'] = []
+                params['root_id[]'].append(rid)
+        
+        # 檢查快取
+        cache_key = f"known_issues:{str(project_ids)}:{str(root_ids)}:{show_disabled}"
+        if self.cache_manager:
+            cached_data = self.cache_manager.get(cache_key)
+            if cached_data is not None:
+                logger.debug(f"從快取獲取 Known Issues")
+                return cached_data
+        
+        # 獲取認證 headers
+        headers = self.auth_manager.get_auth_headers()
+        headers['Content-Type'] = 'application/json'
+        
+        # 構建 POST 請求的 body
+        # SAF API 使用 form 參數格式
+        form_data = {
+            "show_disable": show_disabled
+        }
+        if project_ids:
+            form_data["project_id[]"] = project_ids
+        if root_ids:
+            form_data["root_id[]"] = root_ids
+        
+        try:
+            logger.info(f"調用 Known Issues API: {url}, project_ids={project_ids}")
+            
+            # SAF API 使用 POST 請求
+            response = requests.post(
+                url,
+                headers=headers,
+                data=form_data,  # 使用 form data 格式
+                timeout=self.timeout
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('success'):
+                    # SAF API 返回格式: {"success": true, "data": {"items": [...], "total": N}}
+                    raw_data = data.get('data', {})
+                    if isinstance(raw_data, dict):
+                        result = raw_data.get('items', [])
+                    else:
+                        result = raw_data if isinstance(raw_data, list) else []
+                    
+                    # 存入快取（TTL 5 分鐘，Known Issues 可能常更新）
+                    if self.cache_manager and result:
+                        self.cache_manager.set(cache_key, result, ttl=300)
+                    
+                    logger.info(f"獲取 Known Issues 成功: {len(result)} 筆")
+                    return result
+                else:
+                    logger.warning(f"Known Issues API 返回失敗: {data.get('message')}")
+                    return []
+            elif response.status_code == 404:
+                logger.warning(f"Known Issues API 路徑不存在")
+                return []
+            else:
+                logger.error(f"Known Issues API HTTP 錯誤: {response.status_code}")
+                return []
+                
+        except requests.exceptions.Timeout:
+            logger.error(f"Known Issues API 請求超時")
+            return []
+        except requests.exceptions.ConnectionError as e:
+            logger.error(f"Known Issues API 連線錯誤: {str(e)}")
+            return []
+        except Exception as e:
+            logger.error(f"Known Issues API 請求異常: {str(e)}")
+            return []
+
 
 # 全局客戶端實例
 _client_instance: Optional[SAFAPIClient] = None

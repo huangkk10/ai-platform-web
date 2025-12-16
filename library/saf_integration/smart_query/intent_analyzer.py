@@ -471,7 +471,181 @@ Sub Version 是指專案的不同容量變體，如 AA=512GB, AB=1024GB, AC=2048
     - 有專案名稱 + 問「有哪些 sub version / 容量版本」→ list_sub_versions
     - 有專案名稱 + 有容量 + 問測試結果 → query_project_test_by_capacity
 
-### 28. unknown - 無法識別的意圖
+### 28. query_project_known_issues - 查詢專案 Known Issues (Phase 15 新增)
+用戶想知道某個專案有哪些 Known Issues 時使用。
+Known Issues 是指專案中已知的問題清單，包含 Issue ID、測項名稱、案例資訊、JIRA 連結等。
+- 常見問法：
+  - 「DEMETER 專案有哪些 Known Issues」「DEMETER 的已知問題」
+  - 「Channel 有什麼 known issue」「列出 Springsteen 的 issues」
+  - 「XX 專案有幾個 known issue」「查詢 XX 的問題清單」
+  - 「XX 案子有哪些已知問題」「XX 的 known issues 列表」
+  - 「XX 專案的 Issue 有哪些」「顯示 XX 的 known issue」
+- 參數：
+  - project_name (專案名稱，必須)
+  - show_disabled (選填，是否顯示已停用的 Issues，預設 true)
+- 【重要區分】
+  - 如果用戶說「XX 有哪些 known issues」→ 使用 query_project_known_issues（查詢專案所有 Issues）
+  - 如果用戶說「XX 的 YY 測項有哪些 issues」→ 使用 query_project_test_item_known_issues（按測項查詢）
+  - 如果用戶說「XX 有多少個 known issues」→ 使用 count_project_known_issues（統計數量）
+
+### 29. query_project_test_item_known_issues - 按 Test Item 查詢 Known Issues (Phase 15 新增)
+用戶想知道某個專案特定測項（Test Item）有哪些 Known Issues 時使用。
+- 常見問法：
+  - 「DEMETER 的 Sequential Read 測項有哪些 known issues」
+  - 「Channel 的 NVMe Compliance 有什麼已知問題」
+  - 「XX 專案 Power Cycle 測項的 issues」
+  - 「查詢 XX 的 Hot Plug 有哪些 known issue」
+  - 「XX 案子的 Random Write 測試有什麼問題」
+- 參數：
+  - project_name (專案名稱，必須)
+  - test_item (測試項目名稱，必須)
+  - show_disabled (選填，是否顯示已停用的 Issues，預設 true)
+- 【重要區分】
+  - 有專案名稱 + 有測項名稱 + 問「有哪些 issues」→ query_project_test_item_known_issues
+  - 有專案名稱 + 無測項名稱 + 問「有哪些 issues」→ query_project_known_issues
+
+### 30. count_project_known_issues - 統計專案 Known Issues 數量 (Phase 15 新增)
+用戶想知道某個專案有多少 Known Issues 時使用。
+- 常見問法：
+  - 「DEMETER 有幾個 Known Issues」「DEMETER 的 issues 數量」
+  - 「Channel 有多少已知問題」「Springsteen 有多少 issue」
+  - 「XX 專案總共有幾個 known issue」「統計 XX 的問題數量」
+  - 「XX 案子有多少個 issues」「XX 的 known issues 有幾個」
+- 參數：
+  - project_name (專案名稱，必須)
+  - show_disabled (選填，是否包含已停用的 Issues，預設 true)
+- 【重要區分】
+  - 如果用戶問「有幾個」「有多少」「數量」「統計」→ 使用 count_project_known_issues
+  - 如果用戶問「有哪些」「列出」「是什麼」→ 使用 query_project_known_issues
+
+### 31. rank_projects_by_known_issues - 排名專案 Known Issues 數量 (Phase 15 新增)
+用戶想比較多個專案的 Known Issues 數量，看哪個專案問題最多/最少時使用。
+- 常見問法：
+  - 「哪個專案的 known issues 最多」「known issues 最多的案子」
+  - 「比較各專案的 issue 數量」「專案問題排名」
+  - 「哪些案子 issue 比較多」「排列各專案的已知問題數」
+  - 「列出各專案 known issues 數量」「專案 issues 統計排名」
+- 參數：
+  - top_n (選填，返回前 N 個專案，預設 10)
+  - customer (選填，限定特定客戶的專案)
+- 【重要區分】
+  - 如果用戶問「XX 專案有幾個 issues」→ 使用 count_project_known_issues（單一專案）
+  - 如果用戶問「哪個專案 issues 最多」「排名」「比較」→ 使用 rank_projects_by_known_issues（跨專案比較）
+
+### 32. query_known_issues_by_creator - 按建立者查詢 Known Issues (Phase 15 新增)
+用戶想知道某人建立了哪些 Known Issues 時使用。
+- 常見問法：
+  - 「Ryder 建立了哪些 known issues」「ryder.lin 的 issues」
+  - 「誰建立的 issues 最多」「Kevin 有建立哪些 known issue」
+  - 「列出 XX 建立的問題」「查詢 YY 創建的 issues」
+- 參數：
+  - creator (建立者名稱，必須)
+  - project_name (選填，限定特定專案)
+- 【重要區分】
+  - 如果用戶說「Ryder 負責哪些專案」→ 使用 query_projects_by_pl（專案負責人）
+  - 如果用戶說「Ryder 建立了哪些 issues」→ 使用 query_known_issues_by_creator（Issues 建立者）
+
+### 33. list_known_issues_creators - 列出 Known Issues 建立者清單 (Phase 15 新增)
+用戶想知道有哪些人建立過 Known Issues 時使用。
+- 常見問法：
+  - 「誰有建立過 known issues」「issues 的建立者有哪些人」
+  - 「列出建立過問題的人」「哪些人有建立 issue」
+  - 「XX 專案的 issues 是誰建立的」「known issues 作者列表」
+- 參數：
+  - project_name (選填，限定特定專案)
+- 【重要區分】
+  - 如果用戶問「誰建立了哪些 issues」（想看詳細內容）→ 使用 query_known_issues_by_creator
+  - 如果用戶問「有哪些人建立過 issues」（只要人員清單）→ 使用 list_known_issues_creators
+
+### 34. query_known_issues_with_jira - 查詢有 JIRA 的 Known Issues (Phase 15 新增)
+用戶想查詢有關聯 JIRA ticket 的 Known Issues 時使用。
+- 常見問法：
+  - 「DEMETER 有哪些 issues 有 JIRA」「有 JIRA 連結的 known issues」
+  - 「XX 專案哪些 issues 有開 JIRA」「列出有 ticket 的 issues」
+  - 「哪些問題有關聯 JIRA」「已建立 JIRA 的 issues」
+- 參數：
+  - project_name (選填，限定特定專案)
+- 【重要區分】
+  - 如果用戶問「有 JIRA 的 issues」→ 使用 query_known_issues_with_jira
+  - 如果用戶問「沒有 JIRA 的 issues」→ 使用 query_known_issues_without_jira
+
+### 35. query_known_issues_without_jira - 查詢沒有 JIRA 的 Known Issues (Phase 15 新增)
+用戶想查詢尚未建立 JIRA ticket 的 Known Issues 時使用。
+- 常見問法：
+  - 「DEMETER 有哪些 issues 還沒開 JIRA」「沒有 JIRA 的 known issues」
+  - 「XX 專案哪些問題還沒建 ticket」「缺少 JIRA 連結的 issues」
+  - 「哪些 issues 需要開 JIRA」「尚未建立 JIRA 的問題」
+- 參數：
+  - project_name (選填，限定特定專案)
+- 【重要區分】
+  - 如果用戶問「沒有 JIRA 的 issues」「還沒開 JIRA」→ 使用 query_known_issues_without_jira
+  - 如果用戶問「有 JIRA 的 issues」→ 使用 query_known_issues_with_jira
+
+### 36. query_recent_known_issues - 查詢最近的 Known Issues (Phase 15 新增)
+用戶想查詢最近新增的 Known Issues 時使用。
+- 常見問法：
+  - 「最近有哪些新的 known issues」「最新的 issues」
+  - 「這週新增的問題」「今天有建立什麼 issue」
+  - 「XX 專案最近有新的 issues 嗎」「近期的 known issues」
+  - 「最近一週的 issues」「本月新增的問題」
+- 參數：
+  - project_name (選填，限定特定專案)
+  - days (選填，最近幾天，預設 7)
+  - date_range (選填，'today'、'this_week'、'this_month')
+- 【重要區分】
+  - 如果用戶問「最近」「最新」「這週」「今天」→ 使用 query_recent_known_issues
+  - 如果用戶指定具體日期範圍 → 使用 query_known_issues_by_date_range
+
+### 37. query_known_issues_by_date_range - 按日期範圍查詢 Known Issues (Phase 15 新增)
+用戶想查詢特定日期範圍內建立的 Known Issues 時使用。
+- 常見問法：
+  - 「2025年1月的 known issues」「1月建立的問題」
+  - 「XX 專案 2024年有多少 issues」「去年的 known issues」
+  - 「2025/01/01 到 2025/01/31 的 issues」「上個月建立的問題」
+- 參數：
+  - project_name (選填，限定特定專案)
+  - start_date (選填，開始日期，格式 YYYY-MM-DD)
+  - end_date (選填，結束日期，格式 YYYY-MM-DD)
+  - year (選填，年份)
+  - month (選填，月份)
+- 【重要區分】
+  - 如果用戶指定具體日期範圍 → 使用 query_known_issues_by_date_range
+  - 如果用戶問「最近」「最新」→ 使用 query_recent_known_issues
+
+### 38. search_known_issues_by_keyword - 關鍵字搜尋 Known Issues (Phase 15 新增)
+用戶想用關鍵字搜尋 Known Issues 時使用。
+可搜尋 Issue ID、測項名稱、案例名稱、備註等欄位。
+- 常見問法：
+  - 「搜尋 known issues 中有 timeout 的」「找有 error 的 issues」
+  - 「XX 專案有沒有跟 power 相關的 issue」「搜尋 NVMe 相關問題」
+  - 「查詢包含 compliance 的 issues」「找 fail 相關的 known issue」
+- 參數：
+  - keyword (關鍵字，必須)
+  - project_name (選填，限定特定專案)
+  - search_fields (選填，搜尋欄位，預設 ['issue_id', 'test_item_name', 'case_name', 'note'])
+- 【重要區分】
+  - 如果用戶明確想搜尋關鍵字 → 使用 search_known_issues_by_keyword
+  - 如果用戶問特定測項的 issues → 使用 query_project_test_item_known_issues
+
+### 39. query_all_known_issues_by_test_item - 跨專案搜尋 Test Item 的 Known Issues (Phase 15 新增)
+用戶想搜尋所有專案中某個 Test Item 相關的 Known Issues 時使用。
+這是跨專案的搜尋，會列出所有專案中該測項相關的問題。
+- 常見問法：
+  - 「哪些專案的 Sequential Read 有 known issues」
+  - 「所有專案的 NVMe Compliance issues」
+  - 「跨專案查詢 Power Cycle 的問題」
+  - 「各案子的 Hot Plug 測試有哪些 issues」
+- 參數：
+  - test_item (測試項目名稱，必須)
+  - customer (選填，限定特定客戶的專案)
+- 【重要區分】
+  - 如果有專案名稱 + 測項名稱 → 使用 query_project_test_item_known_issues（單一專案）
+  - 如果無專案名稱 + 測項名稱 → 使用 query_all_known_issues_by_test_item（跨專案搜尋）
+  - 關鍵判斷：
+    - 有專案名稱 + 測項名稱 → 單一專案查詢
+    - 無專案名稱 + 測項名稱 + 問「哪些專案」→ 跨專案搜尋
+
+### 40. unknown - 無法識別的意圖
 當問題與 SAF 專案管理系統無關時使用。
 
 ## 已知資訊
@@ -955,6 +1129,136 @@ Sub Version 代碼：AA (512GB), AB (1024GB/1TB), AC (2048GB/2TB), AD (4096GB/4T
 輸入：XX 專案 FW YYY 最大支援到多少容量
 輸出：{"intent": "query_supported_capacities", "parameters": {"project_name": "XX", "fw_version": "YYY"}, "confidence": 0.91}
 
+# Phase 15: Known Issues 查詢
+輸入：DEMETER 專案有哪些 Known Issues
+輸出：{"intent": "query_project_known_issues", "parameters": {"project_name": "DEMETER"}, "confidence": 0.95}
+
+輸入：Channel 有什麼 known issue
+輸出：{"intent": "query_project_known_issues", "parameters": {"project_name": "Channel"}, "confidence": 0.93}
+
+輸入：列出 Springsteen 的已知問題
+輸出：{"intent": "query_project_known_issues", "parameters": {"project_name": "Springsteen"}, "confidence": 0.92}
+
+輸入：XX 專案有幾個 known issue
+輸出：{"intent": "query_project_known_issues", "parameters": {"project_name": "XX"}, "confidence": 0.90}
+
+輸入：查詢 TITAN 的問題清單
+輸出：{"intent": "query_project_known_issues", "parameters": {"project_name": "TITAN"}, "confidence": 0.92}
+
+輸入：DEMETER 的 Sequential Read 測項有哪些 known issues
+輸出：{"intent": "query_project_test_item_known_issues", "parameters": {"project_name": "DEMETER", "test_item": "Sequential Read"}, "confidence": 0.95}
+
+輸入：Channel 的 NVMe Compliance 有什麼已知問題
+輸出：{"intent": "query_project_test_item_known_issues", "parameters": {"project_name": "Channel", "test_item": "NVMe Compliance"}, "confidence": 0.93}
+
+輸入：Springsteen 專案 Power Cycle 測項的 issues
+輸出：{"intent": "query_project_test_item_known_issues", "parameters": {"project_name": "Springsteen", "test_item": "Power Cycle"}, "confidence": 0.92}
+
+輸入：XX 案子的 Random Write 測試有什麼問題
+輸出：{"intent": "query_project_test_item_known_issues", "parameters": {"project_name": "XX", "test_item": "Random Write"}, "confidence": 0.90}
+
+輸入：DEMETER 有幾個 Known Issues
+輸出：{"intent": "count_project_known_issues", "parameters": {"project_name": "DEMETER"}, "confidence": 0.95}
+
+輸入：Channel 有多少已知問題
+輸出：{"intent": "count_project_known_issues", "parameters": {"project_name": "Channel"}, "confidence": 0.93}
+
+輸入：Springsteen 的 issues 數量
+輸出：{"intent": "count_project_known_issues", "parameters": {"project_name": "Springsteen"}, "confidence": 0.92}
+
+輸入：統計 XX 的問題數量
+輸出：{"intent": "count_project_known_issues", "parameters": {"project_name": "XX"}, "confidence": 0.90}
+
+輸入：哪個專案的 known issues 最多
+輸出：{"intent": "rank_projects_by_known_issues", "parameters": {}, "confidence": 0.95}
+
+輸入：比較各專案的 issue 數量
+輸出：{"intent": "rank_projects_by_known_issues", "parameters": {}, "confidence": 0.93}
+
+輸入：專案問題排名
+輸出：{"intent": "rank_projects_by_known_issues", "parameters": {}, "confidence": 0.92}
+
+輸入：WD 的案子哪個 issues 最多
+輸出：{"intent": "rank_projects_by_known_issues", "parameters": {"customer": "WD"}, "confidence": 0.90}
+
+輸入：Ryder 建立了哪些 known issues
+輸出：{"intent": "query_known_issues_by_creator", "parameters": {"creator": "Ryder"}, "confidence": 0.95}
+
+輸入：ryder.lin 的 issues
+輸出：{"intent": "query_known_issues_by_creator", "parameters": {"creator": "ryder.lin"}, "confidence": 0.93}
+
+輸入：Kevin 在 DEMETER 建立了哪些問題
+輸出：{"intent": "query_known_issues_by_creator", "parameters": {"creator": "Kevin", "project_name": "DEMETER"}, "confidence": 0.92}
+
+輸入：誰有建立過 known issues
+輸出：{"intent": "list_known_issues_creators", "parameters": {}, "confidence": 0.95}
+
+輸入：DEMETER 專案的 issues 是誰建立的
+輸出：{"intent": "list_known_issues_creators", "parameters": {"project_name": "DEMETER"}, "confidence": 0.93}
+
+輸入：有哪些人建立過問題
+輸出：{"intent": "list_known_issues_creators", "parameters": {}, "confidence": 0.92}
+
+輸入：DEMETER 有哪些 issues 有 JIRA
+輸出：{"intent": "query_known_issues_with_jira", "parameters": {"project_name": "DEMETER"}, "confidence": 0.95}
+
+輸入：有 JIRA 連結的 known issues
+輸出：{"intent": "query_known_issues_with_jira", "parameters": {}, "confidence": 0.93}
+
+輸入：哪些問題有關聯 JIRA
+輸出：{"intent": "query_known_issues_with_jira", "parameters": {}, "confidence": 0.92}
+
+輸入：DEMETER 有哪些 issues 還沒開 JIRA
+輸出：{"intent": "query_known_issues_without_jira", "parameters": {"project_name": "DEMETER"}, "confidence": 0.95}
+
+輸入：沒有 JIRA 的 known issues
+輸出：{"intent": "query_known_issues_without_jira", "parameters": {}, "confidence": 0.93}
+
+輸入：哪些 issues 需要開 JIRA
+輸出：{"intent": "query_known_issues_without_jira", "parameters": {}, "confidence": 0.92}
+
+輸入：最近有哪些新的 known issues
+輸出：{"intent": "query_recent_known_issues", "parameters": {}, "confidence": 0.95}
+
+輸入：DEMETER 專案最近有新的 issues 嗎
+輸出：{"intent": "query_recent_known_issues", "parameters": {"project_name": "DEMETER"}, "confidence": 0.93}
+
+輸入：這週新增的問題
+輸出：{"intent": "query_recent_known_issues", "parameters": {"date_range": "this_week"}, "confidence": 0.92}
+
+輸入：今天有建立什麼 issue
+輸出：{"intent": "query_recent_known_issues", "parameters": {"date_range": "today"}, "confidence": 0.90}
+
+輸入：2025年1月的 known issues
+輸出：{"intent": "query_known_issues_by_date_range", "parameters": {"year": 2025, "month": 1}, "confidence": 0.95}
+
+輸入：DEMETER 專案 2024年有多少 issues
+輸出：{"intent": "query_known_issues_by_date_range", "parameters": {"project_name": "DEMETER", "year": 2024}, "confidence": 0.93}
+
+輸入：上個月建立的問題
+輸出：{"intent": "query_known_issues_by_date_range", "parameters": {"date_range": "last_month"}, "confidence": 0.92}
+
+輸入：搜尋 known issues 中有 timeout 的
+輸出：{"intent": "search_known_issues_by_keyword", "parameters": {"keyword": "timeout"}, "confidence": 0.95}
+
+輸入：DEMETER 有沒有跟 power 相關的 issue
+輸出：{"intent": "search_known_issues_by_keyword", "parameters": {"keyword": "power", "project_name": "DEMETER"}, "confidence": 0.93}
+
+輸入：找有 error 的 issues
+輸出：{"intent": "search_known_issues_by_keyword", "parameters": {"keyword": "error"}, "confidence": 0.92}
+
+輸入：哪些專案的 Sequential Read 有 known issues
+輸出：{"intent": "query_all_known_issues_by_test_item", "parameters": {"test_item": "Sequential Read"}, "confidence": 0.95}
+
+輸入：所有專案的 NVMe Compliance issues
+輸出：{"intent": "query_all_known_issues_by_test_item", "parameters": {"test_item": "NVMe Compliance"}, "confidence": 0.93}
+
+輸入：各案子的 Hot Plug 測試有哪些 issues
+輸出：{"intent": "query_all_known_issues_by_test_item", "parameters": {"test_item": "Hot Plug"}, "confidence": 0.92}
+
+輸入：WD 的專案中 Power Cycle 有哪些 issues
+輸出：{"intent": "query_all_known_issues_by_test_item", "parameters": {"test_item": "Power Cycle", "customer": "WD"}, "confidence": 0.90}
+
 輸入：今天天氣如何？
 輸出：{"intent": "unknown", "parameters": {}, "confidence": 0.10}
 
@@ -1266,6 +1570,69 @@ class SAFIntentAnalyzer:
                 raw_response="Fallback: list pls query"
             )
         
+        # 6.5. ★★★ Known Issues 全域查詢（不需要專案名稱）★★★
+        known_issues_keywords = ['known issue', 'known issues', 'known-issue', 'known-issues',
+                                 '已知問題', '已知issue', 'issue', 'issues', '問題清單']
+        if any(kw in query_lower for kw in known_issues_keywords):
+            # 檢查是否是排名/比較查詢
+            rank_keywords = ['排名', '排行', 'rank', '最多', '最少', '比較', '統計']
+            if any(rk in query_lower for rk in rank_keywords):
+                return IntentResult(
+                    intent=IntentType.RANK_PROJECTS_BY_KNOWN_ISSUES,
+                    parameters={},
+                    confidence=0.7,
+                    raw_response="Fallback: rank projects by known issues"
+                )
+            
+            # 檢查是否是按建立者查詢
+            creator_keywords = ['誰建立', '誰創建', '建立者', '創建者', 'creator', 'created by', 'author']
+            if any(ck in query_lower for ck in creator_keywords):
+                return IntentResult(
+                    intent=IntentType.LIST_KNOWN_ISSUES_CREATORS,
+                    parameters={},
+                    confidence=0.7,
+                    raw_response="Fallback: list known issues creators"
+                )
+            
+            # 檢查是否是 JIRA 相關查詢
+            jira_keywords = ['jira', '沒有jira', '無jira', '有jira']
+            if any(jk in query_lower for jk in jira_keywords):
+                if '沒有' in query or '無' in query or 'without' in query_lower:
+                    return IntentResult(
+                        intent=IntentType.QUERY_KNOWN_ISSUES_WITHOUT_JIRA,
+                        parameters={},
+                        confidence=0.7,
+                        raw_response="Fallback: known issues without JIRA"
+                    )
+                else:
+                    return IntentResult(
+                        intent=IntentType.QUERY_KNOWN_ISSUES_WITH_JIRA,
+                        parameters={},
+                        confidence=0.7,
+                        raw_response="Fallback: known issues with JIRA"
+                    )
+            
+            # 檢查是否是關鍵字搜尋
+            search_keywords = ['搜尋', '搜索', 'search', '查找', '找']
+            if any(sk in query_lower for sk in search_keywords):
+                # 嘗試提取搜尋關鍵字
+                return IntentResult(
+                    intent=IntentType.SEARCH_KNOWN_ISSUES_BY_KEYWORD,
+                    parameters={'keyword': query},  # 使用整個查詢作為關鍵字
+                    confidence=0.6,
+                    raw_response="Fallback: search known issues by keyword"
+                )
+            
+            # 檢查是否是按測試項目查詢所有專案的 Known Issues
+            test_item = self._detect_test_item_for_known_issues(query)
+            if test_item:
+                return IntentResult(
+                    intent=IntentType.QUERY_ALL_KNOWN_ISSUES_BY_TEST_ITEM,
+                    parameters={'test_item': test_item},
+                    confidence=0.7,
+                    raw_response=f"Fallback: all known issues by test item {test_item}"
+                )
+        
         # 7. 日期/月份查詢 (Phase 8)
         date_result = self._detect_date_query(query)
         if date_result:
@@ -1356,6 +1723,39 @@ class SAFIntentAnalyzer:
                     raw_response=f"Fallback: test by capacity query for {project_name}"
                 )
             
+            # ★★★ Phase 15: Known Issues 查詢 ★★★
+            known_issues_keywords = ['known issue', 'known issues', 'known-issue', 'known-issues',
+                                     '已知問題', '已知issue', 'issue', 'issues', '問題清單']
+            if any(kw in query_lower for kw in known_issues_keywords):
+                # 檢查是否有 Test Item 關鍵字
+                test_item = self._detect_test_item_for_known_issues(query)
+                
+                if test_item:
+                    # 按 Test Item 查詢專案 Known Issues
+                    return IntentResult(
+                        intent=IntentType.QUERY_PROJECT_TEST_ITEM_KNOWN_ISSUES,
+                        parameters={'project_name': project_name, 'test_item': test_item},
+                        confidence=0.7,
+                        raw_response=f"Fallback: known issues by test item for {project_name}, test_item={test_item}"
+                    )
+                
+                # 檢查是否是數量查詢
+                if self._has_count_keywords(query):
+                    return IntentResult(
+                        intent=IntentType.COUNT_PROJECT_KNOWN_ISSUES,
+                        parameters={'project_name': project_name},
+                        confidence=0.7,
+                        raw_response=f"Fallback: count known issues for {project_name}"
+                    )
+                
+                # 一般專案 Known Issues 查詢
+                return IntentResult(
+                    intent=IntentType.QUERY_PROJECT_KNOWN_ISSUES,
+                    parameters={'project_name': project_name},
+                    confidence=0.7,
+                    raw_response=f"Fallback: known issues query for {project_name}"
+                )
+            
             # 一般測試查詢
             if '測試' in query or '結果' in query or '摘要' in query or 'pass' in query_lower or 'fail' in query_lower:
                 return IntentResult(
@@ -1442,8 +1842,42 @@ class SAFIntentAnalyzer:
         Returns:
             Optional[str]: 檢測到的專案名稱，或 None
         """
-        # 常見專案名稱模式
-        # 1. 大寫字母開頭的單詞（不是已知客戶或控制器）
+        # 排除的關鍵字（不應被識別為專案名稱）
+        excluded_keywords = {
+            'GET', 'POST', 'API', 'SAF',
+            # Known Issues 相關關鍵字
+            'Known', 'Issue', 'Issues', 'JIRA', 'Jira',
+            # 常見的非專案詞彙
+            'Test', 'Tests', 'Result', 'Results', 'Summary',
+            'Pass', 'Fail', 'Failed', 'Passed',
+            'FW', 'Firmware', 'Version', 'Versions',
+            'All', 'List', 'Count', 'Total', 'Query',
+        }
+        
+        # 模式 1：檢測「專案」關鍵字前後的名稱
+        # 格式：「{project_name} 專案」 或 「專案 {project_name}」
+        project_patterns = [
+            r'([a-zA-Z][a-zA-Z0-9_-]*)\s*專案',  # xxx 專案
+            r'專案\s*([a-zA-Z][a-zA-Z0-9_-]*)',  # 專案 xxx
+            r'([a-zA-Z][a-zA-Z0-9_-]*)\s+的\s+known\s+issue',  # xxx 的 known issue
+            r'([a-zA-Z][a-zA-Z0-9_-]*)\s+的\s+issue',  # xxx 的 issue
+            r'([a-zA-Z][a-zA-Z0-9_-]*)\s+的\s+已知問題',  # xxx 的 已知問題
+            r'([a-zA-Z][a-zA-Z0-9_-]*)\s+known\s+issue',  # xxx known issue
+            r'([a-zA-Z][a-zA-Z0-9_-]*)\s+issue',  # xxx issue（如果單獨出現）
+            r'([a-zA-Z][a-zA-Z0-9_-]*)\s+有哪些',  # xxx 有哪些
+        ]
+        
+        for pattern in project_patterns:
+            match = re.search(pattern, query, re.IGNORECASE)
+            if match:
+                candidate = match.group(1)
+                if candidate and candidate not in excluded_keywords:
+                    # 檢查是否是已知客戶或控制器
+                    if candidate.upper() not in [c.upper() for c in KNOWN_CUSTOMERS]:
+                        if candidate.upper() not in [c.upper() for c in KNOWN_CONTROLLERS]:
+                            return candidate
+        
+        # 模式 2：大寫字母開頭的單詞（不是已知客戶或控制器）
         words = re.findall(r'\b([A-Z][a-zA-Z0-9]+)\b', query)
         
         for word in words:
@@ -1451,7 +1885,7 @@ class SAFIntentAnalyzer:
             # 排除已知客戶和控制器
             if word_upper not in [c.upper() for c in KNOWN_CUSTOMERS]:
                 if word_upper not in [c.upper() for c in KNOWN_CONTROLLERS]:
-                    if word not in ['GET', 'POST', 'API', 'SAF']:
+                    if word not in excluded_keywords:
                         return word
         
         return None
@@ -1502,6 +1936,73 @@ class SAFIntentAnalyzer:
         """檢查是否包含專案相關關鍵字"""
         project_keywords = ['專案', 'project', '有哪些', '列表', '列出']
         return any(kw in query.lower() for kw in project_keywords)
+    
+    def _detect_test_item_for_known_issues(self, query: str) -> Optional[str]:
+        """
+        從查詢中檢測 Test Item 名稱（用於 Known Issues 查詢）
+        
+        Args:
+            query: 用戶查詢
+            
+        Returns:
+            Optional[str]: 檢測到的 test_item，或 None
+        """
+        query_lower = query.lower()
+        
+        # 常見的 Test Item 關鍵字（按長度排序，優先匹配較長的）
+        test_items = [
+            # 完整名稱
+            'crystaldiskmark', 'crystal disk mark', 'crystal-disk-mark',
+            'smart', 's.m.a.r.t', 'smart data',
+            'performance', 'perf', '效能',
+            'compatibility', 'compat', '相容性',
+            'compliance', 'comp', '合規',
+            'stress', 'stress test', '壓力測試',
+            'endurance', '耐久性',
+            'power', 'power cycle', '電源',
+            'temperature', 'temp', '溫度',
+            'read', 'write', 'sequential', 'random',
+            '4k', '4kb', '1m', '1mb', '512k', '512kb',
+            # 其他常見測試項目
+            'nvme', 'sata', 'pcie', 'usb',
+            'trim', 'sanitize', 'format',
+            'boot', 'firmware', 'fw', 'bios',
+        ]
+        
+        for item in test_items:
+            if item in query_lower:
+                # 標準化返回值
+                item_mapping = {
+                    'crystal disk mark': 'CrystalDiskMark',
+                    'crystal-disk-mark': 'CrystalDiskMark',
+                    'crystaldiskmark': 'CrystalDiskMark',
+                    's.m.a.r.t': 'SMART',
+                    'smart data': 'SMART',
+                    'smart': 'SMART',
+                    'perf': 'Performance',
+                    'performance': 'Performance',
+                    '效能': 'Performance',
+                    'compat': 'Compatibility',
+                    'compatibility': 'Compatibility',
+                    '相容性': 'Compatibility',
+                    'comp': 'Compliance',
+                    'compliance': 'Compliance',
+                    '合規': 'Compliance',
+                    'stress test': 'Stress',
+                    '壓力測試': 'Stress',
+                    'stress': 'Stress',
+                    '耐久性': 'Endurance',
+                    'endurance': 'Endurance',
+                    'power cycle': 'Power Cycle',
+                    '電源': 'Power Cycle',
+                    'power': 'Power',
+                    'temp': 'Temperature',
+                    '溫度': 'Temperature',
+                    'temperature': 'Temperature',
+                }
+                return item_mapping.get(item, item.upper())
+        
+        return None
     
     def _detect_test_category(self, query: str) -> Optional[str]:
         """
