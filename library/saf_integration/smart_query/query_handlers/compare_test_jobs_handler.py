@@ -166,7 +166,10 @@ class CompareTestJobsHandler(BaseHandler):
                     'fw_versions': comparison['fw_versions'],
                     'version_count': comparison['version_count'],
                     'comparison': comparison,
-                    'warnings': warnings
+                    'warnings': warnings,
+                    # 新增：供前端互動表格使用的結構化資料
+                    'available_capacities': comparison.get('available_capacities', []),
+                    'all_items_by_category': comparison.get('all_items_by_category', {})
                 },
                 count=comparison['diff_count'],
                 query_type=self.handler_name,
@@ -436,6 +439,26 @@ class CompareTestJobsHandler(BaseHandler):
         for category in all_items_by_category:
             all_items_by_category[category].sort(key=lambda x: (x['test_item'], x['capacity']))
         
+        # 收集所有可用的 Capacity（用於前端下拉選單過濾）
+        all_capacities = set()
+        for items in all_items_by_category.values():
+            for item in items:
+                cap = item.get('capacity', '')
+                if cap:
+                    all_capacities.add(cap)
+        
+        # 按數值排序 Capacity（處理 GB 和 TB）
+        def sort_capacity_key(cap_str: str) -> int:
+            try:
+                if 'TB' in cap_str.upper():
+                    return int(cap_str.upper().replace('TB', '').strip()) * 1000
+                else:
+                    return int(cap_str.upper().replace('GB', '').strip())
+            except:
+                return 0
+        
+        available_capacities = sorted(all_capacities, key=sort_capacity_key)
+        
         return {
             'project_name': project_name,
             'fw_versions': display_fw_versions,
@@ -443,6 +466,7 @@ class CompareTestJobsHandler(BaseHandler):
             'summary': summary,
             'differences': differences,
             'all_items_by_category': all_items_by_category,
+            'available_capacities': available_capacities,  # 新增：可用的 Capacity 列表
             'has_differences': len(differences) > 0,
             'diff_count': len(differences),
             'total_items': len(item_status_map)
@@ -565,13 +589,15 @@ class CompareTestJobsHandler(BaseHandler):
         
         lines.append("")
         
-        # === 所有測試項目區塊 ===
+        # === 所有測試項目區塊（使用互動式組件）===
         lines.append("### 📋 所有測試項目")
         lines.append("")
         
         # 定義無意義的狀態（不計入有效結果）
         invalid_statuses = {'N/A', 'CANCEL', 'Cancel', ''}
         
+        # 過濾並準備資料供前端互動組件使用
+        filtered_categories = {}
         for category, items in sorted(all_items_by_category.items()):
             # 先過濾出有效項目（至少一個版本有有意義的結果）
             valid_items = [
@@ -583,27 +609,25 @@ class CompareTestJobsHandler(BaseHandler):
             ]
             
             # 如果過濾後沒有有效項目，跳過這個類別
-            if not valid_items:
-                continue
-            
-            # 統計：所有版本都 Pass 的項目數（只統計有有意義結果的版本）
-            all_pass_count = sum(1 for item in valid_items if all(
-                item['statuses'].get(fw) == 'Pass' 
-                for fw in fw_versions 
-                if item['statuses'].get(fw, 'N/A') not in invalid_statuses
-            ))
-            # 任一版本 Fail 的項目數
-            any_fail_count = sum(1 for item in valid_items if any(
-                item['statuses'].get(fw) == 'Fail' for fw in fw_versions
-            ))
-            
-            lines.append("<details>")
-            lines.append(f"<summary>📁 {category}（{len(valid_items)} 項，✅ {all_pass_count} / ❌ {any_fail_count}）</summary>")
-            lines.append("")
-            lines.append(self._build_multi_version_table(items, fw_versions, limit=50))
-            lines.append("")
-            lines.append("</details>")
-            lines.append("")
+            if valid_items:
+                filtered_categories[category] = valid_items
+        
+        # 獲取所有可用的 Capacity
+        available_capacities = comparison.get('available_capacities', [])
+        
+        # 生成 :::capacity-filter 標記（供前端互動組件使用）
+        import json
+        capacity_filter_data = {
+            'type': 'capacity-filter',
+            'availableCapacities': available_capacities,
+            'allItemsByCategory': filtered_categories,
+            'fwVersions': fw_versions
+        }
+        
+        lines.append(":::capacity-filter")
+        lines.append(json.dumps(capacity_filter_data, ensure_ascii=False))
+        lines.append(":::")
+        lines.append("")
         
         return "\n".join(lines)
     
