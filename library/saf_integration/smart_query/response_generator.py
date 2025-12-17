@@ -96,6 +96,8 @@ class SAFResponseGenerator:
             IntentType.QUERY_KNOWN_ISSUES_BY_DATE_RANGE: self._generate_known_issues_response,
             IntentType.SEARCH_KNOWN_ISSUES_BY_KEYWORD: self._generate_known_issues_response,
             IntentType.QUERY_ALL_KNOWN_ISSUES_BY_TEST_ITEM: self._generate_known_issues_response,
+            # Phase 16: Test Jobs 查詢回應生成器
+            IntentType.QUERY_PROJECT_FW_TEST_JOBS: self._generate_test_jobs_response,
             IntentType.COUNT_PROJECTS: self._generate_count_response,
             IntentType.LIST_ALL_CUSTOMERS: self._generate_customers_list_response,
             IntentType.LIST_ALL_CONTROLLERS: self._generate_controllers_list_response,
@@ -1439,6 +1441,37 @@ class SAFResponseGenerator:
             'answer': message,
             'table': data.get('fw_versions', []),
             'summary': f"列出 {data.get('project_name', '')} 在 {date_range.get('description', '')} 的 {data.get('total_in_range', 0)} 個 FW 版本"
+        }
+    
+    def _generate_test_jobs_response(self, result_data: Dict,
+                                      full_result: Dict) -> Dict[str, Any]:
+        """
+        生成測試工作結果回答（Phase 16）
+        
+        test_jobs_handler 已經生成完整的 Markdown 格式回答（含 HTML details 摺疊區塊），
+        此方法直接使用 handler 的 message，不做額外處理。
+        
+        Args:
+            result_data: 查詢結果資料
+            full_result: 完整查詢結果
+            
+        Returns:
+            Dict: 包含格式化回答
+        """
+        message = result_data.get('message', '')
+        data = result_data.get('data', {})
+        
+        project_name = data.get('project_name', '')
+        fw_version = data.get('fw_version', '')
+        pass_count = data.get('pass_count', 0)
+        fail_count = data.get('fail_count', 0)
+        total = data.get('total', 0)
+        
+        # Handler 已經生成完整的 Markdown 格式回答，直接使用
+        return {
+            'answer': message,
+            'table': data.get('table', []),
+            'summary': f"{project_name} FW {fw_version} 測試結果：{pass_count} Pass / {fail_count} Fail（共 {total} 項）"
         }
     
     def _generate_default_response(self, result_data: Dict,
