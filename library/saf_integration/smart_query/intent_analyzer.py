@@ -1387,6 +1387,25 @@ Sub Version 代碼：AA (512GB), AB (1024GB/1TB), AC (2048GB/2TB), AD (4096GB/4T
 輸入：A400 專案 X0325A 版本的測試項目結果
 輸出：{"intent": "query_project_fw_test_jobs", "parameters": {"project_name": "A400", "fw_version": "X0325A"}, "confidence": 0.91}
 
+# === 意圖 41 範例：compare_fw_test_jobs（比較兩個 FW 版本的測試項目結果差異）===
+輸入：比較 Springsteen PH10YC3H_Pyrite_4K 和 GD10YBJD_Opal 的測項結果
+輸出：{"intent": "compare_fw_test_jobs", "parameters": {"project_name": "Springsteen", "fw_version_1": "PH10YC3H_Pyrite_4K", "fw_version_2": "GD10YBJD_Opal"}, "confidence": 0.95}
+
+輸入：對比 PM9M1 HHB0YBC1 與 HHB0YBC2 測試項目差異
+輸出：{"intent": "compare_fw_test_jobs", "parameters": {"project_name": "PM9M1", "fw_version_1": "HHB0YBC1", "fw_version_2": "HHB0YBC2"}, "confidence": 0.94}
+
+輸入：DEMETER Y1114B 和 Y1115A 的測試差異
+輸出：{"intent": "compare_fw_test_jobs", "parameters": {"project_name": "DEMETER", "fw_version_1": "Y1114B", "fw_version_2": "Y1115A"}, "confidence": 0.93}
+
+輸入：比較 springsteen 幾版 FW 的測試項目結果 GM10YCBM_Opal PH10YC3H_Pyrite_512Byte
+輸出：{"intent": "compare_fw_test_jobs", "parameters": {"project_name": "springsteen", "fw_version_1": "GM10YCBM_Opal", "fw_version_2": "PH10YC3H_Pyrite_512Byte"}, "confidence": 0.92}
+
+輸入：XX FW1 vs FW2 測試結果差異
+輸出：{"intent": "compare_fw_test_jobs", "parameters": {"project_name": "XX", "fw_version_1": "FW1", "fw_version_2": "FW2"}, "confidence": 0.91}
+
+輸入：Channel 82CBW5QF 和 82CBW6QF 哪些測試變成 Fail
+輸出：{"intent": "compare_fw_test_jobs", "parameters": {"project_name": "Channel", "fw_version_1": "82CBW5QF", "fw_version_2": "82CBW6QF"}, "confidence": 0.93}
+
 輸入：今天天氣如何？
 輸出：{"intent": "unknown", "parameters": {}, "confidence": 0.10}
 
@@ -1832,7 +1851,34 @@ class SAFIntentAnalyzer:
                 raw_response=f"Fallback: list sub versions for {project_name}"
             )
         
-        # 9. ★★★ 新增：最新 FW 版本比較查詢 ★★★
+        # 9. ★★★ Phase 17: 優先檢測「比較 FW 版本測試項目結果」★★★
+        # 必須在「最新 FW 版本比較」之前，因為兩者都包含「比較」和「fw」關鍵字
+        # 區分點：「測試項目結果」vs「統計/通過率」
+        if project_name:
+            compare_keywords = ['比較', '對比', '差異', 'compare', 'vs']
+            test_job_keywords = ['測項', '測試項目', '測項結果', '測試項目結果', 'test job', 'test jobs', 'test item']
+            stat_keywords = ['通過率', '完成率', '統計', '進度', 'pass rate', 'completion', '趨勢']
+            
+            has_compare = any(kw in query for kw in compare_keywords)
+            has_test_job = any(kw in query.lower() for kw in test_job_keywords)
+            has_stat = any(sk in query.lower() for sk in stat_keywords)
+            
+            # 如果包含「比較」+「測試項目」且不包含「統計」關鍵詞 → compare_fw_test_jobs
+            if has_compare and has_test_job and not has_stat:
+                fw_1, fw_2 = self._detect_two_fw_versions_for_compare(query)
+                if fw_1 and fw_2:
+                    return IntentResult(
+                        intent=IntentType.COMPARE_FW_TEST_JOBS,
+                        parameters={
+                            'project_name': project_name,
+                            'fw_version_1': fw_1,
+                            'fw_version_2': fw_2
+                        },
+                        confidence=0.85,
+                        raw_response=f"Fallback: compare FW test jobs for {project_name}: {fw_1} vs {fw_2}"
+                    )
+        
+        # 10. ★★★ 最新 FW 版本比較查詢 ★★★
         # 檢測「比較」+「最新」關鍵字組合
         compare_keywords = ['比較', '對比', 'compare', 'vs']
         latest_keywords = ['最新', '最近', '新版', 'latest', 'recent', '兩個', '兩版']
@@ -2094,7 +2140,20 @@ class SAFIntentAnalyzer:
             'Pass', 'Fail', 'Failed', 'Passed',
             'FW', 'Firmware', 'Version', 'Versions',
             'All', 'List', 'Count', 'Total', 'Query',
+            # 中文關鍵字
+            '比較', '對比', '差異', '幾版', '幾個', '測試', '結果', '項目',
         }
+        
+        # ★★★ 模式 0：比較查詢專用 ★★★
+        # 格式：「比較 {project_name} ...」（支援小寫）
+        compare_project_pattern = r'(?:比較|對比|差異)\s+([a-zA-Z][a-zA-Z0-9_-]*)'
+        match = re.search(compare_project_pattern, query, re.IGNORECASE)
+        if match:
+            candidate = match.group(1)
+            if candidate.upper() not in {k.upper() for k in excluded_keywords}:
+                if candidate.upper() not in [c.upper() for c in KNOWN_CUSTOMERS]:
+                    if candidate.upper() not in [c.upper() for c in KNOWN_CONTROLLERS]:
+                        return candidate
         
         # 模式 1：檢測「專案」關鍵字前後的名稱
         # 格式：「{project_name} 專案」 或 「專案 {project_name}」
