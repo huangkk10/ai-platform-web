@@ -322,7 +322,9 @@ class TestJobsHandler(BaseHandler):
         - 按 Category 摺疊顯示
         - Capacity 拉平成欄位
         - 移除 Sample 欄位
+        - Phase 19.1: 增加圓餅圖顯示測試狀態分佈
         """
+        from library.common.chart_formatter import ChartFormatter
         
         pass_rate = (pass_count / total * 100) if total > 0 else 0
         
@@ -334,10 +336,37 @@ class TestJobsHandler(BaseHandler):
             "",
             f"**總測試項目**: {total} 個  ",
             f"**Pass**: {pass_count} ✅ | **Fail**: {fail_count} ❌ | **其他**: {other_count} | **通過率**: {pass_rate:.1f}%",
-            "",
-            "---",
             ""
         ]
+        
+        # 生成圓餅圖（測試狀態分佈）
+        pie_items = []
+        if pass_count > 0:
+            pie_items.append({"name": "Pass", "value": pass_count, "color": "#52c41a"})
+        if fail_count > 0:
+            pie_items.append({"name": "Fail", "value": fail_count, "color": "#ff4d4f"})
+        if other_count > 0:
+            pie_items.append({"name": "其他", "value": other_count, "color": "#d9d9d9"})
+        
+        if pie_items:
+            pie_chart = ChartFormatter.pie_chart(
+                title="測試狀態分佈",
+                items=pie_items,
+                description=f"Pass: {pass_count} | Fail: {fail_count} | 其他: {other_count}"
+            )
+            lines.append(pie_chart)
+            lines.append("")
+        
+        # 生成各 Category 通過率柱狀圖
+        category_pass_rate_chart = self._build_category_pass_rate_chart(categories)
+        if category_pass_rate_chart:
+            lines.append(category_pass_rate_chart)
+            lines.append("")
+        
+        lines.extend([
+            "---",
+            ""
+        ])
         
         # 按 Category 生成摺疊區塊
         for cat_name in sorted(categories.keys()):
@@ -354,6 +383,92 @@ class TestJobsHandler(BaseHandler):
             lines.append(category_block)
         
         return "\n".join(lines)
+    
+    def _build_category_pass_rate_chart(self, categories: Dict) -> Optional[str]:
+        """
+        生成各 Category 通過率的水平柱狀圖
+        
+        Phase 19.1 新增：幫助用戶快速識別哪些 Category 表現好/差
+        
+        計算方式：通過率 = Pass / (Pass + Fail) * 100%
+        （排除「其他」狀態，只計算有明確結果的項目）
+        
+        Args:
+            categories: 各 Category 的統計資料
+            
+        Returns:
+            柱狀圖 Markdown 標記，如果沒有有效資料則返回 None
+        """
+        from library.common.chart_formatter import ChartFormatter
+        
+        # 計算各 Category 的通過率
+        pass_rate_data = []
+        
+        for cat_name, cat_data in categories.items():
+            cat_pass = cat_data.get('pass', 0)
+            cat_fail = cat_data.get('fail', 0)
+            
+            # 只計算有明確結果的項目（排除「其他」）
+            total_determined = cat_pass + cat_fail
+            
+            if total_determined > 0:
+                pass_rate = (cat_pass / total_determined) * 100
+                pass_rate_data.append({
+                    'name': cat_name,
+                    'pass_rate': pass_rate,
+                    'pass': cat_pass,
+                    'fail': cat_fail,
+                    'total': total_determined
+                })
+        
+        # 如果沒有有效資料，返回 None
+        if not pass_rate_data:
+            return None
+        
+        # 按通過率排序（從高到低）
+        pass_rate_data.sort(key=lambda x: -x['pass_rate'])
+        
+        # 準備圖表資料
+        labels = [d['name'] for d in pass_rate_data]
+        values = [round(d['pass_rate'], 1) for d in pass_rate_data]
+        
+        # 根據通過率設定顏色
+        colors = []
+        for d in pass_rate_data:
+            rate = d['pass_rate']
+            if rate == 100:
+                colors.append("#52c41a")      # 綠色 - 100%
+            elif rate >= 80:
+                colors.append("#95de64")      # 淺綠色 - 80-99%
+            elif rate >= 50:
+                colors.append("#faad14")      # 橙色 - 50-79%
+            else:
+                colors.append("#ff4d4f")      # 紅色 - < 50%
+        
+        # 生成描述文字
+        perfect_count = sum(1 for d in pass_rate_data if d['pass_rate'] == 100)
+        problem_count = sum(1 for d in pass_rate_data if d['pass_rate'] < 100)
+        description = f"共 {len(pass_rate_data)} 個類別 | {perfect_count} 個 100% 通過 | {problem_count} 個需關注"
+        
+        # 生成水平柱狀圖
+        # 注意：前端使用 recharts，用 layout: "vertical" 來實現水平柱狀圖
+        bar_chart = ChartFormatter.bar_chart(
+            title="各測試類別通過率",
+            labels=labels,
+            datasets=[{
+                "name": "通過率 (%)",
+                "data": values,
+                "colors": colors  # 個別顏色
+            }],
+            description=description,
+            options={
+                "layout": "vertical",       # 水平柱狀圖 (recharts 語法)
+                "height": 400,              # 增加高度以容納標籤
+                "showLegend": False         # 單一資料集不需要圖例
+            }
+        )
+        
+        return bar_chart
     
     def _get_all_capacities(self, jobs: List[Dict]) -> List[str]:
         """

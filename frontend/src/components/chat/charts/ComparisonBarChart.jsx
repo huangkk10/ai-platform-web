@@ -113,12 +113,15 @@ const ComparisonBarChart = ({ data, options = {} }) => {
     ? Math.max(20, Math.min(60, 300 / (data.labels.length * data.datasets.length)))
     : barSize;
   
+  // 計算左邊距：vertical layout 時需要更多空間給 Y 軸標籤
+  const leftMargin = layout === 'vertical' ? 150 : 10;
+  
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart 
         data={chartData}
         layout={layout}
-        margin={{ top: 10, right: 30, left: 10, bottom: 10 }}
+        margin={{ top: 10, right: 30, left: leftMargin, bottom: 10 }}
       >
         {/* 網格線 */}
         {showGrid && (
