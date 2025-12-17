@@ -69,6 +69,8 @@ from .supported_capacities_handler import SupportedCapacitiesHandler
 from .known_issues_handler import KnownIssuesHandler
 # Phase 16: Test Jobs 查詢處理器
 from .test_jobs_handler import TestJobsHandler
+# Phase 17: FW 版本測試項目比較處理器
+from .compare_test_jobs_handler import CompareTestJobsHandler
 
 __all__ = [
     'BaseHandler',
@@ -106,5 +108,7 @@ __all__ = [
     'KnownIssuesHandler',
     # Phase 16: Test Jobs 查詢處理器
     'TestJobsHandler',
+    # Phase 17: FW 版本測試項目比較處理器
+    'CompareTestJobsHandler',
 ]
 

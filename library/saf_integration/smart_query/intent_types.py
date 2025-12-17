@@ -110,6 +110,9 @@ class IntentType(Enum):
     # 🆕 Phase 16: Test Jobs 查詢（專案 FW 測試工作結果）
     QUERY_PROJECT_FW_TEST_JOBS = "query_project_fw_test_jobs"  # 查詢專案 FW 的測試工作結果
     
+    # 🆕 Phase 17: FW 版本測試項目比較
+    COMPARE_FW_TEST_JOBS = "compare_fw_test_jobs"  # 比較兩個 FW 版本的測試項目結果差異
+    
     # 統計專案數量
     COUNT_PROJECTS = "count_projects"
     
@@ -182,6 +185,8 @@ class IntentType(Enum):
             self.QUERY_ALL_KNOWN_ISSUES_BY_TEST_ITEM: "跨專案按 Test Item 搜尋 Known Issues",
             # Phase 16: Test Jobs 查詢
             self.QUERY_PROJECT_FW_TEST_JOBS: "查詢專案 FW 的測試工作結果（含 Test Category、Item、Status 等）",
+            # Phase 17: FW 版本測試項目比較
+            self.COMPARE_FW_TEST_JOBS: "比較兩個 FW 版本的測試項目結果差異",
             self.COUNT_PROJECTS: "統計專案數量",
             self.LIST_ALL_CUSTOMERS: "列出所有客戶",
             self.LIST_ALL_CONTROLLERS: "列出所有控制器",
@@ -226,6 +231,8 @@ class IntentType(Enum):
             self.QUERY_ALL_KNOWN_ISSUES_BY_TEST_ITEM: ["test_item"],
             # Phase 16: Test Jobs 查詢
             self.QUERY_PROJECT_FW_TEST_JOBS: ["project_name", "fw_version"],  # Phase 16: 專案 FW 測試工作結果
+            # Phase 17: FW 版本測試項目比較
+            self.COMPARE_FW_TEST_JOBS: ["project_name", "fw_version_1", "fw_version_2"],  # Phase 17: 比較兩個 FW 版本的測試項目
             self.COUNT_PROJECTS: [],  # customer 是可選的
             self.LIST_ALL_CUSTOMERS: [],
             self.LIST_ALL_CONTROLLERS: [],
@@ -272,6 +279,8 @@ class IntentType(Enum):
             self.QUERY_ALL_KNOWN_ISSUES_BY_TEST_ITEM: ["customer"],
             # Phase 16: Test Jobs 查詢
             self.QUERY_PROJECT_FW_TEST_JOBS: ["test_tool_key"],  # 可選：測試工具篩選
+            # Phase 17: FW 版本測試項目比較
+            self.COMPARE_FW_TEST_JOBS: ["test_category", "show_only_diff"],  # 可選：篩選類別、只顯示差異
             self.COUNT_PROJECTS: ["customer"],  # 可選：按客戶統計
             self.LIST_ALL_CUSTOMERS: [],
             self.LIST_ALL_CONTROLLERS: [],

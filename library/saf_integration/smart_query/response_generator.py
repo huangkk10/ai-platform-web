@@ -98,6 +98,8 @@ class SAFResponseGenerator:
             IntentType.QUERY_ALL_KNOWN_ISSUES_BY_TEST_ITEM: self._generate_known_issues_response,
             # Phase 16: Test Jobs 查詢回應生成器
             IntentType.QUERY_PROJECT_FW_TEST_JOBS: self._generate_test_jobs_response,
+            # Phase 17: Compare Test Jobs 查詢回應生成器
+            IntentType.COMPARE_FW_TEST_JOBS: self._generate_compare_test_jobs_response,
             IntentType.COUNT_PROJECTS: self._generate_count_response,
             IntentType.LIST_ALL_CUSTOMERS: self._generate_customers_list_response,
             IntentType.LIST_ALL_CONTROLLERS: self._generate_controllers_list_response,
@@ -1472,6 +1474,47 @@ class SAFResponseGenerator:
             'answer': message,
             'table': data.get('table', []),
             'summary': f"{project_name} FW {fw_version} 測試結果：{pass_count} Pass / {fail_count} Fail（共 {total} 項）"
+        }
+    
+    def _generate_compare_test_jobs_response(self, result_data: Dict,
+                                              full_result: Dict) -> Dict[str, Any]:
+        """
+        生成比較測試項目結果回答（Phase 17）
+        
+        compare_test_jobs_handler 已經生成完整的 Markdown 格式回答（含 HTML details 摺疊區塊），
+        此方法直接使用 handler 的 message，不做額外處理。
+        
+        Args:
+            result_data: 查詢結果資料
+            full_result: 完整查詢結果
+            
+        Returns:
+            Dict: 包含格式化回答
+        """
+        message = result_data.get('message', '')
+        data = result_data.get('data', {})
+        
+        project_name = data.get('project_name', '')
+        fw_version_1 = data.get('fw_version_1', '')
+        fw_version_2 = data.get('fw_version_2', '')
+        statistics = data.get('statistics', {})
+        
+        # 構建摘要
+        total_diff = statistics.get('total_differences', 0)
+        pass_to_fail = statistics.get('pass_to_fail_count', 0)
+        fail_to_pass = statistics.get('fail_to_pass_count', 0)
+        
+        summary = f"{project_name} FW {fw_version_1} vs {fw_version_2}：共 {total_diff} 項差異"
+        if pass_to_fail > 0:
+            summary += f"（⚠️ {pass_to_fail} 項退化）"
+        if fail_to_pass > 0:
+            summary += f"（✅ {fail_to_pass} 項改善）"
+        
+        # Handler 已經生成完整的 Markdown 格式回答，直接使用
+        return {
+            'answer': message,
+            'table': data.get('comparison', {}),
+            'summary': summary
         }
     
     def _generate_default_response(self, result_data: Dict,

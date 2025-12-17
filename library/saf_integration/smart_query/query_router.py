@@ -47,6 +47,8 @@ from .query_handlers import (
     KnownIssuesHandler,
     # Phase 16: Test Jobs 查詢處理器
     TestJobsHandler,
+    # Phase 17: Compare Test Jobs 查詢處理器
+    CompareTestJobsHandler,
 )
 
 logger = logging.getLogger(__name__)
@@ -169,6 +171,9 @@ class QueryRouter:
             
             # Phase 16: Test Jobs 查詢處理器
             IntentType.QUERY_PROJECT_FW_TEST_JOBS: TestJobsHandler(),
+            
+            # Phase 17: Compare Test Jobs 查詢處理器
+            IntentType.COMPARE_FW_TEST_JOBS: CompareTestJobsHandler(),
             
             # 統計類型使用專門的處理器
             IntentType.COUNT_PROJECTS: self._statistics_handler,
@@ -365,9 +370,11 @@ class SmartQueryService:
     def __init__(self):
         """初始化服務"""
         from .intent_analyzer import SAFIntentAnalyzer
+        from .response_generator import SAFResponseGenerator
         
         self.intent_analyzer = SAFIntentAnalyzer()
         self.query_router = QueryRouter()
+        self.response_generator = SAFResponseGenerator()
         
         logger.info("SmartQueryService 初始化完成")
     
@@ -422,6 +429,24 @@ class SmartQueryService:
                 'source': 'saf_smart_query'
             }
         }
+        
+        # 5. 使用 ResponseGenerator 生成格式化回應
+        try:
+            formatted_response = self.response_generator.generate(result)
+            # ResponseGenerator 返回 dict，包含 answer, table, summary 等
+            # 前端需要 answer (Markdown 字符串)
+            if isinstance(formatted_response, dict):
+                result['response'] = formatted_response.get('answer', '')
+                result['response_data'] = formatted_response  # 保留完整結構供需要時使用
+                logger.debug(f"ResponseGenerator 生成回應成功，answer 長度: {len(result['response'])}")
+            else:
+                # 如果不是 dict，直接使用
+                result['response'] = formatted_response
+                logger.debug(f"ResponseGenerator 生成回應成功（非 dict），長度: {len(str(formatted_response))}")
+        except Exception as e:
+            logger.error(f"ResponseGenerator 生成回應失敗: {e}")
+            # 如果 ResponseGenerator 失敗，使用 query_result 的 message 作為回退
+            result['response'] = query_result.message if hasattr(query_result, 'message') else None
         
         logger.info(
             f"查詢完成: success={result['success']}, "

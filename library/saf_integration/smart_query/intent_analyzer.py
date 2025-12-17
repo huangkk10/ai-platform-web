@@ -707,7 +707,32 @@ Known Issues 是指專案中已知的問題清單，包含 Issue ID、測項名�
   - query_project_fw_all_test_items: 返回測試項目列表（不含執行結果）
   - query_project_test_summary_by_fw: 返回統計摘要（通過率、完成率等）
 
-### 41. unknown - 無法識別的意圖
+### 41. compare_fw_test_jobs - 比較兩個 FW 版本的測試項目結果差異 (Phase 17 新增)
+用戶想比較同一專案的兩個 FW 版本的「測試項目結果差異」時使用。
+包括：狀態變化（Pass→Fail 或 Fail→Pass）、新增項目、移除項目。
+- 常見問法：
+  - 「比較 XX 專案 FW1 和 FW2 的測項結果」「對比 XX FW1 與 FW2 的測試項目差異」
+  - 「XX FW1 和 FW2 的測試差異」「XX 版本 FW1 與 FW2 的比較」
+  - 「比較 Springsteen PH10YC3H_Pyrite_4K 和 GD10YBJD 的測項結果」
+  - 「對比 PM9M1 HHB0YBC1 與 HHB0YBC2 測試項目差異」
+  - 「XX 的 FW1 和 FW2 哪些測試變成 Fail」
+  - 「XX FW1 vs FW2 測試結果差異」
+  - 「XX 專案 FW1 FW2 的測試項目比較」
+- 參數：
+  - project_name (專案名稱，必須)
+  - fw_version_1 (第一個 FW 版本，必須)
+  - fw_version_2 (第二個 FW 版本，必須)
+  - test_category (選填，篩選特定測試類別)
+  - show_only_diff (選填，只顯示差異項目，預設 true)
+- 【關鍵詞識別】
+  - 關鍵詞：「比較」「對比」「差異」「vs」「和...的」「與...的」+ 兩個 FW 版本 + 「測項」「測試項目」
+  - 【重要】必須同時出現：專案名稱 + 兩個 FW 版本 + 比較/差異關鍵詞
+- 【與其他意圖的差異】
+  - compare_fw_test_jobs: 比較測試項目結果差異（Pass/Fail 狀態變化）
+  - compare_fw_versions: 比較版本的統計數據（通過率、完成率變化）
+  - query_project_fw_test_jobs: 查詢單一版本的測試項目結果
+
+### 42. unknown - 無法識別的意圖
 當問題與 SAF 專案管理系統無關時使用。
 
 ## 已知資訊
@@ -1537,6 +1562,16 @@ class SAFIntentAnalyzer:
                     logger.info(f"查詢包含特定客戶 '{detected_customer}'，但參數中缺少 customer，補充參數")
                     parameters['customer'] = detected_customer
             
+            # 情況 4：查詢包含「比較」「對比」關鍵字但 Dify 返回的不是比較意圖
+            # 例如：「比較 Springsteen GH10Y6NH 和 GH10Y6NH_512Byte 的測項結果」應該是 compare_fw_test_jobs
+            compare_keywords = ['比較', '對比', '差異', '不同', '兩個版本', '兩版']
+            is_compare_query = any(kw in original_query for kw in compare_keywords)
+            if is_compare_query and intent_type != IntentType.COMPARE_FW_TEST_JOBS:
+                # 檢查是否包含兩個 FW 版本（用「和」分隔）
+                if ' 和 ' in original_query or '和' in original_query or ' vs ' in original_query.lower():
+                    logger.info(f"查詢包含比較關鍵字且有兩個版本，但 Dify 返回 '{intent_type.value}'，嘗試 fallback")
+                    should_use_fallback = True
+            
             # 如果需要使用 fallback
             if should_use_fallback:
                 fallback_result = self._fallback_analysis(original_query)
@@ -1765,6 +1800,17 @@ class SAFIntentAnalyzer:
         project_name = self._detect_project_name(query)
         detected_sub_version = self._detect_sub_version(query)
         
+        # ★ 重要：如果查詢包含「比較」關鍵字，先檢查是否有兩個 FW 版本
+        # 避免 Sub Version 檢測干擾 FW 版本比較查詢
+        compare_keywords = ['比較', '對比', '差異', 'compare', 'vs']
+        has_compare = any(kw in query for kw in compare_keywords)
+        
+        if has_compare:
+            fw_1, fw_2 = self._detect_two_fw_versions_for_compare(query)
+            if fw_1 and fw_2 and project_name:
+                # 跳過 Sub Version 處理，交給第 10 步的 FW 比較邏輯
+                detected_sub_version = None
+        
         if project_name and detected_sub_version:
             # 查詢特定 Sub Version 的 FW 列表
             return IntentResult(
@@ -1809,6 +1855,47 @@ class SAFIntentAnalyzer:
             # 檢查是否有測試類別或容量關鍵字
             detected_category = self._detect_test_category(query)
             detected_capacity = self._detect_capacity(query)
+            
+            # ★★★ Phase 17: 優先檢測「比較兩個 FW 版本測項結果」★★★
+            # 關鍵詞：「比較」「對比」「差異」+ 兩個 FW 版本 + 「測項」「測試項目」
+            compare_keywords = ['比較', '對比', '差異', 'compare', 'vs', '和', '與']
+            test_job_keywords = ['測項', '測試項目', '測項結果', '測試項目結果', 'test job', 'test jobs', 'test item']
+            
+            has_compare = any(kw in query for kw in compare_keywords)
+            has_test_job = any(kw in query.lower() for kw in test_job_keywords)
+            
+            if has_compare:
+                fw_1, fw_2 = self._detect_two_fw_versions_for_compare(query)
+                if fw_1 and fw_2:
+                    # 確認是「比較測項結果」而非「比較版本統計」
+                    # 「測項結果」「測試項目結果」→ compare_fw_test_jobs
+                    # 「通過率」「完成率」「統計」→ compare_fw_versions
+                    stat_keywords = ['通過率', '完成率', '統計', '進度', 'pass rate', 'completion']
+                    has_stat = any(sk in query.lower() for sk in stat_keywords)
+                    
+                    if has_test_job and not has_stat:
+                        return IntentResult(
+                            intent=IntentType.COMPARE_FW_TEST_JOBS,
+                            parameters={
+                                'project_name': project_name,
+                                'fw_version_1': fw_1,
+                                'fw_version_2': fw_2
+                            },
+                            confidence=0.8,
+                            raw_response=f"Fallback: compare FW test jobs for {project_name}: {fw_1} vs {fw_2}"
+                        )
+                    elif not has_stat:
+                        # 預設為比較測項結果（如果沒有明確的統計關鍵詞）
+                        return IntentResult(
+                            intent=IntentType.COMPARE_FW_TEST_JOBS,
+                            parameters={
+                                'project_name': project_name,
+                                'fw_version_1': fw_1,
+                                'fw_version_2': fw_2
+                            },
+                            confidence=0.75,
+                            raw_response=f"Fallback: compare FW test jobs (default) for {project_name}: {fw_1} vs {fw_2}"
+                        )
             
             # ★★★ 檢測 FW 版本 ★★★
             # FW 版本格式：通常是 CODE_Name_Capacity 或 簡短代碼
@@ -2081,6 +2168,52 @@ class SAFIntentAnalyzer:
             return short_matches[0]
         
         return None
+
+    def _detect_two_fw_versions_for_compare(self, query: str) -> tuple[Optional[str], Optional[str]]:
+        """
+        檢測查詢中的兩個 FW 版本（用於比較查詢）
+        
+        專門用於處理「比較 FW1 和 FW2」這類查詢。
+        
+        FW 版本常見格式：
+        1. CODE_Name_Capacity: PH10YC3H_Pyrite_4K, GD10YBJD_Opal
+        2. 簡短代碼: Y1114B, X0325A, GD10YBJD, HHB0YBC1
+        
+        Args:
+            query: 用戶查詢
+            
+        Returns:
+            tuple[Optional[str], Optional[str]]: (fw_version_1, fw_version_2)，找不到則返回 (None, None)
+        """
+        all_matches = []
+        
+        # 模式 1：完整 FW 格式 CODE_Name_Capacity (如 PH10YC3H_Pyrite_4K)
+        full_fw_pattern = r'\b([A-Z]{2,}\d+[A-Z0-9]*_[A-Za-z]+(?:_[A-Za-z0-9]+)*)\b'
+        full_matches = re.findall(full_fw_pattern, query)
+        all_matches.extend(full_matches)
+        
+        # 模式 2：更寬鬆的字母數字組合（如 HHB0YBC1, GD10YBJD）
+        # 必須同時包含字母和數字，長度 >= 6
+        flexible_pattern = r'\b([A-Z0-9]{6,})\b'
+        flexible_matches = re.findall(flexible_pattern, query.upper())
+        
+        # 過濾掉純數字和專案名稱（通常是較短的或純字母的）
+        project_name = self._detect_project_name(query)
+        for match in flexible_matches:
+            # 確保同時包含字母和數字（FW 版本特徵）
+            has_letter = any(c.isalpha() for c in match)
+            has_digit = any(c.isdigit() for c in match)
+            # 排除專案名稱
+            is_project = project_name and match.upper() == project_name.upper()
+            
+            if has_letter and has_digit and not is_project and match not in all_matches:
+                all_matches.append(match)
+        
+        # 確保有至少兩個不同的 FW 版本
+        if len(all_matches) >= 2:
+            return (all_matches[0], all_matches[1])
+        
+        return (None, None)
 
     def _has_count_keywords(self, query: str) -> bool:
         """檢查是否包含數量相關關鍵字"""
