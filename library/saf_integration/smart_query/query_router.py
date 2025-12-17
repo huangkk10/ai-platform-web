@@ -45,6 +45,8 @@ from .query_handlers import (
     SupportedCapacitiesHandler,
     # Phase 15: Known Issues 查詢處理器
     KnownIssuesHandler,
+    # Phase 16: Test Jobs 查詢處理器
+    TestJobsHandler,
 )
 
 logger = logging.getLogger(__name__)
@@ -164,6 +166,9 @@ class QueryRouter:
             IntentType.QUERY_KNOWN_ISSUES_BY_DATE_RANGE: KnownIssuesHandler(),
             IntentType.SEARCH_KNOWN_ISSUES_BY_KEYWORD: KnownIssuesHandler(),
             IntentType.QUERY_ALL_KNOWN_ISSUES_BY_TEST_ITEM: KnownIssuesHandler(),
+            
+            # Phase 16: Test Jobs 查詢處理器
+            IntentType.QUERY_PROJECT_FW_TEST_JOBS: TestJobsHandler(),
             
             # 統計類型使用專門的處理器
             IntentType.COUNT_PROJECTS: self._statistics_handler,

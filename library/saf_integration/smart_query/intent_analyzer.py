@@ -44,6 +44,13 @@ INTENT_ANALYSIS_PROMPT = """
 2. 仔細理解用戶問題的**語義意圖**，不要只看關鍵字
 3. 即使語句結構不同，只要意思相同就應該識別為相同意圖
 
+【意圖優先級規則 - 當問題包含「專案名稱 + FW 版本號」時】
+- FW 版本號通常是類似 G200X6EC、Y1114B、HHB0YBC1、82CBW5QF 的格式
+- 當問題同時包含專案名稱和 FW 版本號時：
+  * 如果包含「統計」「通過率」「進度」「測了幾個」「狀況」「多少」→ 使用 query_project_test_summary_by_fw
+  * 如果包含「測項結果」「測試項目」「哪些 Fail」「列出」「有哪些」→ 使用 query_project_fw_test_jobs
+  * 不要誤認為 query_project_detail（此意圖不處理 FW 版本查詢）
+
 ## 可用的意圖類型
 
 ### 1. query_projects_by_customer - 按客戶查詢專案
@@ -65,12 +72,16 @@ INTENT_ANALYSIS_PROMPT = """
 - 參數：controller (控制器型號，如 SM2264、SM2269XT)
 
 ### 3. query_project_detail - 查詢專案詳細資訊
-用戶想了解某個特定專案的詳細資訊時使用。
+用戶想了解某個特定專案的基本資訊（不含測試結果）時使用。
 - 常見問法：
   - 「XX 專案的詳細資訊」「告訴我 XX 專案」
   - 「XX 專案是什麼」「查詢 XX 專案」「XX 專案的資訊」
-  - 「介紹一下 XX 專案」「XX 專案的狀況」
+  - 「介紹一下 XX 專案」
 - 參數：project_name (專案名稱)
+- 【重要區分】
+  - 如果問題包含 FW 版本號（如 G200X6EC、Y1114B）→ 不要使用此意圖
+  - 如果問題包含「統計」「測試」「通過率」「測項」「Fail」「Pass」→ 不要使用此意圖
+  - 只有純粹詢問專案本身資訊時才使用此意圖
 
 ### 4. query_project_summary - 查詢專案基本摘要（僅限專案資訊）
 【注意】此意圖僅用於查詢專案的基本資訊摘要，不涉及測試結果。
@@ -78,7 +89,10 @@ INTENT_ANALYSIS_PROMPT = """
 - 常見問法：
   - 「XX 專案概況」「介紹 XX 專案」「XX 專案摘要」
 - 參數：project_name (專案名稱)
-- 【重要】如果問題涉及「測試」、「Pass」、「Fail」、「通過」、「失敗」等字眼，應使用 query_project_test_summary
+- 【重要區分】
+  - 如果問題包含 FW 版本號（如 G200X6EC、Y1114B）→ 使用 query_project_test_summary_by_fw
+  - 如果問題包含「統計」「測試」「通過率」「測項」「Fail」「Pass」→ 使用測試相關意圖
+  - 只有純粹詢問專案概況（不含 FW 版本、不含測試關鍵詞）才使用此意圖
 
 ### 5. query_project_test_summary - 查詢專案測試結果統計（推薦使用）
 【預設使用】任何與「測試結果」相關的查詢都應使用此意圖。
@@ -121,20 +135,27 @@ INTENT_ANALYSIS_PROMPT = """
 - 參數：project_name (專案名稱), capacity (容量規格: 128GB/256GB/512GB/1TB/2TB/4TB/8TB)
 - 【口語對應】一T/1T → 1TB, 二T/2T → 2TB, 半T → 512GB
 
-### 8. query_project_test_summary_by_fw - 按 FW 版本查詢測試結果 (Phase 4 新增)
-用戶想了解專案特定 FW（韌體）版本的測試結果時使用。
+### 8. query_project_test_summary_by_fw - 按 FW 版本查詢測試統計 (Phase 4 新增)
+【高優先級】當問題同時包含「專案名稱」和「FW 版本號」時，優先使用此意圖或 query_project_fw_test_jobs。
+用戶想了解專案特定 FW（韌體）版本的「測試統計數據」（如通過率、完成率、測試進度）時使用。
+此意圖返回的是統計摘要，不包含每個測試項目的詳細結果。
 - 常見問法：
-  - 「XX 專案 FW YYY 的測試結果」
-  - 「XX 的 YYY 版本測試狀況」
-  - 「查看 XX 專案 FW YYY 的 Pass/Fail」
-  - 「XX YYY 版本有多少測試通過？」
-  - 「XX 專案韌體 YYY 的測試進度」
-  - 「想看 XX 的 FW YYY 測試結果」
+  - 「XX 專案 FW YYY 測了幾個」「XX YYY 測試進度」
+  - 「XX 的 YYY 版本通過率是多少」「XX YYY 通過率」
+  - 「XX YYY 版本有多少測試通過？」「XX YYY 統計」
+  - 「XX 專案韌體 YYY 的測試狀況」「XX YYY 測試狀況」
+  - 「XX YYY 的完成率」「XX YYY 測試完成了多少」
+  - 「XX 專案 YYY 的統計」「XX YYY 統計」
 - 參數：
-  - project_name (專案名稱，如 DEMETER、Channel、A400)
-  - fw_version (FW 版本號，如 Y1114B、82CBW5QF、X0325A、FWX0926C)
-- 【重要】此意圖用於指定 FW 版本的查詢
+  - project_name (專案名稱，如 DEMETER、Channel、A400、Springsteen)
+  - fw_version (FW 版本號，如 Y1114B、82CBW5QF、X0325A、G200X6EC)
+- 【重要】此意圖用於查詢統計摘要
+- 【識別規則】當問題包含「專案名稱 + FW 版本 + 統計/進度/狀況/通過率/測了幾個」時使用此意圖
+- 【關鍵詞區分】
+  - 統計類關鍵詞（使用此意圖）：「測了幾個」「通過率」「完成率」「統計」「進度」「狀況」「多少」
+  - 詳細類關鍵詞（使用 query_project_fw_test_jobs）：「測項結果」「測試項目」「哪些測項」「哪些 Fail」「列出」「有哪些」
 - 【區分】如果用戶沒有指定 FW 版本，請使用 query_project_test_summary
+- 【注意】不要將此意圖誤認為 query_project_detail，query_project_detail 不處理 FW 版本
 
 ### 9. compare_fw_versions - 比較兩個指定的 FW 版本 (Phase 5.1)
 用戶想比較同一專案中兩個不同 FW 版本的測試結果時使用。
@@ -215,6 +236,7 @@ INTENT_ANALYSIS_PROMPT = """
 用戶想了解專案特定 FW 版本的整體統計指標時使用。
 此意圖提供：完成率、通過率、樣本使用率、執行率、失敗率等詳細統計。
 - 常見問法：
+  - 「XX 專案 FW YYY 的測試結果」「XX YYY 的測試結果」 ← 重要！
   - 「XX 專案 FW YYY 的詳細統計」「XX YYY 版本的統計資訊」
   - 「XX 專案 FW YYY 的完成率是多少」「XX YYY 進度如何」
   - 「XX 專案 FW YYY 使用了多少樣本」「XX YYY 樣本使用率」
@@ -224,10 +246,11 @@ INTENT_ANALYSIS_PROMPT = """
 - 參數：
   - project_name (專案名稱，如 Springsteen、DEMETER)
   - fw_version (FW 版本號，如 G200X6EC、Y1114B)
-- 【重要】此意圖用於獲取整體統計指標，而非按類別或容量的 Pass/Fail 明細
-- 【區分】
-  - 如果用戶問「測試結果」「Pass/Fail」「哪些通過/失敗」→ 使用 query_project_test_summary_by_fw
-  - 如果用戶問「統計」「完成率」「進度」「樣本」「使用率」「執行率」→ 使用 query_fw_detail_summary
+- 【重要】此意圖用於獲取整體統計指標，返回詳細統計表格（樣本數量、完成率指標、缺陷摘要）
+- 【關鍵區分】
+  - 「測試結果」→ 使用此意圖 query_fw_detail_summary（返回統計表格）
+  - 「測試項目結果」「測項結果」→ 使用 query_project_fw_test_jobs（返回 Pass/Fail 清單）
+  - 「統計」「完成率」「進度」「樣本」→ 使用此意圖 query_fw_detail_summary
 
 ### 14. query_projects_by_pl - 按專案負責人查詢專案 (Phase 7 新增)
 用戶想知道某位專案負責人（PL / Project Leader）負責哪些專案時使用。
@@ -653,7 +676,38 @@ Known Issues 是指專案中已知的問題清單，包含 Issue ID、測項名�
     - 有專案名稱 + 測項名稱 → 單一專案查詢
     - 無專案名稱 + 測項名稱 + 問「哪些專案」→ 跨專案搜尋
 
-### 40. unknown - 無法識別的意圖
+### 40. query_project_fw_test_jobs - 查詢專案 FW 測試工作詳細結果 (Phase 16 新增)
+用戶想查詢特定專案特定 FW 版本的「完整測試項目結果」（含 Test Category、Test Item、Capacity、Test Status 等）時使用。
+這是查詢測試工作的完整詳細資訊，包括每個測試項目的執行狀態。
+- 常見問法：
+  - 「PM9M1 的 HHB0YBC1 測項結果」「PM9M1 HHB0YBC1 的測試項目結果」
+  - 「查詢 XX 專案 FW YYY 的測項結果」「XX YYY 的測項狀態」
+  - 「XX 專案 YYY 版本的測試項目」「列出 XX FW YYY 的所有測試」
+  - 「XX 的 YYY 有哪些測試項目」「XX YYY 有哪些 Fail」
+  - 「XX FW YYY 的測試工作結果」「XX YYY 的 test jobs」
+  - 「Springsteen 的 GD10YBJD 測項結果」
+  - 「DEMETER Y1114B 的測試項目結果」
+  - 「列出 XX YYY 的測試結果」「XX YYY 哪些測試通過」
+- 參數：
+  - project_name (專案名稱，必須，可以是簡短名稱如 PM9M1、Springsteen)
+  - fw_version (FW 版本，必須)
+  - test_tool_key (選填，測試工具篩選)
+- 【關鍵詞區分】
+  - 詳細測項類關鍵詞（使用此意圖）：「測項結果」「測試項目結果」「哪些測項」「哪些 Fail」「哪些 Pass」「列出測試」「有哪些測試項目」
+  - 統計結果類關鍵詞（使用 query_fw_detail_summary）：「測試結果」「完成率」「進度」「統計」「樣本使用率」「執行率」「測試概覽」
+  - 【重要】「測試結果」→ query_fw_detail_summary（附件1格式：詳細統計表）
+  - 【重要】「測試項目結果」「測項結果」→ query_project_fw_test_jobs（附件2格式：Pass/Fail清單）
+- 【重要區分】
+  - 如果用戶問「XX FW YYY 的測項結果」「XX YYY 有哪些 Fail」→ 使用此意圖（完整測試結果）
+  - 如果用戶問「XX FW YYY 測了幾個」「XX YYY 通過率」→ 使用 query_project_test_summary_by_fw（統計摘要）
+  - 如果用戶問「XX FW YYY 有哪些測試類別」→ 使用 query_project_fw_test_categories（類別列表）
+  - 如果用戶問「XX FW YYY 有哪些測項」→ 使用 query_project_fw_all_test_items（測項列表）
+- 【與其他意圖的差異】
+  - query_project_fw_test_jobs: 返回測試工作的執行結果（Pass/Fail/Status）
+  - query_project_fw_all_test_items: 返回測試項目列表（不含執行結果）
+  - query_project_test_summary_by_fw: 返回統計摘要（通過率、完成率等）
+
+### 41. unknown - 無法識別的意圖
 當問題與 SAF 專案管理系統無關時使用。
 
 ## 已知資訊
@@ -764,22 +818,23 @@ Sub Version 代碼：AA (512GB), AB (1024GB/1TB), AC (2048GB/2TB), AD (4096GB/4T
 輸入：PHOENIX 的功能測試結果如何
 輸出：{"intent": "query_project_test_by_category", "parameters": {"project_name": "PHOENIX", "category": "Functionality"}, "confidence": 0.93}
 
-輸入：DEMETER 專案 FW Y1114B 的測試結果
+# Phase 4: 按 FW 版本查詢測試統計（統計類查詢）
+輸入：DEMETER 專案 FW Y1114B 測了幾個
 輸出：{"intent": "query_project_test_summary_by_fw", "parameters": {"project_name": "DEMETER", "fw_version": "Y1114B"}, "confidence": 0.95}
 
-輸入：Channel 的 82CBW5QF 版本測試狀況
+輸入：Channel 的 82CBW5QF 版本通過率是多少
 輸出：{"intent": "query_project_test_summary_by_fw", "parameters": {"project_name": "Channel", "fw_version": "82CBW5QF"}, "confidence": 0.93}
 
-輸入：A400 專案 X0325A 的測試結果如何
+輸入：A400 專案 X0325A 的測試進度如何
 輸出：{"intent": "query_project_test_summary_by_fw", "parameters": {"project_name": "A400", "fw_version": "X0325A"}, "confidence": 0.93}
 
-輸入：想看一下 Frey3B 的 FWX0926C 測試結果
+輸入：想看一下 Frey3B 的 FWX0926C 測試狀況
 輸出：{"intent": "query_project_test_summary_by_fw", "parameters": {"project_name": "Frey3B", "fw_version": "FWX0926C"}, "confidence": 0.90}
 
 輸入：Bennington 專案韌體 Y1103C 有多少測試通過
 輸出：{"intent": "query_project_test_summary_by_fw", "parameters": {"project_name": "Bennington", "fw_version": "Y1103C"}, "confidence": 0.90}
 
-輸入：Springsteen 專案 G200X6EC 的測試結果
+輸入：Springsteen 專案 G200X6EC 的統計
 輸出：{"intent": "query_project_test_summary_by_fw", "parameters": {"project_name": "Springsteen", "fw_version": "G200X6EC"}, "confidence": 0.92}
 
 輸入：DEMETER 專案的 Y1114B 和 Y1114A 比較
@@ -880,6 +935,13 @@ Sub Version 代碼：AA (512GB), AB (1024GB/1TB), AC (2048GB/2TB), AD (4096GB/4T
 
 輸入：比較 VULCAN 的 V1、V2、V3 版本
 輸出：{"intent": "compare_multiple_fw", "parameters": {"project_name": "VULCAN", "fw_versions": ["V1", "V2", "V3"]}, "confidence": 0.92}
+
+# === 意圖 13 範例：query_fw_detail_summary（測試結果 = 統計表格）===
+輸入：Springsteen 專案 G200X6EC 的測試結果
+輸出：{"intent": "query_fw_detail_summary", "parameters": {"project_name": "Springsteen", "fw_version": "G200X6EC"}, "confidence": 0.95}
+
+輸入：PM9M1 HHB0YBC1 的測試結果
+輸出：{"intent": "query_fw_detail_summary", "parameters": {"project_name": "PM9M1", "fw_version": "HHB0YBC1"}, "confidence": 0.95}
 
 輸入：Springsteen 專案 G200X6EC 的詳細統計
 輸出：{"intent": "query_fw_detail_summary", "parameters": {"project_name": "Springsteen", "fw_version": "G200X6EC"}, "confidence": 0.95}
@@ -1276,6 +1338,30 @@ Sub Version 代碼：AA (512GB), AB (1024GB/1TB), AC (2048GB/2TB), AD (4096GB/4T
 輸入：WD 的專案中 Power Cycle 有哪些 issues
 輸出：{"intent": "query_all_known_issues_by_test_item", "parameters": {"test_item": "Power Cycle", "customer": "WD"}, "confidence": 0.90}
 
+# Phase 16: 專案 FW 測試工作詳細結果查詢（詳細類查詢）
+# === 意圖 40 範例：query_project_fw_test_jobs（測試項目結果 = Pass/Fail 清單）===
+# 【重要】只有「測項結果」「測試項目結果」才使用此意圖，「測試結果」使用 query_fw_detail_summary
+輸入：PM9M1 的 HHB0YBC1 測項結果
+輸出：{"intent": "query_project_fw_test_jobs", "parameters": {"project_name": "PM9M1", "fw_version": "HHB0YBC1"}, "confidence": 0.95}
+
+輸入：PM9M1 HHB0YBC1 的測試項目結果
+輸出：{"intent": "query_project_fw_test_jobs", "parameters": {"project_name": "PM9M1", "fw_version": "HHB0YBC1"}, "confidence": 0.94}
+
+輸入：Springsteen GD10YBJD 有哪些測項 Fail
+輸出：{"intent": "query_project_fw_test_jobs", "parameters": {"project_name": "Springsteen", "fw_version": "GD10YBJD"}, "confidence": 0.93}
+
+輸入：列出 DEMETER Y1114B 的測試項目結果
+輸出：{"intent": "query_project_fw_test_jobs", "parameters": {"project_name": "DEMETER", "fw_version": "Y1114B"}, "confidence": 0.92}
+
+輸入：列出 Channel FW 82CBW5QF 的所有測試項目
+輸出：{"intent": "query_project_fw_test_jobs", "parameters": {"project_name": "Channel", "fw_version": "82CBW5QF"}, "confidence": 0.91}
+
+輸入：XX 的 YYY 有哪些測試項目
+輸出：{"intent": "query_project_fw_test_jobs", "parameters": {"project_name": "XX", "fw_version": "YYY"}, "confidence": 0.90}
+
+輸入：A400 專案 X0325A 版本的測試項目結果
+輸出：{"intent": "query_project_fw_test_jobs", "parameters": {"project_name": "A400", "fw_version": "X0325A"}, "confidence": 0.91}
+
 輸入：今天天氣如何？
 輸出：{"intent": "unknown", "parameters": {}, "confidence": 0.10}
 
@@ -1398,11 +1484,31 @@ class SAFIntentAnalyzer:
                 'list_fw_by_sub_version_and_month': 'list_fw_by_date_range',
                 'list_fw_by_sub_version_and_date': 'list_fw_by_date_range',
                 'query_fw_by_sub_version_and_year': 'list_fw_by_date_range',
+                # FW 統計相關的別名映射
+                'query_project_fw_statistics': 'query_project_test_summary_by_fw',
+                'query_fw_statistics': 'query_project_test_summary_by_fw',
+                'query_project_fw_summary': 'query_project_test_summary_by_fw',
+                'query_fw_test_summary': 'query_project_test_summary_by_fw',
+                'query_project_statistics_by_firmware': 'query_project_test_summary_by_fw',
+                'query_project_fw_test_jobs_count': 'query_project_test_summary_by_fw',
             }
             
             if raw_intent in combined_intent_mapping:
                 logger.info(f"映射組合意圖 '{raw_intent}' -> '{combined_intent_mapping[raw_intent]}'")
                 raw_intent = combined_intent_mapping[raw_intent]
+            
+            # ★★★ 語義修正 1：「測試結果」（不含「測試項目」）應該用 query_fw_detail_summary ★★★
+            # 如果查詢包含「測試結果」但不含「測試項目」「測項」，應使用意圖 13 而非意圖 40
+            if raw_intent == 'query_project_fw_test_jobs':
+                if '測試結果' in original_query and '測試項目' not in original_query and '測項' not in original_query:
+                    logger.info(f"語義修正：查詢為「測試結果」而非「測試項目結果」，修正 '{raw_intent}' -> 'query_fw_detail_summary'")
+                    raw_intent = 'query_fw_detail_summary'
+            
+            # ★★★ 語義修正 2：檢查查詢是否包含「統計」但被誤判為 test_jobs ★★★
+            stat_keywords = ['統計', '詳細統計', '通過率', '完成率', '進度', '狀況', '測了幾個', '多少', '樣本使用率', '執行率', '失敗率', '測試概覽']
+            if raw_intent == 'query_project_fw_test_jobs' and any(sk in original_query for sk in stat_keywords):
+                logger.info(f"語義修正：查詢包含統計關鍵字，修正 '{raw_intent}' -> 'query_fw_detail_summary'")
+                raw_intent = 'query_fw_detail_summary'
             
             # 創建 IntentResult
             intent_type = IntentType.from_string(raw_intent)
@@ -1706,18 +1812,50 @@ class SAFIntentAnalyzer:
             
             # ★★★ 檢測 FW 版本 ★★★
             # FW 版本格式：通常是 CODE_Name_Capacity 或 簡短代碼
-            # 例如：PH10YC3H_Pyrite_4K, GD10YBJD_Opal, Y1114B, X0325A 等
+            # 例如：PH10YC3H_Pyrite_4K, GD10YBJD_Opal, Y1114B, X0325A, GM10YCBM_Opal 等
             detected_fw_version = self._detect_fw_version_for_fallback(query)
             
-            # 如果有 FW 版本且有測試相關關鍵字，優先使用 FW 詳細摘要
-            if detected_fw_version and ('測試' in query or '結果' in query or '摘要' in query 
-                                         or 'pass' in query_lower or 'fail' in query_lower or '如何' in query):
-                return IntentResult(
-                    intent=IntentType.QUERY_FW_DETAIL_SUMMARY,
-                    parameters={'project_name': project_name, 'fw_version': detected_fw_version},
-                    confidence=0.6,
-                    raw_response=f"Fallback: FW detail summary query for {project_name} fw={detected_fw_version}"
-                )
+            # 如果有 FW 版本，優先處理 FW 相關查詢
+            if detected_fw_version:
+                # ★★★ 重要區分：「測試結果」vs「測試項目結果/測項結果」★★★
+                # 「測試項目結果」「測項結果」→ query_project_fw_test_jobs（Pass/Fail 清單）
+                test_item_detail_keywords = ['測項結果', '測試項目結果', '測試項目', '哪些測項', '哪些 fail', '哪些fail', '哪些 pass', '哪些pass']
+                if any(dk in query.lower() for dk in test_item_detail_keywords):
+                    return IntentResult(
+                        intent=IntentType.QUERY_PROJECT_FW_TEST_JOBS,
+                        parameters={'project_name': project_name, 'fw_version': detected_fw_version},
+                        confidence=0.7,
+                        raw_response=f"Fallback: FW test jobs query for {project_name} fw={detected_fw_version}"
+                    )
+                
+                # 「測試結果」（不含「測試項目」）→ query_fw_detail_summary（統計表格）
+                if '測試結果' in query and '測試項目' not in query and '測項' not in query:
+                    return IntentResult(
+                        intent=IntentType.QUERY_FW_DETAIL_SUMMARY,
+                        parameters={'project_name': project_name, 'fw_version': detected_fw_version},
+                        confidence=0.75,
+                        raw_response=f"Fallback: FW detail summary (測試結果) for {project_name} fw={detected_fw_version}"
+                    )
+                
+                # 統計類關鍵字 → query_fw_detail_summary
+                stat_keywords = ['統計', '詳細統計', '通過率', '完成率', '進度', '狀況', '測了幾個', '多少', '樣本使用率', '執行率', '失敗率', '測試概覽']
+                if any(sk in query for sk in stat_keywords):
+                    return IntentResult(
+                        intent=IntentType.QUERY_FW_DETAIL_SUMMARY,
+                        parameters={'project_name': project_name, 'fw_version': detected_fw_version},
+                        confidence=0.7,
+                        raw_response=f"Fallback: FW detail summary query for {project_name} fw={detected_fw_version}"
+                    )
+                
+                # 其他測試相關關鍵字 → query_fw_detail_summary
+                if ('測試' in query or '結果' in query or '摘要' in query 
+                    or 'pass' in query_lower or 'fail' in query_lower or '如何' in query):
+                    return IntentResult(
+                        intent=IntentType.QUERY_FW_DETAIL_SUMMARY,
+                        parameters={'project_name': project_name, 'fw_version': detected_fw_version},
+                        confidence=0.6,
+                        raw_response=f"Fallback: FW detail summary query for {project_name} fw={detected_fw_version}"
+                    )
             
             if detected_category:
                 # 按類別查詢測試結果

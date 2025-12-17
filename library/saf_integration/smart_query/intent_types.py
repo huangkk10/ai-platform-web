@@ -107,6 +107,9 @@ class IntentType(Enum):
     SEARCH_KNOWN_ISSUES_BY_KEYWORD = "search_known_issues_by_keyword"  # 按關鍵字搜尋 Issues
     QUERY_ALL_KNOWN_ISSUES_BY_TEST_ITEM = "query_all_known_issues_by_test_item"  # 跨專案按 Test Item 搜尋
     
+    # 🆕 Phase 16: Test Jobs 查詢（專案 FW 測試工作結果）
+    QUERY_PROJECT_FW_TEST_JOBS = "query_project_fw_test_jobs"  # 查詢專案 FW 的測試工作結果
+    
     # 統計專案數量
     COUNT_PROJECTS = "count_projects"
     
@@ -177,6 +180,8 @@ class IntentType(Enum):
             self.QUERY_KNOWN_ISSUES_BY_DATE_RANGE: "按日期範圍查詢 Known Issues",
             self.SEARCH_KNOWN_ISSUES_BY_KEYWORD: "按關鍵字搜尋 Known Issues",
             self.QUERY_ALL_KNOWN_ISSUES_BY_TEST_ITEM: "跨專案按 Test Item 搜尋 Known Issues",
+            # Phase 16: Test Jobs 查詢
+            self.QUERY_PROJECT_FW_TEST_JOBS: "查詢專案 FW 的測試工作結果（含 Test Category、Item、Status 等）",
             self.COUNT_PROJECTS: "統計專案數量",
             self.LIST_ALL_CUSTOMERS: "列出所有客戶",
             self.LIST_ALL_CONTROLLERS: "列出所有控制器",
@@ -219,6 +224,8 @@ class IntentType(Enum):
             self.QUERY_KNOWN_ISSUES_BY_DATE_RANGE: ["start_date"],  # end_date 是可選的
             self.SEARCH_KNOWN_ISSUES_BY_KEYWORD: ["keyword"],
             self.QUERY_ALL_KNOWN_ISSUES_BY_TEST_ITEM: ["test_item"],
+            # Phase 16: Test Jobs 查詢
+            self.QUERY_PROJECT_FW_TEST_JOBS: ["project_name", "fw_version"],  # Phase 16: 專案 FW 測試工作結果
             self.COUNT_PROJECTS: [],  # customer 是可選的
             self.LIST_ALL_CUSTOMERS: [],
             self.LIST_ALL_CONTROLLERS: [],
@@ -263,6 +270,8 @@ class IntentType(Enum):
             self.QUERY_KNOWN_ISSUES_BY_DATE_RANGE: ["end_date", "project_name"],
             self.SEARCH_KNOWN_ISSUES_BY_KEYWORD: ["search_fields", "project_name"],
             self.QUERY_ALL_KNOWN_ISSUES_BY_TEST_ITEM: ["customer"],
+            # Phase 16: Test Jobs 查詢
+            self.QUERY_PROJECT_FW_TEST_JOBS: ["test_tool_key"],  # 可選：測試工具篩選
             self.COUNT_PROJECTS: ["customer"],  # 可選：按客戶統計
             self.LIST_ALL_CUSTOMERS: [],
             self.LIST_ALL_CONTROLLERS: [],

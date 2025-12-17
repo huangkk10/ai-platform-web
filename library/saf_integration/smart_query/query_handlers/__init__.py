@@ -67,6 +67,8 @@ from .list_fw_by_date_range_handler import ListFWByDateRangeHandler
 from .supported_capacities_handler import SupportedCapacitiesHandler
 # Phase 15: Known Issues 查詢處理器
 from .known_issues_handler import KnownIssuesHandler
+# Phase 16: Test Jobs 查詢處理器
+from .test_jobs_handler import TestJobsHandler
 
 __all__ = [
     'BaseHandler',
@@ -102,5 +104,7 @@ __all__ = [
     'SupportedCapacitiesHandler',
     # Phase 15: Known Issues 查詢處理器
     'KnownIssuesHandler',
+    # Phase 16: Test Jobs 查詢處理器
+    'TestJobsHandler',
 ]
 
