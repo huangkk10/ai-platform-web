@@ -815,6 +815,185 @@ class SAFAPIClient:
             logger.error(f"Test Jobs API 請求異常: {str(e)}")
             return None
 
+    # =========================================================================
+    # Phase 19: Test Status Search API (新增)
+    # =========================================================================
+
+    def search_test_status(
+        self,
+        query: str,
+        page: int = 1,
+        size: int = 100
+    ) -> Optional[Dict[str, Any]]:
+        """
+        搜尋測試狀態 (Phase 19 新增)
+        
+        使用 POST /api/v1/projects/test-status/search API
+        
+        此 API 提供更豐富的測試類別資訊，包括：
+        - Performance (Secondary)
+        - Power Consumption (Primary)
+        - Functionality
+        - MANDi
+        - Power Cycling
+        - Compatibility
+        - Temperature Power Cycling
+        - Temperature Reliability
+        - UNITest
+        等類別
+        
+        查詢語法範例：
+        - 依專案名稱: projectName = "Springsteen"
+        - 依 FW 版本: fw = "GB10YCGS"
+        - 組合查詢: projectName = "Springsteen" AND fw = "GB10YCGS"
+        - 依測試狀態: testStatus = "PASS"
+        - 依樣品 ID: sampleId = "SSD-Y-09492"
+        
+        測試狀態值：
+        - PASS: 通過
+        - FAIL: 失敗
+        - ONGOING: 進行中
+        - CANCEL: 取消
+        - INTERRUPT: 中斷
+        - CONDITIONAL PASS: 條件通過
+        
+        Args:
+            query: 查詢條件字串
+            page: 頁碼 (從 1 開始)
+            size: 每頁筆數 (最大 100)
+            
+        Returns:
+            Dict 包含:
+            - items: List[Dict] 測試狀態列表
+            - total: int 總數量
+            - page: int 當前頁碼
+            - size: int 每頁筆數
+            如果失敗則返回 None
+        """
+        url = f"{self.base_url}/api/v1/projects/test-status/search"
+        
+        # 檢查快取
+        cache_key = f"test_status_search:{query}:{page}:{size}"
+        if self.cache_manager:
+            cached_data = self.cache_manager.get(cache_key)
+            if cached_data is not None:
+                logger.debug(f"從快取獲取 Test Status Search: {query}")
+                return cached_data
+        
+        # 獲取認證 headers
+        headers = self.auth_manager.get_auth_headers()
+        headers['Content-Type'] = 'application/json'
+        
+        # 構建請求 body
+        request_body = {
+            "query": query,
+            "page": page,
+            "size": min(size, 100)  # 確保不超過 100
+        }
+        
+        try:
+            logger.info(f"調用 Test Status Search API: {url}, query={query}, page={page}, size={size}")
+            
+            response = requests.post(
+                url,
+                headers=headers,
+                json=request_body,
+                timeout=self.timeout
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('success'):
+                    result = data.get('data', {})
+                    # 存入快取（TTL 5 分鐘）
+                    if self.cache_manager and result:
+                        self.cache_manager.set(cache_key, result, ttl=300)
+                    
+                    total = result.get('total', 0)
+                    items_count = len(result.get('items', []))
+                    logger.info(f"Test Status Search 成功: {items_count}/{total} 筆")
+                    return result
+                else:
+                    logger.warning(f"Test Status Search API 返回失敗: {data}")
+                    return None
+            elif response.status_code == 422:
+                logger.error(f"Test Status Search API 參數錯誤: {response.text}")
+                return None
+            else:
+                logger.error(f"Test Status Search API HTTP 錯誤: {response.status_code}")
+                return None
+                
+        except requests.exceptions.Timeout:
+            logger.error(f"Test Status Search API 請求超時")
+            return None
+        except requests.exceptions.ConnectionError as e:
+            logger.error(f"Test Status Search API 連線錯誤: {str(e)}")
+            return None
+        except Exception as e:
+            logger.error(f"Test Status Search API 請求異常: {str(e)}")
+            return None
+
+    def search_test_status_by_project_fw(
+        self,
+        project_name: str,
+        fw_version: str,
+        fetch_all: bool = True
+    ) -> Optional[Dict[str, Any]]:
+        """
+        根據專案名稱和 FW 版本搜尋測試狀態 (Phase 19 便利方法)
+        
+        Args:
+            project_name: 專案名稱（如 Springsteen）
+            fw_version: FW 版本（如 GB10YCGS）
+            fetch_all: 是否獲取所有頁面資料（預設 True）
+            
+        Returns:
+            Dict 包含:
+            - items: List[Dict] 所有測試狀態
+            - total: int 總數量
+            如果失敗則返回 None
+        """
+        query = f'projectName = "{project_name}" AND fw = "{fw_version}"'
+        
+        if not fetch_all:
+            return self.search_test_status(query, page=1, size=100)
+        
+        # 獲取所有頁面
+        all_items = []
+        page = 1
+        size = 100
+        total = None
+        
+        while True:
+            result = self.search_test_status(query, page=page, size=size)
+            
+            if not result:
+                if page == 1:
+                    return None
+                break
+            
+            items = result.get('items', [])
+            if total is None:
+                total = result.get('total', 0)
+            
+            all_items.extend(items)
+            
+            # 檢查是否已取得所有資料
+            if len(all_items) >= total or len(items) == 0:
+                break
+            
+            page += 1
+            
+            # 安全限制：最多 50 頁
+            if page > 50:
+                logger.warning(f"Test Status Search 超過 50 頁限制，停止獲取")
+                break
+        
+        return {
+            'items': all_items,
+            'total': total or len(all_items)
+        }
+
     def find_project_uid_by_name_and_fw(
         self, 
         project_name: str, 

@@ -5,16 +5,19 @@ TestJobsHandler - 專案 FW 測試工作結果查詢
 處理 Phase 16 意圖：專案 FW 測試工作結果查詢
 - 查詢特定專案特定 FW 版本的完整測試結果
 
-API 端點：POST /api/v1/projects/test-jobs
+API 端點：POST /api/v1/projects/test-status/search (Phase 19.1 更新)
+- 原先使用 /api/v1/projects/test-jobs（舊 API，類別不完整）
+- 現改用 /api/v1/projects/test-status/search（新 API，類別完整含 Performance）
 
 特點：
 - 支援簡短專案名稱（如 PM9M1）自動對應到完整專案 ID
 - 返回完整測試項目列表（含 Category、Item、Status、Capacity 等）
-- 支援測試工具篩選
+- 包含完整的測試類別（含 Performance (Secondary)）
 - 按類別分組統計 Pass/Fail 數量
 
 作者：AI Platform Team
 創建日期：2025-12-17
+更新日期：2025-12-18 - Phase 19.1: 改用 test-status/search API
 """
 
 import logging
@@ -92,18 +95,23 @@ class TestJobsHandler(BaseHandler):
                 f"(projectId: {project_id}, projectUid: {project_uid})"
             )
             
-            # Step 2: 調用 Test Jobs API（使用 projectId 而非 projectUid）
-            test_jobs_result = self.api_client.get_project_test_jobs(
-                project_ids=[project_id],
-                test_tool_key=test_tool_key
+            # Step 2: 調用 test-status/search API（Phase 19.1 更新）
+            # 改用新 API 以獲取完整的測試類別（包含 Performance）
+            test_status_result = self.api_client.search_test_status_by_project_fw(
+                project_name=full_project_name,
+                fw_version=matched_fw,
+                fetch_all=True
             )
             
-            if not test_jobs_result:
+            if not test_status_result:
                 return QueryResult.no_results(
                     query_type=self.handler_name,
                     parameters=parameters,
                     message=f"無法獲取專案 '{project_name}' FW '{matched_fw}' 的測試結果"
                 )
+            
+            # 轉換為相容格式
+            test_jobs_result = self._convert_test_status_to_jobs(test_status_result)
             
             # Step 3: 格式化回應
             return self._format_test_jobs_response(
@@ -145,6 +153,54 @@ class TestJobsHandler(BaseHandler):
         """獲取指定專案的所有 FW 版本列表"""
         return self.api_client.get_all_fw_versions_for_project(project_name)
     
+    def _convert_test_status_to_jobs(self, test_status_result: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        將 test-status/search API 回應轉換為舊 API 相容格式
+        
+        Phase 19.1 新增：統一資料格式以相容現有的回應生成邏輯
+        
+        Args:
+            test_status_result: 新 API 的回應 {'items': [...], 'total': int, ...}
+            
+        Returns:
+            轉換後的資料 {'test_jobs': [...], 'total': int}
+        """
+        items = test_status_result.get('items', [])
+        test_jobs = []
+        
+        for item in items:
+            # 將 test_status (PASS/FAIL/ONGOING...) 轉換為舊格式 (Pass/Fail)
+            status = item.get('test_status', '')
+            normalized_status = 'Pass' if status == 'PASS' else ('Fail' if status == 'FAIL' else status)
+            
+            test_jobs.append({
+                'test_job_id': item.get('test_job_id', ''),
+                'test_item_name': item.get('test_item', ''),
+                'test_category_name': item.get('test_category_name', ''),
+                'test_plan_name': item.get('test_plan_name', ''),
+                'test_status': normalized_status,
+                'sample_id': item.get('sample_id', ''),
+                'capacity': item.get('capacity', ''),
+                'fw': item.get('fw', ''),
+                'platform': item.get('platform', ''),
+                'root_id': item.get('root_id', ''),
+                # 新 API 特有的欄位
+                'start_time': item.get('start_time', ''),
+                'end_time': item.get('end_time', ''),
+                'duration': item.get('duration', ''),
+                'user': item.get('user', ''),
+                'os_name': item.get('os_name', ''),
+            })
+        
+        converted_result = {
+            'test_jobs': test_jobs,
+            'total': len(test_jobs)
+        }
+        
+        logger.info(f"test-status/search API 轉換完成: {len(test_jobs)} 筆測試項目")
+        
+        return converted_result
+    
     def _format_test_jobs_response(
         self,
         test_jobs: Dict[str, Any],
@@ -167,15 +223,22 @@ class TestJobsHandler(BaseHandler):
                 message=f"專案 {project_name} FW {fw_version} 沒有測試結果資料"
             )
         
-        # 統計資訊
-        pass_count = sum(1 for j in jobs if j.get('test_status') == 'Pass')
-        fail_count = sum(1 for j in jobs if j.get('test_status') == 'Fail')
+        # 統計資訊（排除沒有 Category 的資料）
+        # Phase 19.1: 過濾空 Category，不納入統計和顯示
+        valid_jobs = [j for j in jobs if j.get('test_category_name', '').strip()]
+        filtered_count = len(jobs) - len(valid_jobs)
+        if filtered_count > 0:
+            logger.info(f"過濾 {filtered_count} 筆沒有 Category 的測試項目")
+        
+        total = len(valid_jobs)
+        pass_count = sum(1 for j in valid_jobs if j.get('test_status') == 'Pass')
+        fail_count = sum(1 for j in valid_jobs if j.get('test_status') == 'Fail')
         other_count = total - pass_count - fail_count
         
-        # 按 Test Category 分組
+        # 按 Test Category 分組（只處理有 Category 的資料）
         categories = {}
-        for job in jobs:
-            cat = job.get('test_category_name', 'Unknown')
+        for job in valid_jobs:
+            cat = job.get('test_category_name', '')
             if cat not in categories:
                 categories[cat] = {'pass': 0, 'fail': 0, 'other': 0, 'items': []}
             categories[cat]['items'].append(job)
@@ -187,7 +250,7 @@ class TestJobsHandler(BaseHandler):
             else:
                 categories[cat]['other'] += 1
         
-        # 格式化訊息
+        # 格式化訊息（使用過濾後的 valid_jobs）
         message = self._build_response_message(
             project_name=project_name,
             fw_version=fw_version,
@@ -196,7 +259,7 @@ class TestJobsHandler(BaseHandler):
             fail_count=fail_count,
             other_count=other_count,
             categories=categories,
-            jobs=jobs
+            jobs=valid_jobs
         )
         
         # 構建表格資料（前端可用）
@@ -376,15 +439,22 @@ class TestJobsHandler(BaseHandler):
         """
         cat_pass = category_data['pass']
         cat_fail = category_data['fail']
+        cat_other = category_data['other']
         items = category_data['items']
         
         # 將 items 按 Test Item 分組（Capacity 拉平）
         grouped_items = self._group_by_test_item(items)
         
         # 構建 details 區塊
+        # Phase 19.1: 增加「其他」狀態顯示，讓 Total 數字更清晰
+        if cat_other > 0:
+            summary_line = f"<summary>📁 <b>{category_name}</b> — ✅ {cat_pass} | ❌ {cat_fail} | ➖ {cat_other} | Total: {cat_total}</summary>"
+        else:
+            summary_line = f"<summary>📁 <b>{category_name}</b> — ✅ {cat_pass} | ❌ {cat_fail} | Total: {cat_total}</summary>"
+        
         lines = [
             "<details>",
-            f"<summary>📁 <b>{category_name}</b> — ✅ {cat_pass} | ❌ {cat_fail} | Total: {cat_total}</summary>",
+            summary_line,
             ""
         ]
         
@@ -393,18 +463,17 @@ class TestJobsHandler(BaseHandler):
         capacity_separators = " | ".join([":-----:" for _ in all_capacities])
         
         lines.extend([
-            f"| Root ID | Test Item | {capacity_headers} |",
-            f"|---------|-----------|{capacity_separators}|"
+            f"| Test Item | {capacity_headers} |",
+            f"|-----------|{capacity_separators}|"
         ])
         
         # 表格內容
         for item in grouped_items:
-            root_id = item['root_id']
             test_item = item['test_item']
             
             # 截斷過長的 Test Item 名稱
-            if len(test_item) > 45:
-                test_item_display = test_item[:42] + "..."
+            if len(test_item) > 50:
+                test_item_display = test_item[:47] + "..."
             else:
                 test_item_display = test_item
             
@@ -420,7 +489,7 @@ class TestJobsHandler(BaseHandler):
                     status_cells.append("-")
             
             status_str = " | ".join(status_cells)
-            lines.append(f"| {root_id} | {test_item_display} | {status_str} |")
+            lines.append(f"| {test_item_display} | {status_str} |")
         
         lines.extend([
             "",

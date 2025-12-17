@@ -1479,7 +1479,7 @@ class SAFResponseGenerator:
     def _generate_compare_test_jobs_response(self, result_data: Dict,
                                               full_result: Dict) -> Dict[str, Any]:
         """
-        生成比較測試項目結果回答（Phase 17）
+        生成比較測試項目結果回答（Phase 18 更新：支援多版本比較）
         
         compare_test_jobs_handler 已經生成完整的 Markdown 格式回答（含 HTML details 摺疊區塊），
         此方法直接使用 handler 的 message，不做額外處理。
@@ -1495,16 +1495,31 @@ class SAFResponseGenerator:
         data = result_data.get('data', {})
         
         project_name = data.get('project_name', '')
-        fw_version_1 = data.get('fw_version_1', '')
-        fw_version_2 = data.get('fw_version_2', '')
         statistics = data.get('statistics', {})
+        
+        # Phase 18：支援多版本陣列，同時向後相容舊格式
+        fw_versions = data.get('fw_versions', [])
+        if not fw_versions:
+            # 向後相容：從 fw_version_1/fw_version_2 構建
+            fw_v1 = data.get('fw_version_1', '')
+            fw_v2 = data.get('fw_version_2', '')
+            if fw_v1 and fw_v2:
+                fw_versions = [fw_v1, fw_v2]
         
         # 構建摘要
         total_diff = statistics.get('total_differences', 0)
         pass_to_fail = statistics.get('pass_to_fail_count', 0)
         fail_to_pass = statistics.get('fail_to_pass_count', 0)
         
-        summary = f"{project_name} FW {fw_version_1} vs {fw_version_2}：共 {total_diff} 項差異"
+        # 動態生成版本列表字串
+        if len(fw_versions) == 2:
+            version_str = f"{fw_versions[0]} vs {fw_versions[1]}"
+        elif len(fw_versions) > 2:
+            version_str = f"{fw_versions[0]} 等 {len(fw_versions)} 個版本"
+        else:
+            version_str = ', '.join(fw_versions) if fw_versions else '未知版本'
+        
+        summary = f"{project_name} FW {version_str}：共 {total_diff} 項差異"
         if pass_to_fail > 0:
             summary += f"（⚠️ {pass_to_fail} 項退化）"
         if fail_to_pass > 0:
