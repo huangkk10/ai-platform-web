@@ -26,9 +26,10 @@ const SAF_WELCOME_MESSAGE = `🔧 **歡迎使用 SAF Assistant！**
 - 📊 **專案詳細資訊** → 「DEMETER 專案的詳細資訊」「查詢 Garuda 專案」
 - 📈 **專案測試摘要** → 「DEMETER 的測試結果如何？」「TITAN 有多少測試通過？」
 - 🎯 **FW 版本測試結果** → 「Springsteen FW PH10YC3H_Pyrite_4K 測試結果如何？」
-- � **FW 測試項目結果** → 「Springsteen PH10YC3H_Pyrite_4K 的測試項目結果」
-- �🔹 **FW 版本比較** → 「Springsteen 最新兩個 FW 版本比較」
+- 📋 **FW 測試項目結果** → 「Springsteen PH10YC3H_Pyrite_4K 的測試項目結果」
+- 🔹 **FW 版本比較** → 「Springsteen 最新兩個 FW 版本比較」
 - 📊 **多版本趨勢分析** → 「Springsteen 最新 5 個 FW 版本比較」
+- 🔀 **多 FW 測試項目比較** → 「比較 Springsteen 不同 FW 的測試項目結果 G210X74A G210Y1NA G210Y33A G210Y37B」
 - 💾 **查詢支援容量** → 「Springsteen FW XX 支援哪些容量？」
 - 📁 **按類別查詢測試** → 「TITAN 的 Compliance 測試結果」「XX 專案的效能測試」
 - ⚠️ **Known Issues 查詢** → 「Springsteen 專案有多少 Known Issues？」「哪些專案的 Known Issues 最多？」

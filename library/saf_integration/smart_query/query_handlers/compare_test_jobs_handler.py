@@ -569,18 +569,36 @@ class CompareTestJobsHandler(BaseHandler):
         lines.append("### 📋 所有測試項目")
         lines.append("")
         
+        # 定義無意義的狀態（不計入有效結果）
+        invalid_statuses = {'N/A', 'CANCEL', 'Cancel', ''}
+        
         for category, items in sorted(all_items_by_category.items()):
-            # 統計：所有版本都 Pass 的項目數
-            all_pass_count = sum(1 for item in items if all(
-                item['statuses'].get(fw) == 'Pass' for fw in fw_versions
+            # 先過濾出有效項目（至少一個版本有有意義的結果）
+            valid_items = [
+                item for item in items 
+                if any(
+                    item['statuses'].get(fw, 'N/A') not in invalid_statuses 
+                    for fw in fw_versions
+                )
+            ]
+            
+            # 如果過濾後沒有有效項目，跳過這個類別
+            if not valid_items:
+                continue
+            
+            # 統計：所有版本都 Pass 的項目數（只統計有有意義結果的版本）
+            all_pass_count = sum(1 for item in valid_items if all(
+                item['statuses'].get(fw) == 'Pass' 
+                for fw in fw_versions 
+                if item['statuses'].get(fw, 'N/A') not in invalid_statuses
             ))
             # 任一版本 Fail 的項目數
-            any_fail_count = sum(1 for item in items if any(
+            any_fail_count = sum(1 for item in valid_items if any(
                 item['statuses'].get(fw) == 'Fail' for fw in fw_versions
             ))
             
             lines.append("<details>")
-            lines.append(f"<summary>📁 {category}（{len(items)} 項，✅ {all_pass_count} / ❌ {any_fail_count}）</summary>")
+            lines.append(f"<summary>📁 {category}（{len(valid_items)} 項，✅ {all_pass_count} / ❌ {any_fail_count}）</summary>")
             lines.append("")
             lines.append(self._build_multi_version_table(items, fw_versions, limit=50))
             lines.append("")
@@ -635,8 +653,27 @@ class CompareTestJobsHandler(BaseHandler):
         lines.append(header)
         lines.append(separator)
         
+        # 過濾掉所有 FW 版本都沒有有效測試結果的項目
+        # 「無意義狀態」：N/A（不存在）、CANCEL（取消）、空值
+        # 這些項目沒有任何實際測試結果，不需要顯示
+        invalid_statuses = {'N/A', 'CANCEL', 'Cancel', ''}
+        valid_items = []
+        for item in items:
+            statuses = item.get('statuses', {})
+            # 檢查是否至少有一個版本有有效狀態（Pass/Fail/ONGOING 等）
+            has_valid_status = any(
+                statuses.get(fw, 'N/A') not in invalid_statuses
+                for fw in fw_versions
+            )
+            if has_valid_status:
+                valid_items.append(item)
+        
+        # 如果過濾後沒有項目，返回提示訊息
+        if not valid_items:
+            return "_此類別在選定的 FW 版本中沒有測試項目_"
+        
         # 資料列
-        for item in items[:limit]:
+        for item in valid_items[:limit]:
             test_item = item.get('test_item', '')
             capacity = item.get('capacity', '')
             statuses = item.get('statuses', {})
@@ -653,9 +690,9 @@ class CompareTestJobsHandler(BaseHandler):
             
             lines.append(row)
         
-        # 如果超過限制
-        if len(items) > limit:
-            remaining = len(items) - limit
+        # 如果超過限制（使用過濾後的 valid_items）
+        if len(valid_items) > limit:
+            remaining = len(valid_items) - limit
             row = f"| ... 還有 {remaining} 項 | ... |"
             for _ in fw_versions:
                 row += " ... |"
