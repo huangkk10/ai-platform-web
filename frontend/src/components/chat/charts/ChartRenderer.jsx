@@ -2,7 +2,7 @@
  * ChartRenderer - 圖表渲染器
  * 
  * 根據圖表配置動態選擇和渲染適當的圖表組件
- * 支援 line、bar、pie、radar、heatmap 五種類型
+ * 支援 line、bar、pie、radar、heatmap、version-comparison 六種類型
  * 
  * 用法：
  * <ChartRenderer config={{ type: 'line', data: {...}, options: {...} }} />
@@ -16,13 +16,15 @@ import {
   PieChartOutlined,
   RadarChartOutlined,
   HeatMapOutlined,
-  InfoCircleOutlined 
+  InfoCircleOutlined,
+  FundOutlined  // 🆕 組合圖表圖標
 } from '@ant-design/icons';
 import TrendLineChart from './TrendLineChart';
 import ComparisonBarChart from './ComparisonBarChart';
 import DistributionPieChart from './DistributionPieChart';
 import RadarChart from './RadarChart';
 import HeatmapChart from './HeatmapChart';
+import VersionComparisonChart from './VersionComparisonChart';  // 🆕 版本比較組合圖
 import './ChartStyles.css';
 
 const { Text, Title } = Typography;
@@ -42,6 +44,8 @@ const getChartIcon = (type) => {
       return <RadarChartOutlined style={{ color: '#13c2c2', marginRight: 8 }} />;
     case 'heatmap':
       return <HeatMapOutlined style={{ color: '#eb2f96', marginRight: 8 }} />;
+    case 'version-comparison':  // 🆕 版本比較組合圖
+      return <FundOutlined style={{ color: '#1890ff', marginRight: 8 }} />;
     default:
       return <InfoCircleOutlined style={{ color: '#faad14', marginRight: 8 }} />;
   }
@@ -63,7 +67,7 @@ const validateConfig = (config) => {
     return { valid: false, error: '缺少圖表資料 (data)' };
   }
   
-  const validTypes = ['line', 'bar', 'pie', 'radar', 'heatmap'];
+  const validTypes = ['line', 'bar', 'pie', 'radar', 'heatmap', 'version-comparison'];  // 🆕 新增 version-comparison
   if (!validTypes.includes(config.type)) {
     return { valid: false, error: `不支援的圖表類型: ${config.type}` };
   }
@@ -88,6 +92,8 @@ const renderChart = (config) => {
       return <RadarChart data={data} options={options} />;
     case 'heatmap':
       return <HeatmapChart data={data} options={options} />;
+    case 'version-comparison':  // 🆕 版本比較組合圖
+      return <VersionComparisonChart data={data} options={options} />;
     default:
       return <Empty description="不支援的圖表類型" />;
   }

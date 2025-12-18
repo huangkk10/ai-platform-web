@@ -576,6 +576,35 @@ class CompareTestJobsHandler(BaseHandler):
         
         lines.append("")
         
+        # === 📊 版本比較圖表 ===
+        # 添加堆疊柱狀圖 + 折線圖組合，幫助用戶快速理解 Pass/Fail 分佈和通過率趨勢
+        try:
+            from library.common.chart_formatter import ChartFormatter
+            
+            # 準備圖表資料
+            pass_counts = [summary.get(fw, {}).get('pass', 0) for fw in fw_versions]
+            fail_counts = [summary.get(fw, {}).get('fail', 0) for fw in fw_versions]
+            pass_rates = [float(summary.get(fw, {}).get('pass_rate', 0)) for fw in fw_versions]
+            
+            # 生成圖表標題
+            chart_title = f"{project_name} FW 版本測試項目比較"
+            
+            # 生成版本比較組合圖表
+            chart_md = ChartFormatter.version_comparison_chart(
+                title=chart_title,
+                fw_versions=fw_versions,
+                pass_counts=pass_counts,
+                fail_counts=fail_counts,
+                pass_rates=pass_rates
+            )
+            
+            lines.append(chart_md)
+            lines.append("")
+            
+        except Exception as chart_error:
+            logger.warning(f"生成版本比較圖表失敗: {str(chart_error)}")
+            # 圖表生成失敗不影響主要功能
+        
         # === 差異區塊 ===
         if has_differences:
             diff_count = comparison['diff_count']

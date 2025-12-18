@@ -2,10 +2,10 @@
  * 圖表組件模組導出
  * 
  * 用於 AI Assistant 回應中渲染各類圖表
- * 支援：折線圖、柱狀圖、圓餅圖、雷達圖、熱力圖
+ * 支援：折線圖、柱狀圖、圓餅圖、雷達圖、熱力圖、版本比較組合圖
  * 
  * @author AI Platform Team
- * @version 1.2.0
+ * @version 1.3.0
  */
 
 export { default as ChartRenderer } from './ChartRenderer';
@@ -14,6 +14,7 @@ export { default as ComparisonBarChart } from './ComparisonBarChart';
 export { default as DistributionPieChart } from './DistributionPieChart';
 export { default as RadarChart } from './RadarChart';
 export { default as HeatmapChart } from './HeatmapChart';
+export { default as VersionComparisonChart } from './VersionComparisonChart';  // 🆕 FW 版本比較組合圖
 
 // 圖表類型常量
 export const CHART_TYPES = {
@@ -22,6 +23,7 @@ export const CHART_TYPES = {
   PIE: 'pie',
   RADAR: 'radar',
   HEATMAP: 'heatmap',
+  VERSION_COMPARISON: 'version-comparison',  // 🆕 版本比較組合圖
 };
 
 // 預設配色方案

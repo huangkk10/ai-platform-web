@@ -523,6 +523,79 @@ class ChartFormatter:
         )
 
     @classmethod
+    def version_comparison_chart(
+        cls,
+        title: str,
+        fw_versions: List[str],
+        pass_counts: List[int],
+        fail_counts: List[int],
+        pass_rates: List[float],
+        description: Optional[str] = None,
+        options: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        生成 FW 版本比較組合圖表（堆疊柱狀圖 + 折線圖）
+        
+        專為 SAF Assistant 多 FW 版本比較設計：
+        - 堆疊柱狀圖：顯示各版本的 Pass/Fail 數量
+        - 折線圖：顯示通過率趨勢
+        
+        這是一個組合圖表，前端使用 VersionComparisonChart 組件渲染
+        
+        Args:
+            title: 圖表標題
+            fw_versions: FW 版本名稱列表（按時間順序）
+            pass_counts: 各版本 Pass 數量列表
+            fail_counts: 各版本 Fail 數量列表
+            pass_rates: 各版本通過率列表（百分比數值，如 89.4）
+            description: 圖表描述（可選）
+            options: 額外選項（可選）
+            
+        Returns:
+            str: :::chart 格式的 Markdown 標記，type 為 'version-comparison'
+            
+        Example:
+            ChartFormatter.version_comparison_chart(
+                title="Springsteen FW 版本測試結果對比",
+                fw_versions=["G210X74A", "G210Y1NA", "G210Y33A", "G210Y37B"],
+                pass_counts=[17, 59, 68, 50],
+                fail_counts=[14, 5, 4, 15],
+                pass_rates=[44.7, 89.4, 93.2, 67.6]
+            )
+        """
+        config = {
+            'type': 'version-comparison',
+            'title': title,
+            'data': {
+                'labels': fw_versions,
+                'pass': pass_counts,
+                'fail': fail_counts,
+                'passRate': pass_rates
+            }
+        }
+        
+        if description:
+            config['description'] = description
+        else:
+            config['description'] = f"比較 {len(fw_versions)} 個 FW 版本的測試結果與通過率趨勢"
+        
+        # 預設選項
+        default_options = {
+            'height': 350,
+            'showGrid': True,
+            'showLegend': True,
+            'animate': True,
+            'showLineLabels': True
+        }
+        
+        if options:
+            default_options.update(options)
+        
+        config['options'] = default_options
+        
+        return cls._format_chart_marker(config)
+
+    @classmethod
     def fw_overall_metrics_line(
         cls,
         title: str,
@@ -797,6 +870,33 @@ def format_test_results_bar(
 ) -> str:
     """便利函數：生成測試結果分組長條圖"""
     return ChartFormatter.fw_test_results_bar(title, fw_versions, pass_counts, fail_counts)
+
+
+def format_version_comparison_chart(
+    title: str,
+    fw_versions: List[str],
+    pass_counts: List[int],
+    fail_counts: List[int],
+    pass_rates: List[float],
+    description: Optional[str] = None
+) -> str:
+    """
+    便利函數：生成版本比較組合圖表（堆疊柱狀圖 + 折線圖）
+    
+    Args:
+        title: 圖表標題
+        fw_versions: FW 版本名稱列表
+        pass_counts: 各版本 Pass 數量列表
+        fail_counts: 各版本 Fail 數量列表
+        pass_rates: 各版本通過率列表（百分比）
+        description: 圖表描述（可選）
+        
+    Returns:
+        str: :::chart 格式的 Markdown 標記
+    """
+    return ChartFormatter.version_comparison_chart(
+        title, fw_versions, pass_counts, fail_counts, pass_rates, description
+    )
 
 
 def format_overall_metrics_line(
