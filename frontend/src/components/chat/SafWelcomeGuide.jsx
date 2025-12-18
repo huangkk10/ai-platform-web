@@ -51,6 +51,7 @@ const GUIDE_CATEGORIES = [
     title: '測試項目結果',
     examples: [
       { text: 'Springsteen FW G210X74A 的測試項目結果？', query: 'Springsteen FW G210X74A 的測試項目結果？' },
+      { text: 'Springsteen 最新 5個 FW 測試項目結果 比較', query: 'Springsteen 最新 5個 FW 測試項目結果 比較' },
       { text: '比較 Springsteen 不同 FW 的測試項目結果 G210X74A G210Y1NA G210Y33A', query: '比較 Springsteen 不同 FW 的測試項目結果 G210X74A G210Y1NA G210Y33A' }
     ]
   },
