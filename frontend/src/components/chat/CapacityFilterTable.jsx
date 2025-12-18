@@ -8,14 +8,16 @@
  * - 根據選擇的 Capacity 動態過濾顯示的資料
  * - 統計數字會根據篩選結果更新
  * - 按 Category 分組顯示（可展開/收合）
+ * - 📊 容量×FW版本 通過率分組柱狀圖
  * 
  * @author AI Platform Team
  * @date 2025-12-18
  */
 
 import React, { useState, useMemo } from 'react';
-import { Select, Collapse, Table, Tag, Typography, Space, Empty } from 'antd';
-import { FolderOutlined, CheckCircleOutlined, CloseCircleOutlined, MinusCircleOutlined } from '@ant-design/icons';
+import { Select, Collapse, Table, Tag, Typography, Space, Empty, Card } from 'antd';
+import { FolderOutlined, CheckCircleOutlined, CloseCircleOutlined, MinusCircleOutlined, BarChartOutlined } from '@ant-design/icons';
+import CapacityFWComparisonChart from './charts/CapacityFWComparisonChart';
 
 const { Panel } = Collapse;
 const { Text } = Typography;
@@ -126,6 +128,79 @@ const CapacityFilterTable = ({
     
     return stats;
   }, [filteredData, fwVersions]);
+
+  /**
+   * 計算「容量×FW版本」的圖表資料
+   * 用於分組柱狀圖顯示各容量下各 FW 版本的通過率
+   */
+  const chartData = useMemo(() => {
+    // 收集所有可用的容量
+    const capacitiesSet = new Set();
+    Object.values(allItemsByCategory).flat().forEach(item => {
+      if (item.capacity) {
+        capacitiesSet.add(item.capacity);
+      }
+    });
+    
+    // 按容量排序（數字優先）
+    const capacities = Array.from(capacitiesSet).sort((a, b) => {
+      const numA = parseInt(a) || 0;
+      const numB = parseInt(b) || 0;
+      return numA - numB;
+    });
+    
+    // 如果選擇了特定容量，只顯示該容量
+    const displayCapacities = selectedCapacity === 'all' 
+      ? capacities 
+      : [selectedCapacity];
+    
+    // 計算每個容量下各 FW 版本的統計
+    const matrix = displayCapacities.map(capacity => {
+      const stats = {};
+      
+      fwVersions.forEach(fw => {
+        let pass = 0;
+        let fail = 0;
+        let total = 0;
+        
+        // 遍歷所有測試項目
+        Object.values(allItemsByCategory).flat().forEach(item => {
+          if (item.capacity !== capacity) return;
+          
+          const status = item.statuses?.[fw];
+          if (!status || invalidStatuses.has(status)) return;
+          
+          total++;
+          if (status === 'Pass' || status === 'PASS') {
+            pass++;
+          } else if (status === 'Fail' || status === 'FAIL') {
+            fail++;
+          }
+        });
+        
+        // 只有有資料時才記錄
+        if (total > 0) {
+          stats[fw] = {
+            pass,
+            fail,
+            total,
+            passRate: parseFloat(((pass / total) * 100).toFixed(1))
+          };
+        }
+      });
+      
+      return {
+        capacity,
+        stats
+      };
+    }).filter(item => Object.keys(item.stats).length > 0); // 過濾掉沒有任何資料的容量
+    
+    return {
+      capacities: matrix.map(m => m.capacity),
+      fwVersions,
+      matrix
+    };
+  }, [allItemsByCategory, fwVersions, selectedCapacity, invalidStatuses]);
   
   /**
    * 生成表格欄位配置
@@ -215,6 +290,23 @@ const CapacityFilterTable = ({
           <Tag color="blue">已篩選：{selectedCapacity}</Tag>
         )}
       </div>
+
+      {/* 📊 容量×FW版本 分組柱狀圖 */}
+      {chartData.matrix.length > 0 && fwVersions.length > 1 && (
+        <Card 
+          size="small" 
+          style={{ marginBottom: 16, background: '#fafafa' }}
+          bodyStyle={{ padding: '12px 16px' }}
+        >
+          <CapacityFWComparisonChart 
+            data={chartData}
+            options={{
+              height: chartData.matrix.length <= 3 ? 280 : 350,
+              barSize: 'auto'
+            }}
+          />
+        </Card>
+      )}
       
       {/* 按 Category 分組的可摺疊表格 */}
       {Object.keys(filteredData).length > 0 ? (

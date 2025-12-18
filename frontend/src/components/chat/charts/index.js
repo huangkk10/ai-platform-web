@@ -15,6 +15,7 @@ export { default as DistributionPieChart } from './DistributionPieChart';
 export { default as RadarChart } from './RadarChart';
 export { default as HeatmapChart } from './HeatmapChart';
 export { default as VersionComparisonChart } from './VersionComparisonChart';  // 🆕 FW 版本比較組合圖
+export { default as CapacityFWComparisonChart } from './CapacityFWComparisonChart';  // 🆕 容量×FW 分組柱狀圖
 
 // 圖表類型常量
 export const CHART_TYPES = {
@@ -24,6 +25,7 @@ export const CHART_TYPES = {
   RADAR: 'radar',
   HEATMAP: 'heatmap',
   VERSION_COMPARISON: 'version-comparison',  // 🆕 版本比較組合圖
+  CAPACITY_FW_COMPARISON: 'capacity-fw-comparison',  // 🆕 容量×FW 分組柱狀圖
 };
 
 // 預設配色方案
