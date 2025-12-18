@@ -2176,6 +2176,19 @@ class SAFIntentAnalyzer:
                     raw_response=f"Fallback: known issues query for {project_name}"
                 )
             
+            # ★★★ FW 版本列表查詢 ★★★
+            # 關鍵詞：「有哪些 FW」「FW 版本」「版本列表」「幾個版本」
+            fw_list_keywords = ['有哪些 fw', '有哪些fw', 'fw 版本', 'fw版本', '版本列表', 
+                               '幾個版本', '哪些版本', '什麼版本', '版本有哪些', 
+                               'firmware', 'list fw', 'fw list']
+            if any(kw in query_lower for kw in fw_list_keywords):
+                return IntentResult(
+                    intent=IntentType.LIST_FW_VERSIONS,
+                    parameters={'project_name': project_name},
+                    confidence=0.75,
+                    raw_response=f"Fallback: list FW versions for {project_name}"
+                )
+            
             # 一般測試查詢
             if '測試' in query or '結果' in query or '摘要' in query or 'pass' in query_lower or 'fail' in query_lower:
                 return IntentResult(
