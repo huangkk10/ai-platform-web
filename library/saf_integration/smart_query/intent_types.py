@@ -130,14 +130,43 @@ class IntentType(Enum):
         """
         從字串轉換為 IntentType
         
+        支援常見的拼寫變體，例如：
+        - query_supported_capacity -> query_supported_capacities
+        - compare_fw_version -> compare_fw_versions
+        
         Args:
             value: 意圖類型字串
             
         Returns:
             IntentType: 對應的意圖類型，如果找不到則返回 UNKNOWN
         """
+        # 常見的意圖字串變體映射（LLM 有時會返回略有不同的拼寫）
+        INTENT_ALIASES = {
+            # 單複數變體
+            'query_supported_capacity': 'query_supported_capacities',
+            'compare_fw_version': 'compare_fw_versions',
+            'list_fw_version': 'list_fw_versions',
+            'list_sub_version': 'list_sub_versions',
+            'compare_fw_test_job': 'compare_fw_test_jobs',
+            'query_project_fw_test_job': 'query_project_fw_test_jobs',
+            'query_project_known_issue': 'query_project_known_issues',
+            'count_project_known_issue': 'count_project_known_issues',
+            'query_recent_known_issue': 'query_recent_known_issues',
+            'query_known_issue_with_jira': 'query_known_issues_with_jira',
+            'query_known_issue_without_jira': 'query_known_issues_without_jira',
+            'list_all_customer': 'list_all_customers',
+            'list_all_controller': 'list_all_controllers',
+            'list_all_pl': 'list_all_pls',
+            # 底線/連字號變體
+            'query-supported-capacities': 'query_supported_capacities',
+            'compare-fw-versions': 'compare_fw_versions',
+        }
+        
+        # 嘗試使用別名映射
+        normalized_value = INTENT_ALIASES.get(value, value)
+        
         try:
-            return cls(value)
+            return cls(normalized_value)
         except ValueError:
             return cls.UNKNOWN
     

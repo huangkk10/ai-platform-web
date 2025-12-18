@@ -47,7 +47,7 @@ const GUIDE_CATEGORIES = [
   },
   {
     key: 'test-item-results',
-    icon: '�',
+    icon: '🎯',
     title: '測試項目結果',
     examples: [
       { text: 'Springsteen FW G210X74A 的測試項目結果？', query: 'Springsteen FW G210X74A 的測試項目結果？' },
@@ -61,16 +61,7 @@ const GUIDE_CATEGORIES = [
     examples: [
       { text: 'Springsteen 有哪些 FW 版本？', query: 'Springsteen 有哪些 FW 版本？' },
       { text: 'Springsteen 近 2 個月有哪些 FW 版本', query: 'Springsteen 近 2 個月有哪些 FW 版本' },
-      { text: 'Springsteen FW XX 支援哪些容量？', query: 'Springsteen FW XX 支援哪些容量？' },
-    ]
-  },
-  {
-    key: 'fw-test-analysis',
-    icon: '🎯',
-    title: 'FW 測試分析',
-    examples: [
-      { text: 'Springsteen FW PH10YC3H_Pyrite_4K 測試結果如何？', query: 'Springsteen FW PH10YC3H_Pyrite_4K 測試結果如何？' },
-      { text: 'Springsteen PH10YC3H_Pyrite_4K 的測試項目結果', query: 'Springsteen PH10YC3H_Pyrite_4K 的測試項目結果' },
+      { text: 'Springsteen FW GM10YCCM_Opal 支援哪些容量？', query: 'Springsteen FW GM10YCCM_Opal 支援哪些容量？' },
     ]
   },
   {
