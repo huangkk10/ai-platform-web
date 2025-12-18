@@ -1591,9 +1591,6 @@ class SAFResponseGenerator:
         if not detail:
             return "（無資料）\n"
         
-        table = "| 項目 | 內容 |\n"
-        table += "|------|------|\n"
-        
         field_names = {
             'projectName': '專案名稱',
             'customer': '客戶',
@@ -1608,10 +1605,20 @@ class SAFResponseGenerator:
             'passRate': '通過率',
         }
         
+        # 先收集有值的欄位
+        rows = []
         for key, display_name in field_names.items():
             value = detail.get(key, '')
             if value:
-                table += f"| {display_name} | {value} |\n"
+                rows.append(f"| {display_name} | {value} |")
+        
+        # 如果沒有任何有值的欄位，不生成表格
+        if not rows:
+            return "（無詳細資料）\n"
+        
+        table = "| 項目 | 內容 |\n"
+        table += "|------|------|\n"
+        table += "\n".join(rows) + "\n"
         
         return table
     
@@ -1628,9 +1635,6 @@ class SAFResponseGenerator:
         if not summary:
             return "（無資料）\n"
         
-        table = "| 項目 | 內容 |\n"
-        table += "|------|------|\n"
-        
         field_names = {
             'projectName': '專案名稱',
             'customer': '客戶',
@@ -1645,10 +1649,20 @@ class SAFResponseGenerator:
             'note': '備註',
         }
         
+        # 先收集有值的欄位
+        rows = []
         for key, display_name in field_names.items():
             value = summary.get(key, '')
             if value or value == 0:
-                table += f"| {display_name} | {value} |\n"
+                rows.append(f"| {display_name} | {value} |")
+        
+        # 如果沒有任何有值的欄位，不生成表格
+        if not rows:
+            return "（無摘要資料）\n"
+        
+        table = "| 項目 | 內容 |\n"
+        table += "|------|------|\n"
+        table += "\n".join(rows) + "\n"
         
         return table
     
