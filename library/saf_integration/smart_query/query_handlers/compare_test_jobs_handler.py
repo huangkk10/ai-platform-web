@@ -75,14 +75,69 @@ class CompareTestJobsHandler(BaseHandler):
         # Step 1: 統一轉換為 fw_versions 陣列格式
         fw_versions = self._normalize_fw_versions(parameters)
         
-        # Step 2: 驗證版本數量
+        # Step 1.5: 🆕 檢測特殊佔位符值（如 'latest', 'previous', 'latest1', 'latest_1' 等）
+        # 這些是 LLM 誤解「最新版本」時可能產生的值
+        special_placeholders = {'latest', 'previous', 'newest', 'recent', '最新', '最近', 'last'}
+        
+        def _is_placeholder(v: str) -> bool:
+            """檢查是否為佔位符值"""
+            v_lower = v.lower().strip()
+            # 完全匹配
+            if v_lower in special_placeholders:
+                return True
+            # 模式匹配：latest1, latest_1, latest-1, newest1, recent_2, previous1 等
+            import re
+            # 支援數字、底線+數字、橫線+數字
+            placeholder_pattern = r'^(latest|newest|recent|previous|last)[-_]?\d*$'
+            if re.match(placeholder_pattern, v_lower):
+                return True
+            return False
+        
+        has_placeholders = any(_is_placeholder(v) for v in fw_versions)
+        
+        if has_placeholders:
+            project_name = parameters.get('project_name')
+            if project_name:
+                logger.info(f"[{self.handler_name}] 檢測到特殊佔位符 {fw_versions}，自動獲取 {project_name} 最新版本")
+                # 根據原始版本數量決定要獲取多少個真實版本
+                count = len(fw_versions) if len(fw_versions) >= 2 else 2
+                auto_versions = self._get_latest_fw_versions(project_name, count=count)
+                if auto_versions and len(auto_versions) >= self.MIN_VERSIONS:
+                    fw_versions = auto_versions
+                    logger.info(f"[{self.handler_name}] 自動替換為實際版本: {fw_versions}")
+                else:
+                    return QueryResult.error(
+                        f"專案 **{project_name}** 的 FW 版本數量不足，無法進行比較。\n"
+                        f"💡 提示：請先使用「{project_name} 有哪些 FW 版本」查詢可用版本。",
+                        self.handler_name,
+                        parameters
+                    )
+        
+        # Step 2: 驗證版本數量，如果為空則自動獲取最新版本
         if len(fw_versions) < self.MIN_VERSIONS:
-            return QueryResult.error(
-                f"至少需要 {self.MIN_VERSIONS} 個 FW 版本才能進行比較，"
-                f"目前只有 {len(fw_versions)} 個",
-                self.handler_name,
-                parameters
-            )
+            project_name = parameters.get('project_name')
+            if project_name:
+                # 🆕 智能降級：自動獲取最新 2 個 FW 版本
+                logger.info(f"[{self.handler_name}] fw_versions 為空，嘗試自動獲取 {project_name} 最新 2 個版本")
+                auto_versions = self._get_latest_fw_versions(project_name, count=2)
+                if auto_versions and len(auto_versions) >= self.MIN_VERSIONS:
+                    fw_versions = auto_versions
+                    logger.info(f"[{self.handler_name}] 自動獲取成功: {fw_versions}")
+                else:
+                    return QueryResult.error(
+                        f"專案 **{project_name}** 的 FW 版本數量不足，無法進行比較。\n"
+                        f"找到的版本數量: {len(auto_versions) if auto_versions else 0}\n"
+                        f"💡 提示：請先使用「{project_name} 有哪些 FW 版本」查詢可用版本。",
+                        self.handler_name,
+                        parameters
+                    )
+            else:
+                return QueryResult.error(
+                    f"至少需要 {self.MIN_VERSIONS} 個 FW 版本才能進行比較，"
+                    f"目前只有 {len(fw_versions)} 個",
+                    self.handler_name,
+                    parameters
+                )
         
         if len(fw_versions) > self.MAX_VERSIONS:
             return QueryResult.error(
@@ -239,8 +294,78 @@ class CompareTestJobsHandler(BaseHandler):
         logger.info(f"正規化 FW 版本: {parameters} -> {unique_versions}")
         return unique_versions
     
+    def _get_latest_fw_versions(self, project_name: str, count: int = 2) -> List[str]:
+        """
+        🆕 獲取專案最新的 N 個 FW 版本
+        
+        用於當用戶未指定具體版本時，自動獲取最新版本進行比較。
+        
+        Args:
+            project_name: 專案名稱
+            count: 要獲取的版本數量（預設 2）
+            
+        Returns:
+            List[str]: FW 版本名稱列表（最新的在前）
+        """
+        try:
+            # 使用 API Client 獲取所有專案，然後篩選匹配的
+            all_projects = self.api_client.get_all_projects(flatten=True)
+            if not all_projects:
+                logger.warning(f"無法獲取專案列表")
+                return []
+            
+            # 篩選匹配的專案
+            project_name_lower = project_name.lower()
+            matching_projects = [
+                p for p in all_projects
+                if project_name_lower in p.get('projectName', '').lower()
+            ]
+            
+            if not matching_projects:
+                logger.warning(f"找不到專案: {project_name}")
+                return []
+            
+            # 按建立時間排序（最新的在前）
+            # createdAt 格式可能是 dict: {'seconds': {'low': timestamp}}
+            def get_timestamp(created_at):
+                try:
+                    if isinstance(created_at, dict):
+                        seconds = created_at.get('seconds', {})
+                        if isinstance(seconds, dict):
+                            return seconds.get('low', 0)
+                        elif isinstance(seconds, int):
+                            return seconds
+                    elif isinstance(created_at, (int, float)):
+                        return int(created_at)
+                    return 0
+                except:
+                    return 0
+            
+            matching_projects.sort(
+                key=lambda x: get_timestamp(x.get('createdAt', {})),
+                reverse=True
+            )
+            
+            # 收集不重複的 FW 版本（保持排序順序）
+            seen = set()
+            result = []
+            for project in matching_projects:
+                fw = project.get('fw', '')
+                if fw and fw not in seen:
+                    seen.add(fw)
+                    result.append(fw)
+                    if len(result) >= count:
+                        break
+            
+            logger.info(f"自動獲取 {project_name} 最新 {count} 個 FW 版本: {result}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"獲取最新 FW 版本失敗: {str(e)}")
+            return []
+    
     def _get_test_jobs_for_fw(
-        self, 
+        self,
         project_name: str, 
         fw_version: str
     ) -> Tuple[Optional[Dict], Optional[Dict]]:

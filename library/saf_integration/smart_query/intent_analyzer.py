@@ -883,8 +883,14 @@ Sub Version 代碼：AA (512GB), AB (1024GB/1TB), AC (2048GB/2TB), AD (4096GB/4T
 輸入：Springsteen 最新的 FW 比較
 輸出：{"intent": "compare_latest_fw", "parameters": {"project_name": "Springsteen"}, "confidence": 0.95}
 
+輸入：Springsteen 最新兩個 FW 版本比較
+輸出：{"intent": "compare_latest_fw", "parameters": {"project_name": "Springsteen"}, "confidence": 0.96}
+
 輸入：比較 DEMETER 最近兩個版本
 輸出：{"intent": "compare_latest_fw", "parameters": {"project_name": "DEMETER"}, "confidence": 0.93}
+
+輸入：DEMETER 最新兩個 FW 比較
+輸出：{"intent": "compare_latest_fw", "parameters": {"project_name": "DEMETER"}, "confidence": 0.95}
 
 輸入：Channel 的 FW 進度比較
 輸出：{"intent": "compare_latest_fw", "parameters": {"project_name": "Channel"}, "confidence": 0.90}
