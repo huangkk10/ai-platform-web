@@ -26,6 +26,8 @@ const { Text } = Typography;
  * @param {Function} onFeedback - 反饋處理函數
  * @param {Object} messagesEndRef - 訊息列表底部 ref
  * @param {string} assistantName - Assistant 名稱（用於載入指示器）
+ * @param {React.Component} welcomeComponent - 🆕 自訂歡迎訊息組件（可選）
+ * @param {Function} onExampleClick - 🆕 點擊範例問句的回調函數（可選）
  */
 const MessageList = ({
   messages = [],
@@ -34,7 +36,9 @@ const MessageList = ({
   feedbackStates = {},
   onFeedback,
   messagesEndRef,
-  assistantName = 'Assistant'
+  assistantName = 'Assistant',
+  welcomeComponent: WelcomeComponent = null,
+  onExampleClick = null
 }) => {
   return (
     <div className="messages-container" style={{ 
@@ -105,11 +109,16 @@ const MessageList = ({
               
               {/* 訊息文字內容 */}
               <div className="message-text markdown-preview-content">
-                <MessageFormatter 
-                  content={msg.content}
-                  metadata={msg.metadata}
-                  messageType={msg.type}
-                />
+                {/* 🆕 如果是歡迎訊息(id=1)且有自訂組件，使用自訂組件渲染 */}
+                {msg.id === 1 && msg.type === 'assistant' && WelcomeComponent ? (
+                  <WelcomeComponent onExampleClick={onExampleClick} />
+                ) : (
+                  <MessageFormatter 
+                    content={msg.content}
+                    metadata={msg.metadata}
+                    messageType={msg.type}
+                  />
+                )}
               </div>
               
               {/* AI 回覆的反饋按鈕 */}

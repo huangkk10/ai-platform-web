@@ -51,6 +51,7 @@ const CommonAssistantChatPage = ({
   permissionKey,
   placeholder,
   welcomeMessage,
+  welcomeComponent = null,  // 🆕 組件類型的歡迎訊息（優先於 welcomeMessage）
   collapsed = false,
   enableFileUpload = false  // 🆕 是否啟用檔案上傳功能
 }) => {
@@ -419,6 +420,8 @@ const CommonAssistantChatPage = ({
           onFeedback={submitFeedback}
           messagesEndRef={messagesEndRef}
           assistantName={assistantName}
+          welcomeComponent={welcomeComponent}
+          onExampleClick={(query) => setInputMessage(query)}
         />
         <div className="input-area" style={{
           position: 'fixed',
