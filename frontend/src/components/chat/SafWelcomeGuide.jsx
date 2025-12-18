@@ -1,6 +1,9 @@
 /**
- * SAF Assistant 折疊式歡迎引導組件
- * ================================
+ * SAF Assistant 折疊式歡迎引導組件      { text: '總共有多少專案？', query: '總共有多少專案？' },
+    ]
+  },
+  {
+    key: 'fw-version-query',=====================
  * 
  * 功能：
  * - 顯示可折疊的功能類別列表
@@ -18,7 +21,7 @@ import './SafWelcomeGuide.css';
 
 const { Text } = Typography;
 
-// SAF Assistant 功能類別資料結構（精簡版：7 大類別）
+// SAF Assistant 功能類別資料結構（精簡版：6 大類別）
 const GUIDE_CATEGORIES = [
   {
     key: 'project-query',
