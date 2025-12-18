@@ -720,16 +720,27 @@ Known Issues 是指專案中已知的問題清單，包含 Issue ID、測項名�
   - 「比較 Springsteen PH10YC3H_Pyrite_4K 和 GD10YBJD 的測項結果」
   - 「XX 的 FW1 和 FW2 哪些測試變成 Fail」
   - 「XX FW1 vs FW2 測試結果差異」
+  - 【🆕 使用 latest_count】「XX 最新 5 個 FW 版本測試項目結果比較」「XX 最近 3 個 FW 測項差異」
 - 參數：
   - project_name (專案名稱，必須)
-  - fw_versions (FW 版本陣列，必須，包含 2-10 個版本)
+  - fw_versions (FW 版本陣列，包含 2-10 個版本) 或
+  - latest_count (選填，自動取最近 N 個版本，如 2、3、5)
   - test_category (選填，篩選特定測試類別)
 - 【關鍵詞識別】
-  - 關鍵詞：「比較」「對比」「差異」「vs」「和...的」「與...的」+ 多個 FW 版本 + 「測項」「測試項目」
-  - 【重要】必須同時出現：專案名稱 + 至少兩個 FW 版本 + 比較/差異關鍵詞
+  - 關鍵詞：「比較」「對比」「差異」「vs」「和...的」「與...的」+ 多個 FW 版本 + 「測項」「測試項目」「測試項目結果」
+  - 【重要】必須同時出現：專案名稱 + (至少兩個 FW 版本 或 latest_count) + 比較/差異關鍵詞
+- 【⚠️⚠️⚠️ 超級重要區分：「測試結果」vs「測試項目結果」⚠️⚠️⚠️】
+  - compare_latest_fw / compare_multiple_fw：用於「測試結果比較」「FW 比較」「版本趨勢」→ 返回整體統計（通過率、熱力圖、趨勢圖）
+  - compare_fw_test_jobs：用於「測試項目結果比較」「測項結果比較」「測項差異」→ 返回 Pass/Fail 狀態變化清單
+  - 【關鍵字判斷】
+    - 「測試結果」（不含「測試項目」或「測項」）→ compare_latest_fw / compare_multiple_fw
+    - 「測試項目結果」「測項結果」「測項比較」「測項差異」→ compare_fw_test_jobs
+  - 【範例】
+    - 「Springsteen 最新 5 個 FW 版本測試結果比較」→ compare_multiple_fw（整體統計趨勢）
+    - 「Springsteen 最新 5 個 FW 版本測試項目結果比較」→ compare_fw_test_jobs（Pass/Fail 清單）
 - 【與其他意圖的差異】
   - compare_fw_test_jobs: 比較測試項目結果差異（Pass/Fail 狀態變化）
-  - compare_fw_versions: 比較版本的統計數據（通過率、完成率變化）
+  - compare_latest_fw / compare_multiple_fw: 比較版本的統計數據（通過率、完成率變化、趨勢圖）
   - query_project_fw_test_jobs: 查詢單一版本的測試項目結果
 
 ### 42. unknown - 無法識別的意圖
@@ -1433,6 +1444,40 @@ Sub Version 代碼：AA (512GB), AB (1024GB/1TB), AC (2048GB/2TB), AD (4096GB/4T
 輸入：XX FW1 vs FW2 測試結果差異
 輸出：{"intent": "compare_fw_test_jobs", "parameters": {"project_name": "XX", "fw_versions": ["FW1", "FW2"]}, "confidence": 0.91}
 
+# 🆕 使用 latest_count 的 compare_fw_test_jobs（測試項目結果比較）
+輸入：Springsteen 最新 5 個 FW 版本測試項目結果比較
+輸出：{"intent": "compare_fw_test_jobs", "parameters": {"project_name": "Springsteen", "latest_count": 5}, "confidence": 0.95}
+
+輸入：DEMETER 最近 3 個 FW 版本測項結果差異
+輸出：{"intent": "compare_fw_test_jobs", "parameters": {"project_name": "DEMETER", "latest_count": 3}, "confidence": 0.94}
+
+輸入：Channel 最新 4 個 FW 的測項比較
+輸出：{"intent": "compare_fw_test_jobs", "parameters": {"project_name": "Channel", "latest_count": 4}, "confidence": 0.93}
+
+輸入：Springsteen 最新五個 FW 測試項目比較
+輸出：{"intent": "compare_fw_test_jobs", "parameters": {"project_name": "Springsteen", "latest_count": 5}, "confidence": 0.94}
+
+# 🔥 超級重要區分：「測試結果」vs「測試項目結果」
+# 「測試結果」→ compare_multiple_fw（整體統計趨勢）
+輸入：Springsteen 最新 5 個 FW 版本測試結果比較
+輸出：{"intent": "compare_multiple_fw", "parameters": {"project_name": "Springsteen", "latest_count": 5}, "confidence": 0.95}
+
+輸入：DEMETER 最近三個版本測試結果趨勢
+輸出：{"intent": "compare_multiple_fw", "parameters": {"project_name": "DEMETER", "latest_count": 3}, "confidence": 0.94}
+
+輸入：Channel 最新 4 個 FW 的比較
+輸出：{"intent": "compare_multiple_fw", "parameters": {"project_name": "Channel", "latest_count": 4}, "confidence": 0.93}
+
+# 「測試項目結果」→ compare_fw_test_jobs（Pass/Fail 清單）
+輸入：Springsteen 最新 5 個 FW 版本測試項目結果比較
+輸出：{"intent": "compare_fw_test_jobs", "parameters": {"project_name": "Springsteen", "latest_count": 5}, "confidence": 0.95}
+
+輸入：DEMETER 最近三個版本測項結果差異
+輸出：{"intent": "compare_fw_test_jobs", "parameters": {"project_name": "DEMETER", "latest_count": 3}, "confidence": 0.94}
+
+輸入：Channel 最新 4 個 FW 的測項比較
+輸出：{"intent": "compare_fw_test_jobs", "parameters": {"project_name": "Channel", "latest_count": 4}, "confidence": 0.93}
+
 輸入：今天天氣如何？
 輸出：{"intent": "unknown", "parameters": {}, "confidence": 0.10}
 
@@ -1988,11 +2033,16 @@ class SAFIntentAnalyzer:
                 if len(fw_versions) >= 2:
                     # 確認是「比較測項結果」而非「比較版本統計」
                     # 「測項結果」「測試項目結果」→ compare_fw_test_jobs
-                    # 「通過率」「完成率」「統計」→ compare_fw_versions
-                    stat_keywords = ['通過率', '完成率', '統計', '進度', 'pass rate', 'completion']
+                    # 「通過率」「完成率」「統計」「測試結果」→ compare_multiple_fw
+                    stat_keywords = ['通過率', '完成率', '統計', '進度', 'pass rate', 'completion', '測試結果', '趨勢']
                     has_stat = any(sk in query.lower() for sk in stat_keywords)
                     
+                    # 🆕 檢查是否包含「測試結果」但不含「測試項目」
+                    has_test_result = '測試結果' in query
+                    has_test_item = any(kw in query for kw in ['測試項目', '測項'])
+                    
                     if has_test_job and not has_stat:
+                        # 明確包含「測試項目」關鍵詞 → compare_fw_test_jobs
                         return IntentResult(
                             intent=IntentType.COMPARE_FW_TEST_JOBS,
                             parameters={
@@ -2002,16 +2052,27 @@ class SAFIntentAnalyzer:
                             confidence=0.8,
                             raw_response=f"Fallback: compare FW test jobs for {project_name}: {' vs '.join(fw_versions)}"
                         )
-                    elif not has_stat:
-                        # 預設為比較測項結果（如果沒有明確的統計關鍵詞）
+                    elif has_test_result and not has_test_item:
+                        # 🆕 包含「測試結果」但不含「測試項目」→ compare_multiple_fw（整體統計）
                         return IntentResult(
-                            intent=IntentType.COMPARE_FW_TEST_JOBS,
+                            intent=IntentType.COMPARE_MULTIPLE_FW,
+                            parameters={
+                                'project_name': project_name,
+                                'fw_versions': fw_versions
+                            },
+                            confidence=0.8,
+                            raw_response=f"Fallback: compare multiple FW (測試結果) for {project_name}: {' vs '.join(fw_versions)}"
+                        )
+                    elif not has_test_job:
+                        # 🆕 沒有「測試項目」關鍵詞，預設為整體統計比較
+                        return IntentResult(
+                            intent=IntentType.COMPARE_MULTIPLE_FW,
                             parameters={
                                 'project_name': project_name,
                                 'fw_versions': fw_versions
                             },
                             confidence=0.75,
-                            raw_response=f"Fallback: compare FW test jobs (default) for {project_name}: {' vs '.join(fw_versions)}"
+                            raw_response=f"Fallback: compare multiple FW (default) for {project_name}: {' vs '.join(fw_versions)}"
                         )
             
             # ★★★ 檢測 FW 版本 ★★★

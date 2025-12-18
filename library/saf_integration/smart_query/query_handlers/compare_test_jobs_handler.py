@@ -247,10 +247,11 @@ class CompareTestJobsHandler(BaseHandler):
         """
         統一轉換為 fw_versions 陣列格式（向後相容）
         
-        支援三種輸入格式:
+        支援四種輸入格式:
         1. fw_versions: ["FW1", "FW2", ...]     → 直接使用
         2. fw_version_1 + fw_version_2          → 轉換為陣列
-        3. 混合格式                              → 合併處理
+        3. latest_count: N                       → 🆕 自動獲取最新 N 個版本
+        4. 混合格式                              → 合併處理
         
         Args:
             parameters: 原始參數字典
@@ -259,6 +260,19 @@ class CompareTestJobsHandler(BaseHandler):
             List[str]: FW 版本陣列（已去重）
         """
         fw_versions = []
+        
+        # 🆕 格式 3: 使用 latest_count 自動獲取最新版本
+        latest_count = parameters.get('latest_count')
+        if latest_count and isinstance(latest_count, int) and latest_count >= 2:
+            project_name = parameters.get('project_name')
+            if project_name:
+                logger.info(f"[{self.handler_name}] 檢測到 latest_count={latest_count}，自動獲取 {project_name} 最新 {latest_count} 個版本")
+                auto_versions = self._get_latest_fw_versions(project_name, count=latest_count)
+                if auto_versions and len(auto_versions) >= self.MIN_VERSIONS:
+                    logger.info(f"[{self.handler_name}] 使用 latest_count 獲取的版本: {auto_versions}")
+                    return auto_versions  # 直接返回，不需要其他處理
+                else:
+                    logger.warning(f"[{self.handler_name}] latest_count 獲取版本不足: {auto_versions}")
         
         # 格式 1: 新的陣列格式
         if 'fw_versions' in parameters:

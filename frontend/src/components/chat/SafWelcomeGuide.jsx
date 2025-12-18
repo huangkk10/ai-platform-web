@@ -30,7 +30,7 @@ const GUIDE_CATEGORIES = [
     examples: [
       { text: 'WD 有哪些專案？', query: 'WD 有哪些專案？' },
       { text: 'SM2264 用在哪些專案？', query: 'SM2264 用在哪些專案？' },
-      { text: 'DEMETER 專案的詳細資訊', query: 'DEMETER 專案的詳細資訊' },
+      { text: 'PVF01 專案的詳細資訊', query: 'PVF01 專案的詳細資訊' },
       { text: '總共有多少專案？', query: '總共有多少專案？' },
     ]
   },
@@ -39,9 +39,19 @@ const GUIDE_CATEGORIES = [
     icon: '�',
     title: '測試結果',
     examples: [
-      { text: 'DEMETER 的測試結果如何？', query: 'DEMETER 的測試結果如何？' },
-      { text: 'TITAN 有多少測試通過？', query: 'TITAN 有多少測試通過？' },
-      { text: 'TITAN 的 Compliance 測試結果', query: 'TITAN 的 Compliance 測試結果' },
+      { text: 'Springsteen FW PH10YC3H_Pyrite_4K 測試結果如何？', query: 'Springsteen FW PH10YC3H_Pyrite_4K 測試結果如何？' },
+      { text: 'Springsteen FW PH10YC3H_Pyrite_4K 有多少測試通過？', query: 'Springsteen FW PH10YC3H_Pyrite_4K 有多少測試通過？' },
+      { text: 'Springsteen FW PH10YC3H_Pyrite_4K 的 Compliance 測試結果', query: 'Springsteen FW PH10YC3H_Pyrite_4K 的 Compliance 測試結果' },
+      { text: 'Springsteen 最新 5個 FW 測試結果 比較', query: 'Springsteen 最新 5個 FW 測試結果 比較' },
+    ]
+  },
+  {
+    key: 'test-item-results',
+    icon: '�',
+    title: '測試項目結果',
+    examples: [
+      { text: 'Springsteen FW G210X74A 的測試項目結果？', query: 'Springsteen FW G210X74A 的測試項目結果？' },
+      { text: '比較 Springsteen 不同 FW 的測試項目結果 G210X74A G210Y1NA G210Y33A', query: '比較 Springsteen 不同 FW 的測試項目結果 G210X74A G210Y1NA G210Y33A' }
     ]
   },
   {
@@ -61,16 +71,6 @@ const GUIDE_CATEGORIES = [
     examples: [
       { text: 'Springsteen FW PH10YC3H_Pyrite_4K 測試結果如何？', query: 'Springsteen FW PH10YC3H_Pyrite_4K 測試結果如何？' },
       { text: 'Springsteen PH10YC3H_Pyrite_4K 的測試項目結果', query: 'Springsteen PH10YC3H_Pyrite_4K 的測試項目結果' },
-    ]
-  },
-  {
-    key: 'fw-compare',
-    icon: '�',
-    title: 'FW 版本比較',
-    examples: [
-      { text: 'Springsteen 最新兩個 FW 版本比較', query: 'Springsteen 最新兩個 FW 版本比較' },
-      { text: 'Springsteen 最新 5 個 FW 版本比較', query: 'Springsteen 最新 5 個 FW 版本比較' },
-      { text: '比較 Springsteen 不同 FW 的測試項目結果 G210X74A G210Y1NA G210Y33A G210Y37B', query: '比較 Springsteen 不同 FW 的測試項目結果 G210X74A G210Y1NA G210Y33A G210Y37B' },
     ]
   },
   {
