@@ -194,10 +194,12 @@ INTENT_ANALYSIS_PROMPT = """
 用戶想知道專案有哪些 FW 版本可以比較或查詢時使用。
 - 常見問法：
   - 「XX 有哪些 FW 版本」「XX 專案的版本列表」
+  - 「XX 的 FW 版本列表」「XX FW 版本」
   - 「列出 XX 的所有 FW」「XX 可以比較哪些版本」
   - 「XX 專案有幾個 FW」「查看 XX 的韌體版本」
   - 「XX 的 FW 版本有哪些」「顯示 XX 版本」
   - 「XX 有什麼版本可以查」「XX FW 清單」
+  - 「XX 有那些 FW版本」「XX 有多少 FW」
 - 參數：
   - project_name (專案名稱，如 DEMETER、Springsteen、Channel)
 - 【重要】此意圖用於查詢版本列表，不是比較
@@ -917,6 +919,18 @@ Sub Version 代碼：AA (512GB), AB (1024GB/1TB), AC (2048GB/2TB), AD (4096GB/4T
 輸入：顯示 TITAN 版本
 輸出：{"intent": "list_fw_versions", "parameters": {"project_name": "TITAN"}, "confidence": 0.88}
 
+輸入：pvf01 的 FW 版本列表
+輸出：{"intent": "list_fw_versions", "parameters": {"project_name": "pvf01"}, "confidence": 0.95}
+
+輸入：Springsteen 有那些 FW版本
+輸出：{"intent": "list_fw_versions", "parameters": {"project_name": "Springsteen"}, "confidence": 0.95}
+
+輸入：TITAN 的 FW 版本列表
+輸出：{"intent": "list_fw_versions", "parameters": {"project_name": "TITAN"}, "confidence": 0.95}
+
+輸入：Garuda FW 版本
+輸出：{"intent": "list_fw_versions", "parameters": {"project_name": "Garuda"}, "confidence": 0.90}
+
 輸入：比較 Springsteen 的 G200X6EC、G200X5DC、G200X4CB 三個版本
 輸出：{"intent": "compare_multiple_fw", "parameters": {"project_name": "Springsteen", "fw_versions": ["G200X6EC", "G200X5DC", "G200X4CB"]}, "confidence": 0.95}
 
@@ -1542,11 +1556,39 @@ class SAFIntentAnalyzer:
                 'query_fw_test_summary': 'query_project_test_summary_by_fw',
                 'query_project_statistics_by_firmware': 'query_project_test_summary_by_fw',
                 'query_project_fw_test_jobs_count': 'query_project_test_summary_by_fw',
+                # FW 版本列表別名映射（覆蓋所有可能的變體）
+                'query_project_fw_list': 'list_fw_versions',
+                'query_project_fw_versions': 'list_fw_versions',
+                'query_fw_list': 'list_fw_versions',
+                'query_fw_versions': 'list_fw_versions',
+                'query_fw_version_list': 'list_fw_versions',
+                'get_fw_versions': 'list_fw_versions',
+                'get_project_fw_versions': 'list_fw_versions',
+                'get_fw_list': 'list_fw_versions',
+                'project_fw_versions': 'list_fw_versions',
+                'project_fw_list': 'list_fw_versions',
+                'fw_version_list': 'list_fw_versions',
+                'fw_versions': 'list_fw_versions',
+                # 新增更多 LLM 可能返回的變體
+                'list_project_fw_versions': 'list_fw_versions',
+                'list_project_fw': 'list_fw_versions',
+                'list_fw_version': 'list_fw_versions',
+                'get_fw_version_list': 'list_fw_versions',
+                'show_fw_versions': 'list_fw_versions',
+                'show_project_fw_versions': 'list_fw_versions',
             }
             
             if raw_intent in combined_intent_mapping:
                 logger.info(f"映射組合意圖 '{raw_intent}' -> '{combined_intent_mapping[raw_intent]}'")
                 raw_intent = combined_intent_mapping[raw_intent]
+            
+            # ★★★ 通用模式匹配：處理 LLM 可能返回的 FW 版本列表變體 ★★★
+            # 任何包含 fw + (version/versions/list) 的 intent 都映射到 list_fw_versions
+            if raw_intent not in [e.value for e in IntentType]:
+                fw_list_pattern = re.compile(r'(fw|firmware).*(version|versions|list)', re.IGNORECASE)
+                if fw_list_pattern.search(raw_intent):
+                    logger.info(f"通用模式匹配：'{raw_intent}' 匹配 FW 版本列表模式，映射到 'list_fw_versions'")
+                    raw_intent = 'list_fw_versions'
             
             # ★★★ 語義修正 1：「測試結果」（不含「測試項目」）應該用 query_fw_detail_summary ★★★
             # 如果查詢包含「測試結果」但不含「測試項目」「測項」，應使用意圖 13 而非意圖 40
