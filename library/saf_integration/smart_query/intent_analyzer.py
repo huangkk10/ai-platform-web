@@ -1549,6 +1549,17 @@ class SAFIntentAnalyzer:
                 'list_fw_by_sub_version_and_month': 'list_fw_by_date_range',
                 'list_fw_by_sub_version_and_date': 'list_fw_by_date_range',
                 'query_fw_by_sub_version_and_year': 'list_fw_by_date_range',
+                # FW 日期範圍查詢別名映射（新增）
+                'list_project_firmware_by_date_range': 'list_fw_by_date_range',
+                'list_fw_by_date': 'list_fw_by_date_range',
+                'list_fw_by_month': 'list_fw_by_date_range',
+                'list_fw_by_year': 'list_fw_by_date_range',
+                'list_project_fw_by_date': 'list_fw_by_date_range',
+                'list_project_fw_by_month': 'list_fw_by_date_range',
+                'query_fw_by_date_range': 'list_fw_by_date_range',
+                'query_project_fw_by_date': 'list_fw_by_date_range',
+                'get_fw_by_date_range': 'list_fw_by_date_range',
+                'fw_by_date_range': 'list_fw_by_date_range',
                 # FW 統計相關的別名映射
                 'query_project_fw_statistics': 'query_project_test_summary_by_fw',
                 'query_fw_statistics': 'query_project_test_summary_by_fw',
@@ -1582,13 +1593,19 @@ class SAFIntentAnalyzer:
                 logger.info(f"映射組合意圖 '{raw_intent}' -> '{combined_intent_mapping[raw_intent]}'")
                 raw_intent = combined_intent_mapping[raw_intent]
             
-            # ★★★ 通用模式匹配：處理 LLM 可能返回的 FW 版本列表變體 ★★★
-            # 任何包含 fw + (version/versions/list) 的 intent 都映射到 list_fw_versions
+            # ★★★ 通用模式匹配：處理 LLM 可能返回的 FW 相關變體 ★★★
             if raw_intent not in [e.value for e in IntentType]:
-                fw_list_pattern = re.compile(r'(fw|firmware).*(version|versions|list)', re.IGNORECASE)
-                if fw_list_pattern.search(raw_intent):
-                    logger.info(f"通用模式匹配：'{raw_intent}' 匹配 FW 版本列表模式，映射到 'list_fw_versions'")
-                    raw_intent = 'list_fw_versions'
+                # 模式 1：FW + 日期範圍（優先檢查，因為更具體）
+                fw_date_pattern = re.compile(r'(fw|firmware).*(date|month|year|range|time)', re.IGNORECASE)
+                if fw_date_pattern.search(raw_intent):
+                    logger.info(f"通用模式匹配：'{raw_intent}' 匹配 FW 日期範圍模式，映射到 'list_fw_by_date_range'")
+                    raw_intent = 'list_fw_by_date_range'
+                else:
+                    # 模式 2：FW + 版本列表（不含日期關鍵字）
+                    fw_list_pattern = re.compile(r'(fw|firmware).*(version|versions|list)', re.IGNORECASE)
+                    if fw_list_pattern.search(raw_intent):
+                        logger.info(f"通用模式匹配：'{raw_intent}' 匹配 FW 版本列表模式，映射到 'list_fw_versions'")
+                        raw_intent = 'list_fw_versions'
             
             # ★★★ 語義修正 1：「測試結果」（不含「測試項目」）應該用 query_fw_detail_summary ★★★
             # 如果查詢包含「測試結果」但不含「測試項目」「測項」，應使用意圖 13 而非意圖 40
