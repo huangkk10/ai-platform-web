@@ -470,10 +470,10 @@ class ListFWVersionsHandler(BaseHandler):
         ])
         
         if len(fw_versions) >= 2:
-            v1 = fw_versions[0].get('fw_version')
-            v2 = fw_versions[1].get('fw_version')
+            v1 = fw_versions[0].get('fw_version')  # 最新版本
+            v2 = fw_versions[1].get('fw_version')  # 次新版本
             lines.append(
-                f"- 您可以問「比較 {project_name} 的 {v1} 和 {v2}」"
+                f"- 您可以問「比較 {project_name} 的 {v2} 和 {v1}」"  # 對調：次新 vs 最新
             )
             lines.append(
                 f"- 或問「{project_name} 最新 FW 比較」自動比較最新兩版本"
