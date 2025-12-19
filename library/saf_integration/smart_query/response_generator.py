@@ -1612,9 +1612,9 @@ class SAFResponseGenerator:
             if value:
                 rows.append(f"| {display_name} | {value} |")
         
-        # 如果沒有任何有值的欄位，不生成表格
+        # 如果沒有任何有值的欄位，不生成表格（返回空字串）
         if not rows:
-            return "（無詳細資料）\n"
+            return ""
         
         table = "| 項目 | 內容 |\n"
         table += "|------|------|\n"

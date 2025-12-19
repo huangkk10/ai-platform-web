@@ -458,9 +458,6 @@ class FWDetailSummaryHandler(BaseHandler):
         if ongoing > 0:
             response_parts.append(f"- 🔄 **進行中**: {ongoing} 個測試項目執行中")
         
-        response_parts.append("")
-        response_parts.append("（無詳細資料）")
-        
         message = "\n".join(response_parts)
         
         # 建構結構化資料
