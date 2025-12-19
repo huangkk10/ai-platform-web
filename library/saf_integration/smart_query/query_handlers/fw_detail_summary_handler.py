@@ -25,6 +25,7 @@ import re
 from typing import Dict, Any, List, Optional
 
 from .base_handler import BaseHandler, QueryResult
+from library.common.chart_formatter import ChartFormatter
 
 logger = logging.getLogger(__name__)
 
@@ -343,7 +344,7 @@ class FWDetailSummaryHandler(BaseHandler):
             response_parts.append("")
         
         # 主要統計表格（對照 FW Dashboard 格式）
-        response_parts.append("### � 測試統計")
+        response_parts.append("### ◆ 測試統計")
         response_parts.append("")
         response_parts.append("| 指標 | 數值 |")
         response_parts.append("|------|------|")
@@ -358,8 +359,36 @@ class FWDetailSummaryHandler(BaseHandler):
         response_parts.append(f"| Debugging | {debugging} |")
         response_parts.append("")
         
+        # 📊 圖表 1: 測試狀態分佈圓餅圖（放在測試統計下方）
+        status_items = []
+        if passed > 0:
+            status_items.append({"name": "Pass", "value": passed, "color": "#52c41a"})
+        if failed > 0:
+            status_items.append({"name": "Fail", "value": failed, "color": "#ff4d4f"})
+        if conditional_passed > 0:
+            status_items.append({"name": "Conditional Pass", "value": conditional_passed, "color": "#faad14"})
+        if interrupted > 0:
+            status_items.append({"name": "Interrupt", "value": interrupted, "color": "#8c8c8c"})
+        if ongoing > 0:
+            status_items.append({"name": "Ongoing", "value": ongoing, "color": "#1890ff"})
+        
+        if status_items:
+            total_items_count = passed + failed + conditional_passed + interrupted + ongoing
+            pie_chart = ChartFormatter.pie_chart(
+                title="測試狀態分佈",
+                items=status_items,
+                description=f"總計 {total_items_count} 個測試項目",
+                options={
+                    "height": 300,
+                    "showLegend": True,
+                    "innerRadius": 60  # 甜甜圈圖
+                }
+            )
+            response_parts.append(pie_chart)
+            response_parts.append("")
+        
         # 完成率相關指標
-        response_parts.append("### � 完成率指標")
+        response_parts.append("### ◆ 完成率指標")
         response_parts.append("")
         response_parts.append("| 指標 | 數值 |")
         response_parts.append("|------|------|")
@@ -368,6 +397,35 @@ class FWDetailSummaryHandler(BaseHandler):
         response_parts.append(f"| Test Item Execution Rate | {test_execution} ({execution_rate}%) |")
         response_parts.append(f"| Test Item Fail Rate | {test_item_fail} ({fail_rate}%) |")
         response_parts.append("")
+        
+        # 📊 圖表 2: 完成率指標柱狀圖（比較 4 個指標）
+        # 提取百分比數值
+        completion_rate_val = round(completed_count / total_test_items * 100) if total_test_items > 0 else 0
+        sample_fail_rate_val = round(failed / total_test_items * 100) if total_test_items > 0 else 0
+        execution_rate_val = execution_rate if isinstance(execution_rate, (int, float)) else 0
+        item_fail_rate_val = fail_rate if isinstance(fail_rate, (int, float)) else 0
+        
+        # 只有當有數據時才顯示柱狀圖
+        if completion_rate_val > 0 or execution_rate_val > 0:
+            bar_chart = ChartFormatter.bar_chart(
+                title="完成率指標比較",
+                labels=["Completion\nRate", "Execution\nRate", "Sample\nFail Rate", "Item\nFail Rate"],
+                datasets=[
+                    {
+                        "name": "百分比 (%)",
+                        "data": [completion_rate_val, execution_rate_val, sample_fail_rate_val, item_fail_rate_val],
+                        "color": "#1890ff"
+                    }
+                ],
+                description="完成率/執行率 vs 失敗率 (%)",
+                options={
+                    "height": 280,
+                    "showLegend": False,
+                    "yAxisMax": 100
+                }
+            )
+            response_parts.append(bar_chart)
+            response_parts.append("")
         
         # 狀態摘要
         response_parts.append("### 💡 狀態摘要")
@@ -399,6 +457,9 @@ class FWDetailSummaryHandler(BaseHandler):
         # 進行中項目
         if ongoing > 0:
             response_parts.append(f"- 🔄 **進行中**: {ongoing} 個測試項目執行中")
+        
+        response_parts.append("")
+        response_parts.append("（無詳細資料）")
         
         message = "\n".join(response_parts)
         
