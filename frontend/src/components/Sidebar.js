@@ -56,19 +56,23 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       });
     }
 
-    // RVT Assistant - 對所有用戶開放（包括訪客）
-    baseItems.push({
-      key: 'rvt-assistant-chat',
-      icon: <FileTextOutlined />,
-      label: 'RVT Assistant',
-    });
+    // RVT Assistant - 需要 webRVTAssistant 權限
+    if (isAuthenticated && user && hasPermission('webRVTAssistant')) {
+      baseItems.push({
+        key: 'rvt-assistant-chat',
+        icon: <FileTextOutlined />,
+        label: 'RVT Assistant',
+      });
+    }
 
-    // Protocol Assistant - 對所有用戶開放（包括訪客）
-    baseItems.push({
-      key: 'protocol-assistant-chat',
-      icon: <ToolOutlined />,
-      label: 'Protocol Assistant',
-    });
+    // Protocol Assistant - 需要 webProtocolAssistant 權限
+    if (isAuthenticated && user && hasPermission('webProtocolAssistant')) {
+      baseItems.push({
+        key: 'protocol-assistant-chat',
+        icon: <ToolOutlined />,
+        label: 'Protocol Assistant',
+      });
+    }
 
     // 🆕 SAF Assistant - 僅限 Admin 用戶可見
     if (isAuthenticated && user && (user.is_staff || user.is_superuser)) {

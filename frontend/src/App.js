@@ -440,8 +440,16 @@ function AppLayout() {
                 <LogAnalyzeChatPage collapsed={collapsed} />
               </ProtectedRoute>
             } />
-            <Route path="/rvt-assistant-chat" element={<RvtAssistantChatPage collapsed={collapsed} />} />
-            <Route path="/protocol-assistant-chat" element={<ProtocolAssistantChatPage collapsed={collapsed} />} />
+            <Route path="/rvt-assistant-chat" element={
+              <ProtectedRoute permission="webRVTAssistant" fallbackTitle="RVT Assistant 存取受限" fallbackMessage="您需要 RVT Assistant 權限才能使用此功能">
+                <RvtAssistantChatPage collapsed={collapsed} />
+              </ProtectedRoute>
+            } />
+            <Route path="/protocol-assistant-chat" element={
+              <ProtectedRoute permission="webProtocolAssistant" fallbackTitle="Protocol Assistant 存取受限" fallbackMessage="您需要 Protocol Assistant 權限才能使用此功能">
+                <ProtocolAssistantChatPage collapsed={collapsed} />
+              </ProtectedRoute>
+            } />
             <Route path="/saf-assistant-chat" element={<SAfAssistantChatPage collapsed={collapsed} />} />
             <Route path="/log-analyze" element={<LogAnalyzePage />} />
             <Route path="/admin/test-class-management" element={<TestClassManagementPage />} />
