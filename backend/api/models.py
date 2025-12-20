@@ -59,6 +59,56 @@ class UserProfile(models.Model):
     is_super_admin = models.BooleanField(default=False, verbose_name="超級管理員", 
                                         help_text="超級管理員可以管理所有用戶的權限設定")
     
+    # 🆕 帳號審核相關欄位
+    account_status = models.CharField(
+        max_length=20,
+        choices=[
+            ('pending', '待審核'),
+            ('approved', '已批准'),
+            ('rejected', '已拒絕'),
+            ('suspended', '已停用'),
+        ],
+        default='approved',  # 預設為已批准（向後相容）
+        verbose_name='帳號狀態',
+        help_text='帳號審核狀態'
+    )
+    
+    # 審核資訊
+    reviewed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reviewed_users',
+        verbose_name='審核者'
+    )
+    
+    reviewed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='審核時間'
+    )
+    
+    rejection_reason = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name='拒絕原因'
+    )
+    
+    # 申請資訊
+    application_reason = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name='申請理由'
+    )
+    
+    application_department = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name='申請部門'
+    )
+    
     # 原有欄位
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

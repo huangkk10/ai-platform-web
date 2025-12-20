@@ -30,7 +30,57 @@ const LoginForm = ({ visible, onClose, onSuccess, onRegister }) => {
         onSuccess?.(result.message);
         onClose();
       } else {
-        setError(result.message);
+        // 🆕 根據審核狀態顯示不同訊息
+        if (result.status === 'pending') {
+          Modal.warning({
+            title: '帳號待審核',
+            content: (
+              <div>
+                <p>{result.message}</p>
+                <p style={{ marginTop: '12px', color: '#666' }}>
+                  管理員會盡快審核您的申請，審核通過後會收到通知。
+                </p>
+              </div>
+            ),
+            okText: '我知道了',
+          });
+          setError('');
+        } else if (result.status === 'rejected') {
+          Modal.error({
+            title: '帳號申請已被拒絕',
+            content: (
+              <div>
+                <p>{result.message}</p>
+                {result.rejection_reason && (
+                  <p style={{ marginTop: '12px', color: '#666' }}>
+                    拒絕原因：{result.rejection_reason}
+                  </p>
+                )}
+                <p style={{ marginTop: '12px', color: '#999' }}>
+                  如有疑問，請聯絡系統管理員。
+                </p>
+              </div>
+            ),
+            okText: '我知道了',
+          });
+          setError('');
+        } else if (result.status === 'suspended') {
+          Modal.error({
+            title: '帳號已停用',
+            content: (
+              <div>
+                <p>{result.message}</p>
+                <p style={{ marginTop: '12px', color: '#999' }}>
+                  如有疑問，請聯絡系統管理員。
+                </p>
+              </div>
+            ),
+            okText: '我知道了',
+          });
+          setError('');
+        } else {
+          setError(result.message);
+        }
       }
     } catch (error) {
       setError('登入失敗，請稍後再試');

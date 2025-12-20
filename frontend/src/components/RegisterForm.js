@@ -24,7 +24,9 @@ const RegisterForm = ({ visible, onClose, onSuccess }) => {
         password: values.password,
         email: values.email,
         first_name: values.first_name,
-        last_name: values.last_name
+        last_name: values.last_name,
+        application_department: values.application_department,  // 🆕 申請部門
+        application_reason: values.application_reason           // 🆕 申請理由
       }, {
         withCredentials: true,
         headers: {
@@ -33,7 +35,22 @@ const RegisterForm = ({ visible, onClose, onSuccess }) => {
       });
 
       if (response.data.success) {
-        message.success(response.data.message);
+        // 🆕 顯示審核等待訊息
+        Modal.success({
+          title: '註冊申請已提交',
+          content: (
+            <div>
+              <p>{response.data.message}</p>
+              <p style={{ marginTop: '12px', color: '#666' }}>
+                管理員會盡快審核您的申請，審核通過後您將收到通知。
+              </p>
+              <p style={{ marginTop: '8px', color: '#999' }}>
+                請記住您的用戶名：<strong>{values.username}</strong>
+              </p>
+            </div>
+          ),
+          okText: '我知道了',
+        });
         form.resetFields();
         onClose();
         if (onSuccess) {
@@ -45,7 +62,9 @@ const RegisterForm = ({ visible, onClose, onSuccess }) => {
     } catch (error) {
       console.error('Registration error:', error);
       
-      if (error.response?.data?.message) {
+      if (error.response?.data?.error) {
+        message.error(error.response.data.error);
+      } else if (error.response?.data?.message) {
         message.error(error.response.data.message);
       } else if (error.response?.data?.errors) {
         // 顯示具體的驗證錯誤
@@ -210,6 +229,41 @@ const RegisterForm = ({ visible, onClose, onSuccess }) => {
           <Input 
             placeholder="請輸入姓氏（可選）"
             autoComplete="family-name"
+          />
+        </Form.Item>
+
+        <Divider orientation="left">申請資訊</Divider>
+
+        <Form.Item
+          name="application_department"
+          label="申請部門"
+          rules={[
+            { required: true, message: '請輸入您的部門' },
+            { max: 100, message: '部門名稱不能超過 100 個字符' }
+          ]}
+          tooltip="請填寫您所屬的部門，例如：測試部、研發部、QA部"
+        >
+          <Input 
+            placeholder="例如：測試部、研發部、QA部"
+            autoComplete="organization"
+          />
+        </Form.Item>
+
+        <Form.Item
+          name="application_reason"
+          label="申請理由"
+          rules={[
+            { required: true, message: '請說明您需要使用此系統的原因' },
+            { min: 10, message: '申請理由至少需要 10 個字符' },
+            { max: 500, message: '申請理由不能超過 500 個字符' }
+          ]}
+          tooltip="請簡述您需要使用此系統的工作需求或用途"
+        >
+          <Input.TextArea 
+            rows={4}
+            placeholder="請簡述您需要使用此系統的原因，例如：需要進行 Protocol 測試、使用 AI OCR 功能等（至少 10 個字符）"
+            showCount
+            maxLength={500}
           />
         </Form.Item>
 

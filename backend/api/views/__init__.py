@@ -107,6 +107,13 @@ from .auth_views import (
     user_info,
 )
 
+# ============= 用戶審核管理 API 導出 =============
+
+from .user_approval_views import (
+    PendingUserViewSet,
+    AllUsersViewSet,
+)
+
 
 # ============= Dify Chat API 導出 =============
 

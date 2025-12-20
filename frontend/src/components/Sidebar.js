@@ -21,6 +21,7 @@ import {
   HistoryOutlined,
   RobotOutlined,
   FileSearchOutlined,
+  UserAddOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 import smiLogo from '../assets/images/smi.png';
@@ -137,6 +138,9 @@ const Sidebar = ({ collapsed, onCollapse }) => {
         break;
       case 'user-management':
         navigate('/admin/user-management');
+        break;
+      case 'pending-users':
+        navigate('/admin/pending-users');
         break;
       case 'threshold-settings':
         navigate('/admin/threshold-settings');
@@ -412,6 +416,11 @@ const Sidebar = ({ collapsed, onCollapse }) => {
       // 整合的用戶權限管理 - Django 管理員權限
       if (user && (user.is_staff || user.is_superuser)) {
         children.push({ key: 'user-management', icon: <UserOutlined />, label: '用戶權限管理' });
+      }
+
+      // 待審核用戶管理 - Django 管理員權限
+      if (user && (user.is_staff || user.is_superuser)) {
+        children.push({ key: 'pending-users', icon: <UserAddOutlined />, label: '待審核用戶' });
       }
 
       // Threshold 設定 - Django 管理員權限
