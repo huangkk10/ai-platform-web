@@ -1,0 +1,50 @@
+# ===========================================
+# 生產機專用覆蓋配置 - 10.10.173.29
+# ===========================================
+# 此文件覆蓋 docker-compose.yml 的部分設定
+# Docker Compose 會自動讀取此文件
+
+services:
+  django:
+    env_file:
+      - .env.prod
+    environment:
+      - DEBUG=0
+      - DB_HOST=host.docker.internal
+      - DB_PORT=5432
+      - DB_NAME=ai_platform
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres123
+      - DIFY_ENV=production
+      - AI_PC_IP=10.10.172.37
+      - ALLOWED_HOSTS=10.10.173.29,localhost,127.0.0.1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  celery_worker:
+    env_file:
+      - .env.prod
+    environment:
+      - DEBUG=0
+      - DB_HOST=host.docker.internal
+      - DIFY_ENV=production
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  celery_beat:
+    env_file:
+      - .env.prod
+    environment:
+      - DEBUG=0
+      - DB_HOST=host.docker.internal
+      - DIFY_ENV=production
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  celery_flower:
+    env_file:
+      - .env.prod
+    environment:
+      - DEBUG=0
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
