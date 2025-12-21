@@ -18,6 +18,10 @@ router.register(r'content-images', views.ContentImageViewSet)
 router.register(r'threshold-settings', views.SearchThresholdViewSet)
 router.register(r'search-threshold-settings', views.SearchThresholdSettingViewSet, basename='search-threshold-setting')
 
+# 🆕 用戶審核管理 ViewSets
+router.register(r'admin/pending-users', views.PendingUserViewSet, basename='pending-user')
+router.register(r'admin/all-users', views.AllUsersViewSet, basename='all-users')
+
 # Benchmark Testing System (舊版 - Protocol Search Benchmark)
 router.register(r"benchmark/test-cases", views.BenchmarkTestCaseViewSet, basename="benchmark-test-case")
 router.register(r"benchmark/test-runs", views.BenchmarkTestRunViewSet, basename="benchmark-test-run")

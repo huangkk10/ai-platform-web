@@ -585,6 +585,507 @@ class SAFAPIClient:
             logger.error(f"Test Details API 請求異常: {str(e)}")
             return None
 
+    def get_known_issues(
+        self,
+        project_ids: List[int] = None,
+        root_ids: List[int] = None,
+        show_disabled: bool = True
+    ) -> List[Dict[str, Any]]:
+        """
+        獲取 Known Issues (Phase 15 新增)
+        
+        使用 POST /api/v1/projects/known-issues API
+        
+        Args:
+            project_ids: 專案 ID 列表 (對應 API 的 project_id[] 參數)
+            root_ids: Root ID 列表 (對應 API 的 root_id[] 參數)
+            show_disabled: 是否顯示已停用的 Issues (預設 True)
+            
+        Returns:
+            Known Issues 列表，每個 Issue 包含:
+            - id: Issue 內部 ID
+            - project_id: 專案 ID
+            - project_name: 專案名稱
+            - root_id: Root ID
+            - test_item_name: 測試項目名稱
+            - issue_id: Issue 識別碼
+            - case_name: 案例名稱
+            - case_path: 案例路徑
+            - created_by: 建立者
+            - created_at: 建立時間
+            - jira_id: JIRA ID
+            - jira_link: JIRA 連結
+            - note: 備註
+            - is_enable: 是否啟用
+        """
+        url = f"{self.base_url}/api/v1/projects/known-issues"
+        
+        # 構建請求參數
+        params = {
+            "show_disable": show_disabled
+        }
+        
+        # 添加 project_id[] 參數
+        if project_ids:
+            for pid in project_ids:
+                if 'project_id[]' not in params:
+                    params['project_id[]'] = []
+                params['project_id[]'].append(pid)
+        
+        # 添加 root_id[] 參數
+        if root_ids:
+            for rid in root_ids:
+                if 'root_id[]' not in params:
+                    params['root_id[]'] = []
+                params['root_id[]'].append(rid)
+        
+        # 檢查快取
+        cache_key = f"known_issues:{str(project_ids)}:{str(root_ids)}:{show_disabled}"
+        if self.cache_manager:
+            cached_data = self.cache_manager.get(cache_key)
+            if cached_data is not None:
+                logger.debug(f"從快取獲取 Known Issues")
+                return cached_data
+        
+        # 獲取認證 headers
+        headers = self.auth_manager.get_auth_headers()
+        headers['Content-Type'] = 'application/json'
+        
+        # 構建 POST 請求的 body
+        # SAF API 使用 form 參數格式
+        form_data = {
+            "show_disable": show_disabled
+        }
+        if project_ids:
+            form_data["project_id[]"] = project_ids
+        if root_ids:
+            form_data["root_id[]"] = root_ids
+        
+        try:
+            logger.info(f"調用 Known Issues API: {url}, project_ids={project_ids}")
+            
+            # SAF API 使用 POST 請求
+            response = requests.post(
+                url,
+                headers=headers,
+                data=form_data,  # 使用 form data 格式
+                timeout=self.timeout
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('success'):
+                    # SAF API 返回格式: {"success": true, "data": {"items": [...], "total": N}}
+                    raw_data = data.get('data', {})
+                    if isinstance(raw_data, dict):
+                        result = raw_data.get('items', [])
+                    else:
+                        result = raw_data if isinstance(raw_data, list) else []
+                    
+                    # 存入快取（TTL 5 分鐘，Known Issues 可能常更新）
+                    if self.cache_manager and result:
+                        self.cache_manager.set(cache_key, result, ttl=300)
+                    
+                    logger.info(f"獲取 Known Issues 成功: {len(result)} 筆")
+                    return result
+                else:
+                    logger.warning(f"Known Issues API 返回失敗: {data.get('message')}")
+                    return []
+            elif response.status_code == 404:
+                logger.warning(f"Known Issues API 路徑不存在")
+                return []
+            else:
+                logger.error(f"Known Issues API HTTP 錯誤: {response.status_code}")
+                return []
+                
+        except requests.exceptions.Timeout:
+            logger.error(f"Known Issues API 請求超時")
+            return []
+        except requests.exceptions.ConnectionError as e:
+            logger.error(f"Known Issues API 連線錯誤: {str(e)}")
+            return []
+        except Exception as e:
+            logger.error(f"Known Issues API 請求異常: {str(e)}")
+            return []
+
+    def get_project_test_jobs(
+        self,
+        project_ids: List[str],
+        test_tool_key: str = ""
+    ) -> Optional[Dict[str, Any]]:
+        """
+        獲取專案測試工作結果 (Phase 16 新增)
+        
+        使用 POST /api/v1/projects/test-jobs API
+        
+        🔑 重要：project_ids 必須使用專案的 projectId（父專案 ID），不是 projectUid
+        SAF 專案結構說明：
+        - 父專案（如 PM9M1）有 projectId: bfb11082e7fb44d9b19dd3837fe1c6a2
+        - 子專案（每個 FW 版本）的 projectId 與父專案相同
+        - Test Jobs API 使用 projectId 查詢該專案下所有測試結果
+        
+        提供的資訊（每個 test job）：
+        - test_job_id: 測試工作 ID
+        - fw: 韌體版本
+        - test_plan_name: 測試計畫名稱
+        - test_category_name: 測試類別名稱
+        - root_id: Root ID
+        - test_item_name: 測試項目名稱
+        - test_status: 測試狀態 (Pass / Fail)
+        - sample_id: 樣品 ID
+        - capacity: 容量 (如 1024GB)
+        - platform: 測試平台
+        - test_tool_key_list: 測試工具 Key 列表
+        
+        Args:
+            project_ids: 專案 ID 列表 (⚠️ 使用 projectId，不是 projectUid)
+            test_tool_key: 測試工具 Key（可選篩選，空字串表示不篩選）
+            
+        Returns:
+            Dict 包含:
+            - test_jobs: List[Dict] 測試工作列表
+            - total: int 總數量
+            如果失敗則返回 None
+        """
+        if not project_ids:
+            logger.warning("get_project_test_jobs: project_ids 為空")
+            return None
+        
+        url = f"{self.base_url}/api/v1/projects/test-jobs"
+        
+        # 檢查快取
+        cache_key = f"test_jobs:{':'.join(project_ids)}:{test_tool_key}"
+        if self.cache_manager:
+            cached_data = self.cache_manager.get(cache_key)
+            if cached_data is not None:
+                logger.debug(f"從快取獲取 Test Jobs: {project_ids}")
+                return cached_data
+        
+        # 獲取認證 headers
+        headers = self.auth_manager.get_auth_headers()
+        headers['Content-Type'] = 'application/json'
+        
+        # 構建請求 body
+        request_body = {
+            "project_ids": project_ids,
+            "test_tool_key": test_tool_key
+        }
+        
+        try:
+            logger.info(f"調用 Test Jobs API: {url}, project_ids={project_ids}, test_tool_key={test_tool_key}")
+            
+            response = requests.post(
+                url,
+                headers=headers,
+                json=request_body,
+                timeout=self.timeout
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('success'):
+                    result = data.get('data', {})
+                    # 存入快取（TTL 5 分鐘，測試結果可能常更新）
+                    if self.cache_manager and result:
+                        self.cache_manager.set(cache_key, result, ttl=300)
+                    
+                    total = result.get('total', len(result.get('test_jobs', [])))
+                    logger.info(f"獲取 Test Jobs 成功: {total} 筆")
+                    return result
+                else:
+                    logger.warning(f"Test Jobs API 返回失敗: {data.get('message')}")
+                    return None
+            elif response.status_code == 404:
+                logger.warning(f"Test Jobs API 專案不存在: {project_ids}")
+                return None
+            elif response.status_code == 422:
+                logger.error(f"Test Jobs API 參數錯誤: {response.text}")
+                return None
+            else:
+                logger.error(f"Test Jobs API HTTP 錯誤: {response.status_code}")
+                return None
+                
+        except requests.exceptions.Timeout:
+            logger.error(f"Test Jobs API 請求超時")
+            return None
+        except requests.exceptions.ConnectionError as e:
+            logger.error(f"Test Jobs API 連線錯誤: {str(e)}")
+            return None
+        except Exception as e:
+            logger.error(f"Test Jobs API 請求異常: {str(e)}")
+            return None
+
+    # =========================================================================
+    # Phase 19: Test Status Search API (新增)
+    # =========================================================================
+
+    def search_test_status(
+        self,
+        query: str,
+        page: int = 1,
+        size: int = 100
+    ) -> Optional[Dict[str, Any]]:
+        """
+        搜尋測試狀態 (Phase 19 新增)
+        
+        使用 POST /api/v1/projects/test-status/search API
+        
+        此 API 提供更豐富的測試類別資訊，包括：
+        - Performance (Secondary)
+        - Power Consumption (Primary)
+        - Functionality
+        - MANDi
+        - Power Cycling
+        - Compatibility
+        - Temperature Power Cycling
+        - Temperature Reliability
+        - UNITest
+        等類別
+        
+        查詢語法範例：
+        - 依專案名稱: projectName = "Springsteen"
+        - 依 FW 版本: fw = "GB10YCGS"
+        - 組合查詢: projectName = "Springsteen" AND fw = "GB10YCGS"
+        - 依測試狀態: testStatus = "PASS"
+        - 依樣品 ID: sampleId = "SSD-Y-09492"
+        
+        測試狀態值：
+        - PASS: 通過
+        - FAIL: 失敗
+        - ONGOING: 進行中
+        - CANCEL: 取消
+        - INTERRUPT: 中斷
+        - CONDITIONAL PASS: 條件通過
+        
+        Args:
+            query: 查詢條件字串
+            page: 頁碼 (從 1 開始)
+            size: 每頁筆數 (最大 100)
+            
+        Returns:
+            Dict 包含:
+            - items: List[Dict] 測試狀態列表
+            - total: int 總數量
+            - page: int 當前頁碼
+            - size: int 每頁筆數
+            如果失敗則返回 None
+        """
+        url = f"{self.base_url}/api/v1/projects/test-status/search"
+        
+        # 檢查快取
+        cache_key = f"test_status_search:{query}:{page}:{size}"
+        if self.cache_manager:
+            cached_data = self.cache_manager.get(cache_key)
+            if cached_data is not None:
+                logger.debug(f"從快取獲取 Test Status Search: {query}")
+                return cached_data
+        
+        # 獲取認證 headers
+        headers = self.auth_manager.get_auth_headers()
+        headers['Content-Type'] = 'application/json'
+        
+        # 構建請求 body
+        request_body = {
+            "query": query,
+            "page": page,
+            "size": min(size, 100)  # 確保不超過 100
+        }
+        
+        try:
+            logger.info(f"調用 Test Status Search API: {url}, query={query}, page={page}, size={size}")
+            
+            response = requests.post(
+                url,
+                headers=headers,
+                json=request_body,
+                timeout=self.timeout
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('success'):
+                    result = data.get('data', {})
+                    # 存入快取（TTL 5 分鐘）
+                    if self.cache_manager and result:
+                        self.cache_manager.set(cache_key, result, ttl=300)
+                    
+                    total = result.get('total', 0)
+                    items_count = len(result.get('items', []))
+                    logger.info(f"Test Status Search 成功: {items_count}/{total} 筆")
+                    return result
+                else:
+                    logger.warning(f"Test Status Search API 返回失敗: {data}")
+                    return None
+            elif response.status_code == 422:
+                logger.error(f"Test Status Search API 參數錯誤: {response.text}")
+                return None
+            else:
+                logger.error(f"Test Status Search API HTTP 錯誤: {response.status_code}")
+                return None
+                
+        except requests.exceptions.Timeout:
+            logger.error(f"Test Status Search API 請求超時")
+            return None
+        except requests.exceptions.ConnectionError as e:
+            logger.error(f"Test Status Search API 連線錯誤: {str(e)}")
+            return None
+        except Exception as e:
+            logger.error(f"Test Status Search API 請求異常: {str(e)}")
+            return None
+
+    def search_test_status_by_project_fw(
+        self,
+        project_name: str,
+        fw_version: str,
+        fetch_all: bool = True
+    ) -> Optional[Dict[str, Any]]:
+        """
+        根據專案名稱和 FW 版本搜尋測試狀態 (Phase 19 便利方法)
+        
+        Args:
+            project_name: 專案名稱（如 Springsteen）
+            fw_version: FW 版本（如 GB10YCGS）
+            fetch_all: 是否獲取所有頁面資料（預設 True）
+            
+        Returns:
+            Dict 包含:
+            - items: List[Dict] 所有測試狀態
+            - total: int 總數量
+            如果失敗則返回 None
+        """
+        query = f'projectName = "{project_name}" AND fw = "{fw_version}"'
+        
+        if not fetch_all:
+            return self.search_test_status(query, page=1, size=100)
+        
+        # 獲取所有頁面
+        all_items = []
+        page = 1
+        size = 100
+        total = None
+        
+        while True:
+            result = self.search_test_status(query, page=page, size=size)
+            
+            if not result:
+                if page == 1:
+                    return None
+                break
+            
+            items = result.get('items', [])
+            if total is None:
+                total = result.get('total', 0)
+            
+            all_items.extend(items)
+            
+            # 檢查是否已取得所有資料
+            if len(all_items) >= total or len(items) == 0:
+                break
+            
+            page += 1
+            
+            # 安全限制：最多 50 頁
+            if page > 50:
+                logger.warning(f"Test Status Search 超過 50 頁限制，停止獲取")
+                break
+        
+        return {
+            'items': all_items,
+            'total': total or len(all_items)
+        }
+
+    def find_project_uid_by_name_and_fw(
+        self, 
+        project_name: str, 
+        fw_version: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        根據專案名稱片段和 FW 版本找到對應的專案資訊 (Phase 16 新增)
+        
+        匹配策略：
+        1. 先找所有 projectName 包含 project_name 的專案
+        2. 在這些專案中找 fw 欄位匹配 fw_version 的
+        3. 返回該專案的完整資訊
+        
+        SAF 專案結構說明：
+        - 父專案（如 PM9M1）有 projectId 和 projectUid
+        - 子專案（每個 FW 版本）的 projectId 與父專案相同
+        - 返回的 dict 中：
+          - projectId: 父專案 ID（用於 Test Jobs API）
+          - projectUid: 子專案唯一 ID
+        
+        範例：
+        - project_name: "PM9M1"
+        - fw_version: "HHB0YBC1"
+        - 找到: 子專案 (fw=HHB0YBC1)
+        - 返回: dict 包含 projectId、projectUid、projectName、fw 等
+        
+        Args:
+            project_name: 專案名稱片段（如 PM9M1）
+            fw_version: FW 版本（如 HHB0YBC1）
+            
+        Returns:
+            符合條件的專案資訊 dict，重要欄位：
+            - projectId: 父專案 ID（用於 Test Jobs API）
+            - projectUid: 子專案唯一 ID
+            - projectName: 專案完整名稱
+            - fw: FW 版本
+            如果找不到則返回 None
+        """
+        if not project_name or not fw_version:
+            logger.warning(f"find_project_uid_by_name_and_fw: project_name 或 fw_version 為空")
+            return None
+        
+        # 獲取所有專案（含子專案）
+        all_projects = self.get_all_projects(flatten=True)
+        
+        project_name_lower = project_name.lower()
+        fw_version_upper = fw_version.upper()
+        
+        # 尋找符合條件的專案
+        for project in all_projects:
+            project_full_name = project.get('projectName', '')
+            project_fw = project.get('fw', '')
+            
+            # 專案名稱包含 project_name 且 FW 匹配
+            if (project_name_lower in project_full_name.lower() and 
+                project_fw.upper() == fw_version_upper):
+                logger.info(
+                    f"找到符合專案: {project_name} + {fw_version} -> "
+                    f"{project_full_name} (uid: {project.get('projectUid')})"
+                )
+                return project
+        
+        logger.warning(f"找不到專案: {project_name} + FW {fw_version}")
+        return None
+
+    def get_all_fw_versions_for_project(self, project_name: str) -> List[str]:
+        """
+        獲取指定專案的所有 FW 版本列表 (Phase 16 輔助方法)
+        
+        Args:
+            project_name: 專案名稱片段（如 PM9M1）
+            
+        Returns:
+            FW 版本列表，按版本號排序
+        """
+        if not project_name:
+            return []
+        
+        all_projects = self.get_all_projects(flatten=True)
+        project_name_lower = project_name.lower()
+        
+        fw_versions = set()
+        for project in all_projects:
+            project_full_name = project.get('projectName', '')
+            if project_name_lower in project_full_name.lower():
+                fw = project.get('fw', '')
+                if fw:
+                    fw_versions.add(fw)
+        
+        # 排序並返回
+        return sorted(list(fw_versions))
+
 
 # 全局客戶端實例
 _client_instance: Optional[SAFAPIClient] = None

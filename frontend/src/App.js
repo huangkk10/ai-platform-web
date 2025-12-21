@@ -19,6 +19,7 @@ import GuidePreviewPage from './pages/GuidePreviewPage';
 import OcrStorageBenchmarkPage from './pages/OcrStorageBenchmarkPage';
 import TestClassManagementPage from './pages/TestClassManagementPage';
 import IntegratedUserManagementPage from './pages/admin/IntegratedUserManagementPage';
+import PendingUsersPage from './pages/admin/PendingUsersPage';
 import ThresholdSettingsPage from './pages/admin/ThresholdSettingsPage';
 import KnowIssueChatPage from './pages/KnowIssueChatPage';
 import LogAnalyzeChatPage from './pages/LogAnalyzeChatPage';
@@ -103,6 +104,8 @@ function AppLayout() {
         return 'Protocol Assistant 知識庫';
       case '/admin/user-management':
         return '用戶權限管理';
+      case '/admin/pending-users':
+        return '待審核用戶管理';
       case '/admin/threshold-settings':
         return '搜尋 Threshold 設定';
       case '/admin/system-logs':
@@ -440,12 +443,25 @@ function AppLayout() {
                 <LogAnalyzeChatPage collapsed={collapsed} />
               </ProtectedRoute>
             } />
-            <Route path="/rvt-assistant-chat" element={<RvtAssistantChatPage collapsed={collapsed} />} />
-            <Route path="/protocol-assistant-chat" element={<ProtocolAssistantChatPage collapsed={collapsed} />} />
+            <Route path="/rvt-assistant-chat" element={
+              <ProtectedRoute permission="webRVTAssistant" fallbackTitle="RVT Assistant 存取受限" fallbackMessage="您需要 RVT Assistant 權限才能使用此功能">
+                <RvtAssistantChatPage collapsed={collapsed} />
+              </ProtectedRoute>
+            } />
+            <Route path="/protocol-assistant-chat" element={
+              <ProtectedRoute permission="webProtocolAssistant" fallbackTitle="Protocol Assistant 存取受限" fallbackMessage="您需要 Protocol Assistant 權限才能使用此功能">
+                <ProtocolAssistantChatPage collapsed={collapsed} />
+              </ProtectedRoute>
+            } />
             <Route path="/saf-assistant-chat" element={<SAfAssistantChatPage collapsed={collapsed} />} />
             <Route path="/log-analyze" element={<LogAnalyzePage />} />
             <Route path="/admin/test-class-management" element={<TestClassManagementPage />} />
             <Route path="/admin/user-management" element={<IntegratedUserManagementPage />} />
+            <Route path="/admin/pending-users" element={
+              <ProtectedRoute permission="isStaff" fallbackTitle="待審核用戶管理存取受限">
+                <PendingUsersPage />
+              </ProtectedRoute>
+            } />
             <Route path="/admin/threshold-settings" element={
               <ProtectedRoute permission="isStaff" fallbackTitle="Threshold 設定存取受限">
                 <ThresholdSettingsPage />

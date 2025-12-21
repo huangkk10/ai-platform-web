@@ -1,0 +1,166 @@
+/**
+ * SAF Assistant 折疊式歡迎引導組件樣式
+ * =====================================
+ */
+
+/* 主容器 */
+.saf-welcome-guide {
+  padding: 8px 0;
+  line-height: 1.6;
+}
+
+/* 標題區域 */
+.saf-guide-header {
+  margin-bottom: 16px;
+}
+
+.saf-guide-title {
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+.saf-guide-subtitle {
+  color: #666;
+  font-size: 14px;
+}
+
+/* 功能區域 */
+.saf-guide-section {
+  margin-bottom: 16px;
+}
+
+.saf-guide-section-title {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+/* Collapse 折疊組件樣式 */
+.saf-guide-collapse {
+  background: transparent;
+}
+
+.saf-guide-collapse .ant-collapse-item {
+  border: none !important;
+}
+
+.saf-guide-collapse .ant-collapse-header {
+  padding: 6px 0 6px 20px !important;
+  font-size: 14px;
+  color: #333;
+  transition: background-color 0.2s ease;
+  border-radius: 6px !important;
+}
+
+.saf-guide-collapse .ant-collapse-header:hover {
+  background-color: rgba(24, 144, 255, 0.06);
+}
+
+.saf-guide-collapse .ant-collapse-content {
+  border: none !important;
+}
+
+.saf-guide-collapse .ant-collapse-content-box {
+  padding: 4px 0 8px 28px !important;
+}
+
+/* 類別標籤 */
+.saf-guide-category-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.saf-guide-category-icon {
+  font-size: 14px;
+}
+
+.saf-guide-category-title {
+  font-size: 14px;
+  color: #333;
+}
+
+/* 範例問句區域 */
+.saf-guide-examples {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* 範例問句項目 */
+.saf-guide-example-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #595959;
+}
+
+.saf-guide-example-item:hover {
+  background-color: rgba(24, 144, 255, 0.1);
+  color: #1890ff;
+}
+
+.saf-guide-example-item:active {
+  background-color: rgba(24, 144, 255, 0.2);
+}
+
+.saf-guide-example-bullet {
+  color: #8c8c8c;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.saf-guide-example-text {
+  font-size: 13px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+/* 提示區域 */
+.saf-guide-tip {
+  margin: 16px 0;
+  padding: 8px 12px;
+  background-color: rgba(24, 144, 255, 0.05);
+  border-radius: 6px;
+  border-left: 3px solid #1890ff;
+}
+
+.saf-guide-tip .ant-typography {
+  font-size: 13px;
+}
+
+/* 結尾文字 */
+.saf-guide-footer {
+  margin-top: 12px;
+  color: #666;
+  font-size: 14px;
+}
+
+/* 響應式調整 */
+@media (max-width: 768px) {
+  .saf-guide-collapse .ant-collapse-header {
+    padding: 8px 0 8px 16px !important;
+  }
+  
+  .saf-guide-collapse .ant-collapse-content-box {
+    padding: 4px 0 8px 20px !important;
+  }
+  
+  .saf-guide-example-item {
+    padding: 6px 8px;
+  }
+  
+  .saf-guide-example-text {
+    font-size: 12px;
+  }
+}
+
+/* 動畫效果 */
+.saf-guide-collapse .ant-collapse-expand-icon {
+  transition: transform 0.2s ease;
+}

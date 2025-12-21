@@ -92,6 +92,17 @@ SAF_ENDPOINTS: Dict[str, Dict[str, Any]] = {
         "transformer": "test_details_to_dify_record",
         "enabled": True,
         "requires_auth": True  # 需要 Authorization 和 Authorization-Name headers
+    },
+    # 🆕 Phase 16: Test Jobs API（查詢專案測試工作結果）
+    "project_test_jobs": {
+        "path": "/api/v1/projects/test-jobs",
+        "method": "POST",
+        "description": "查詢專案測試工作結果（含 Test Category、Item、Status 等詳細資訊）",
+        "params": {},
+        "body_params": ["project_ids", "test_tool_key"],
+        "transformer": "test_jobs_to_response",
+        "enabled": True,
+        "requires_auth": True  # 需要 Authorization 和 Authorization-Name headers
     }
 }
 

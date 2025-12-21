@@ -241,13 +241,22 @@ class ListFWVersionsHandler(BaseHandler):
             fw_version = project.get('fw', project.get('projectName', 'N/A'))
             created_at_raw = project.get('createdAt', '')
             
+            # 提取 Sub-Version（多種可能的欄位名稱）
+            sub_version = (
+                project.get('subVersion') or 
+                project.get('sub_version') or 
+                self._extract_sub_version_from_fw(fw_version) or
+                'N/A'
+            )
+            
             fw_info = {
                 'fw_version': fw_version,
                 'fw': fw_version,
                 'project_uid': project.get('projectUid'),
                 'project_name': project.get('projectName', ''),
                 'customer': project.get('customer', ''),
-                'controller': project.get('controller', ''),
+                'controller': project.get('controller', 'N/A'),
+                'sub_version': sub_version,
                 'created_at': self._format_timestamp(created_at_raw),
                 'created_at_raw': created_at_raw,
                 # 基本模式不包含統計資訊
@@ -257,6 +266,31 @@ class ListFWVersionsHandler(BaseHandler):
             fw_versions.append(fw_info)
         
         return fw_versions
+    
+    def _extract_sub_version_from_fw(self, fw_version: str) -> Optional[str]:
+        """
+        從 FW 版本字串中提取 Sub-Version
+        
+        例如：
+        - "G200X6EC_AA" -> "AA"
+        - "Y1114B_AC" -> "AC"
+        - "HHB0YBC1" -> None
+        
+        Args:
+            fw_version: FW 版本字串
+            
+        Returns:
+            Sub-Version 或 None
+        """
+        if not fw_version or '_' not in fw_version:
+            return None
+        
+        import re
+        # 匹配 _AA, _AB, _AC, _AD 等常見 Sub-Version 格式
+        match = re.search(r'_([A-Z]{2})(?:_|$)', fw_version)
+        if match:
+            return match.group(1)
+        return None
     
     def _get_versions_with_stats(self, projects: List[Dict]) -> List[Dict]:
         """
@@ -409,21 +443,23 @@ class ListFWVersionsHandler(BaseHandler):
                     f"| {i} | **{version}** | {completion_rate:.1f}% | {pass_count} | {fail_count} | {sample_str} |"
                 )
         else:
-            # 簡單表格（無統計資訊）
+            # 簡單表格（無統計資訊）- 包含 Sub-Version 和 Controller
             lines.extend([
-                "| # | FW 版本 | 建立時間 |",
-                "|---|---------|----------|"
+                "| # | FW 版本 | Sub-Version | Controller | 建立時間 |",
+                "|---|---------|-------------|------------|----------|"
             ])
             
             for i, fw in enumerate(fw_versions, 1):
                 version = fw.get('fw_version', 'N/A')
+                sub_version = fw.get('sub_version', 'N/A')
+                controller = fw.get('controller', 'N/A')
                 created_at = fw.get('created_at', 'N/A')
                 
                 # 格式化時間（只顯示日期部分）
                 if created_at and 'T' in created_at:
                     created_at = created_at.split('T')[0]
                 
-                lines.append(f"| {i} | **{version}** | {created_at} |")
+                lines.append(f"| {i} | **{version}** | {sub_version} | {controller} | {created_at} |")
         
         # 添加提示
         lines.extend([
@@ -434,10 +470,10 @@ class ListFWVersionsHandler(BaseHandler):
         ])
         
         if len(fw_versions) >= 2:
-            v1 = fw_versions[0].get('fw_version')
-            v2 = fw_versions[1].get('fw_version')
+            v1 = fw_versions[0].get('fw_version')  # 最新版本
+            v2 = fw_versions[1].get('fw_version')  # 次新版本
             lines.append(
-                f"- 您可以問「比較 {project_name} 的 {v1} 和 {v2}」"
+                f"- 您可以問「比較 {project_name} 的 {v2} 和 {v1}」"  # 對調：次新 vs 最新
             )
             lines.append(
                 f"- 或問「{project_name} 最新 FW 比較」自動比較最新兩版本"

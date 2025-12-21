@@ -83,6 +83,23 @@ class SAFResponseGenerator:
             IntentType.LIST_FW_BY_SUB_VERSION: self._generate_fw_by_sub_version_response,
             # Phase 13: FW 日期範圍查詢回應生成器
             IntentType.LIST_FW_BY_DATE_RANGE: self._generate_fw_by_date_range_response,
+            # Phase 15: Known Issues 查詢回應生成器
+            IntentType.QUERY_PROJECT_KNOWN_ISSUES: self._generate_known_issues_response,
+            IntentType.QUERY_PROJECT_TEST_ITEM_KNOWN_ISSUES: self._generate_known_issues_response,
+            IntentType.COUNT_PROJECT_KNOWN_ISSUES: self._generate_known_issues_response,
+            IntentType.RANK_PROJECTS_BY_KNOWN_ISSUES: self._generate_known_issues_rank_response,
+            IntentType.QUERY_KNOWN_ISSUES_BY_CREATOR: self._generate_known_issues_response,
+            IntentType.LIST_KNOWN_ISSUES_CREATORS: self._generate_known_issues_creators_response,
+            IntentType.QUERY_KNOWN_ISSUES_WITH_JIRA: self._generate_known_issues_response,
+            IntentType.QUERY_KNOWN_ISSUES_WITHOUT_JIRA: self._generate_known_issues_response,
+            IntentType.QUERY_RECENT_KNOWN_ISSUES: self._generate_known_issues_response,
+            IntentType.QUERY_KNOWN_ISSUES_BY_DATE_RANGE: self._generate_known_issues_response,
+            IntentType.SEARCH_KNOWN_ISSUES_BY_KEYWORD: self._generate_known_issues_response,
+            IntentType.QUERY_ALL_KNOWN_ISSUES_BY_TEST_ITEM: self._generate_known_issues_response,
+            # Phase 16: Test Jobs 查詢回應生成器
+            IntentType.QUERY_PROJECT_FW_TEST_JOBS: self._generate_test_jobs_response,
+            # Phase 17: Compare Test Jobs 查詢回應生成器
+            IntentType.COMPARE_FW_TEST_JOBS: self._generate_compare_test_jobs_response,
             IntentType.COUNT_PROJECTS: self._generate_count_response,
             IntentType.LIST_ALL_CUSTOMERS: self._generate_customers_list_response,
             IntentType.LIST_ALL_CONTROLLERS: self._generate_controllers_list_response,
@@ -1428,6 +1445,93 @@ class SAFResponseGenerator:
             'summary': f"列出 {data.get('project_name', '')} 在 {date_range.get('description', '')} 的 {data.get('total_in_range', 0)} 個 FW 版本"
         }
     
+    def _generate_test_jobs_response(self, result_data: Dict,
+                                      full_result: Dict) -> Dict[str, Any]:
+        """
+        生成測試工作結果回答（Phase 16）
+        
+        test_jobs_handler 已經生成完整的 Markdown 格式回答（含 HTML details 摺疊區塊），
+        此方法直接使用 handler 的 message，不做額外處理。
+        
+        Args:
+            result_data: 查詢結果資料
+            full_result: 完整查詢結果
+            
+        Returns:
+            Dict: 包含格式化回答
+        """
+        message = result_data.get('message', '')
+        data = result_data.get('data', {})
+        
+        project_name = data.get('project_name', '')
+        fw_version = data.get('fw_version', '')
+        pass_count = data.get('pass_count', 0)
+        fail_count = data.get('fail_count', 0)
+        total = data.get('total', 0)
+        
+        # Handler 已經生成完整的 Markdown 格式回答，直接使用
+        return {
+            'answer': message,
+            'table': data.get('table', []),
+            'summary': f"{project_name} FW {fw_version} 測試結果：{pass_count} Pass / {fail_count} Fail（共 {total} 項）"
+        }
+    
+    def _generate_compare_test_jobs_response(self, result_data: Dict,
+                                              full_result: Dict) -> Dict[str, Any]:
+        """
+        生成比較測試項目結果回答（Phase 18 更新：支援多版本比較）
+        
+        compare_test_jobs_handler 已經生成完整的 Markdown 格式回答（含 HTML details 摺疊區塊），
+        此方法直接使用 handler 的 message，不做額外處理。
+        
+        Args:
+            result_data: 查詢結果資料
+            full_result: 完整查詢結果
+            
+        Returns:
+            Dict: 包含格式化回答
+        """
+        message = result_data.get('message', '')
+        data = result_data.get('data', {})
+        
+        project_name = data.get('project_name', '')
+        statistics = data.get('statistics', {})
+        
+        # Phase 18：支援多版本陣列，同時向後相容舊格式
+        fw_versions = data.get('fw_versions', [])
+        if not fw_versions:
+            # 向後相容：從 fw_version_1/fw_version_2 構建
+            fw_v1 = data.get('fw_version_1', '')
+            fw_v2 = data.get('fw_version_2', '')
+            if fw_v1 and fw_v2:
+                fw_versions = [fw_v1, fw_v2]
+        
+        # 構建摘要
+        total_diff = statistics.get('total_differences', 0)
+        pass_to_fail = statistics.get('pass_to_fail_count', 0)
+        fail_to_pass = statistics.get('fail_to_pass_count', 0)
+        
+        # 動態生成版本列表字串
+        if len(fw_versions) == 2:
+            version_str = f"{fw_versions[0]} vs {fw_versions[1]}"
+        elif len(fw_versions) > 2:
+            version_str = f"{fw_versions[0]} 等 {len(fw_versions)} 個版本"
+        else:
+            version_str = ', '.join(fw_versions) if fw_versions else '未知版本'
+        
+        summary = f"{project_name} FW {version_str}：共 {total_diff} 項差異"
+        if pass_to_fail > 0:
+            summary += f"（⚠️ {pass_to_fail} 項退化）"
+        if fail_to_pass > 0:
+            summary += f"（✅ {fail_to_pass} 項改善）"
+        
+        # Handler 已經生成完整的 Markdown 格式回答，直接使用
+        return {
+            'answer': message,
+            'table': data.get('comparison', {}),
+            'summary': summary
+        }
+    
     def _generate_default_response(self, result_data: Dict,
                                     full_result: Dict) -> Dict[str, Any]:
         """生成預設回答"""
@@ -1487,9 +1591,6 @@ class SAFResponseGenerator:
         if not detail:
             return "（無資料）\n"
         
-        table = "| 項目 | 內容 |\n"
-        table += "|------|------|\n"
-        
         field_names = {
             'projectName': '專案名稱',
             'customer': '客戶',
@@ -1504,10 +1605,20 @@ class SAFResponseGenerator:
             'passRate': '通過率',
         }
         
+        # 先收集有值的欄位
+        rows = []
         for key, display_name in field_names.items():
             value = detail.get(key, '')
             if value:
-                table += f"| {display_name} | {value} |\n"
+                rows.append(f"| {display_name} | {value} |")
+        
+        # 如果沒有任何有值的欄位，不生成表格（返回空字串）
+        if not rows:
+            return ""
+        
+        table = "| 項目 | 內容 |\n"
+        table += "|------|------|\n"
+        table += "\n".join(rows) + "\n"
         
         return table
     
@@ -1524,9 +1635,6 @@ class SAFResponseGenerator:
         if not summary:
             return "（無資料）\n"
         
-        table = "| 項目 | 內容 |\n"
-        table += "|------|------|\n"
-        
         field_names = {
             'projectName': '專案名稱',
             'customer': '客戶',
@@ -1541,12 +1649,166 @@ class SAFResponseGenerator:
             'note': '備註',
         }
         
+        # 先收集有值的欄位
+        rows = []
         for key, display_name in field_names.items():
             value = summary.get(key, '')
             if value or value == 0:
-                table += f"| {display_name} | {value} |\n"
+                rows.append(f"| {display_name} | {value} |")
+        
+        # 如果沒有任何有值的欄位，不生成表格
+        if not rows:
+            return "（無摘要資料）\n"
+        
+        table = "| 項目 | 內容 |\n"
+        table += "|------|------|\n"
+        table += "\n".join(rows) + "\n"
         
         return table
+    
+    # =========================================================================
+    # Phase 15: Known Issues 回應生成器
+    # =========================================================================
+    
+    def _generate_known_issues_response(self, result_data: Dict,
+                                         full_result: Dict) -> Dict[str, Any]:
+        """
+        生成 Known Issues 查詢的回答
+        
+        適用於所有 Known Issues 列表型查詢
+        """
+        data = result_data.get('data', [])
+        message = result_data.get('message', '')
+        parameters = result_data.get('parameters', {})
+        
+        if not data:
+            return {
+                'answer': message or '找不到符合條件的 Known Issues',
+                'table': []
+            }
+        
+        # 生成自然語言回答
+        answer = f"{message}\n\n"
+        answer += self._generate_known_issues_table(data)
+        
+        return {
+            'answer': answer,
+            'table': data,
+            'summary': message
+        }
+    
+    def _generate_known_issues_rank_response(self, result_data: Dict,
+                                              full_result: Dict) -> Dict[str, Any]:
+        """
+        生成 Known Issues 專案排名的回答
+        """
+        data = result_data.get('data', [])
+        message = result_data.get('message', '')
+        
+        if not data:
+            return {
+                'answer': message or '找不到 Known Issues 資料',
+                'table': []
+            }
+        
+        # 生成排名表格
+        answer = f"{message}\n\n"
+        answer += "| 排名 | 專案名稱 | Issues 數量 | 有 JIRA | 啟用中 |\n"
+        answer += "|------|----------|-------------|---------|--------|\n"
+        
+        for idx, item in enumerate(data, 1):
+            project_name = item.get('project_name', '-')
+            issue_count = item.get('issue_count', 0)
+            with_jira = item.get('with_jira_count', 0)
+            enabled = item.get('enabled_count', 0)
+            
+            answer += f"| {idx} | {project_name} | {issue_count} | {with_jira} | {enabled} |\n"
+        
+        return {
+            'answer': answer,
+            'table': data,
+            'summary': message
+        }
+    
+    def _generate_known_issues_creators_response(self, result_data: Dict,
+                                                  full_result: Dict) -> Dict[str, Any]:
+        """
+        生成 Known Issues 建立者列表的回答
+        """
+        data = result_data.get('data', [])
+        message = result_data.get('message', '')
+        
+        if not data:
+            return {
+                'answer': message or '找不到 Known Issues 建立者資料',
+                'table': []
+            }
+        
+        # 生成建立者表格
+        answer = f"{message}\n\n"
+        answer += "| 建立者 | Issues 數量 |\n"
+        answer += "|--------|-------------|\n"
+        
+        for item in data:
+            creator = item.get('creator', '-')
+            count = item.get('issue_count', item.get('count', 0))
+            answer += f"| {creator} | {count} |\n"
+        
+        return {
+            'answer': answer,
+            'table': data,
+            'summary': message
+        }
+    
+    def _generate_known_issues_table(self, issues: List[Dict]) -> str:
+        """
+        生成 Known Issues 的 Markdown Table（按 Test Item 分組）
+        
+        Args:
+            issues: Known Issues 列表
+            
+        Returns:
+            str: Markdown Table（分組顯示）
+        """
+        if not issues:
+            return "（無資料）\n"
+        
+        # 按 test_item_name 分組
+        from collections import defaultdict
+        grouped = defaultdict(list)
+        for issue in issues:
+            test_item = issue.get('test_item_name', '其他')
+            grouped[test_item].append(issue)
+        
+        # 按每組數量排序（多的排前面）
+        sorted_groups = sorted(grouped.items(), key=lambda x: len(x[1]), reverse=True)
+        
+        result = ""
+        for test_item, group_issues in sorted_groups:
+            # 每個分組加上標題
+            result += f"\n**📋 {test_item}** ({len(group_issues)} 筆)\n\n"
+            result += "| Issue ID | Case Name | JIRA | 建立者 |\n"
+            result += "|----------|-----------|------|--------|\n"
+            
+            for issue in group_issues:
+                issue_id = issue.get('issue_id', '-')
+                case_name = issue.get('case_name', '-')
+                jira_id = issue.get('jira_id', '-')
+                created_by = issue.get('created_by', '-')
+                
+                # 如果有 JIRA 連結，生成超連結
+                if issue.get('jira_link'):
+                    jira_display = f"[{jira_id}]({issue.get('jira_link')})"
+                else:
+                    jira_display = jira_id or '-'
+                
+                # 截斷過長的 case_name
+                if len(case_name) > 50:
+                    case_name = case_name[:47] + '...'
+                
+                result += f"| {issue_id} | {case_name} | {jira_display} | {created_by} |\n"
+        
+        return result
     
     def _get_help_message(self) -> str:
         """獲取幫助訊息"""
@@ -1559,6 +1821,11 @@ class SAFResponseGenerator:
 - 專案數量統計（如：「WD 有幾個專案？」）
 - 客戶列表（如：「有哪些客戶？」）
 - 控制器列表（如：「有哪些控制器？」）
+- **🆕 Known Issues 查詢**
+  - 「Springsteen 專案有多少 Known Issues？」
+  - 「哪些專案的 Known Issues 最多？」
+  - 「有哪些人建立過 Known Issues？」
+  - 「搜尋 Known Issues 關鍵字 PCIe」
 """.strip()
 
 

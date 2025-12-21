@@ -256,11 +256,39 @@ class ListFWByDateRangeHandler(BaseHandler):
             return start_date, end_date, "去年"
         
         elif date_range in ('recent', '最近', '近期'):
-            # 最近一個月
+            # 最近一個月（30 天）
             start_date = now - timedelta(days=30)
             start_date = datetime(start_date.year, start_date.month, start_date.day)
             end_date = now
             return start_date, end_date, "最近 30 天"
+        
+        elif date_range in ('recent_month', '近一個月', '最近一個月', '近30天', '近一月'):
+            # 近一個月（從今天往回推 30 天）- 注意：這不是「上個月」！
+            start_date = now - timedelta(days=30)
+            start_date = datetime(start_date.year, start_date.month, start_date.day)
+            end_date = now
+            return start_date, end_date, "近一個月"
+        
+        elif date_range in ('last_2_months', '近2個月', '近兩個月', '最近2個月', '最近兩個月', '近二個月'):
+            # 近兩個月（從今天往回推 60 天）
+            start_date = now - timedelta(days=60)
+            start_date = datetime(start_date.year, start_date.month, start_date.day)
+            end_date = now
+            return start_date, end_date, "近 2 個月"
+        
+        elif date_range in ('last_3_months', '近3個月', '近三個月', '最近3個月', '最近三個月'):
+            # 近三個月（從今天往回推 90 天）
+            start_date = now - timedelta(days=90)
+            start_date = datetime(start_date.year, start_date.month, start_date.day)
+            end_date = now
+            return start_date, end_date, "近 3 個月"
+        
+        elif date_range in ('last_6_months', '近6個月', '近半年', '最近6個月', '最近半年'):
+            # 近半年（從今天往回推 180 天）
+            start_date = now - timedelta(days=180)
+            start_date = datetime(start_date.year, start_date.month, start_date.day)
+            end_date = now
+            return start_date, end_date, "近半年"
         
         # 處理年月範圍參數
         year = parameters.get('year')
@@ -520,13 +548,22 @@ class ListFWByDateRangeHandler(BaseHandler):
             status_code = project.get('status', 0)
             status_text = self._get_status_text(status_code)
             
+            # 提取 Sub-Version（多種可能的欄位名稱或從 FW 版本中提取）
+            sub_version = (
+                project.get('subVersion') or 
+                project.get('sub_version') or 
+                self._extract_sub_version_from_fw(fw_version) or
+                'N/A'
+            )
+            
             fw_info = {
                 'fw_version': fw_version,
                 'fw': fw_version,
                 'project_uid': project.get('projectUid'),
                 'project_name': project.get('projectName', ''),
                 'customer': project.get('customer', ''),
-                'controller': project.get('controller', ''),
+                'controller': project.get('controller', 'N/A'),
+                'sub_version': sub_version,
                 'created_date': created_date,
                 'status': status_text,
                 'status_code': status_code,
@@ -534,6 +571,33 @@ class ListFWByDateRangeHandler(BaseHandler):
             fw_versions.append(fw_info)
         
         return fw_versions
+    
+    def _extract_sub_version_from_fw(self, fw_version: str) -> Optional[str]:
+        """
+        從 FW 版本字串中提取 Sub-Version
+        
+        例如：
+        - "G200X6EC_AA" -> "AA"
+        - "Y1114B_AC" -> "AC"
+        - "PH10YC3H_Opal_4K" -> "Opal"
+        - "HHB0YBC1" -> None
+        """
+        import re
+        if not fw_version or '_' not in fw_version:
+            return None
+        
+        # 匹配 _AA, _AB, _AC, _AD 等常見 Sub-Version 格式
+        match = re.search(r'_([A-Z]{2})(?:_|$)', fw_version)
+        if match:
+            return match.group(1)
+        
+        # 匹配 _Opal, _Pyrite 等格式
+        parts = fw_version.split('_')
+        if len(parts) >= 2:
+            # 返回第二部分（通常是 Sub-Version 或類型）
+            return parts[1] if parts[1] else None
+        
+        return None
     
     def _format_response(self, project_name: str,
                          fw_versions: List[Dict],
@@ -575,14 +639,16 @@ class ListFWByDateRangeHandler(BaseHandler):
         if fw_versions:
             lines.append("### FW 版本列表")
             lines.append("")
-            lines.append("| # | FW 版本 | 建立日期 | 狀態 |")
-            lines.append("|---|---------|----------|------|")
+            lines.append("| # | FW 版本 | Sub-Version | Controller | 建立日期 | 狀態 |")
+            lines.append("|---|---------|-------------|------------|----------|------|")
             
             for i, fw in enumerate(fw_versions, 1):
                 fw_version = fw.get('fw_version', 'N/A')
+                sub_ver = fw.get('sub_version', 'N/A')
+                controller = fw.get('controller', 'N/A')
                 created_date = fw.get('created_date', 'N/A')
                 status = fw.get('status', 'N/A')
-                lines.append(f"| {i} | {fw_version} | {created_date} | {status} |")
+                lines.append(f"| {i} | {fw_version} | {sub_ver} | {controller} | {created_date} | {status} |")
             
             lines.append("")
             

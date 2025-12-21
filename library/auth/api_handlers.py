@@ -177,6 +177,9 @@ class DRFAuthHandler:
             email = data.get('email', '').strip()
             first_name = data.get('first_name', '').strip()
             last_name = data.get('last_name', '').strip()
+            # 🆕 獲取申請資訊
+            application_department = data.get('application_department', '').strip()
+            application_reason = data.get('application_reason', '').strip()
             
             try:
                 # 使用 library 服務
@@ -195,6 +198,13 @@ class DRFAuthHandler:
                         'errors': errors
                     }, status=status.HTTP_400_BAD_REQUEST)
                 
+                # 🆕 驗證申請資訊
+                if not application_department or not application_reason:
+                    return Response({
+                        'success': False,
+                        'message': '請填寫申請部門和申請理由'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                
                 # 2. 檢查重複
                 if User.objects.filter(username=username).exists():
                     return Response({
@@ -208,26 +218,33 @@ class DRFAuthHandler:
                         'message': 'Email 已被註冊'
                     }, status=status.HTTP_400_BAD_REQUEST)
                 
-                # 3. 創建用戶
+                # 🆕 3. 創建用戶（預設為未啟用，等待審核）
                 user = User.objects.create_user(
                     username=username,
                     password=password,
                     email=email,
                     first_name=first_name,
-                    last_name=last_name
+                    last_name=last_name,
+                    is_active=False  # ✅ 預設為未啟用
                 )
                 
-                # 4. 創建用戶檔案
+                # 🆕 4. 創建用戶檔案並設置審核狀態
                 UserProfileService.create_or_update_user_profile(
                     user=user,
-                    profile_data={'bio': f'歡迎 {first_name or username} 加入！'}
+                    profile_data={
+                        'bio': f'歡迎 {first_name or username} 加入！',
+                        'account_status': 'pending',  # ✅ 待審核
+                        'application_department': application_department,
+                        'application_reason': application_reason
+                    }
                 )
                 
-                logger.info(f"New user registered: {username} ({email})")
+                logger.info(f"New user registered: {username} ({email}) - 待審核")
                 
                 return Response({
                     'success': True,
-                    'message': '註冊成功！請使用新帳號登入',
+                    'message': '註冊申請已提交，請等待管理員審核。審核通過後會收到通知。',
+                    'status': 'pending',
                     'user': {
                         'id': user.id,
                         'username': user.username,

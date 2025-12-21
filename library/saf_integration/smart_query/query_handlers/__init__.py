@@ -63,6 +63,14 @@ from .fw_category_test_items_handler import FWCategoryTestItemsHandler
 from .fw_all_test_items_handler import FWAllTestItemsHandler
 # Phase 13: FW 日期範圍查詢處理器
 from .list_fw_by_date_range_handler import ListFWByDateRangeHandler
+# Phase 14: 支援容量查詢處理器
+from .supported_capacities_handler import SupportedCapacitiesHandler
+# Phase 15: Known Issues 查詢處理器
+from .known_issues_handler import KnownIssuesHandler
+# Phase 16: Test Jobs 查詢處理器
+from .test_jobs_handler import TestJobsHandler
+# Phase 17: FW 版本測試項目比較處理器
+from .compare_test_jobs_handler import CompareTestJobsHandler
 
 __all__ = [
     'BaseHandler',
@@ -94,5 +102,13 @@ __all__ = [
     'FWAllTestItemsHandler',
     # Phase 13: FW 日期範圍查詢處理器
     'ListFWByDateRangeHandler',
+    # Phase 14: 支援容量查詢處理器
+    'SupportedCapacitiesHandler',
+    # Phase 15: Known Issues 查詢處理器
+    'KnownIssuesHandler',
+    # Phase 16: Test Jobs 查詢處理器
+    'TestJobsHandler',
+    # Phase 17: FW 版本測試項目比較處理器
+    'CompareTestJobsHandler',
 ]
 

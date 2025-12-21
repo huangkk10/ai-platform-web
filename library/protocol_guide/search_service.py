@@ -265,8 +265,11 @@ class ProtocolGuideSearchService(BaseKnowledgeBaseSearchService):
         # 先從 source_id 找出對應的 document_ids
         source_ids = set()
         for result in results:
-            metadata = result.get('metadata', {})
-            source_id = metadata.get('source_id') or metadata.get('id')
+            # ✅ 優先從頂層讀取 source_id，其次從 metadata 讀取
+            source_id = result.get('source_id')
+            if not source_id:
+                metadata = result.get('metadata', {})
+                source_id = metadata.get('source_id') or metadata.get('id')
             if source_id:
                 source_ids.add(source_id)
         

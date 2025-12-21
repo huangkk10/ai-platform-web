@@ -786,6 +786,12 @@ class CompareMultipleFWHandler(BaseHandler):
         """
         📊 生成趨勢視覺化圖表
         
+        包含：
+        0. 測試類別雷達圖（各類別 Pass 數量分佈對比）
+        1. 測試結果分組長條圖（Pass/Fail 對比）
+        2. 測試結果趨勢折線圖（Pass/Fail/Total 趨勢）
+        3. 整體指標折線圖（完成率/執行率/失敗率趨勢）
+        
         Args:
             project_name: 專案名稱
             versions_data: 各版本統計資料
@@ -802,20 +808,42 @@ class CompareMultipleFWHandler(BaseHandler):
         ]
         
         try:
+            # 構建標題後綴
+            title_suffix = f" ({sub_version})" if sub_version else ""
+            
+            # ===== 圖表 0: 測試類別熱力圖 =====
+            heatmap_chart = self._generate_category_heatmap(
+                project_name, versions_data, version_names, sub_version
+            )
+            if heatmap_chart:
+                lines.append(heatmap_chart)
+                lines.append("")
+            
             # 準備圖表資料
             pass_values = [v.get('pass', 0) for v in versions_data]
             fail_values = [v.get('fail', 0) for v in versions_data]
             total_values = [v.get('total', 0) for v in versions_data]
             pass_rate_values = [v.get('pass_rate', 0) for v in versions_data]
+            completion_rate_values = [v.get('completion_rate', 0) for v in versions_data]
             
-            # 構建標題
-            title_suffix = f" ({sub_version})" if sub_version else ""
+            # ===== 圖表 1: 測試結果分組長條圖 =====
+            bar_chart_title = f"{project_name}{title_suffix} 測試結果比較"
             
-            # 生成測試結果趨勢折線圖
-            chart_title = f"{project_name}{title_suffix} 測試結果趨勢"
+            bar_chart_md = ChartFormatter.fw_test_results_bar(
+                title=bar_chart_title,
+                fw_versions=version_names,
+                pass_counts=pass_values,
+                fail_counts=fail_values
+            )
             
-            chart_md = ChartFormatter.line_chart(
-                title=chart_title,
+            lines.append(bar_chart_md)
+            lines.append("")
+            
+            # ===== 圖表 2: 測試結果趨勢折線圖 =====
+            line_chart_title = f"{project_name}{title_suffix} 測試結果趨勢"
+            
+            line_chart_md = ChartFormatter.line_chart(
+                title=line_chart_title,
                 labels=version_names,
                 datasets=[
                     {
@@ -843,33 +871,35 @@ class CompareMultipleFWHandler(BaseHandler):
                 }
             )
             
-            lines.append(chart_md)
+            lines.append(line_chart_md)
             lines.append("")
             
-            # 生成通過率柱狀圖
-            pass_rate_chart_title = f"{project_name}{title_suffix} 通過率比較"
+            # ===== 圖表 3: 整體指標折線圖 =====
+            # 準備整體指標資料（完成率、通過率）
+            metrics_data = {
+                "完成率": completion_rate_values,
+                "通過率": pass_rate_values
+            }
             
-            pass_rate_chart_md = ChartFormatter.bar_chart(
-                title=pass_rate_chart_title,
-                labels=version_names,
-                datasets=[
-                    {
-                        "name": "通過率 (%)",
-                        "data": pass_rate_values,
-                        "color": "#1890ff"  # 藍色
-                    }
-                ],
-                description="各 FW 版本的測試通過率對比",
-                options={
-                    "showGrid": True,
-                    "showLegend": False,
-                    "height": 280
-                }
+            # 如果有任何有效的整體指標數據，則生成圖表
+            has_metrics = any(
+                any(v > 0 for v in values) 
+                for values in metrics_data.values()
             )
             
-            lines.append(pass_rate_chart_md)
+            if has_metrics:
+                metrics_chart_title = f"{project_name}{title_suffix} 整體指標趨勢"
+                
+                metrics_chart_md = ChartFormatter.fw_overall_metrics_line(
+                    title=metrics_chart_title,
+                    fw_versions=version_names,
+                    metrics_data=metrics_data
+                )
+                
+                lines.append(metrics_chart_md)
+                lines.append("")
             
-            logger.info(f"📊 已生成趨勢圖表：{chart_title}")
+            logger.info(f"📊 已生成趨勢圖表：{bar_chart_title}, {line_chart_title}")
             
         except Exception as e:
             logger.error(f"生成圖表時發生錯誤: {str(e)}")
@@ -877,6 +907,170 @@ class CompareMultipleFWHandler(BaseHandler):
         
         return lines
     
+    def _generate_category_radar_chart(
+        self,
+        project_name: str,
+        versions_data: List[Dict],
+        version_names: List[str],
+        sub_version: str = None
+    ) -> Optional[str]:
+        """
+        生成測試類別雷達圖（多版本支援）
+        
+        Args:
+            project_name: 專案名稱
+            versions_data: 各版本統計資料
+            version_names: 版本名稱列表
+            sub_version: SubVersion 過濾
+            
+        Returns:
+            雷達圖的 Markdown 標記，失敗返回 None
+        """
+        try:
+            # 收集所有類別
+            all_categories = set()
+            for v in versions_data:
+                for cat in v.get('categories', []):
+                    cat_name = cat.get('name', '')
+                    if cat_name:
+                        all_categories.add(cat_name)
+            
+            # 雷達圖需要至少 3 個維度
+            if len(all_categories) < 3:
+                logger.debug(f"類別數量不足 ({len(all_categories)} < 3)，跳過雷達圖生成")
+                return None
+            
+            # 排序類別名稱（保持一致性）
+            sorted_categories = sorted(all_categories)
+            
+            # 限制最多顯示 12 個類別（避免雷達圖過於擁擠）
+            if len(sorted_categories) > 12:
+                # 優先選取有最多 Pass 的類別
+                category_totals = {}
+                for v in versions_data:
+                    for cat in v.get('categories', []):
+                        cat_name = cat.get('name', '')
+                        if cat_name:
+                            category_totals[cat_name] = category_totals.get(cat_name, 0) + cat.get('pass', 0)
+                
+                sorted_categories = sorted(
+                    category_totals.keys(),
+                    key=lambda x: category_totals[x],
+                    reverse=True
+                )[:12]
+            
+            # 準備雷達圖數據
+            fw_versions_data = []
+            for i, version_name in enumerate(version_names):
+                if i >= len(versions_data):
+                    break
+                    
+                v = versions_data[i]
+                
+                # 建立類別映射
+                cat_map = {cat.get('name', ''): cat for cat in v.get('categories', [])}
+                
+                # 獲取每個類別的 Pass 數量
+                pass_counts = [
+                    cat_map.get(cat, {}).get('pass', 0)
+                    for cat in sorted_categories
+                ]
+                
+                fw_versions_data.append({
+                    'name': version_name,
+                    'pass_counts': pass_counts
+                })
+            
+            # 構建標題
+            title_suffix = f" ({sub_version})" if sub_version else ""
+            chart_title = f"🕸️ {project_name}{title_suffix} 測試類別分佈對比"
+            
+            # 生成雷達圖
+            radar_chart = ChartFormatter.fw_category_comparison_radar(
+                title=chart_title,
+                categories=sorted_categories,
+                fw_versions=fw_versions_data
+            )
+            
+            logger.info(f"📊 已生成雷達圖：{len(sorted_categories)} 個類別, {len(fw_versions_data)} 個版本")
+            return radar_chart
+            
+        except Exception as e:
+            logger.warning(f"生成測試類別雷達圖失敗: {str(e)}")
+            return None
+
+    def _generate_category_heatmap(
+        self,
+        project_name: str,
+        versions_data: List[Dict],
+        version_names: List[str],
+        sub_version: str = None
+    ) -> Optional[str]:
+        """
+        生成測試類別 Fail 數量熱力圖
+        
+        Args:
+            project_name: 專案名稱
+            versions_data: 各版本統計資料
+            version_names: 版本名稱列表
+            sub_version: SubVersion 過濾
+            
+        Returns:
+            熱力圖的 Markdown 標記，失敗返回 None
+        """
+        try:
+            # 收集所有類別
+            all_categories = set()
+            for v in versions_data:
+                for cat in v.get('categories', []):
+                    cat_name = cat.get('name', '')
+                    if cat_name:
+                        all_categories.add(cat_name)
+            
+            # 需要至少有類別資料
+            if len(all_categories) < 2:
+                logger.debug(f"類別數量不足 ({len(all_categories)} < 2)，跳過熱力圖生成")
+                return None
+            
+            # 排序類別名稱
+            sorted_categories = sorted(all_categories)
+            
+            # 準備熱力圖數據：二維陣列 [category][version]
+            fail_data = []
+            for category in sorted_categories:
+                row = []
+                for i, version_name in enumerate(version_names):
+                    if i >= len(versions_data):
+                        row.append(0)
+                        continue
+                    
+                    v = versions_data[i]
+                    cat_map = {cat.get('name', ''): cat for cat in v.get('categories', [])}
+                    fail_count = cat_map.get(category, {}).get('fail', 0)
+                    row.append(fail_count)
+                
+                fail_data.append(row)
+            
+            # 構建標題
+            title_suffix = f" ({sub_version})" if sub_version else ""
+            chart_title = f"🔥 {project_name}{title_suffix} 測試類別 Fail 分佈熱力圖"
+            
+            # 生成熱力圖
+            heatmap_chart = ChartFormatter.category_fail_heatmap(
+                title=chart_title,
+                categories=sorted_categories,
+                fw_versions=version_names,
+                fail_counts=fail_data,
+                description=f"顯示 {len(sorted_categories)} 個測試類別在 {len(version_names)} 個 FW 版本的 Fail 分佈（綠色=無 Fail）"
+            )
+            
+            logger.info(f"📊 已生成熱力圖：{len(sorted_categories)} 個類別, {len(version_names)} 個版本")
+            return heatmap_chart
+            
+        except Exception as e:
+            logger.warning(f"生成測試類別熱力圖失敗: {str(e)}")
+            return None
+
     def _format_statistics_summary(self, versions_data: List[Dict],
                                    pass_values: List[int],
                                    fail_values: List[int],

@@ -41,6 +41,14 @@ from .query_handlers import (
     FWAllTestItemsHandler,
     # Phase 13: FW 日期範圍查詢處理器
     ListFWByDateRangeHandler,
+    # Phase 14: 支援容量查詢處理器
+    SupportedCapacitiesHandler,
+    # Phase 15: Known Issues 查詢處理器
+    KnownIssuesHandler,
+    # Phase 16: Test Jobs 查詢處理器
+    TestJobsHandler,
+    # Phase 17: Compare Test Jobs 查詢處理器
+    CompareTestJobsHandler,
 )
 
 logger = logging.getLogger(__name__)
@@ -144,6 +152,29 @@ class QueryRouter:
             # Phase 13: FW 日期範圍查詢處理器
             IntentType.LIST_FW_BY_DATE_RANGE: ListFWByDateRangeHandler(),
             
+            # Phase 14: 支援容量查詢處理器
+            IntentType.QUERY_SUPPORTED_CAPACITIES: SupportedCapacitiesHandler(),
+            
+            # Phase 15: Known Issues 查詢處理器（12 個意圖共用）
+            IntentType.QUERY_PROJECT_KNOWN_ISSUES: KnownIssuesHandler(),
+            IntentType.QUERY_PROJECT_TEST_ITEM_KNOWN_ISSUES: KnownIssuesHandler(),
+            IntentType.COUNT_PROJECT_KNOWN_ISSUES: KnownIssuesHandler(),
+            IntentType.RANK_PROJECTS_BY_KNOWN_ISSUES: KnownIssuesHandler(),
+            IntentType.QUERY_KNOWN_ISSUES_BY_CREATOR: KnownIssuesHandler(),
+            IntentType.LIST_KNOWN_ISSUES_CREATORS: KnownIssuesHandler(),
+            IntentType.QUERY_KNOWN_ISSUES_WITH_JIRA: KnownIssuesHandler(),
+            IntentType.QUERY_KNOWN_ISSUES_WITHOUT_JIRA: KnownIssuesHandler(),
+            IntentType.QUERY_RECENT_KNOWN_ISSUES: KnownIssuesHandler(),
+            IntentType.QUERY_KNOWN_ISSUES_BY_DATE_RANGE: KnownIssuesHandler(),
+            IntentType.SEARCH_KNOWN_ISSUES_BY_KEYWORD: KnownIssuesHandler(),
+            IntentType.QUERY_ALL_KNOWN_ISSUES_BY_TEST_ITEM: KnownIssuesHandler(),
+            
+            # Phase 16: Test Jobs 查詢處理器
+            IntentType.QUERY_PROJECT_FW_TEST_JOBS: TestJobsHandler(),
+            
+            # Phase 17: Compare Test Jobs 查詢處理器
+            IntentType.COMPARE_FW_TEST_JOBS: CompareTestJobsHandler(),
+            
             # 統計類型使用專門的處理器
             IntentType.COUNT_PROJECTS: self._statistics_handler,
             IntentType.LIST_ALL_CUSTOMERS: self._statistics_handler,
@@ -197,8 +228,12 @@ class QueryRouter:
             ]:
                 return self._handle_statistics_query(intent_type, parameters)
             
-            # 執行查詢
-            result = handler.execute(parameters)
+            # 特殊處理 Known Issues 查詢（需要傳遞 intent 參數）
+            if intent_type in self._get_known_issues_intents():
+                result = handler.execute(parameters, intent=intent_type.value)
+            else:
+                # 執行一般查詢
+                result = handler.execute(parameters)
             
             # 添加意圖信息到 metadata
             result.metadata['intent'] = intent_type.value
@@ -213,6 +248,28 @@ class QueryRouter:
                 query_type=intent_type.value,
                 parameters=parameters
             )
+    
+    def _get_known_issues_intents(self) -> list:
+        """
+        獲取所有 Known Issues 相關的意圖類型
+        
+        Returns:
+            Known Issues 意圖類型列表
+        """
+        return [
+            IntentType.QUERY_PROJECT_KNOWN_ISSUES,
+            IntentType.QUERY_PROJECT_TEST_ITEM_KNOWN_ISSUES,
+            IntentType.COUNT_PROJECT_KNOWN_ISSUES,
+            IntentType.RANK_PROJECTS_BY_KNOWN_ISSUES,
+            IntentType.QUERY_KNOWN_ISSUES_BY_CREATOR,
+            IntentType.LIST_KNOWN_ISSUES_CREATORS,
+            IntentType.QUERY_KNOWN_ISSUES_WITH_JIRA,
+            IntentType.QUERY_KNOWN_ISSUES_WITHOUT_JIRA,
+            IntentType.QUERY_RECENT_KNOWN_ISSUES,
+            IntentType.QUERY_KNOWN_ISSUES_BY_DATE_RANGE,
+            IntentType.SEARCH_KNOWN_ISSUES_BY_KEYWORD,
+            IntentType.QUERY_ALL_KNOWN_ISSUES_BY_TEST_ITEM,
+        ]
     
     def _handle_statistics_query(self, intent_type: IntentType, 
                                   parameters: Dict[str, Any]) -> QueryResult:
@@ -313,9 +370,11 @@ class SmartQueryService:
     def __init__(self):
         """初始化服務"""
         from .intent_analyzer import SAFIntentAnalyzer
+        from .response_generator import SAFResponseGenerator
         
         self.intent_analyzer = SAFIntentAnalyzer()
         self.query_router = QueryRouter()
+        self.response_generator = SAFResponseGenerator()
         
         logger.info("SmartQueryService 初始化完成")
     
@@ -331,6 +390,7 @@ class SmartQueryService:
             Dict: 查詢結果，包含意圖分析和查詢結果
         """
         import time
+        import re
         start_time = time.time()
         
         logger.info(f"開始處理查詢: {user_query}")
@@ -343,7 +403,10 @@ class SmartQueryService:
             f"confidence={intent_result.confidence:.2f}"
         )
         
-        # 2. 路由並執行查詢
+        # 2. 意圖修正：處理 compare_latest_fw 被錯誤識別的情況
+        intent_result = self._correct_intent_if_needed(intent_result, user_query)
+        
+        # 3. 路由並執行查詢
         query_result = self.query_router.route(intent_result)
         
         # 3. 計算總時間
@@ -367,12 +430,105 @@ class SmartQueryService:
             }
         }
         
+        # 5. 使用 ResponseGenerator 生成格式化回應
+        try:
+            formatted_response = self.response_generator.generate(result)
+            # ResponseGenerator 返回 dict，包含 answer, table, summary 等
+            # 前端需要 answer (Markdown 字符串)
+            if isinstance(formatted_response, dict):
+                result['response'] = formatted_response.get('answer', '')
+                result['response_data'] = formatted_response  # 保留完整結構供需要時使用
+                logger.debug(f"ResponseGenerator 生成回應成功，answer 長度: {len(result['response'])}")
+            else:
+                # 如果不是 dict，直接使用
+                result['response'] = formatted_response
+                logger.debug(f"ResponseGenerator 生成回應成功（非 dict），長度: {len(str(formatted_response))}")
+        except Exception as e:
+            logger.error(f"ResponseGenerator 生成回應失敗: {e}")
+            # 如果 ResponseGenerator 失敗，使用 query_result 的 message 作為回退
+            result['response'] = query_result.message if hasattr(query_result, 'message') else None
+        
         logger.info(
             f"查詢完成: success={result['success']}, "
             f"time={total_time:.2f}ms"
         )
         
         return result
+
+    def _correct_intent_if_needed(self, intent_result, user_query: str):
+        """
+        意圖修正邏輯
+        
+        當 LLM 錯誤地將多版本比較識別為 compare_latest_fw 時進行修正。
+        
+        修正條件：
+        1. 意圖是 compare_latest_fw
+        2. 查詢包含 ≥3 的數字（如 "3個"、"三個"、"5版本"）
+        
+        Args:
+            intent_result: 原始意圖分析結果
+            user_query: 原始用戶查詢
+            
+        Returns:
+            IntentResult: 修正後的意圖結果（或原始結果如果不需要修正）
+        """
+        import re
+        
+        # 只處理 compare_latest_fw 意圖
+        if intent_result.intent != IntentType.COMPARE_LATEST_FW:
+            return intent_result
+        
+        # 檢測查詢中是否包含 ≥3 的版本數
+        # 數字模式：阿拉伯數字 3~99
+        arabic_pattern = r'(\d+)\s*[個版]'
+        # 中文數字模式：三、四、五、六...、多
+        chinese_pattern = r'([三四五六七八九十多幾])[個版]'
+        
+        version_count = None
+        
+        # 嘗試匹配阿拉伯數字
+        arabic_match = re.search(arabic_pattern, user_query)
+        if arabic_match:
+            version_count = int(arabic_match.group(1))
+            logger.info(f"檢測到阿拉伯數字版本數: {version_count}")
+        
+        # 嘗試匹配中文數字
+        if version_count is None:
+            chinese_match = re.search(chinese_pattern, user_query)
+            if chinese_match:
+                chinese_num = chinese_match.group(1)
+                chinese_to_num = {
+                    '三': 3, '四': 4, '五': 5, '六': 6, '七': 7,
+                    '八': 8, '九': 9, '十': 10, '多': 5, '幾': 5
+                }
+                version_count = chinese_to_num.get(chinese_num, 5)
+                logger.info(f"檢測到中文數字版本數: {chinese_num} -> {version_count}")
+        
+        # 如果版本數 >= 3，修正意圖為 compare_multiple_fw
+        if version_count is not None and version_count >= 3:
+            logger.warning(
+                f"意圖修正: compare_latest_fw -> compare_multiple_fw "
+                f"(檢測到 {version_count} 個版本)"
+            )
+            
+            # 從原始參數中提取 project_name
+            project_name = intent_result.parameters.get('project_name')
+            
+            # 創建修正後的 IntentResult
+            corrected_result = IntentResult(
+                intent=IntentType.COMPARE_MULTIPLE_FW,
+                parameters={
+                    'project_name': project_name,
+                    'latest_count': version_count  # 添加版本數參數
+                },
+                confidence=intent_result.confidence,
+                raw_response=intent_result.raw_response + " [CORRECTED: multiple versions detected]"
+            )
+            
+            return corrected_result
+        
+        # 不需要修正，返回原始結果
+        return intent_result
 
 
 # 全局服務實例（延遲初始化）

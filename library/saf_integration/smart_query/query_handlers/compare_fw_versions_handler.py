@@ -433,6 +433,17 @@ class CompareFWVersionsHandler(BaseHandler):
                     message_parts.append(
                         f"| {cat_name} | {fw1_display} | {fw2_display} | {format_change(pass_change)} | {format_change(fail_change)} |"
                     )
+                
+                # 生成測試類別雷達圖（永遠顯示）
+                radar_chart = self._generate_category_radar_chart(
+                    fw_version_1=fw_version_1,
+                    fw_version_2=fw_version_2,
+                    cat_map_1=cat_map_1,
+                    cat_map_2=cat_map_2,
+                    active_categories=active_categories
+                )
+                if radar_chart:
+                    message_parts.extend(["", radar_chart])
         
         # 趨勢分析
         message_parts.extend([
@@ -462,3 +473,63 @@ class CompareFWVersionsHandler(BaseHandler):
         
         self._log_result(result)
         return result
+
+    def _generate_category_radar_chart(
+        self,
+        fw_version_1: str,
+        fw_version_2: str,
+        cat_map_1: Dict[str, Any],
+        cat_map_2: Dict[str, Any],
+        active_categories: List[str]
+    ) -> Optional[str]:
+        """
+        生成測試類別雷達圖
+        
+        Args:
+            fw_version_1: 第一個 FW 版本名稱
+            fw_version_2: 第二個 FW 版本名稱
+            cat_map_1: 第一個版本的類別數據映射
+            cat_map_2: 第二個版本的類別數據映射
+            active_categories: 有效的類別名稱列表
+            
+        Returns:
+            雷達圖的 Markdown 標記，失敗返回 None
+        """
+        try:
+            from library.common.chart_formatter import ChartFormatter
+            
+            # 檢查是否有足夠的類別（雷達圖至少需要 3 個維度）
+            if len(active_categories) < 3:
+                logger.debug(f"類別數量不足 ({len(active_categories)} < 3)，跳過雷達圖生成")
+                return None
+            
+            # 準備雷達圖數據
+            fw_versions = [
+                {
+                    'name': fw_version_1,
+                    'pass_counts': [
+                        cat_map_1.get(cat, {}).get('pass', 0) 
+                        for cat in active_categories
+                    ]
+                },
+                {
+                    'name': fw_version_2,
+                    'pass_counts': [
+                        cat_map_2.get(cat, {}).get('pass', 0) 
+                        for cat in active_categories
+                    ]
+                }
+            ]
+            
+            # 生成雷達圖
+            radar_chart = ChartFormatter.fw_category_comparison_radar(
+                title="🕸️ 測試類別分佈對比",
+                categories=active_categories,
+                fw_versions=fw_versions
+            )
+            
+            return radar_chart
+            
+        except Exception as e:
+            logger.warning(f"生成測試類別雷達圖失敗: {str(e)}")
+            return None

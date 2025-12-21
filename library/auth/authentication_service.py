@@ -54,7 +54,58 @@ class AuthenticationService:
             user = authenticate(request, username=username, password=password)
             
             if user is not None:
+                # 🆕 檢查帳號審核狀態
+                try:
+                    from api.models import UserProfile
+                    profile = user.userprofile
+                    
+                    if profile.account_status == 'pending':
+                        logger.warning(f"嘗試登入待審核帳號: {username}")
+                        return {
+                            'success': False,
+                            'user': None,
+                            'message': '您的帳號尚未通過審核，請耐心等待管理員審核通知',
+                            'error_code': 'ACCOUNT_PENDING',
+                            'account_status': 'pending'
+                        }
+                    
+                    elif profile.account_status == 'rejected':
+                        rejection_reason = profile.rejection_reason or '未提供原因'
+                        logger.warning(f"嘗試登入已拒絕帳號: {username}")
+                        return {
+                            'success': False,
+                            'user': None,
+                            'message': f'您的帳號申請已被拒絕。原因：{rejection_reason}',
+                            'error_code': 'ACCOUNT_REJECTED',
+                            'account_status': 'rejected',
+                            'rejection_reason': rejection_reason
+                        }
+                    
+                    elif profile.account_status == 'suspended':
+                        logger.warning(f"嘗試登入已停用帳號: {username}")
+                        return {
+                            'success': False,
+                            'user': None,
+                            'message': '您的帳號已被停用，請聯絡系統管理員',
+                            'error_code': 'ACCOUNT_SUSPENDED',
+                            'account_status': 'suspended'
+                        }
+                
+                except UserProfile.DoesNotExist:
+                    # 向後相容：舊用戶沒有 profile，自動創建並設為已批准
+                    profile = UserProfile.objects.create(
+                        user=user,
+                        account_status='approved'
+                    )
+                    logger.info(f"為現有用戶 {username} 自動創建 UserProfile")
+                
+                # 檢查用戶是否啟用
                 if user.is_active:
+                    # SuperUser 豁免審核檢查
+                    if user.is_superuser and profile.account_status != 'approved':
+                        profile.account_status = 'approved'
+                        profile.save()
+                    
                     # 用户存在且激活
                     if request:
                         login(request, user)

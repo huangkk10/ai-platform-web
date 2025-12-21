@@ -8,6 +8,7 @@ import { loadImagesData } from '../../utils/imageProcessor';
 import { fixAllMarkdownTables } from '../../utils/markdownTableFixer';
 import { convertImageReferencesToMarkdown } from '../../utils/imageReferenceConverter';
 import { ChartRenderer } from './charts';
+import CapacityFilterTable from './CapacityFilterTable';
 import '../markdown/ReactMarkdown.css';
 
 /**
@@ -20,6 +21,7 @@ import '../markdown/ReactMarkdown.css';
  * - 處理 IMG:ID 格式的混合內容
  * - 智能圖片內嵌顯示
  * - 📊 支援 :::chart 圖表渲染
+ * - 🔧 支援 :::capacity-filter 容量篩選表格渲染
  */
 const MessageFormatter = ({ 
   content, 
@@ -45,6 +47,9 @@ const MessageFormatter = ({
 
   // 📊 新增：檢測內容是否包含圖表標記
   const hasChartMarker = content && /:::chart\s*\n/i.test(content);
+
+  // 🔧 新增：檢測內容是否包含容量篩選表格標記
+  const hasCapacityFilterMarker = content && /:::capacity-filter\s*\n/i.test(content);
 
   /**
    * 📊 解析圖表標記
@@ -77,6 +82,60 @@ const MessageFormatter = ({
         console.log('📊 解析圖表配置成功:', chartConfig.type, chartConfig.title);
       } catch (e) {
         console.error('📊 圖表 JSON 解析失敗:', e.message);
+        // 解析失敗時顯示原始文本
+        parts.push({ type: 'text', content: match[0] });
+      }
+      
+      lastIndex = match.index + match[0].length;
+    }
+    
+    // 添加最後剩餘的文本
+    if (lastIndex < text.length) {
+      const remainingText = text.substring(lastIndex).trim();
+      if (remainingText) {
+        parts.push({ type: 'text', content: remainingText });
+      }
+    }
+    
+    // 如果沒有找到任何匹配，返回原始文本
+    if (parts.length === 0) {
+      parts.push({ type: 'text', content: text });
+    }
+    
+    return parts;
+  };
+
+  /**
+   * 🔧 解析容量篩選表格標記
+   * 格式: :::capacity-filter\n{ JSON config }\n:::
+   * 
+   * @param {string} text - 要解析的文本
+   * @returns {Array} - 解析後的片段數組 [{type: 'text'|'capacity-filter', content: string|object}]
+   */
+  const parseCapacityFilterMarkers = (text) => {
+    if (!text) return [{ type: 'text', content: '' }];
+    
+    const filterRegex = /:::capacity-filter\s*\n([\s\S]*?)\n:::/gi;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+    
+    while ((match = filterRegex.exec(text)) !== null) {
+      // 添加標記前的文本
+      if (match.index > lastIndex) {
+        const textBefore = text.substring(lastIndex, match.index).trim();
+        if (textBefore) {
+          parts.push({ type: 'text', content: textBefore });
+        }
+      }
+      
+      // 解析 JSON 配置
+      try {
+        const filterConfig = JSON.parse(match[1]);
+        parts.push({ type: 'capacity-filter', content: filterConfig });
+        console.log('🔧 解析 capacity-filter 配置成功:', filterConfig.availableCapacities?.length, '個容量');
+      } catch (e) {
+        console.error('🔧 capacity-filter JSON 解析失敗:', e.message);
         // 解析失敗時顯示原始文本
         parts.push({ type: 'text', content: match[0] });
       }
@@ -433,8 +492,100 @@ const MessageFormatter = ({
     );
   };
 
+  /**
+   * 🔧 渲染包含容量篩選表格的混合內容
+   * 解析 :::capacity-filter 標記，分段渲染文字和互動表格
+   */
+  const renderContentWithCapacityFilter = () => {
+    const parts = parseCapacityFilterMarkers(content);
+    
+    console.log('🔧 解析容量篩選內容，共 ' + parts.length + ' 個片段');
+    
+    return (
+      <div className={`message-with-capacity-filter ${className}`} style={style}>
+        {parts.map((part, index) => {
+          if (part.type === 'capacity-filter') {
+            // 渲染互動式容量篩選表格
+            return (
+              <CapacityFilterTable 
+                key={`capacity-filter-${index}`}
+                availableCapacities={part.content.availableCapacities || []}
+                allItemsByCategory={part.content.allItemsByCategory || {}}
+                fwVersions={part.content.fwVersions || []}
+              />
+            );
+          } else {
+            // 處理文字部分
+            let processedText = part.content;
+            processedText = fixAllMarkdownTables(processedText);
+            processedText = convertImageReferencesToMarkdown(processedText);
+            
+            // 檢查是否有圖表標記，遞迴處理
+            if (/:::chart\s*\n/i.test(processedText)) {
+              const chartParts = parseChartMarkers(processedText);
+              return (
+                <React.Fragment key={`text-${index}`}>
+                  {chartParts.map((chartPart, chartIndex) => {
+                    if (chartPart.type === 'chart') {
+                      return (
+                        <ChartRenderer 
+                          key={`chart-${chartIndex}`}
+                          config={chartPart.content}
+                          showCard={true}
+                        />
+                      );
+                    } else {
+                      let chartProcessedText = chartPart.content;
+                      chartProcessedText = fixAllMarkdownTables(chartProcessedText);
+                      chartProcessedText = convertImageReferencesToMarkdown(chartProcessedText);
+                      return (
+                        <div 
+                          key={`chart-text-${chartIndex}`}
+                          className="markdown-preview-content markdown-content"
+                        >
+                          <ReactMarkdown {...markdownConfig}>
+                            {chartProcessedText}
+                          </ReactMarkdown>
+                        </div>
+                      );
+                    }
+                  })}
+                </React.Fragment>
+              );
+            }
+            
+            return (
+              <div 
+                key={`text-${index}`}
+                className="markdown-preview-content markdown-content"
+              >
+                <ReactMarkdown {...markdownConfig}>
+                  {processedText}
+                </ReactMarkdown>
+              </div>
+            );
+          }
+        })}
+        
+        {/* 引用來源顯示（只在 AI 回覆時） */}
+        {messageType === 'assistant' && metadata?.retriever_resources && (
+          <RetrievalSourcesDisplay 
+            retrieverResources={metadata.retriever_resources}
+            maxDisplay={5}
+          />
+        )}
+      </div>
+    );
+  };
+
   // 根據內容格式和消息類型選擇適當的渲染策略
-  // 📊 優先檢查圖表標記
+  // � 優先檢查容量篩選標記（因為可能包含圖表和表格）
+  if (hasCapacityFilterMarker) {
+    console.log('🔧 檢測到容量篩選標記，使用容量篩選混合渲染模式');
+    return renderContentWithCapacityFilter();
+  }
+  
+  // 📊 檢查圖表標記
   if (hasChartMarker) {
     console.log('📊 檢測到圖表標記，使用圖表混合渲染模式');
     return renderContentWithCharts();

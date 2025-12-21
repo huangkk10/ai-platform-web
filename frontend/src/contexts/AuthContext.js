@@ -106,7 +106,9 @@ export const AuthProvider = ({ children }) => {
       });
 
       if (response.data.success) {
-        setUser(response.data.user);
+        // 修正：後端回傳的結構是 response.data.data.user
+        const userData = response.data.data?.user || response.data.user;
+        setUser(userData);
         setIsAuthenticated(true);
         
         // 登入成功後獲取權限
@@ -119,12 +121,38 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('登入失敗:', error);
       
-      if (error.response?.data?.message) {
-        return { success: false, message: error.response.data.message };
+      const errorData = error.response?.data;
+      
+      // 🆕 處理審核狀態錯誤
+      if (errorData?.status === 'pending') {
+        return { 
+          success: false, 
+          message: errorData.error || '您的帳號尚未通過審核，請耐心等待',
+          status: 'pending'
+        };
+      } else if (errorData?.status === 'rejected') {
+        return { 
+          success: false, 
+          message: errorData.error || '您的帳號申請已被拒絕',
+          status: 'rejected',
+          rejection_reason: errorData.rejection_reason
+        };
+      } else if (errorData?.status === 'suspended') {
+        return { 
+          success: false, 
+          message: errorData.error || '您的帳號已被停用',
+          status: 'suspended'
+        };
+      } else if (errorData?.error) {
+        return { success: false, message: errorData.error };
+      } else if (errorData?.message) {
+        return { success: false, message: errorData.message };
       } else if (error.response?.status === 401) {
         return { success: false, message: '用戶名或密碼錯誤' };
       } else if (error.response?.status === 400) {
         return { success: false, message: '請求格式錯誤' };
+      } else if (error.response?.status === 403) {
+        return { success: false, message: '帳號無法登入' };
       } else {
         return { success: false, message: '網路連接失敗，請稍後再試' };
       }

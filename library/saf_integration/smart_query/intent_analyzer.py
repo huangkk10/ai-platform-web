@@ -44,6 +44,13 @@ INTENT_ANALYSIS_PROMPT = """
 2. 仔細理解用戶問題的**語義意圖**，不要只看關鍵字
 3. 即使語句結構不同，只要意思相同就應該識別為相同意圖
 
+【意圖優先級規則 - 當問題包含「專案名稱 + FW 版本號」時】
+- FW 版本號通常是類似 G200X6EC、Y1114B、HHB0YBC1、82CBW5QF 的格式
+- 當問題同時包含專案名稱和 FW 版本號時：
+  * 如果包含「統計」「通過率」「進度」「測了幾個」「狀況」「多少」→ 使用 query_project_test_summary_by_fw
+  * 如果包含「測項結果」「測試項目」「哪些 Fail」「列出」「有哪些」→ 使用 query_project_fw_test_jobs
+  * 不要誤認為 query_project_detail（此意圖不處理 FW 版本查詢）
+
 ## 可用的意圖類型
 
 ### 1. query_projects_by_customer - 按客戶查詢專案
@@ -65,12 +72,16 @@ INTENT_ANALYSIS_PROMPT = """
 - 參數：controller (控制器型號，如 SM2264、SM2269XT)
 
 ### 3. query_project_detail - 查詢專案詳細資訊
-用戶想了解某個特定專案的詳細資訊時使用。
+用戶想了解某個特定專案的基本資訊（不含測試結果）時使用。
 - 常見問法：
   - 「XX 專案的詳細資訊」「告訴我 XX 專案」
   - 「XX 專案是什麼」「查詢 XX 專案」「XX 專案的資訊」
-  - 「介紹一下 XX 專案」「XX 專案的狀況」
+  - 「介紹一下 XX 專案」
 - 參數：project_name (專案名稱)
+- 【重要區分】
+  - 如果問題包含 FW 版本號（如 G200X6EC、Y1114B）→ 不要使用此意圖
+  - 如果問題包含「統計」「測試」「通過率」「測項」「Fail」「Pass」→ 不要使用此意圖
+  - 只有純粹詢問專案本身資訊時才使用此意圖
 
 ### 4. query_project_summary - 查詢專案基本摘要（僅限專案資訊）
 【注意】此意圖僅用於查詢專案的基本資訊摘要，不涉及測試結果。
@@ -78,7 +89,10 @@ INTENT_ANALYSIS_PROMPT = """
 - 常見問法：
   - 「XX 專案概況」「介紹 XX 專案」「XX 專案摘要」
 - 參數：project_name (專案名稱)
-- 【重要】如果問題涉及「測試」、「Pass」、「Fail」、「通過」、「失敗」等字眼，應使用 query_project_test_summary
+- 【重要區分】
+  - 如果問題包含 FW 版本號（如 G200X6EC、Y1114B）→ 使用 query_project_test_summary_by_fw
+  - 如果問題包含「統計」「測試」「通過率」「測項」「Fail」「Pass」→ 使用測試相關意圖
+  - 只有純粹詢問專案概況（不含 FW 版本、不含測試關鍵詞）才使用此意圖
 
 ### 5. query_project_test_summary - 查詢專案測試結果統計（推薦使用）
 【預設使用】任何與「測試結果」相關的查詢都應使用此意圖。
@@ -121,20 +135,27 @@ INTENT_ANALYSIS_PROMPT = """
 - 參數：project_name (專案名稱), capacity (容量規格: 128GB/256GB/512GB/1TB/2TB/4TB/8TB)
 - 【口語對應】一T/1T → 1TB, 二T/2T → 2TB, 半T → 512GB
 
-### 8. query_project_test_summary_by_fw - 按 FW 版本查詢測試結果 (Phase 4 新增)
-用戶想了解專案特定 FW（韌體）版本的測試結果時使用。
+### 8. query_project_test_summary_by_fw - 按 FW 版本查詢測試統計 (Phase 4 新增)
+【高優先級】當問題同時包含「專案名稱」和「FW 版本號」時，優先使用此意圖或 query_project_fw_test_jobs。
+用戶想了解專案特定 FW（韌體）版本的「測試統計數據」（如通過率、完成率、測試進度）時使用。
+此意圖返回的是統計摘要，不包含每個測試項目的詳細結果。
 - 常見問法：
-  - 「XX 專案 FW YYY 的測試結果」
-  - 「XX 的 YYY 版本測試狀況」
-  - 「查看 XX 專案 FW YYY 的 Pass/Fail」
-  - 「XX YYY 版本有多少測試通過？」
-  - 「XX 專案韌體 YYY 的測試進度」
-  - 「想看 XX 的 FW YYY 測試結果」
+  - 「XX 專案 FW YYY 測了幾個」「XX YYY 測試進度」
+  - 「XX 的 YYY 版本通過率是多少」「XX YYY 通過率」
+  - 「XX YYY 版本有多少測試通過？」「XX YYY 統計」
+  - 「XX 專案韌體 YYY 的測試狀況」「XX YYY 測試狀況」
+  - 「XX YYY 的完成率」「XX YYY 測試完成了多少」
+  - 「XX 專案 YYY 的統計」「XX YYY 統計」
 - 參數：
-  - project_name (專案名稱，如 DEMETER、Channel、A400)
-  - fw_version (FW 版本號，如 Y1114B、82CBW5QF、X0325A、FWX0926C)
-- 【重要】此意圖用於指定 FW 版本的查詢
+  - project_name (專案名稱，如 DEMETER、Channel、A400、Springsteen)
+  - fw_version (FW 版本號，如 Y1114B、82CBW5QF、X0325A、G200X6EC)
+- 【重要】此意圖用於查詢統計摘要
+- 【識別規則】當問題包含「專案名稱 + FW 版本 + 統計/進度/狀況/通過率/測了幾個」時使用此意圖
+- 【關鍵詞區分】
+  - 統計類關鍵詞（使用此意圖）：「測了幾個」「通過率」「完成率」「統計」「進度」「狀況」「多少」
+  - 詳細類關鍵詞（使用 query_project_fw_test_jobs）：「測項結果」「測試項目」「哪些測項」「哪些 Fail」「列出」「有哪些」
 - 【區分】如果用戶沒有指定 FW 版本，請使用 query_project_test_summary
+- 【注意】不要將此意圖誤認為 query_project_detail，query_project_detail 不處理 FW 版本
 
 ### 9. compare_fw_versions - 比較兩個指定的 FW 版本 (Phase 5.1)
 用戶想比較同一專案中兩個不同 FW 版本的測試結果時使用。
@@ -153,29 +174,32 @@ INTENT_ANALYSIS_PROMPT = """
 - 【區分】如果只有一個 FW 版本，請使用 query_project_test_summary_by_fw
 
 ### 10. compare_latest_fw - 自動比較最新兩個 FW 版本 (Phase 5.2 新增)
-用戶想比較專案的 FW 版本，但沒有指定具體版本名稱時使用。
-系統會自動選擇最新/最活躍的兩個版本進行比較。
+用戶想比較專案的 FW 版本，但沒有指定具體版本名稱，且只想比較【兩個】版本時使用。
+系統會自動選擇最新的【兩個】版本進行比較。
 - 常見問法：
-  - 「XX 最新的 FW 比較」「XX 專案最新版本比較」
+  - 「XX 最新的 FW 比較」「XX 專案最新版本比較」（沒有指定數量 = 兩個）
   - 「比較 XX 最近兩個版本」「XX 的 FW 進度比較」
   - 「看一下 XX 最新版本差異」「XX 最新 FW 測試差異」
   - 「XX 專案 FW 更新比較」「比較 XX 最新韌體」
   - 「XX 版本演進比較」「XX 的 FW 變化」
 - 參數：
   - project_name (專案名稱，如 DEMETER、Springsteen、Channel)
-- 【重要】此意圖用於用戶沒有指定具體 FW 版本時
-- 【區分】
-  - 如果用戶指定了兩個具體 FW 版本 → 使用 compare_fw_versions
-  - 如果用戶說「最新」「最近」「版本比較」但沒有版本號 → 使用 compare_latest_fw
+- 【重要】此意圖只用於比較【兩個】版本
+- 【⚠️ 關鍵區分 ⚠️】
+  - 如果用戶說「最新 3 個」「最近 3 個」「三個版本」「N 個版本」（N >= 3）→ 【必須】使用 compare_multiple_fw
+  - 如果用戶說「最新」「最近」但【沒有指定數量】或說「兩個」→ 使用 compare_latest_fw
+  - 數字關鍵字：3、三、4、四、5、五、多個 → 使用 compare_multiple_fw
 
 ### 11. list_fw_versions - 列出專案可比較的 FW 版本 (Phase 5.2 新增)
 用戶想知道專案有哪些 FW 版本可以比較或查詢時使用。
 - 常見問法：
   - 「XX 有哪些 FW 版本」「XX 專案的版本列表」
+  - 「XX 的 FW 版本列表」「XX FW 版本」
   - 「列出 XX 的所有 FW」「XX 可以比較哪些版本」
   - 「XX 專案有幾個 FW」「查看 XX 的韌體版本」
   - 「XX 的 FW 版本有哪些」「顯示 XX 版本」
   - 「XX 有什麼版本可以查」「XX FW 清單」
+  - 「XX 有那些 FW版本」「XX 有多少 FW」
 - 參數：
   - project_name (專案名稱，如 DEMETER、Springsteen、Channel)
 - 【重要】此意圖用於查詢版本列表，不是比較
@@ -205,15 +229,16 @@ INTENT_ANALYSIS_PROMPT = """
   - AD = 4096GB 版本
   - 用戶可能直接說「AA」「AB」或「512GB」「1024GB」等
 - 【重要】此意圖用於 3 個或更多版本的趨勢比較
-- 【區分】
-  - 如果用戶指定了兩個具體 FW 版本 → 使用 compare_fw_versions
-  - 如果用戶說「最新兩個」「最近兩個」→ 使用 compare_latest_fw
-  - 如果用戶說「三個版本」「多個版本」「最近幾個」「趨勢」→ 使用 compare_multiple_fw
+- 【⚠️ 關鍵區分 ⚠️】
+  - 如果用戶說「最新 3 個」「最近 3 個」「三個版本」「N 個版本」（N >= 3）→ 【必須】使用 compare_multiple_fw
+  - 如果用戶說「最新兩個」「最近兩個」或沒有指定數量 → 使用 compare_latest_fw
+  - 包含數字 3、三、4、四、5、五、6、六 或「多個」「幾個」「趨勢」→ 使用 compare_multiple_fw
 
 ### 13. query_fw_detail_summary - 查詢 FW 詳細統計 (Phase 6.2 新增)
 用戶想了解專案特定 FW 版本的整體統計指標時使用。
 此意圖提供：完成率、通過率、樣本使用率、執行率、失敗率等詳細統計。
 - 常見問法：
+  - 「XX 專案 FW YYY 的測試結果」「XX YYY 的測試結果」 ← 重要！
   - 「XX 專案 FW YYY 的詳細統計」「XX YYY 版本的統計資訊」
   - 「XX 專案 FW YYY 的完成率是多少」「XX YYY 進度如何」
   - 「XX 專案 FW YYY 使用了多少樣本」「XX YYY 樣本使用率」
@@ -223,10 +248,11 @@ INTENT_ANALYSIS_PROMPT = """
 - 參數：
   - project_name (專案名稱，如 Springsteen、DEMETER)
   - fw_version (FW 版本號，如 G200X6EC、Y1114B)
-- 【重要】此意圖用於獲取整體統計指標，而非按類別或容量的 Pass/Fail 明細
-- 【區分】
-  - 如果用戶問「測試結果」「Pass/Fail」「哪些通過/失敗」→ 使用 query_project_test_summary_by_fw
-  - 如果用戶問「統計」「完成率」「進度」「樣本」「使用率」「執行率」→ 使用 query_fw_detail_summary
+- 【重要】此意圖用於獲取整體統計指標，返回詳細統計表格（樣本數量、完成率指標、缺陷摘要）
+- 【關鍵區分】
+  - 「測試結果」→ 使用此意圖 query_fw_detail_summary（返回統計表格）
+  - 「測試項目結果」「測項結果」→ 使用 query_project_fw_test_jobs（返回 Pass/Fail 清單）
+  - 「統計」「完成率」「進度」「樣本」→ 使用此意圖 query_fw_detail_summary
 
 ### 14. query_projects_by_pl - 按專案負責人查詢專案 (Phase 7 新增)
 用戶想知道某位專案負責人（PL / Project Leader）負責哪些專案時使用。
@@ -426,6 +452,7 @@ Sub Version 是指專案的不同容量變體，如 AA=512GB, AB=1024GB, AC=2048
   - 「DEMETER 本月的 FW」「DEMETER 上個月有哪些韌體版本」
   - 「XX 專案 2025年1月的 FW 版本」「XX 今年有哪些 FW」
   - 「Springsteen 最近有哪些 FW」「DEMETER 近期的韌體」
+  - 「XX 近一個月有哪些 FW」「XX 專案近一個月的 FW 版本」
   - 「XX 專案 10月到12月的 FW」「XX 上半年的 FW 版本」
   - 「這個月 XX 有發布什麼 FW」「上週 XX 有新的 FW 嗎」
   - 「Springsteen AC 2025年有哪些 FW」「DEMETER AA 本月的 FW」（同時指定 Sub Version 和日期）
@@ -436,8 +463,15 @@ Sub Version 是指專案的不同容量變體，如 AA=512GB, AB=1024GB, AC=2048
   - month (選填，月份，1-12)
   - start_month (選填，開始月份，用於範圍查詢)
   - end_month (選填，結束月份，用於範圍查詢)
-  - date_range (選填，'this_month'、'last_month'、'this_week'、'last_week'、'recent')
+  - date_range (選填，'this_month'、'last_month'、'this_week'、'last_week'、'recent'、'recent_month')
   - sub_version (選填，Sub Version 代碼如 AA、AB、AC、AD)
+- 【date_range 關鍵字對應】- 【必須嚴格遵守】
+  - 「本月」「這個月」→ date_range: "this_month"
+  - 「上個月」「上月」→ date_range: "last_month"（特指上一個完整的月份）
+  - 「近一個月」「最近一個月」「近30天」→ date_range: "recent_month"（從今天往回推30天）【重要：不是 last_month！】
+  - 「最近」「近期」→ date_range: "recent"（最近30天）
+  - 「本週」「這週」→ date_range: "this_week"
+  - 「上週」→ date_range: "last_week"
 - 【重要區分】
   - 如果用戶問「XX 有哪些 FW 版本」（無日期）→ 使用 list_fw_versions（列出所有 FW）
   - 如果用戶問「XX 12月有哪些 FW」或「XX 本月的 FW」→ 使用 list_fw_by_date_range（按日期過濾）
@@ -449,7 +483,267 @@ Sub Version 是指專案的不同容量變體，如 AA=512GB, AB=1024GB, AC=2048
     - 無專案名稱 + 有月份 + 問「有哪些專案」→ query_projects_by_month
     - 有專案名稱 + 有 Sub Version + 有日期/年份 → list_fw_by_date_range（帶 sub_version）
 
-### 27. unknown - 無法識別的意圖
+### 27. query_supported_capacities - 查詢專案 FW 支援的容量 (Phase 14 新增)
+用戶想知道某專案特定 FW 版本支援哪些儲存容量時使用。
+這是查詢該專案 FW 版本的容量支援範圍（256GB/512GB/1024GB/2048GB/4096GB/8192GB）。
+- 常見問法：
+  - 「Springsteen FW PH10YC3H 支援哪些容量」「Springsteen 這版韌體有支援幾種容量」
+  - 「DEMETER 的 Y1114B 有幾種容量」「TITAN 最新 FW 支援多大容量」
+  - 「Channel 這個版本有支援 4TB 嗎」「XX FW 最大支援到多少容量」
+  - 「Springsteen GD10YBJD 可以用 1TB 嗎」「XX 專案 FW YYY 有 2TB 版本嗎」
+  - 「這個案子 PH10YC3H 有支援 512GB 和 1024GB 嗎」
+- 參數：
+  - project_name (專案名稱，必須)
+  - fw_version (FW 版本，必須)
+- 【重要區分】
+  - 如果用戶問「XX 有哪些 sub version / 容量版本」→ 使用 list_sub_versions（查詢 Sub Version）
+  - 如果用戶問「XX FW YYY 支援哪些容量」→ 使用 query_supported_capacities（查詢 FW 容量支援）
+  - 如果用戶問「XX 1TB 版本的測試結果」→ 使用 query_project_test_by_capacity（按容量查測試）
+  - 關鍵判斷：
+    - 有專案名稱 + 有 FW 版本 + 問「支援/有哪些容量」→ query_supported_capacities
+    - 有專案名稱 + 問「有哪些 sub version / 容量版本」→ list_sub_versions
+    - 有專案名稱 + 有容量 + 問測試結果 → query_project_test_by_capacity
+
+### 28. query_project_known_issues - 查詢專案 Known Issues (Phase 15 新增)
+用戶想知道某個專案有哪些 Known Issues 時使用。
+Known Issues 是指專案中已知的問題清單，包含 Issue ID、測項名稱、案例資訊、JIRA 連結等。
+- 常見問法：
+  - 「DEMETER 專案有哪些 Known Issues」「DEMETER 的已知問題」
+  - 「Channel 有什麼 known issue」「列出 Springsteen 的 issues」
+  - 「XX 專案有幾個 known issue」「查詢 XX 的問題清單」
+  - 「XX 案子有哪些已知問題」「XX 的 known issues 列表」
+  - 「XX 專案的 Issue 有哪些」「顯示 XX 的 known issue」
+- 參數：
+  - project_name (專案名稱，必須)
+  - show_disabled (選填，是否顯示已停用的 Issues，預設 true)
+- 【重要區分】
+  - 如果用戶說「XX 有哪些 known issues」→ 使用 query_project_known_issues（查詢專案所有 Issues）
+  - 如果用戶說「XX 的 YY 測項有哪些 issues」→ 使用 query_project_test_item_known_issues（按測項查詢）
+  - 如果用戶說「XX 有多少個 known issues」→ 使用 count_project_known_issues（統計數量）
+
+### 29. query_project_test_item_known_issues - 按 Test Item 查詢 Known Issues (Phase 15 新增)
+用戶想知道某個專案特定測項（Test Item）有哪些 Known Issues 時使用。
+- 常見問法：
+  - 「DEMETER 的 Sequential Read 測項有哪些 known issues」
+  - 「Channel 的 NVMe Compliance 有什麼已知問題」
+  - 「XX 專案 Power Cycle 測項的 issues」
+  - 「查詢 XX 的 Hot Plug 有哪些 known issue」
+  - 「XX 案子的 Random Write 測試有什麼問題」
+- 參數：
+  - project_name (專案名稱，必須)
+  - test_item (測試項目名稱，必須)
+  - show_disabled (選填，是否顯示已停用的 Issues，預設 true)
+- 【重要區分】
+  - 有專案名稱 + 有測項名稱 + 問「有哪些 issues」→ query_project_test_item_known_issues
+  - 有專案名稱 + 無測項名稱 + 問「有哪些 issues」→ query_project_known_issues
+
+### 30. count_project_known_issues - 統計專案 Known Issues 數量 (Phase 15 新增)
+用戶想知道某個專案有多少 Known Issues 時使用。
+- 常見問法：
+  - 「DEMETER 有幾個 Known Issues」「DEMETER 的 issues 數量」
+  - 「Channel 有多少已知問題」「Springsteen 有多少 issue」
+  - 「XX 專案總共有幾個 known issue」「統計 XX 的問題數量」
+  - 「XX 案子有多少個 issues」「XX 的 known issues 有幾個」
+- 參數：
+  - project_name (專案名稱，必須)
+  - show_disabled (選填，是否包含已停用的 Issues，預設 true)
+- 【重要區分】
+  - 如果用戶問「有幾個」「有多少」「數量」「統計」→ 使用 count_project_known_issues
+  - 如果用戶問「有哪些」「列出」「是什麼」→ 使用 query_project_known_issues
+
+### 31. rank_projects_by_known_issues - 排名專案 Known Issues 數量 (Phase 15 新增)
+用戶想比較多個專案的 Known Issues 數量，看哪個專案問題最多/最少時使用。
+- 常見問法：
+  - 「哪個專案的 known issues 最多」「known issues 最多的案子」
+  - 「比較各專案的 issue 數量」「專案問題排名」
+  - 「哪些案子 issue 比較多」「排列各專案的已知問題數」
+  - 「列出各專案 known issues 數量」「專案 issues 統計排名」
+- 參數：
+  - top_n (選填，返回前 N 個專案，預設 10)
+  - customer (選填，限定特定客戶的專案)
+- 【重要區分】
+  - 如果用戶問「XX 專案有幾個 issues」→ 使用 count_project_known_issues（單一專案）
+  - 如果用戶問「哪個專案 issues 最多」「排名」「比較」→ 使用 rank_projects_by_known_issues（跨專案比較）
+
+### 32. query_known_issues_by_creator - 按建立者查詢 Known Issues (Phase 15 新增)
+用戶想知道某人建立了哪些 Known Issues 時使用。
+- 常見問法：
+  - 「Ryder 建立了哪些 known issues」「ryder.lin 的 issues」
+  - 「誰建立的 issues 最多」「Kevin 有建立哪些 known issue」
+  - 「列出 XX 建立的問題」「查詢 YY 創建的 issues」
+- 參數：
+  - creator (建立者名稱，必須)
+  - project_name (選填，限定特定專案)
+- 【重要區分】
+  - 如果用戶說「Ryder 負責哪些專案」→ 使用 query_projects_by_pl（專案負責人）
+  - 如果用戶說「Ryder 建立了哪些 issues」→ 使用 query_known_issues_by_creator（Issues 建立者）
+
+### 33. list_known_issues_creators - 列出 Known Issues 建立者清單 (Phase 15 新增)
+用戶想知道有哪些人建立過 Known Issues 時使用。
+- 常見問法：
+  - 「誰有建立過 known issues」「issues 的建立者有哪些人」
+  - 「列出建立過問題的人」「哪些人有建立 issue」
+  - 「XX 專案的 issues 是誰建立的」「known issues 作者列表」
+- 參數：
+  - project_name (選填，限定特定專案)
+- 【重要區分】
+  - 如果用戶問「誰建立了哪些 issues」（想看詳細內容）→ 使用 query_known_issues_by_creator
+  - 如果用戶問「有哪些人建立過 issues」（只要人員清單）→ 使用 list_known_issues_creators
+
+### 34. query_known_issues_with_jira - 查詢有 JIRA 的 Known Issues (Phase 15 新增)
+用戶想查詢有關聯 JIRA ticket 的 Known Issues 時使用。
+- 常見問法：
+  - 「DEMETER 有哪些 issues 有 JIRA」「有 JIRA 連結的 known issues」
+  - 「XX 專案哪些 issues 有開 JIRA」「列出有 ticket 的 issues」
+  - 「哪些問題有關聯 JIRA」「已建立 JIRA 的 issues」
+- 參數：
+  - project_name (選填，限定特定專案)
+- 【重要區分】
+  - 如果用戶問「有 JIRA 的 issues」→ 使用 query_known_issues_with_jira
+  - 如果用戶問「沒有 JIRA 的 issues」→ 使用 query_known_issues_without_jira
+
+### 35. query_known_issues_without_jira - 查詢沒有 JIRA 的 Known Issues (Phase 15 新增)
+用戶想查詢尚未建立 JIRA ticket 的 Known Issues 時使用。
+- 常見問法：
+  - 「DEMETER 有哪些 issues 還沒開 JIRA」「沒有 JIRA 的 known issues」
+  - 「XX 專案哪些問題還沒建 ticket」「缺少 JIRA 連結的 issues」
+  - 「哪些 issues 需要開 JIRA」「尚未建立 JIRA 的問題」
+- 參數：
+  - project_name (選填，限定特定專案)
+- 【重要區分】
+  - 如果用戶問「沒有 JIRA 的 issues」「還沒開 JIRA」→ 使用 query_known_issues_without_jira
+  - 如果用戶問「有 JIRA 的 issues」→ 使用 query_known_issues_with_jira
+
+### 36. query_recent_known_issues - 查詢最近的 Known Issues (Phase 15 新增)
+用戶想查詢最近新增的 Known Issues 時使用。
+- 常見問法：
+  - 「最近有哪些新的 known issues」「最新的 issues」
+  - 「這週新增的問題」「今天有建立什麼 issue」
+  - 「XX 專案最近有新的 issues 嗎」「近期的 known issues」
+  - 「最近一週的 issues」「本月新增的問題」
+- 參數：
+  - project_name (選填，限定特定專案)
+  - days (選填，最近幾天，預設 7)
+  - date_range (選填，'today'、'this_week'、'this_month')
+- 【重要區分】
+  - 如果用戶問「最近」「最新」「這週」「今天」→ 使用 query_recent_known_issues
+  - 如果用戶指定具體日期範圍 → 使用 query_known_issues_by_date_range
+
+### 37. query_known_issues_by_date_range - 按日期範圍查詢 Known Issues (Phase 15 新增)
+用戶想查詢特定日期範圍內建立的 Known Issues 時使用。
+- 常見問法：
+  - 「2025年1月的 known issues」「1月建立的問題」
+  - 「XX 專案 2024年有多少 issues」「去年的 known issues」
+  - 「2025/01/01 到 2025/01/31 的 issues」「上個月建立的問題」
+- 參數：
+  - project_name (選填，限定特定專案)
+  - start_date (選填，開始日期，格式 YYYY-MM-DD)
+  - end_date (選填，結束日期，格式 YYYY-MM-DD)
+  - year (選填，年份)
+  - month (選填，月份)
+- 【重要區分】
+  - 如果用戶指定具體日期範圍 → 使用 query_known_issues_by_date_range
+  - 如果用戶問「最近」「最新」→ 使用 query_recent_known_issues
+
+### 38. search_known_issues_by_keyword - 關鍵字搜尋 Known Issues (Phase 15 新增)
+用戶想用關鍵字搜尋 Known Issues 時使用。
+可搜尋 Issue ID、測項名稱、案例名稱、備註等欄位。
+- 常見問法：
+  - 「搜尋 known issues 中有 timeout 的」「找有 error 的 issues」
+  - 「XX 專案有沒有跟 power 相關的 issue」「搜尋 NVMe 相關問題」
+  - 「查詢包含 compliance 的 issues」「找 fail 相關的 known issue」
+- 參數：
+  - keyword (關鍵字，必須)
+  - project_name (選填，限定特定專案)
+  - search_fields (選填，搜尋欄位，預設 ['issue_id', 'test_item_name', 'case_name', 'note'])
+- 【重要區分】
+  - 如果用戶明確想搜尋關鍵字 → 使用 search_known_issues_by_keyword
+  - 如果用戶問特定測項的 issues → 使用 query_project_test_item_known_issues
+
+### 39. query_all_known_issues_by_test_item - 跨專案搜尋 Test Item 的 Known Issues (Phase 15 新增)
+用戶想搜尋所有專案中某個 Test Item 相關的 Known Issues 時使用。
+這是跨專案的搜尋，會列出所有專案中該測項相關的問題。
+- 常見問法：
+  - 「哪些專案的 Sequential Read 有 known issues」
+  - 「所有專案的 NVMe Compliance issues」
+  - 「跨專案查詢 Power Cycle 的問題」
+  - 「各案子的 Hot Plug 測試有哪些 issues」
+- 參數：
+  - test_item (測試項目名稱，必須)
+  - customer (選填，限定特定客戶的專案)
+- 【重要區分】
+  - 如果有專案名稱 + 測項名稱 → 使用 query_project_test_item_known_issues（單一專案）
+  - 如果無專案名稱 + 測項名稱 → 使用 query_all_known_issues_by_test_item（跨專案搜尋）
+  - 關鍵判斷：
+    - 有專案名稱 + 測項名稱 → 單一專案查詢
+    - 無專案名稱 + 測項名稱 + 問「哪些專案」→ 跨專案搜尋
+
+### 40. query_project_fw_test_jobs - 查詢專案 FW 測試工作詳細結果 (Phase 16 新增)
+用戶想查詢特定專案特定 FW 版本的「完整測試項目結果」（含 Test Category、Test Item、Capacity、Test Status 等）時使用。
+這是查詢測試工作的完整詳細資訊，包括每個測試項目的執行狀態。
+- 常見問法：
+  - 「PM9M1 的 HHB0YBC1 測項結果」「PM9M1 HHB0YBC1 的測試項目結果」
+  - 「查詢 XX 專案 FW YYY 的測項結果」「XX YYY 的測項狀態」
+  - 「XX 專案 YYY 版本的測試項目」「列出 XX FW YYY 的所有測試」
+  - 「XX 的 YYY 有哪些測試項目」「XX YYY 有哪些 Fail」
+  - 「XX FW YYY 的測試工作結果」「XX YYY 的 test jobs」
+  - 「Springsteen 的 GD10YBJD 測項結果」
+  - 「DEMETER Y1114B 的測試項目結果」
+  - 「列出 XX YYY 的測試結果」「XX YYY 哪些測試通過」
+- 參數：
+  - project_name (專案名稱，必須，可以是簡短名稱如 PM9M1、Springsteen)
+  - fw_version (FW 版本，必須)
+  - test_tool_key (選填，測試工具篩選)
+- 【關鍵詞區分】
+  - 詳細測項類關鍵詞（使用此意圖）：「測項結果」「測試項目結果」「哪些測項」「哪些 Fail」「哪些 Pass」「列出測試」「有哪些測試項目」
+  - 統計結果類關鍵詞（使用 query_fw_detail_summary）：「測試結果」「完成率」「進度」「統計」「樣本使用率」「執行率」「測試概覽」
+  - 【重要】「測試結果」→ query_fw_detail_summary（附件1格式：詳細統計表）
+  - 【重要】「測試項目結果」「測項結果」→ query_project_fw_test_jobs（附件2格式：Pass/Fail清單）
+- 【重要區分】
+  - 如果用戶問「XX FW YYY 的測項結果」「XX YYY 有哪些 Fail」→ 使用此意圖（完整測試結果）
+  - 如果用戶問「XX FW YYY 測了幾個」「XX YYY 通過率」→ 使用 query_project_test_summary_by_fw（統計摘要）
+  - 如果用戶問「XX FW YYY 有哪些測試類別」→ 使用 query_project_fw_test_categories（類別列表）
+  - 如果用戶問「XX FW YYY 有哪些測項」→ 使用 query_project_fw_all_test_items（測項列表）
+- 【與其他意圖的差異】
+  - query_project_fw_test_jobs: 返回測試工作的執行結果（Pass/Fail/Status）
+  - query_project_fw_all_test_items: 返回測試項目列表（不含執行結果）
+  - query_project_test_summary_by_fw: 返回統計摘要（通過率、完成率等）
+
+### 41. compare_fw_test_jobs - 比較多個 FW 版本的測試項目結果差異 (Phase 17/18)
+用戶想比較同一專案的多個 FW 版本的「測試項目結果差異」時使用。
+支援 2-10 個 FW 版本同時比較。包括：狀態變化（Pass→Fail 或 Fail→Pass）、新增項目、移除項目。
+- 常見問法：
+  - 「比較 XX 專案 FW1 和 FW2 的測項結果」「對比 XX FW1 與 FW2 的測試項目差異」
+  - 「比較 XX FW1 FW2 FW3 的測試結果」「對比 XX 三版 FW 的測試項目」
+  - 「比較 springsteen 幾版 FW 的測試項目結果 GM10YCBM_Opal PH10YC3H_Pyrite_512Byte GD10YBSD_Opal」
+  - 「XX FW1 和 FW2 和 FW3 的測試差異」「XX 版本 FW1 FW2 FW3 FW4 的比較」
+  - 「比較 Springsteen PH10YC3H_Pyrite_4K 和 GD10YBJD 的測項結果」
+  - 「XX 的 FW1 和 FW2 哪些測試變成 Fail」
+  - 「XX FW1 vs FW2 測試結果差異」
+  - 【🆕 使用 latest_count】「XX 最新 5 個 FW 版本測試項目結果比較」「XX 最近 3 個 FW 測項差異」
+- 參數：
+  - project_name (專案名稱，必須)
+  - fw_versions (FW 版本陣列，包含 2-10 個版本) 或
+  - latest_count (選填，自動取最近 N 個版本，如 2、3、5)
+  - test_category (選填，篩選特定測試類別)
+- 【關鍵詞識別】
+  - 關鍵詞：「比較」「對比」「差異」「vs」「和...的」「與...的」+ 多個 FW 版本 + 「測項」「測試項目」「測試項目結果」
+  - 【重要】必須同時出現：專案名稱 + (至少兩個 FW 版本 或 latest_count) + 比較/差異關鍵詞
+- 【⚠️⚠️⚠️ 超級重要區分：「測試結果」vs「測試項目結果」⚠️⚠️⚠️】
+  - compare_latest_fw / compare_multiple_fw：用於「測試結果比較」「FW 比較」「版本趨勢」→ 返回整體統計（通過率、熱力圖、趨勢圖）
+  - compare_fw_test_jobs：用於「測試項目結果比較」「測項結果比較」「測項差異」→ 返回 Pass/Fail 狀態變化清單
+  - 【關鍵字判斷】
+    - 「測試結果」（不含「測試項目」或「測項」）→ compare_latest_fw / compare_multiple_fw
+    - 「測試項目結果」「測項結果」「測項比較」「測項差異」→ compare_fw_test_jobs
+  - 【範例】
+    - 「Springsteen 最新 5 個 FW 版本測試結果比較」→ compare_multiple_fw（整體統計趨勢）
+    - 「Springsteen 最新 5 個 FW 版本測試項目結果比較」→ compare_fw_test_jobs（Pass/Fail 清單）
+- 【與其他意圖的差異】
+  - compare_fw_test_jobs: 比較測試項目結果差異（Pass/Fail 狀態變化）
+  - compare_latest_fw / compare_multiple_fw: 比較版本的統計數據（通過率、完成率變化、趨勢圖）
+  - query_project_fw_test_jobs: 查詢單一版本的測試項目結果
+
+### 42. unknown - 無法識別的意圖
 當問題與 SAF 專案管理系統無關時使用。
 
 ## 已知資訊
@@ -560,22 +854,23 @@ Sub Version 代碼：AA (512GB), AB (1024GB/1TB), AC (2048GB/2TB), AD (4096GB/4T
 輸入：PHOENIX 的功能測試結果如何
 輸出：{"intent": "query_project_test_by_category", "parameters": {"project_name": "PHOENIX", "category": "Functionality"}, "confidence": 0.93}
 
-輸入：DEMETER 專案 FW Y1114B 的測試結果
+# Phase 4: 按 FW 版本查詢測試統計（統計類查詢）
+輸入：DEMETER 專案 FW Y1114B 測了幾個
 輸出：{"intent": "query_project_test_summary_by_fw", "parameters": {"project_name": "DEMETER", "fw_version": "Y1114B"}, "confidence": 0.95}
 
-輸入：Channel 的 82CBW5QF 版本測試狀況
+輸入：Channel 的 82CBW5QF 版本通過率是多少
 輸出：{"intent": "query_project_test_summary_by_fw", "parameters": {"project_name": "Channel", "fw_version": "82CBW5QF"}, "confidence": 0.93}
 
-輸入：A400 專案 X0325A 的測試結果如何
+輸入：A400 專案 X0325A 的測試進度如何
 輸出：{"intent": "query_project_test_summary_by_fw", "parameters": {"project_name": "A400", "fw_version": "X0325A"}, "confidence": 0.93}
 
-輸入：想看一下 Frey3B 的 FWX0926C 測試結果
+輸入：想看一下 Frey3B 的 FWX0926C 測試狀況
 輸出：{"intent": "query_project_test_summary_by_fw", "parameters": {"project_name": "Frey3B", "fw_version": "FWX0926C"}, "confidence": 0.90}
 
 輸入：Bennington 專案韌體 Y1103C 有多少測試通過
 輸出：{"intent": "query_project_test_summary_by_fw", "parameters": {"project_name": "Bennington", "fw_version": "Y1103C"}, "confidence": 0.90}
 
-輸入：Springsteen 專案 G200X6EC 的測試結果
+輸入：Springsteen 專案 G200X6EC 的統計
 輸出：{"intent": "query_project_test_summary_by_fw", "parameters": {"project_name": "Springsteen", "fw_version": "G200X6EC"}, "confidence": 0.92}
 
 輸入：DEMETER 專案的 Y1114B 和 Y1114A 比較
@@ -599,8 +894,14 @@ Sub Version 代碼：AA (512GB), AB (1024GB/1TB), AC (2048GB/2TB), AD (4096GB/4T
 輸入：Springsteen 最新的 FW 比較
 輸出：{"intent": "compare_latest_fw", "parameters": {"project_name": "Springsteen"}, "confidence": 0.95}
 
+輸入：Springsteen 最新兩個 FW 版本比較
+輸出：{"intent": "compare_latest_fw", "parameters": {"project_name": "Springsteen"}, "confidence": 0.96}
+
 輸入：比較 DEMETER 最近兩個版本
 輸出：{"intent": "compare_latest_fw", "parameters": {"project_name": "DEMETER"}, "confidence": 0.93}
+
+輸入：DEMETER 最新兩個 FW 比較
+輸出：{"intent": "compare_latest_fw", "parameters": {"project_name": "DEMETER"}, "confidence": 0.95}
 
 輸入：Channel 的 FW 進度比較
 輸出：{"intent": "compare_latest_fw", "parameters": {"project_name": "Channel"}, "confidence": 0.90}
@@ -635,11 +936,29 @@ Sub Version 代碼：AA (512GB), AB (1024GB/1TB), AC (2048GB/2TB), AD (4096GB/4T
 輸入：顯示 TITAN 版本
 輸出：{"intent": "list_fw_versions", "parameters": {"project_name": "TITAN"}, "confidence": 0.88}
 
+輸入：pvf01 的 FW 版本列表
+輸出：{"intent": "list_fw_versions", "parameters": {"project_name": "pvf01"}, "confidence": 0.95}
+
+輸入：Springsteen 有那些 FW版本
+輸出：{"intent": "list_fw_versions", "parameters": {"project_name": "Springsteen"}, "confidence": 0.95}
+
+輸入：TITAN 的 FW 版本列表
+輸出：{"intent": "list_fw_versions", "parameters": {"project_name": "TITAN"}, "confidence": 0.95}
+
+輸入：Garuda FW 版本
+輸出：{"intent": "list_fw_versions", "parameters": {"project_name": "Garuda"}, "confidence": 0.90}
+
 輸入：比較 Springsteen 的 G200X6EC、G200X5DC、G200X4CB 三個版本
 輸出：{"intent": "compare_multiple_fw", "parameters": {"project_name": "Springsteen", "fw_versions": ["G200X6EC", "G200X5DC", "G200X4CB"]}, "confidence": 0.95}
 
 輸入：DEMETER 最近三個版本的趨勢
 輸出：{"intent": "compare_multiple_fw", "parameters": {"project_name": "DEMETER", "latest_count": 3}, "confidence": 0.93}
+
+輸入：Springsteen 最新 3 個 FW 版本比較
+輸出：{"intent": "compare_multiple_fw", "parameters": {"project_name": "Springsteen", "latest_count": 3}, "confidence": 0.95}
+
+輸入：Springsteen 最近三個 FW 比較
+輸出：{"intent": "compare_multiple_fw", "parameters": {"project_name": "Springsteen", "latest_count": 3}, "confidence": 0.94}
 
 輸入：Channel 專案 FW A、B、C、D 的測試趨勢
 輸出：{"intent": "compare_multiple_fw", "parameters": {"project_name": "Channel", "fw_versions": ["A", "B", "C", "D"]}, "confidence": 0.95}
@@ -670,6 +989,13 @@ Sub Version 代碼：AA (512GB), AB (1024GB/1TB), AC (2048GB/2TB), AD (4096GB/4T
 
 輸入：比較 VULCAN 的 V1、V2、V3 版本
 輸出：{"intent": "compare_multiple_fw", "parameters": {"project_name": "VULCAN", "fw_versions": ["V1", "V2", "V3"]}, "confidence": 0.92}
+
+# === 意圖 13 範例：query_fw_detail_summary（測試結果 = 統計表格）===
+輸入：Springsteen 專案 G200X6EC 的測試結果
+輸出：{"intent": "query_fw_detail_summary", "parameters": {"project_name": "Springsteen", "fw_version": "G200X6EC"}, "confidence": 0.95}
+
+輸入：PM9M1 HHB0YBC1 的測試結果
+輸出：{"intent": "query_fw_detail_summary", "parameters": {"project_name": "PM9M1", "fw_version": "HHB0YBC1"}, "confidence": 0.95}
 
 輸入：Springsteen 專案 G200X6EC 的詳細統計
 輸出：{"intent": "query_fw_detail_summary", "parameters": {"project_name": "Springsteen", "fw_version": "G200X6EC"}, "confidence": 0.95}
@@ -869,6 +1195,15 @@ Sub Version 代碼：AA (512GB), AB (1024GB/1TB), AC (2048GB/2TB), AD (4096GB/4T
 輸入：Channel 上個月有哪些 FW 版本
 輸出：{"intent": "list_fw_by_date_range", "parameters": {"project_name": "Channel", "date_range": "last_month"}, "confidence": 0.93}
 
+輸入：PVF01 近一個月有那些 FW
+輸出：{"intent": "list_fw_by_date_range", "parameters": {"project_name": "PVF01", "date_range": "recent_month"}, "confidence": 0.94}
+
+輸入：Springsteen 最近一個月的 FW
+輸出：{"intent": "list_fw_by_date_range", "parameters": {"project_name": "Springsteen", "date_range": "recent_month"}, "confidence": 0.94}
+
+輸入：DEMETER 近30天有哪些 FW
+輸出：{"intent": "list_fw_by_date_range", "parameters": {"project_name": "DEMETER", "date_range": "recent_month"}, "confidence": 0.93}
+
 輸入：Springsteen 2025年1月的 FW 版本
 輸出：{"intent": "list_fw_by_date_range", "parameters": {"project_name": "Springsteen", "year": 2025, "month": 1}, "confidence": 0.94}
 
@@ -907,6 +1242,241 @@ Sub Version 代碼：AA (512GB), AB (1024GB/1TB), AC (2048GB/2TB), AD (4096GB/4T
 
 輸入：Channel 2TB 版本 2025年的 FW
 輸出：{"intent": "list_fw_by_date_range", "parameters": {"project_name": "Channel", "sub_version": "AC", "year": 2025}, "confidence": 0.92}
+
+# Phase 14: 查詢專案 FW 支援的容量
+輸入：Springsteen FW PH10YC3H 支援哪些容量
+輸出：{"intent": "query_supported_capacities", "parameters": {"project_name": "Springsteen", "fw_version": "PH10YC3H"}, "confidence": 0.95}
+
+輸入：DEMETER 的 Y1114B 有幾種容量
+輸出：{"intent": "query_supported_capacities", "parameters": {"project_name": "DEMETER", "fw_version": "Y1114B"}, "confidence": 0.94}
+
+輸入：TITAN 最新 FW 支援多大容量
+輸出：{"intent": "query_supported_capacities", "parameters": {"project_name": "TITAN", "fw_version": "latest"}, "confidence": 0.93}
+
+輸入：Channel GD10YBJD 可以用 4TB 嗎
+輸出：{"intent": "query_supported_capacities", "parameters": {"project_name": "Channel", "fw_version": "GD10YBJD"}, "confidence": 0.92}
+
+輸入：Springsteen 這版韌體有支援 512GB 和 1024GB 嗎
+輸出：{"intent": "query_supported_capacities", "parameters": {"project_name": "Springsteen", "fw_version": "current"}, "confidence": 0.90}
+
+輸入：XX 專案 FW YYY 最大支援到多少容量
+輸出：{"intent": "query_supported_capacities", "parameters": {"project_name": "XX", "fw_version": "YYY"}, "confidence": 0.91}
+
+# Phase 15: Known Issues 查詢
+輸入：DEMETER 專案有哪些 Known Issues
+輸出：{"intent": "query_project_known_issues", "parameters": {"project_name": "DEMETER"}, "confidence": 0.95}
+
+輸入：Channel 有什麼 known issue
+輸出：{"intent": "query_project_known_issues", "parameters": {"project_name": "Channel"}, "confidence": 0.93}
+
+輸入：列出 Springsteen 的已知問題
+輸出：{"intent": "query_project_known_issues", "parameters": {"project_name": "Springsteen"}, "confidence": 0.92}
+
+輸入：XX 專案有幾個 known issue
+輸出：{"intent": "query_project_known_issues", "parameters": {"project_name": "XX"}, "confidence": 0.90}
+
+輸入：查詢 TITAN 的問題清單
+輸出：{"intent": "query_project_known_issues", "parameters": {"project_name": "TITAN"}, "confidence": 0.92}
+
+輸入：DEMETER 的 Sequential Read 測項有哪些 known issues
+輸出：{"intent": "query_project_test_item_known_issues", "parameters": {"project_name": "DEMETER", "test_item": "Sequential Read"}, "confidence": 0.95}
+
+輸入：Channel 的 NVMe Compliance 有什麼已知問題
+輸出：{"intent": "query_project_test_item_known_issues", "parameters": {"project_name": "Channel", "test_item": "NVMe Compliance"}, "confidence": 0.93}
+
+輸入：Springsteen 專案 Power Cycle 測項的 issues
+輸出：{"intent": "query_project_test_item_known_issues", "parameters": {"project_name": "Springsteen", "test_item": "Power Cycle"}, "confidence": 0.92}
+
+輸入：XX 案子的 Random Write 測試有什麼問題
+輸出：{"intent": "query_project_test_item_known_issues", "parameters": {"project_name": "XX", "test_item": "Random Write"}, "confidence": 0.90}
+
+輸入：DEMETER 有幾個 Known Issues
+輸出：{"intent": "count_project_known_issues", "parameters": {"project_name": "DEMETER"}, "confidence": 0.95}
+
+輸入：Channel 有多少已知問題
+輸出：{"intent": "count_project_known_issues", "parameters": {"project_name": "Channel"}, "confidence": 0.93}
+
+輸入：Springsteen 的 issues 數量
+輸出：{"intent": "count_project_known_issues", "parameters": {"project_name": "Springsteen"}, "confidence": 0.92}
+
+輸入：統計 XX 的問題數量
+輸出：{"intent": "count_project_known_issues", "parameters": {"project_name": "XX"}, "confidence": 0.90}
+
+輸入：哪個專案的 known issues 最多
+輸出：{"intent": "rank_projects_by_known_issues", "parameters": {}, "confidence": 0.95}
+
+輸入：比較各專案的 issue 數量
+輸出：{"intent": "rank_projects_by_known_issues", "parameters": {}, "confidence": 0.93}
+
+輸入：專案問題排名
+輸出：{"intent": "rank_projects_by_known_issues", "parameters": {}, "confidence": 0.92}
+
+輸入：WD 的案子哪個 issues 最多
+輸出：{"intent": "rank_projects_by_known_issues", "parameters": {"customer": "WD"}, "confidence": 0.90}
+
+輸入：Ryder 建立了哪些 known issues
+輸出：{"intent": "query_known_issues_by_creator", "parameters": {"creator": "Ryder"}, "confidence": 0.95}
+
+輸入：ryder.lin 的 issues
+輸出：{"intent": "query_known_issues_by_creator", "parameters": {"creator": "ryder.lin"}, "confidence": 0.93}
+
+輸入：Kevin 在 DEMETER 建立了哪些問題
+輸出：{"intent": "query_known_issues_by_creator", "parameters": {"creator": "Kevin", "project_name": "DEMETER"}, "confidence": 0.92}
+
+輸入：誰有建立過 known issues
+輸出：{"intent": "list_known_issues_creators", "parameters": {}, "confidence": 0.95}
+
+輸入：DEMETER 專案的 issues 是誰建立的
+輸出：{"intent": "list_known_issues_creators", "parameters": {"project_name": "DEMETER"}, "confidence": 0.93}
+
+輸入：有哪些人建立過問題
+輸出：{"intent": "list_known_issues_creators", "parameters": {}, "confidence": 0.92}
+
+輸入：DEMETER 有哪些 issues 有 JIRA
+輸出：{"intent": "query_known_issues_with_jira", "parameters": {"project_name": "DEMETER"}, "confidence": 0.95}
+
+輸入：有 JIRA 連結的 known issues
+輸出：{"intent": "query_known_issues_with_jira", "parameters": {}, "confidence": 0.93}
+
+輸入：哪些問題有關聯 JIRA
+輸出：{"intent": "query_known_issues_with_jira", "parameters": {}, "confidence": 0.92}
+
+輸入：DEMETER 有哪些 issues 還沒開 JIRA
+輸出：{"intent": "query_known_issues_without_jira", "parameters": {"project_name": "DEMETER"}, "confidence": 0.95}
+
+輸入：沒有 JIRA 的 known issues
+輸出：{"intent": "query_known_issues_without_jira", "parameters": {}, "confidence": 0.93}
+
+輸入：哪些 issues 需要開 JIRA
+輸出：{"intent": "query_known_issues_without_jira", "parameters": {}, "confidence": 0.92}
+
+輸入：最近有哪些新的 known issues
+輸出：{"intent": "query_recent_known_issues", "parameters": {}, "confidence": 0.95}
+
+輸入：DEMETER 專案最近有新的 issues 嗎
+輸出：{"intent": "query_recent_known_issues", "parameters": {"project_name": "DEMETER"}, "confidence": 0.93}
+
+輸入：這週新增的問題
+輸出：{"intent": "query_recent_known_issues", "parameters": {"date_range": "this_week"}, "confidence": 0.92}
+
+輸入：今天有建立什麼 issue
+輸出：{"intent": "query_recent_known_issues", "parameters": {"date_range": "today"}, "confidence": 0.90}
+
+輸入：2025年1月的 known issues
+輸出：{"intent": "query_known_issues_by_date_range", "parameters": {"year": 2025, "month": 1}, "confidence": 0.95}
+
+輸入：DEMETER 專案 2024年有多少 issues
+輸出：{"intent": "query_known_issues_by_date_range", "parameters": {"project_name": "DEMETER", "year": 2024}, "confidence": 0.93}
+
+輸入：上個月建立的問題
+輸出：{"intent": "query_known_issues_by_date_range", "parameters": {"date_range": "last_month"}, "confidence": 0.92}
+
+輸入：搜尋 known issues 中有 timeout 的
+輸出：{"intent": "search_known_issues_by_keyword", "parameters": {"keyword": "timeout"}, "confidence": 0.95}
+
+輸入：DEMETER 有沒有跟 power 相關的 issue
+輸出：{"intent": "search_known_issues_by_keyword", "parameters": {"keyword": "power", "project_name": "DEMETER"}, "confidence": 0.93}
+
+輸入：找有 error 的 issues
+輸出：{"intent": "search_known_issues_by_keyword", "parameters": {"keyword": "error"}, "confidence": 0.92}
+
+輸入：哪些專案的 Sequential Read 有 known issues
+輸出：{"intent": "query_all_known_issues_by_test_item", "parameters": {"test_item": "Sequential Read"}, "confidence": 0.95}
+
+輸入：所有專案的 NVMe Compliance issues
+輸出：{"intent": "query_all_known_issues_by_test_item", "parameters": {"test_item": "NVMe Compliance"}, "confidence": 0.93}
+
+輸入：各案子的 Hot Plug 測試有哪些 issues
+輸出：{"intent": "query_all_known_issues_by_test_item", "parameters": {"test_item": "Hot Plug"}, "confidence": 0.92}
+
+輸入：WD 的專案中 Power Cycle 有哪些 issues
+輸出：{"intent": "query_all_known_issues_by_test_item", "parameters": {"test_item": "Power Cycle", "customer": "WD"}, "confidence": 0.90}
+
+# Phase 16: 專案 FW 測試工作詳細結果查詢（詳細類查詢）
+# === 意圖 40 範例：query_project_fw_test_jobs（測試項目結果 = Pass/Fail 清單）===
+# 【重要】只有「測項結果」「測試項目結果」才使用此意圖，「測試結果」使用 query_fw_detail_summary
+輸入：PM9M1 的 HHB0YBC1 測項結果
+輸出：{"intent": "query_project_fw_test_jobs", "parameters": {"project_name": "PM9M1", "fw_version": "HHB0YBC1"}, "confidence": 0.95}
+
+輸入：PM9M1 HHB0YBC1 的測試項目結果
+輸出：{"intent": "query_project_fw_test_jobs", "parameters": {"project_name": "PM9M1", "fw_version": "HHB0YBC1"}, "confidence": 0.94}
+
+輸入：Springsteen GD10YBJD 有哪些測項 Fail
+輸出：{"intent": "query_project_fw_test_jobs", "parameters": {"project_name": "Springsteen", "fw_version": "GD10YBJD"}, "confidence": 0.93}
+
+輸入：列出 DEMETER Y1114B 的測試項目結果
+輸出：{"intent": "query_project_fw_test_jobs", "parameters": {"project_name": "DEMETER", "fw_version": "Y1114B"}, "confidence": 0.92}
+
+輸入：列出 Channel FW 82CBW5QF 的所有測試項目
+輸出：{"intent": "query_project_fw_test_jobs", "parameters": {"project_name": "Channel", "fw_version": "82CBW5QF"}, "confidence": 0.91}
+
+輸入：XX 的 YYY 有哪些測試項目
+輸出：{"intent": "query_project_fw_test_jobs", "parameters": {"project_name": "XX", "fw_version": "YYY"}, "confidence": 0.90}
+
+輸入：A400 專案 X0325A 版本的測試項目結果
+輸出：{"intent": "query_project_fw_test_jobs", "parameters": {"project_name": "A400", "fw_version": "X0325A"}, "confidence": 0.91}
+
+# === 意圖 41 範例：compare_fw_test_jobs（比較多個 FW 版本的測試項目結果差異）===
+# 2 版本比較
+輸入：比較 Springsteen PH10YC3H_Pyrite_4K 和 GD10YBJD_Opal 的測項結果
+輸出：{"intent": "compare_fw_test_jobs", "parameters": {"project_name": "Springsteen", "fw_versions": ["PH10YC3H_Pyrite_4K", "GD10YBJD_Opal"]}, "confidence": 0.95}
+
+輸入：對比 PM9M1 HHB0YBC1 與 HHB0YBC2 測試項目差異
+輸出：{"intent": "compare_fw_test_jobs", "parameters": {"project_name": "PM9M1", "fw_versions": ["HHB0YBC1", "HHB0YBC2"]}, "confidence": 0.94}
+
+輸入：DEMETER Y1114B 和 Y1115A 的測試差異
+輸出：{"intent": "compare_fw_test_jobs", "parameters": {"project_name": "DEMETER", "fw_versions": ["Y1114B", "Y1115A"]}, "confidence": 0.93}
+
+# 3 版本比較
+輸入：比較 springsteen 三版 FW GM10YCBM_Opal PH10YC3H_Pyrite_512Byte GD10YBSD_Opal 的測試結果
+輸出：{"intent": "compare_fw_test_jobs", "parameters": {"project_name": "springsteen", "fw_versions": ["GM10YCBM_Opal", "PH10YC3H_Pyrite_512Byte", "GD10YBSD_Opal"]}, "confidence": 0.95}
+
+輸入：PM9M1 HHB0YBC1 和 HHB0YBC2 和 HHB0YBC3 的測試項目比較
+輸出：{"intent": "compare_fw_test_jobs", "parameters": {"project_name": "PM9M1", "fw_versions": ["HHB0YBC1", "HHB0YBC2", "HHB0YBC3"]}, "confidence": 0.94}
+
+# 5 版本比較
+輸入：比較 springsteen 幾版 FW 的測試項目結果 GM10YCBM_Opal PH10YC3H_Pyrite_512Byte GD10YBSD_Opal PH10YC3H_Pyrite_4K PH10YC3H_Opal_4K
+輸出：{"intent": "compare_fw_test_jobs", "parameters": {"project_name": "springsteen", "fw_versions": ["GM10YCBM_Opal", "PH10YC3H_Pyrite_512Byte", "GD10YBSD_Opal", "PH10YC3H_Pyrite_4K", "PH10YC3H_Opal_4K"]}, "confidence": 0.95}
+
+輸入：Channel 82CBW5QF 和 82CBW6QF 和 82CBW7QF 和 82CBW8QF 哪些測試變成 Fail
+輸出：{"intent": "compare_fw_test_jobs", "parameters": {"project_name": "Channel", "fw_versions": ["82CBW5QF", "82CBW6QF", "82CBW7QF", "82CBW8QF"]}, "confidence": 0.93}
+
+輸入：XX FW1 vs FW2 測試結果差異
+輸出：{"intent": "compare_fw_test_jobs", "parameters": {"project_name": "XX", "fw_versions": ["FW1", "FW2"]}, "confidence": 0.91}
+
+# 🆕 使用 latest_count 的 compare_fw_test_jobs（測試項目結果比較）
+輸入：Springsteen 最新 5 個 FW 版本測試項目結果比較
+輸出：{"intent": "compare_fw_test_jobs", "parameters": {"project_name": "Springsteen", "latest_count": 5}, "confidence": 0.95}
+
+輸入：DEMETER 最近 3 個 FW 版本測項結果差異
+輸出：{"intent": "compare_fw_test_jobs", "parameters": {"project_name": "DEMETER", "latest_count": 3}, "confidence": 0.94}
+
+輸入：Channel 最新 4 個 FW 的測項比較
+輸出：{"intent": "compare_fw_test_jobs", "parameters": {"project_name": "Channel", "latest_count": 4}, "confidence": 0.93}
+
+輸入：Springsteen 最新五個 FW 測試項目比較
+輸出：{"intent": "compare_fw_test_jobs", "parameters": {"project_name": "Springsteen", "latest_count": 5}, "confidence": 0.94}
+
+# 🔥 超級重要區分：「測試結果」vs「測試項目結果」
+# 「測試結果」→ compare_multiple_fw（整體統計趨勢）
+輸入：Springsteen 最新 5 個 FW 版本測試結果比較
+輸出：{"intent": "compare_multiple_fw", "parameters": {"project_name": "Springsteen", "latest_count": 5}, "confidence": 0.95}
+
+輸入：DEMETER 最近三個版本測試結果趨勢
+輸出：{"intent": "compare_multiple_fw", "parameters": {"project_name": "DEMETER", "latest_count": 3}, "confidence": 0.94}
+
+輸入：Channel 最新 4 個 FW 的比較
+輸出：{"intent": "compare_multiple_fw", "parameters": {"project_name": "Channel", "latest_count": 4}, "confidence": 0.93}
+
+# 「測試項目結果」→ compare_fw_test_jobs（Pass/Fail 清單）
+輸入：Springsteen 最新 5 個 FW 版本測試項目結果比較
+輸出：{"intent": "compare_fw_test_jobs", "parameters": {"project_name": "Springsteen", "latest_count": 5}, "confidence": 0.95}
+
+輸入：DEMETER 最近三個版本測項結果差異
+輸出：{"intent": "compare_fw_test_jobs", "parameters": {"project_name": "DEMETER", "latest_count": 3}, "confidence": 0.94}
+
+輸入：Channel 最新 4 個 FW 的測項比較
+輸出：{"intent": "compare_fw_test_jobs", "parameters": {"project_name": "Channel", "latest_count": 4}, "confidence": 0.93}
 
 輸入：今天天氣如何？
 輸出：{"intent": "unknown", "parameters": {}, "confidence": 0.10}
@@ -1030,11 +1600,76 @@ class SAFIntentAnalyzer:
                 'list_fw_by_sub_version_and_month': 'list_fw_by_date_range',
                 'list_fw_by_sub_version_and_date': 'list_fw_by_date_range',
                 'query_fw_by_sub_version_and_year': 'list_fw_by_date_range',
+                # FW 日期範圍查詢別名映射（新增）
+                'list_project_firmware_by_date_range': 'list_fw_by_date_range',
+                'list_fw_by_date': 'list_fw_by_date_range',
+                'list_fw_by_month': 'list_fw_by_date_range',
+                'list_fw_by_year': 'list_fw_by_date_range',
+                'list_project_fw_by_date': 'list_fw_by_date_range',
+                'list_project_fw_by_month': 'list_fw_by_date_range',
+                'query_fw_by_date_range': 'list_fw_by_date_range',
+                'query_project_fw_by_date': 'list_fw_by_date_range',
+                'get_fw_by_date_range': 'list_fw_by_date_range',
+                'fw_by_date_range': 'list_fw_by_date_range',
+                # FW 統計相關的別名映射
+                'query_project_fw_statistics': 'query_project_test_summary_by_fw',
+                'query_fw_statistics': 'query_project_test_summary_by_fw',
+                'query_project_fw_summary': 'query_project_test_summary_by_fw',
+                'query_fw_test_summary': 'query_project_test_summary_by_fw',
+                'query_project_statistics_by_firmware': 'query_project_test_summary_by_fw',
+                'query_project_fw_test_jobs_count': 'query_project_test_summary_by_fw',
+                # FW 版本列表別名映射（覆蓋所有可能的變體）
+                'query_project_fw_list': 'list_fw_versions',
+                'query_project_fw_versions': 'list_fw_versions',
+                'query_fw_list': 'list_fw_versions',
+                'query_fw_versions': 'list_fw_versions',
+                'query_fw_version_list': 'list_fw_versions',
+                'get_fw_versions': 'list_fw_versions',
+                'get_project_fw_versions': 'list_fw_versions',
+                'get_fw_list': 'list_fw_versions',
+                'project_fw_versions': 'list_fw_versions',
+                'project_fw_list': 'list_fw_versions',
+                'fw_version_list': 'list_fw_versions',
+                'fw_versions': 'list_fw_versions',
+                # 新增更多 LLM 可能返回的變體
+                'list_project_fw_versions': 'list_fw_versions',
+                'list_project_fw': 'list_fw_versions',
+                'list_fw_version': 'list_fw_versions',
+                'get_fw_version_list': 'list_fw_versions',
+                'show_fw_versions': 'list_fw_versions',
+                'show_project_fw_versions': 'list_fw_versions',
             }
             
             if raw_intent in combined_intent_mapping:
                 logger.info(f"映射組合意圖 '{raw_intent}' -> '{combined_intent_mapping[raw_intent]}'")
                 raw_intent = combined_intent_mapping[raw_intent]
+            
+            # ★★★ 通用模式匹配：處理 LLM 可能返回的 FW 相關變體 ★★★
+            if raw_intent not in [e.value for e in IntentType]:
+                # 模式 1：FW + 日期範圍（優先檢查，因為更具體）
+                fw_date_pattern = re.compile(r'(fw|firmware).*(date|month|year|range|time)', re.IGNORECASE)
+                if fw_date_pattern.search(raw_intent):
+                    logger.info(f"通用模式匹配：'{raw_intent}' 匹配 FW 日期範圍模式，映射到 'list_fw_by_date_range'")
+                    raw_intent = 'list_fw_by_date_range'
+                else:
+                    # 模式 2：FW + 版本列表（不含日期關鍵字）
+                    fw_list_pattern = re.compile(r'(fw|firmware).*(version|versions|list)', re.IGNORECASE)
+                    if fw_list_pattern.search(raw_intent):
+                        logger.info(f"通用模式匹配：'{raw_intent}' 匹配 FW 版本列表模式，映射到 'list_fw_versions'")
+                        raw_intent = 'list_fw_versions'
+            
+            # ★★★ 語義修正 1：「測試結果」（不含「測試項目」）應該用 query_fw_detail_summary ★★★
+            # 如果查詢包含「測試結果」但不含「測試項目」「測項」，應使用意圖 13 而非意圖 40
+            if raw_intent == 'query_project_fw_test_jobs':
+                if '測試結果' in original_query and '測試項目' not in original_query and '測項' not in original_query:
+                    logger.info(f"語義修正：查詢為「測試結果」而非「測試項目結果」，修正 '{raw_intent}' -> 'query_fw_detail_summary'")
+                    raw_intent = 'query_fw_detail_summary'
+            
+            # ★★★ 語義修正 2：檢查查詢是否包含「統計」但被誤判為 test_jobs ★★★
+            stat_keywords = ['統計', '詳細統計', '通過率', '完成率', '進度', '狀況', '測了幾個', '多少', '樣本使用率', '執行率', '失敗率', '測試概覽']
+            if raw_intent == 'query_project_fw_test_jobs' and any(sk in original_query for sk in stat_keywords):
+                logger.info(f"語義修正：查詢包含統計關鍵字，修正 '{raw_intent}' -> 'query_fw_detail_summary'")
+                raw_intent = 'query_fw_detail_summary'
             
             # 創建 IntentResult
             intent_type = IntentType.from_string(raw_intent)
@@ -1062,6 +1697,16 @@ class SAFIntentAnalyzer:
                 if detected_customer and not parameters.get('customer'):
                     logger.info(f"查詢包含特定客戶 '{detected_customer}'，但參數中缺少 customer，補充參數")
                     parameters['customer'] = detected_customer
+            
+            # 情況 4：查詢包含「比較」「對比」關鍵字但 Dify 返回的不是比較意圖
+            # 例如：「比較 Springsteen GH10Y6NH 和 GH10Y6NH_512Byte 的測項結果」應該是 compare_fw_test_jobs
+            compare_keywords = ['比較', '對比', '差異', '不同', '兩個版本', '兩版']
+            is_compare_query = any(kw in original_query for kw in compare_keywords)
+            if is_compare_query and intent_type != IntentType.COMPARE_FW_TEST_JOBS:
+                # 檢查是否包含兩個 FW 版本（用「和」分隔）
+                if ' 和 ' in original_query or '和' in original_query or ' vs ' in original_query.lower():
+                    logger.info(f"查詢包含比較關鍵字且有兩個版本，但 Dify 返回 '{intent_type.value}'，嘗試 fallback")
+                    should_use_fallback = True
             
             # 如果需要使用 fallback
             if should_use_fallback:
@@ -1219,6 +1864,69 @@ class SAFIntentAnalyzer:
                 raw_response="Fallback: list pls query"
             )
         
+        # 6.5. ★★★ Known Issues 全域查詢（不需要專案名稱）★★★
+        known_issues_keywords = ['known issue', 'known issues', 'known-issue', 'known-issues',
+                                 '已知問題', '已知issue', 'issue', 'issues', '問題清單']
+        if any(kw in query_lower for kw in known_issues_keywords):
+            # 檢查是否是排名/比較查詢
+            rank_keywords = ['排名', '排行', 'rank', '最多', '最少', '比較', '統計']
+            if any(rk in query_lower for rk in rank_keywords):
+                return IntentResult(
+                    intent=IntentType.RANK_PROJECTS_BY_KNOWN_ISSUES,
+                    parameters={},
+                    confidence=0.7,
+                    raw_response="Fallback: rank projects by known issues"
+                )
+            
+            # 檢查是否是按建立者查詢
+            creator_keywords = ['誰建立', '誰創建', '建立者', '創建者', 'creator', 'created by', 'author']
+            if any(ck in query_lower for ck in creator_keywords):
+                return IntentResult(
+                    intent=IntentType.LIST_KNOWN_ISSUES_CREATORS,
+                    parameters={},
+                    confidence=0.7,
+                    raw_response="Fallback: list known issues creators"
+                )
+            
+            # 檢查是否是 JIRA 相關查詢
+            jira_keywords = ['jira', '沒有jira', '無jira', '有jira']
+            if any(jk in query_lower for jk in jira_keywords):
+                if '沒有' in query or '無' in query or 'without' in query_lower:
+                    return IntentResult(
+                        intent=IntentType.QUERY_KNOWN_ISSUES_WITHOUT_JIRA,
+                        parameters={},
+                        confidence=0.7,
+                        raw_response="Fallback: known issues without JIRA"
+                    )
+                else:
+                    return IntentResult(
+                        intent=IntentType.QUERY_KNOWN_ISSUES_WITH_JIRA,
+                        parameters={},
+                        confidence=0.7,
+                        raw_response="Fallback: known issues with JIRA"
+                    )
+            
+            # 檢查是否是關鍵字搜尋
+            search_keywords = ['搜尋', '搜索', 'search', '查找', '找']
+            if any(sk in query_lower for sk in search_keywords):
+                # 嘗試提取搜尋關鍵字
+                return IntentResult(
+                    intent=IntentType.SEARCH_KNOWN_ISSUES_BY_KEYWORD,
+                    parameters={'keyword': query},  # 使用整個查詢作為關鍵字
+                    confidence=0.6,
+                    raw_response="Fallback: search known issues by keyword"
+                )
+            
+            # 檢查是否是按測試項目查詢所有專案的 Known Issues
+            test_item = self._detect_test_item_for_known_issues(query)
+            if test_item:
+                return IntentResult(
+                    intent=IntentType.QUERY_ALL_KNOWN_ISSUES_BY_TEST_ITEM,
+                    parameters={'test_item': test_item},
+                    confidence=0.7,
+                    raw_response=f"Fallback: all known issues by test item {test_item}"
+                )
+        
         # 7. 日期/月份查詢 (Phase 8)
         date_result = self._detect_date_query(query)
         if date_result:
@@ -1227,6 +1935,17 @@ class SAFIntentAnalyzer:
         # 8. Sub Version 相關查詢 (Phase 9)
         project_name = self._detect_project_name(query)
         detected_sub_version = self._detect_sub_version(query)
+        
+        # ★ 重要：如果查詢包含「比較」關鍵字，先檢查是否有兩個 FW 版本
+        # 避免 Sub Version 檢測干擾 FW 版本比較查詢
+        compare_keywords = ['比較', '對比', '差異', 'compare', 'vs']
+        has_compare = any(kw in query for kw in compare_keywords)
+        
+        if has_compare:
+            fw_1, fw_2 = self._detect_two_fw_versions_for_compare(query)
+            if fw_1 and fw_2 and project_name:
+                # 跳過 Sub Version 處理，交給第 10 步的 FW 比較邏輯
+                detected_sub_version = None
         
         if project_name and detected_sub_version:
             # 查詢特定 Sub Version 的 FW 列表
@@ -1249,7 +1968,34 @@ class SAFIntentAnalyzer:
                 raw_response=f"Fallback: list sub versions for {project_name}"
             )
         
-        # 9. ★★★ 新增：最新 FW 版本比較查詢 ★★★
+        # 9. ★★★ Phase 17/18: 優先檢測「比較 FW 版本測試項目結果」★★★
+        # 必須在「最新 FW 版本比較」之前，因為兩者都包含「比較」和「fw」關鍵字
+        # 區分點：「測試項目結果」vs「統計/通過率」
+        # Phase 18: 支援多版本比較 (2-10 個版本)
+        if project_name:
+            compare_keywords = ['比較', '對比', '差異', 'compare', 'vs']
+            test_job_keywords = ['測項', '測試項目', '測項結果', '測試項目結果', 'test job', 'test jobs', 'test item']
+            stat_keywords = ['通過率', '完成率', '統計', '進度', 'pass rate', 'completion', '趨勢']
+            
+            has_compare = any(kw in query for kw in compare_keywords)
+            has_test_job = any(kw in query.lower() for kw in test_job_keywords)
+            has_stat = any(sk in query.lower() for sk in stat_keywords)
+            
+            # 如果包含「比較」+「測試項目」且不包含「統計」關鍵詞 → compare_fw_test_jobs
+            if has_compare and has_test_job and not has_stat:
+                fw_versions = self._detect_multi_fw_versions_for_compare(query)
+                if len(fw_versions) >= 2:
+                    return IntentResult(
+                        intent=IntentType.COMPARE_FW_TEST_JOBS,
+                        parameters={
+                            'project_name': project_name,
+                            'fw_versions': fw_versions
+                        },
+                        confidence=0.85,
+                        raw_response=f"Fallback: compare FW test jobs for {project_name}: {' vs '.join(fw_versions)}"
+                    )
+        
+        # 10. ★★★ 最新 FW 版本比較查詢 ★★★
         # 檢測「比較」+「最新」關鍵字組合
         compare_keywords = ['比較', '對比', 'compare', 'vs']
         latest_keywords = ['最新', '最近', '新版', 'latest', 'recent', '兩個', '兩版']
@@ -1273,20 +2019,108 @@ class SAFIntentAnalyzer:
             detected_category = self._detect_test_category(query)
             detected_capacity = self._detect_capacity(query)
             
+            # ★★★ Phase 17/18: 優先檢測「比較多個 FW 版本測項結果」★★★
+            # 關鍵詞：「比較」「對比」「差異」+ 多個 FW 版本 + 「測項」「測試項目」
+            # Phase 18: 支援 2-10 個版本
+            compare_keywords = ['比較', '對比', '差異', 'compare', 'vs', '和', '與']
+            test_job_keywords = ['測項', '測試項目', '測項結果', '測試項目結果', 'test job', 'test jobs', 'test item']
+            
+            has_compare = any(kw in query for kw in compare_keywords)
+            has_test_job = any(kw in query.lower() for kw in test_job_keywords)
+            
+            if has_compare:
+                fw_versions = self._detect_multi_fw_versions_for_compare(query)
+                if len(fw_versions) >= 2:
+                    # 確認是「比較測項結果」而非「比較版本統計」
+                    # 「測項結果」「測試項目結果」→ compare_fw_test_jobs
+                    # 「通過率」「完成率」「統計」「測試結果」→ compare_multiple_fw
+                    stat_keywords = ['通過率', '完成率', '統計', '進度', 'pass rate', 'completion', '測試結果', '趨勢']
+                    has_stat = any(sk in query.lower() for sk in stat_keywords)
+                    
+                    # 🆕 檢查是否包含「測試結果」但不含「測試項目」
+                    has_test_result = '測試結果' in query
+                    has_test_item = any(kw in query for kw in ['測試項目', '測項'])
+                    
+                    if has_test_job and not has_stat:
+                        # 明確包含「測試項目」關鍵詞 → compare_fw_test_jobs
+                        return IntentResult(
+                            intent=IntentType.COMPARE_FW_TEST_JOBS,
+                            parameters={
+                                'project_name': project_name,
+                                'fw_versions': fw_versions
+                            },
+                            confidence=0.8,
+                            raw_response=f"Fallback: compare FW test jobs for {project_name}: {' vs '.join(fw_versions)}"
+                        )
+                    elif has_test_result and not has_test_item:
+                        # 🆕 包含「測試結果」但不含「測試項目」→ compare_multiple_fw（整體統計）
+                        return IntentResult(
+                            intent=IntentType.COMPARE_MULTIPLE_FW,
+                            parameters={
+                                'project_name': project_name,
+                                'fw_versions': fw_versions
+                            },
+                            confidence=0.8,
+                            raw_response=f"Fallback: compare multiple FW (測試結果) for {project_name}: {' vs '.join(fw_versions)}"
+                        )
+                    elif not has_test_job:
+                        # 🆕 沒有「測試項目」關鍵詞，預設為整體統計比較
+                        return IntentResult(
+                            intent=IntentType.COMPARE_MULTIPLE_FW,
+                            parameters={
+                                'project_name': project_name,
+                                'fw_versions': fw_versions
+                            },
+                            confidence=0.75,
+                            raw_response=f"Fallback: compare multiple FW (default) for {project_name}: {' vs '.join(fw_versions)}"
+                        )
+            
             # ★★★ 檢測 FW 版本 ★★★
             # FW 版本格式：通常是 CODE_Name_Capacity 或 簡短代碼
-            # 例如：PH10YC3H_Pyrite_4K, GD10YBJD_Opal, Y1114B, X0325A 等
+            # 例如：PH10YC3H_Pyrite_4K, GD10YBJD_Opal, Y1114B, X0325A, GM10YCBM_Opal 等
             detected_fw_version = self._detect_fw_version_for_fallback(query)
             
-            # 如果有 FW 版本且有測試相關關鍵字，優先使用 FW 詳細摘要
-            if detected_fw_version and ('測試' in query or '結果' in query or '摘要' in query 
-                                         or 'pass' in query_lower or 'fail' in query_lower or '如何' in query):
-                return IntentResult(
-                    intent=IntentType.QUERY_FW_DETAIL_SUMMARY,
-                    parameters={'project_name': project_name, 'fw_version': detected_fw_version},
-                    confidence=0.6,
-                    raw_response=f"Fallback: FW detail summary query for {project_name} fw={detected_fw_version}"
-                )
+            # 如果有 FW 版本，優先處理 FW 相關查詢
+            if detected_fw_version:
+                # ★★★ 重要區分：「測試結果」vs「測試項目結果/測項結果」★★★
+                # 「測試項目結果」「測項結果」→ query_project_fw_test_jobs（Pass/Fail 清單）
+                test_item_detail_keywords = ['測項結果', '測試項目結果', '測試項目', '哪些測項', '哪些 fail', '哪些fail', '哪些 pass', '哪些pass']
+                if any(dk in query.lower() for dk in test_item_detail_keywords):
+                    return IntentResult(
+                        intent=IntentType.QUERY_PROJECT_FW_TEST_JOBS,
+                        parameters={'project_name': project_name, 'fw_version': detected_fw_version},
+                        confidence=0.7,
+                        raw_response=f"Fallback: FW test jobs query for {project_name} fw={detected_fw_version}"
+                    )
+                
+                # 「測試結果」（不含「測試項目」）→ query_fw_detail_summary（統計表格）
+                if '測試結果' in query and '測試項目' not in query and '測項' not in query:
+                    return IntentResult(
+                        intent=IntentType.QUERY_FW_DETAIL_SUMMARY,
+                        parameters={'project_name': project_name, 'fw_version': detected_fw_version},
+                        confidence=0.75,
+                        raw_response=f"Fallback: FW detail summary (測試結果) for {project_name} fw={detected_fw_version}"
+                    )
+                
+                # 統計類關鍵字 → query_fw_detail_summary
+                stat_keywords = ['統計', '詳細統計', '通過率', '完成率', '進度', '狀況', '測了幾個', '多少', '樣本使用率', '執行率', '失敗率', '測試概覽']
+                if any(sk in query for sk in stat_keywords):
+                    return IntentResult(
+                        intent=IntentType.QUERY_FW_DETAIL_SUMMARY,
+                        parameters={'project_name': project_name, 'fw_version': detected_fw_version},
+                        confidence=0.7,
+                        raw_response=f"Fallback: FW detail summary query for {project_name} fw={detected_fw_version}"
+                    )
+                
+                # 其他測試相關關鍵字 → query_fw_detail_summary
+                if ('測試' in query or '結果' in query or '摘要' in query 
+                    or 'pass' in query_lower or 'fail' in query_lower or '如何' in query):
+                    return IntentResult(
+                        intent=IntentType.QUERY_FW_DETAIL_SUMMARY,
+                        parameters={'project_name': project_name, 'fw_version': detected_fw_version},
+                        confidence=0.6,
+                        raw_response=f"Fallback: FW detail summary query for {project_name} fw={detected_fw_version}"
+                    )
             
             if detected_category:
                 # 按類別查詢測試結果
@@ -1307,6 +2141,52 @@ class SAFIntentAnalyzer:
                     parameters={'project_name': project_name, 'capacity': detected_capacity},
                     confidence=0.6,
                     raw_response=f"Fallback: test by capacity query for {project_name}"
+                )
+            
+            # ★★★ Phase 15: Known Issues 查詢 ★★★
+            known_issues_keywords = ['known issue', 'known issues', 'known-issue', 'known-issues',
+                                     '已知問題', '已知issue', 'issue', 'issues', '問題清單']
+            if any(kw in query_lower for kw in known_issues_keywords):
+                # 檢查是否有 Test Item 關鍵字
+                test_item = self._detect_test_item_for_known_issues(query)
+                
+                if test_item:
+                    # 按 Test Item 查詢專案 Known Issues
+                    return IntentResult(
+                        intent=IntentType.QUERY_PROJECT_TEST_ITEM_KNOWN_ISSUES,
+                        parameters={'project_name': project_name, 'test_item': test_item},
+                        confidence=0.7,
+                        raw_response=f"Fallback: known issues by test item for {project_name}, test_item={test_item}"
+                    )
+                
+                # 檢查是否是數量查詢
+                if self._has_count_keywords(query):
+                    return IntentResult(
+                        intent=IntentType.COUNT_PROJECT_KNOWN_ISSUES,
+                        parameters={'project_name': project_name},
+                        confidence=0.7,
+                        raw_response=f"Fallback: count known issues for {project_name}"
+                    )
+                
+                # 一般專案 Known Issues 查詢
+                return IntentResult(
+                    intent=IntentType.QUERY_PROJECT_KNOWN_ISSUES,
+                    parameters={'project_name': project_name},
+                    confidence=0.7,
+                    raw_response=f"Fallback: known issues query for {project_name}"
+                )
+            
+            # ★★★ FW 版本列表查詢 ★★★
+            # 關鍵詞：「有哪些 FW」「FW 版本」「版本列表」「幾個版本」
+            fw_list_keywords = ['有哪些 fw', '有哪些fw', 'fw 版本', 'fw版本', '版本列表', 
+                               '幾個版本', '哪些版本', '什麼版本', '版本有哪些', 
+                               'firmware', 'list fw', 'fw list']
+            if any(kw in query_lower for kw in fw_list_keywords):
+                return IntentResult(
+                    intent=IntentType.LIST_FW_VERSIONS,
+                    parameters={'project_name': project_name},
+                    confidence=0.75,
+                    raw_response=f"Fallback: list FW versions for {project_name}"
                 )
             
             # 一般測試查詢
@@ -1395,8 +2275,55 @@ class SAFIntentAnalyzer:
         Returns:
             Optional[str]: 檢測到的專案名稱，或 None
         """
-        # 常見專案名稱模式
-        # 1. 大寫字母開頭的單詞（不是已知客戶或控制器）
+        # 排除的關鍵字（不應被識別為專案名稱）
+        excluded_keywords = {
+            'GET', 'POST', 'API', 'SAF',
+            # Known Issues 相關關鍵字
+            'Known', 'Issue', 'Issues', 'JIRA', 'Jira',
+            # 常見的非專案詞彙
+            'Test', 'Tests', 'Result', 'Results', 'Summary',
+            'Pass', 'Fail', 'Failed', 'Passed',
+            'FW', 'Firmware', 'Version', 'Versions',
+            'All', 'List', 'Count', 'Total', 'Query',
+            # 中文關鍵字
+            '比較', '對比', '差異', '幾版', '幾個', '測試', '結果', '項目',
+        }
+        
+        # ★★★ 模式 0：比較查詢專用 ★★★
+        # 格式：「比較 {project_name} ...」（支援小寫）
+        compare_project_pattern = r'(?:比較|對比|差異)\s+([a-zA-Z][a-zA-Z0-9_-]*)'
+        match = re.search(compare_project_pattern, query, re.IGNORECASE)
+        if match:
+            candidate = match.group(1)
+            if candidate.upper() not in {k.upper() for k in excluded_keywords}:
+                if candidate.upper() not in [c.upper() for c in KNOWN_CUSTOMERS]:
+                    if candidate.upper() not in [c.upper() for c in KNOWN_CONTROLLERS]:
+                        return candidate
+        
+        # 模式 1：檢測「專案」關鍵字前後的名稱
+        # 格式：「{project_name} 專案」 或 「專案 {project_name}」
+        project_patterns = [
+            r'([a-zA-Z][a-zA-Z0-9_-]*)\s*專案',  # xxx 專案
+            r'專案\s*([a-zA-Z][a-zA-Z0-9_-]*)',  # 專案 xxx
+            r'([a-zA-Z][a-zA-Z0-9_-]*)\s+的\s+known\s+issue',  # xxx 的 known issue
+            r'([a-zA-Z][a-zA-Z0-9_-]*)\s+的\s+issue',  # xxx 的 issue
+            r'([a-zA-Z][a-zA-Z0-9_-]*)\s+的\s+已知問題',  # xxx 的 已知問題
+            r'([a-zA-Z][a-zA-Z0-9_-]*)\s+known\s+issue',  # xxx known issue
+            r'([a-zA-Z][a-zA-Z0-9_-]*)\s+issue',  # xxx issue（如果單獨出現）
+            r'([a-zA-Z][a-zA-Z0-9_-]*)\s+有哪些',  # xxx 有哪些
+        ]
+        
+        for pattern in project_patterns:
+            match = re.search(pattern, query, re.IGNORECASE)
+            if match:
+                candidate = match.group(1)
+                if candidate and candidate not in excluded_keywords:
+                    # 檢查是否是已知客戶或控制器
+                    if candidate.upper() not in [c.upper() for c in KNOWN_CUSTOMERS]:
+                        if candidate.upper() not in [c.upper() for c in KNOWN_CONTROLLERS]:
+                            return candidate
+        
+        # 模式 2：大寫字母開頭的單詞（不是已知客戶或控制器）
         words = re.findall(r'\b([A-Z][a-zA-Z0-9]+)\b', query)
         
         for word in words:
@@ -1404,7 +2331,7 @@ class SAFIntentAnalyzer:
             # 排除已知客戶和控制器
             if word_upper not in [c.upper() for c in KNOWN_CUSTOMERS]:
                 if word_upper not in [c.upper() for c in KNOWN_CONTROLLERS]:
-                    if word not in ['GET', 'POST', 'API', 'SAF']:
+                    if word not in excluded_keywords:
                         return word
         
         return None
@@ -1446,6 +2373,72 @@ class SAFIntentAnalyzer:
         
         return None
 
+    def _detect_multi_fw_versions_for_compare(self, query: str) -> list[str]:
+        """
+        檢測查詢中的多個 FW 版本（用於比較查詢）
+        
+        Phase 18: 支援 2-10 個 FW 版本的比較。
+        專門用於處理「比較 FW1 和 FW2 和 FW3...」這類查詢。
+        
+        FW 版本常見格式：
+        1. CODE_Name_Capacity: PH10YC3H_Pyrite_4K, GD10YBJD_Opal
+        2. 簡短代碼: Y1114B, X0325A, GD10YBJD, HHB0YBC1
+        
+        Args:
+            query: 用戶查詢
+            
+        Returns:
+            list[str]: FW 版本列表（已去重，按出現順序），至少需要 2 個
+        """
+        all_matches = []
+        
+        # 模式 1：完整 FW 格式 CODE_Name_Capacity (如 PH10YC3H_Pyrite_4K)
+        full_fw_pattern = r'\b([A-Z]{2,}\d+[A-Z0-9]*_[A-Za-z]+(?:_[A-Za-z0-9]+)*)\b'
+        full_matches = re.findall(full_fw_pattern, query)
+        all_matches.extend(full_matches)
+        
+        # 模式 2：更寬鬆的字母數字組合（如 HHB0YBC1, GD10YBJD）
+        # 必須同時包含字母和數字，長度 >= 6
+        flexible_pattern = r'\b([A-Z0-9]{6,})\b'
+        flexible_matches = re.findall(flexible_pattern, query.upper())
+        
+        # 過濾掉純數字和專案名稱（通常是較短的或純字母的）
+        project_name = self._detect_project_name(query)
+        for match in flexible_matches:
+            # 確保同時包含字母和數字（FW 版本特徵）
+            has_letter = any(c.isalpha() for c in match)
+            has_digit = any(c.isdigit() for c in match)
+            # 排除專案名稱
+            is_project = project_name and match.upper() == project_name.upper()
+            
+            if has_letter and has_digit and not is_project and match not in all_matches:
+                all_matches.append(match)
+        
+        # 去重並保持順序
+        seen = set()
+        unique_versions = []
+        for v in all_matches:
+            if v and v not in seen:
+                seen.add(v)
+                unique_versions.append(v)
+        
+        return unique_versions
+    
+    def _detect_two_fw_versions_for_compare(self, query: str) -> tuple[Optional[str], Optional[str]]:
+        """
+        檢測查詢中的兩個 FW 版本（向後相容方法）
+        
+        Args:
+            query: 用戶查詢
+            
+        Returns:
+            tuple[Optional[str], Optional[str]]: (fw_version_1, fw_version_2)，找不到則返回 (None, None)
+        """
+        versions = self._detect_multi_fw_versions_for_compare(query)
+        if len(versions) >= 2:
+            return (versions[0], versions[1])
+        return (None, None)
+
     def _has_count_keywords(self, query: str) -> bool:
         """檢查是否包含數量相關關鍵字"""
         count_keywords = ['多少', '幾個', '數量', 'count', '總共', '專案數']
@@ -1455,6 +2448,73 @@ class SAFIntentAnalyzer:
         """檢查是否包含專案相關關鍵字"""
         project_keywords = ['專案', 'project', '有哪些', '列表', '列出']
         return any(kw in query.lower() for kw in project_keywords)
+    
+    def _detect_test_item_for_known_issues(self, query: str) -> Optional[str]:
+        """
+        從查詢中檢測 Test Item 名稱（用於 Known Issues 查詢）
+        
+        Args:
+            query: 用戶查詢
+            
+        Returns:
+            Optional[str]: 檢測到的 test_item，或 None
+        """
+        query_lower = query.lower()
+        
+        # 常見的 Test Item 關鍵字（按長度排序，優先匹配較長的）
+        test_items = [
+            # 完整名稱
+            'crystaldiskmark', 'crystal disk mark', 'crystal-disk-mark',
+            'smart', 's.m.a.r.t', 'smart data',
+            'performance', 'perf', '效能',
+            'compatibility', 'compat', '相容性',
+            'compliance', 'comp', '合規',
+            'stress', 'stress test', '壓力測試',
+            'endurance', '耐久性',
+            'power', 'power cycle', '電源',
+            'temperature', 'temp', '溫度',
+            'read', 'write', 'sequential', 'random',
+            '4k', '4kb', '1m', '1mb', '512k', '512kb',
+            # 其他常見測試項目
+            'nvme', 'sata', 'pcie', 'usb',
+            'trim', 'sanitize', 'format',
+            'boot', 'firmware', 'fw', 'bios',
+        ]
+        
+        for item in test_items:
+            if item in query_lower:
+                # 標準化返回值
+                item_mapping = {
+                    'crystal disk mark': 'CrystalDiskMark',
+                    'crystal-disk-mark': 'CrystalDiskMark',
+                    'crystaldiskmark': 'CrystalDiskMark',
+                    's.m.a.r.t': 'SMART',
+                    'smart data': 'SMART',
+                    'smart': 'SMART',
+                    'perf': 'Performance',
+                    'performance': 'Performance',
+                    '效能': 'Performance',
+                    'compat': 'Compatibility',
+                    'compatibility': 'Compatibility',
+                    '相容性': 'Compatibility',
+                    'comp': 'Compliance',
+                    'compliance': 'Compliance',
+                    '合規': 'Compliance',
+                    'stress test': 'Stress',
+                    '壓力測試': 'Stress',
+                    'stress': 'Stress',
+                    '耐久性': 'Endurance',
+                    'endurance': 'Endurance',
+                    'power cycle': 'Power Cycle',
+                    '電源': 'Power Cycle',
+                    'power': 'Power',
+                    'temp': 'Temperature',
+                    '溫度': 'Temperature',
+                    'temperature': 'Temperature',
+                }
+                return item_mapping.get(item, item.upper())
+        
+        return None
     
     def _detect_test_category(self, query: str) -> Optional[str]:
         """
