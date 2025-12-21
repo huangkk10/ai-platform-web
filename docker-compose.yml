@@ -79,10 +79,10 @@ services:
     environment:
       - TZ=Asia/Taipei
       - DEBUG=1
-      - DIFY_ENV=development
+      - DIFY_ENV=production
       - DB_HOST=postgres_db
       - DB_PORT=5432
-      - DB_NAME=ai_platform_dev
+      - DB_NAME=ai_platform
       - DB_USER=postgres
       - DB_PASSWORD=postgres123
       - REDIS_HOST=redis
@@ -116,10 +116,10 @@ services:
     environment:
       - TZ=Asia/Taipei
       - DEBUG=1
-      - DIFY_ENV=development
+      - DIFY_ENV=production
       - DB_HOST=postgres_db
       - DB_PORT=5432
-      - DB_NAME=ai_platform_dev
+      - DB_NAME=ai_platform
       - DB_USER=postgres
       - DB_PASSWORD=postgres123
       - REDIS_HOST=redis
@@ -153,10 +153,10 @@ services:
     environment:
       - TZ=Asia/Taipei
       - DEBUG=1
-      - DIFY_ENV=development
+      - DIFY_ENV=production
       - DB_HOST=postgres_db
       - DB_PORT=5432
-      - DB_NAME=ai_platform_dev
+      - DB_NAME=ai_platform
       - DB_USER=postgres
       - DB_PASSWORD=postgres123
       - REDIS_HOST=redis
