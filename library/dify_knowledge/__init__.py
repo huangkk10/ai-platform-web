@@ -82,6 +82,7 @@ KNOWLEDGE_ID_MAPPING = {
     'protocol_guide_db_prod': 'protocol_guide',   # 🆕 生產環境
     'protocol_guide': 'protocol_guide',
     'protocol-guide': 'protocol_guide',
+    'protocol_guide_database': 'protocol_guide',  # 🆕 Dify 使用的 ID
     'protocol_assistant': 'protocol_guide',
     'protocol_assistant_dev': 'protocol_guide',   # 🆕 開發環境
     'protocol_assistant_prod': 'protocol_guide',  # 🆕 生產環境
