@@ -553,15 +553,15 @@ const Sidebar = ({ collapsed, onCollapse }) => {
                 fontWeight: 'bold'
               }}
             >
-              IA
+              AI
             </Avatar>
             <div>
               <Text style={{ color: '#fff', fontSize: '20px', fontWeight: 'bold' }}>
-                IA
+                AI
               </Text>
               <br />
               <Text style={{ color: '#bdc3c7', fontSize: '14px' }}>
-                Intelligence Assistant
+                Assistant
               </Text>
             </div>
           </Space>
@@ -575,7 +575,7 @@ const Sidebar = ({ collapsed, onCollapse }) => {
               fontWeight: 'bold'
             }}
           >
-            IA
+            AI
           </Avatar>
         )}
       </div>
