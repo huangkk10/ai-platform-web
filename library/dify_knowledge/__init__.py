@@ -65,6 +65,7 @@ KNOWLEDGE_ID_MAPPING = {
     'know_issue_db_prod': 'know_issue',    # 🆕 生產環境
     'know_issue': 'know_issue', 
     'know-issue': 'know_issue',
+    'protocol_known_issue': 'know_issue',  # ✅ Protocol Known Issue System 使用的 ID
     
     # RVT Guide 相關
     'rvt_guide_db': 'rvt_guide',

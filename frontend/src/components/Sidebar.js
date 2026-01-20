@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Layout, Menu, Avatar, Space, Typography, Dropdown, Tooltip } from 'antd';
+import { Layout, Menu, Avatar, Space, Typography, Dropdown, Tooltip, Tag } from 'antd';
 import {
   SettingOutlined,
   MenuFoldOutlined,
@@ -556,9 +556,16 @@ const Sidebar = ({ collapsed, onCollapse }) => {
               IA
             </Avatar>
             <div>
-              <Text style={{ color: '#fff', fontSize: '20px', fontWeight: 'bold' }}>
-                AI Assistant
-              </Text>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Text style={{ color: '#fff', fontSize: '20px', fontWeight: 'bold' }}>
+                  AI Assistant
+                </Text>
+                {process.env.REACT_APP_DEPLOY_ENV === 'develop' && (
+                  <Tag color="orange" style={{ fontSize: '11px', padding: '0 6px', marginTop: '2px' }}>
+                    Beta
+                  </Tag>
+                )}
+              </div>
               <br />
               {/* <Text style={{ color: '#bdc3c7', fontSize: '14px' }}>
                 AI Assistant

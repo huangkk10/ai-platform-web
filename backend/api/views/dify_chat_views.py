@@ -122,13 +122,13 @@ def dify_chat_with_file(request):
 
 @csrf_exempt
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])  # 修復：要求認證
+@permission_classes([AllowAny])  # ✅ 修復：允許訪客使用（與其他 Assistant 一致）
 def dify_chat(request):
     """
     Dify Chat API - 使用 Protocol Known Issue 配置（用於 Protocol RAG）
     
     🔄 重構後：直接使用 library/dify_integration/protocol_chat_handler.py 處理
-    🔒 權限修復：要求用戶認證後才能使用 Protocol RAG
+    ✅ 權限修復：允許訪客和認證用戶使用 Protocol RAG
     """
     try:
         if dify_protocol_chat_api:

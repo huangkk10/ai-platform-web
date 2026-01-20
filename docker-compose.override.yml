@@ -1,0 +1,11 @@
+# docker-compose.override.yml
+# ⚠️ 此檔案僅存在於 develop branch，用於自動覆蓋 docker-compose.yml 的設定
+# Docker Compose 會自動合併 docker-compose.yml 和 docker-compose.override.yml
+
+services:
+  react:
+    build:
+      args:
+        - REACT_APP_DEPLOY_ENV=develop
+    environment:
+      - REACT_APP_DEPLOY_ENV=develop
