@@ -16,7 +16,7 @@ class DatabaseSearchService:
     """
     
     @staticmethod
-    def search_know_issue_knowledge(query_text: str, limit: int = 5) -> List[Dict[str, Any]]:
+    def search_know_issue_knowledge(query_text: str, limit: int = 5, threshold: float = 0.35, **kwargs) -> List[Dict[str, Any]]:
         """
         在 PostgreSQL 中搜索 Know Issue 知識庫
         🆕 優先使用向量搜索，如果不可用則回退到關鍵字搜索
@@ -24,60 +24,66 @@ class DatabaseSearchService:
         Args:
             query_text: 搜索關鍵字
             limit: 返回結果數量限制
+            threshold: 相似度閾值 (0.0 ~ 1.0)，預設 0.35
+            **kwargs: 接受額外參數（向後兼容）
             
         Returns:
             搜索結果列表，每個結果包含 id, title, content, score, metadata
         """
         try:
             # 🔄 直接使用關鍵字搜索（已禁用向量搜索）
-            logger.info("使用關鍵字搜索 Know Issue 知識庫")
+            logger.info(f"使用關鍵字搜索 Know Issue 知識庫 (threshold={threshold})")
             with connection.cursor() as cursor:
+                # 使用子查詢來支援 HAVING 子句過濾 score
                 sql = """
-                SELECT 
-                    ki.id,
-                    ki.issue_id,
-                    ki.test_version,
-                    ki.jira_number,
-                    ki.project,
-                    ki.test_class_id,
-                    tc.name as test_class_name,
-                    ki.script,
-                    ki.issue_type,
-                    ki.status,
-                    ki.error_message,
-                    ki.supplement,
-                    ki.created_at,
-                    ki.updated_at,
-                    ki.updated_by_id,
-                    u.username as updated_by_name,
-                    u.first_name as updated_by_first_name,
-                    u.last_name as updated_by_last_name,
-                    CASE 
-                        WHEN ki.issue_id ILIKE %s THEN 1.0
-                        WHEN ki.project ILIKE %s THEN 0.9
-                        WHEN tc.name ILIKE %s THEN 0.8
-                        WHEN u.username ILIKE %s THEN 0.8
-                        WHEN u.first_name ILIKE %s THEN 0.8
-                        WHEN u.last_name ILIKE %s THEN 0.8
-                        WHEN ki.error_message ILIKE %s THEN 0.7
-                        WHEN ki.supplement ILIKE %s THEN 0.6
-                        WHEN ki.script ILIKE %s THEN 0.5
-                        ELSE 0.3
-                    END as score
-                FROM know_issue ki
-                LEFT JOIN protocol_test_class tc ON ki.test_class_id = tc.id
-                LEFT JOIN auth_user u ON ki.updated_by_id = u.id
-                WHERE 
-                    ki.issue_id ILIKE %s OR 
-                    ki.project ILIKE %s OR 
-                    tc.name ILIKE %s OR 
-                    u.username ILIKE %s OR 
-                    u.first_name ILIKE %s OR 
-                    u.last_name ILIKE %s OR 
-                    ki.error_message ILIKE %s OR 
-                    ki.supplement ILIKE %s OR 
-                    ki.script ILIKE %s
-                ORDER BY score DESC, ki.created_at DESC
+                SELECT * FROM (
+                    SELECT 
+                        ki.id,
+                        ki.issue_id,
+                        ki.test_version,
+                        ki.jira_number,
+                        ki.project,
+                        ki.test_class_id,
+                        tc.name as test_class_name,
+                        ki.script,
+                        ki.issue_type,
+                        ki.status,
+                        ki.error_message,
+                        ki.supplement,
+                        ki.created_at,
+                        ki.updated_at,
+                        ki.updated_by_id,
+                        u.username as updated_by_name,
+                        u.first_name as updated_by_first_name,
+                        u.last_name as updated_by_last_name,
+                        CASE 
+                            WHEN ki.issue_id ILIKE %s THEN 1.0
+                            WHEN ki.project ILIKE %s THEN 0.9
+                            WHEN tc.name ILIKE %s THEN 0.8
+                            WHEN u.username ILIKE %s THEN 0.8
+                            WHEN u.first_name ILIKE %s THEN 0.8
+                            WHEN u.last_name ILIKE %s THEN 0.8
+                            WHEN ki.error_message ILIKE %s THEN 0.7
+                            WHEN ki.supplement ILIKE %s THEN 0.6
+                            WHEN ki.script ILIKE %s THEN 0.5
+                            ELSE 0.3
+                        END as score
+                    FROM know_issue ki
+                    LEFT JOIN protocol_test_class tc ON ki.test_class_id = tc.id
+                    LEFT JOIN auth_user u ON ki.updated_by_id = u.id
+                    WHERE 
+                        ki.issue_id ILIKE %s OR 
+                        ki.project ILIKE %s OR 
+                        tc.name ILIKE %s OR 
+                        u.username ILIKE %s OR 
+                        u.first_name ILIKE %s OR 
+                        u.last_name ILIKE %s OR 
+                        ki.error_message ILIKE %s OR 
+                        ki.supplement ILIKE %s OR 
+                        ki.script ILIKE %s
+                ) AS scored_results
+                WHERE score >= %s
+                ORDER BY score DESC, created_at DESC
                 LIMIT %s
                 """
                 
@@ -89,6 +95,7 @@ class DatabaseSearchService:
                     search_pattern, search_pattern, search_pattern,
                     search_pattern, search_pattern, search_pattern,
                     search_pattern, search_pattern, search_pattern,
+                    threshold,  # ✅ 添加 threshold 參數
                     limit
                 ])
                 
@@ -456,9 +463,9 @@ class DatabaseSearchService:
 
 
 # 向後相容的函數別名，讓現有代碼可以繼續使用
-def search_know_issue_knowledge(query_text: str, limit: int = 5) -> List[Dict[str, Any]]:
-    """向後相容的函數別名"""
-    return DatabaseSearchService.search_know_issue_knowledge(query_text, limit)
+def search_know_issue_knowledge(query_text: str, limit: int = 5, threshold: float = 0.35, **kwargs) -> List[Dict[str, Any]]:
+    """向後相容的函數別名，支援 threshold 參數"""
+    return DatabaseSearchService.search_know_issue_knowledge(query_text, limit, threshold, **kwargs)
 
 
 def search_rvt_guide_knowledge(query_text: str, limit: int = 5) -> List[Dict[str, Any]]:

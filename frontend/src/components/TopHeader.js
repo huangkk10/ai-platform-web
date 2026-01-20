@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Layout, Button, Dropdown, Avatar, Space, Typography, message } from 'antd';
+import { Layout, Button, Dropdown, Avatar, Space, Typography, message, Tag } from 'antd';
 import { 
   MenuOutlined,
   UserOutlined,
@@ -153,6 +153,11 @@ const TopHeader = ({ collapsed, onToggleSidebar, pageTitle, extraActions }) => {
               }}>
                 {typeof pageTitle === 'object' ? pageTitle.text : pageTitle}
               </Text>
+              {process.env.REACT_APP_DEPLOY_ENV === 'develop' && (
+                <Tag color="orange" style={{ fontSize: '11px', padding: '0 6px' }}>
+                  Beta
+                </Tag>
+              )}
               {typeof pageTitle === 'object' && pageTitle.id && (
                 <Text style={{ 
                   fontSize: '14px', 

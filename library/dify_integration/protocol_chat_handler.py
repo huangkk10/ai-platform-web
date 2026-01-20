@@ -3,6 +3,10 @@ Dify Protocol Chat Handler
 
 專門處理 Protocol Known Issue 配置的聊天功能
 提供完整的錯誤處理、重試機制和 Django Response 整合
+
+🎯 資料來源：know_issue 表（已知問題資料庫）
+📊 搜尋範圍：Issue ID、錯誤訊息、專案名稱、JIRA 號碼等
+🔍 搜尋方式：向量語義搜尋 + 關鍵字搜尋
 """
 
 import requests
@@ -181,10 +185,10 @@ class ProtocolChatHandler:
     
     def _perform_backend_search(self, query, version_config):
         """
-        🆕 執行後端向量搜尋
+        🆕 執行後端向量搜尋 - 搜尋 Know Issue 資料庫
         
-        使用 ProtocolGuideSearchService 執行搜尋，
-        並將版本配置傳遞下去（啟用 Title Boost 等功能）
+        使用 KnowIssueSearchService 執行搜尋，
+        專門搜尋 know_issue 表中的已知問題
         
         Args:
             query: 用戶查詢
@@ -194,50 +198,86 @@ class ProtocolChatHandler:
             格式化的搜尋結果字串（作為 Dify 的 Context）
         """
         try:
-            from library.protocol_guide.search_service import ProtocolGuideSearchService
+            from library.know_issue.search_service import KnowIssueSearchService
             
-            logger.info(f"🔍 執行後端搜尋: query='{query}', version={version_config.get('version_name')}")
+            logger.info(f"🔍 執行 Know Issue 搜尋: query='{query}', version={version_config.get('version_name') if version_config else 'None'}")
             
-            search_service = ProtocolGuideSearchService()
+            search_service = KnowIssueSearchService()
             
-            # 執行搜尋（傳遞版本配置）
+            # 執行搜尋（Know Issue 不需要 version_config）
             results = search_service.search_knowledge(
                 query=query,
                 limit=5,
                 use_vector=True,
-                threshold=0.7,
-                version_config=version_config  # 🆕 傳遞版本配置
+                threshold=0.6  # Know Issue 使用較低的閾值（更寬鬆）
             )
             
             if not results:
-                logger.info("⚠️ 後端搜尋無結果")
+                logger.info("⚠️ Know Issue 搜尋無結果")
                 return ""
             
-            # 格式化搜尋結果為 Context
+            # 格式化搜尋結果為 Context（從資料庫獲取完整資料）
+            from api.models import KnowIssue
+            
             context_parts = []
             for i, result in enumerate(results, 1):
-                title = result.get('title', '未知標題')
-                content = result.get('content', '')
+                # 從 metadata 獲取 issue ID
+                issue_db_id = result.get('metadata', {}).get('id')
                 score = result.get('score', 0.0)
                 
-                # 檢查是否使用了 Title Boost
-                metadata = result.get('metadata', {})
-                title_boost_applied = metadata.get('title_boost_applied', False)
-                boost_indicator = " [Title Boost ✨]" if title_boost_applied else ""
+                if not issue_db_id:
+                    # 降級：使用搜尋結果本身
+                    content_text = result.get('content', '無資料')
+                    context_parts.append(
+                        f"[Known Issue {i}] (相似度: {score:.2%})\n{content_text}"
+                    )
+                    continue
                 
-                context_parts.append(
-                    f"[文檔 {i}] {title}{boost_indicator} (相似度: {score:.2%})\n"
-                    f"{content[:500]}..."  # 限制長度
-                )
+                try:
+                    # 從資料庫查詢完整資料
+                    issue = KnowIssue.objects.get(id=issue_db_id)
+                    
+                    # 組合標題資訊
+                    header_parts = [f"Issue {issue.issue_id}"]
+                    if issue.project:
+                        header_parts.append(f"專案: {issue.project}")
+                    if issue.jira_number:
+                        header_parts.append(f"JIRA: {issue.jira_number}")
+                    if issue.issue_type:
+                        header_parts.append(f"類型: {issue.issue_type}")
+                    if issue.status and issue.status != 'N/A':
+                        header_parts.append(f"狀態: {issue.status}")
+                    
+                    header = " | ".join(header_parts)
+                    
+                    # 組合完整內容
+                    content_parts_text = []
+                    if issue.error_message:
+                        content_parts_text.append(f"錯誤訊息：{issue.error_message}")
+                    if issue.supplement:
+                        content_parts_text.append(f"補充說明：{issue.supplement}")
+                    if issue.script:
+                        content_parts_text.append(f"相關腳本：{issue.script}")
+                    
+                    full_content = "\n\n".join(content_parts_text)
+                    
+                    context_parts.append(
+                        f"[Known Issue {i}] {header} (相似度: {score:.2%})\n\n"
+                        f"{full_content[:1500]}"
+                    )
+                    
+                except KnowIssue.DoesNotExist:
+                    logger.warning(f"⚠️ Know Issue ID {issue_db_id} 不存在")
+                    continue
             
             context = "\n\n".join(context_parts)
             
-            logger.info(f"✅ 後端搜尋完成: 返回 {len(results)} 個結果")
+            logger.info(f"✅ Know Issue 搜尋完成: 返回 {len(results)} 個結果")
             
             return context
             
         except Exception as e:
-            logger.error(f"❌ 後端搜尋失敗: {e}", exc_info=True)
+            logger.error(f"❌ Know Issue 搜尋失敗: {e}", exc_info=True)
             return ""
     
     def _get_dify_config(self):
@@ -290,10 +330,15 @@ class ProtocolChatHandler:
         Returns:
             Django Response 對象
         """
-        # 🆕 步驟 1: 執行後端搜尋（如果有版本配置）
-        search_context = ""
-        if version_config:
-            search_context = self._perform_backend_search(message, version_config)
+#         # 🆕 步驟 1: 執行後端搜尋（如果有版本配置）
+#         search_context = ""
+#         if version_config:
+#             search_context = self._perform_backend_search(message, version_config)
+#             logger.info(f"📝 搜尋 Context 長度: {len(search_context)} 字元")
+#             if search_context:
+#                 logger.info(f"📝 完整 Context: {search_context}")
+#             else:
+#                 logger.warning("⚠️ 搜尋 Context 為空，Dify 將無上下文資訊")
         
         # 步驟 2: 準備請求
         headers = {
@@ -302,7 +347,7 @@ class ProtocolChatHandler:
         }
         
         payload = {
-            'inputs': {'context': search_context} if search_context else {},  # 🆕 傳遞搜尋結果
+            'inputs': {},  # ✅ 使用 Dify 工作室的外部知識庫設定
             'query': message,
             'response_mode': 'blocking',
             'user': f"web_user_{user.id if user.is_authenticated else 'guest'}"
@@ -515,3 +560,8 @@ def handle_protocol_chat_api(request, config_manager=None):
     """
     handler = create_protocol_chat_handler(config_manager)
     return handler.handle_chat_request(request)
+
+
+# ============= 為了向後相容，提供別名 =============
+# dify_chat_views.py 導入時使用的名稱
+dify_protocol_chat_api = handle_protocol_chat_api
