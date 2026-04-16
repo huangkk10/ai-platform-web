@@ -37,12 +37,12 @@ else:
     # 備用配置
     DIFY_CONFIG = {
         'dataset_api_key': 'dataset-JLa32OwILQHkgPqYStTCW4sC',
-        'base_url': 'http://10.10.172.37'
+        'base_url': 'http://10.253.43.244'
     }
     RVT_CONFIG = {
-        'api_url': 'http://10.10.172.37/v1/chat-messages',
+        'api_url': 'http://10.253.43.244/v1/chat-messages',
         'api_key': 'app-Lp4mlfIWHqMWPHTlzF9ywT4F',
-        'base_url': 'http://10.10.172.37'
+        'base_url': 'http://10.253.43.244'
     }
 
 # 從上次測試得到的資料集 ID

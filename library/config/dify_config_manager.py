@@ -27,7 +27,7 @@ except ImportError as e:
     
     def get_ai_pc_ip_with_env():
         """備用函數：如果配置載入器不可用，返回預設 IP"""
-        return os.getenv('AI_PC_IP', '10.10.172.37')
+        return os.getenv('AI_PC_IP', '10.253.43.244')
 
 
 @dataclass
@@ -112,7 +112,7 @@ class DifyConfigManager:
     }
     
     # 生產環境 API Keys（正式命名的 App，無後綴）
-    # 這些 App 連結到生產機 (10.10.173.29) 的外部知識庫 API
+    # 這些 App 連結到生產機 (10.10.172.123) 的外部知識庫 API
     PROD_API_KEYS = {
         'protocol_known_issue': 'app-Sql11xracJ71PtZThNJ4ZQQW',  # Protocol_known_issue_system
         'protocol_guide': 'app-MgZZOhADkEmdUrj2DtQLJ23G',        # Protocol_Guide

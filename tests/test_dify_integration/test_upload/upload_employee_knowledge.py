@@ -12,7 +12,7 @@ from datetime import datetime
 
 # Dify API 配置
 DIFY_CONFIG = {
-    'base_url': 'http://10.10.172.37',
+    'base_url': 'http://10.253.43.244',
     'dataset_api_key': 'dataset-JLa32OwILQHkgPqYStTCW4sC'
 }
 
@@ -232,7 +232,7 @@ def main():
     print("=" * 60)
     print(f"📋 知識庫 ID: {dataset_id}")
     print(f"📄 文檔 ID: {document_id}")
-    print(f"🔗 您可以在 Dify UI 中查看: http://10.10.172.37/datasets/{dataset_id}")
+    print(f"🔗 您可以在 Dify UI 中查看: http://10.253.43.244/datasets/{dataset_id}")
     print(f"🤖 接下來可以在 Chat 應用中關聯此知識庫進行對話測試")
 
 if __name__ == "__main__":

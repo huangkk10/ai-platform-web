@@ -2,7 +2,7 @@
 遠端資料庫主機監控器
 
 透過 PostgreSQL 連線獲取資料庫主機的磁碟使用資訊
-由於資料庫已遷移到獨立主機 (10.10.173.29)，需要監控該主機的資源狀態
+由於資料庫已遷移到獨立主機 (10.10.172.123)，需要監控該主機的資源狀態
 
 功能：
 - 獲取資料庫大小
@@ -99,7 +99,7 @@ class RemoteDatabaseMonitor:
         
         # SSH 連線設定（從環境變數或配置載入）
         self.ssh_config = {
-            'host': self.config.get('host', '10.10.173.29'),
+            'host': self.config.get('host', '10.10.172.123'),
             'username': os.environ.get('DB_HOST_SSH_USER', 'svd-ai'),
             'password': os.environ.get('DB_HOST_SSH_PASSWORD', '1'),
             'port': 22,
@@ -116,14 +116,14 @@ class RemoteDatabaseMonitor:
         except Exception as e:
             self.logger.warning(f"載入配置失敗，使用預設值: {str(e)}")
             return {
-                'host': '10.10.173.29',
+                'host': '10.10.172.123',
                 'port': 5432,
                 'database': 'ai_platform'
             }
     
     def get_database_host(self) -> str:
         """獲取資料庫主機 IP"""
-        return self.config.get('host', '10.10.173.29')
+        return self.config.get('host', '10.10.172.123')
     
     def get_database_disk_info(self, connection=None) -> RemoteDatabaseDiskInfo:
         """

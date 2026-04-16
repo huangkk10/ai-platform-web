@@ -76,7 +76,7 @@ class ConfigLoader:
         """
         return {
             "ai_server": {
-                "ai_pc_ip": "10.10.172.37"  # 預設 AI PC IP
+                "ai_pc_ip": "10.253.43.244"  # 預設 AI PC IP
             },
             "web_server": {
                 "web_ip": "10.10.172.127"  # 預設 Web Server IP
@@ -124,7 +124,7 @@ class ConfigLoader:
         Returns:
             str: IP 地址
         """
-        return self.get('ai_server.ai_pc_ip', '10.10.172.37')
+        return self.get('ai_server.ai_pc_ip', '10.253.43.244')
     
     def get_web_ip(self) -> str:
         """
@@ -268,7 +268,7 @@ def get_ai_pc_ip_with_env() -> str:
     Returns:
         str: IP 地址
     """
-    return get_config_with_env_override('ai_server.ai_pc_ip', 'AI_PC_IP', '10.10.172.37')
+    return get_config_with_env_override('ai_server.ai_pc_ip', 'AI_PC_IP', '10.253.43.244')
 
 
 def get_web_ip() -> str:

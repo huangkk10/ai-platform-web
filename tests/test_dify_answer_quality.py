@@ -28,7 +28,7 @@ class DifyAnswerQualityTest:
     """Dify 回答品質測試類"""
     
     def __init__(self):
-        self.api_url = "http://10.10.172.37/v1/chat-messages"
+        self.api_url = "http://10.253.43.244/v1/chat-messages"
         self.api_key = "app-MgZZOhADkEmdUrj2DtQLJ23G"  # Protocol Guide API Key
         self.test_query = "crystaldiskmark 如何放測"
         self.results = []

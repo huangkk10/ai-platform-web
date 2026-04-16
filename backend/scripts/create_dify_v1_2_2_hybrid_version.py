@@ -28,7 +28,7 @@ try:
     from config.config_loader import get_ai_pc_ip_with_env
 except ImportError:
     def get_ai_pc_ip_with_env():
-        return os.getenv('AI_PC_IP', '10.10.172.37')
+        return os.getenv('AI_PC_IP', '10.253.43.244')
 
 from api.models import DifyConfigVersion
 from django.contrib.auth.models import User

@@ -46,7 +46,7 @@ def send_feedback_to_dify(message_id: str, is_helpful: bool, user_id: str = None
             }
         
         # 構建 Dify Feedback API URL
-        # base_url 例如: http://10.10.172.37
+        # base_url 例如: http://10.253.43.244
         # Feedback API: POST /v1/messages/{message_id}/feedbacks
         feedback_url = f"{config.base_url}/v1/messages/{message_id}/feedbacks"
         

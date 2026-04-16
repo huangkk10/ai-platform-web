@@ -18,7 +18,7 @@ try:
 except ImportError:
     _CONFIG_LOADER_AVAILABLE = False
     def get_ai_pc_ip_with_env():
-        return os.getenv('AI_PC_IP', '10.10.172.37')
+        return os.getenv('AI_PC_IP', '10.253.43.244')
 
 
 def _get_ai_pc_ip():
