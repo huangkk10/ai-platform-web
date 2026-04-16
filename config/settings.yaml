@@ -3,7 +3,7 @@
 
 # AI 服務器配置
 ai_server:
-  ai_pc_ip: "10.10.172.37"
+  ai_pc_ip: "10.253.43.244"
   # 其他 AI 服務相關配置可以在此添加
   # ai_port: 80
   # ai_protocol: "http"
@@ -19,7 +19,7 @@ web_server:
 # ⚠️ 重要：資料庫已遷移到獨立主機，修改此配置後需同步更新 docker-compose.yml
 # 參考文檔：docs/deployment/database-migration-plan.md
 database_server:
-  host: "10.10.173.29"          # 資料庫主機 IP
+  host: "10.10.172.123"          # 資料庫主機 IP
   port: 5432                     # PostgreSQL 端口
   database: "ai_platform"        # 資料庫名稱
   user: "postgres"               # 資料庫用戶
@@ -31,7 +31,7 @@ database_server:
   
   # Adminer Web 管理介面
   adminer_port: 9090
-  adminer_url: "http://10.10.173.29:9090"
+  adminer_url: "http://10.10.172.123:9090"
 
 # 舊的資料庫配置（已廢棄，保留供參考）
 # database:
