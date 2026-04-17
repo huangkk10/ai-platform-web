@@ -272,9 +272,12 @@ INTENT_ANALYSIS_PROMPT = """
 用戶想知道專案數量時使用。
 - 常見問法：
   - 「有多少專案」「幾個專案」「專案數量」「總共多少專案」
-  - 「XX 有多少專案」「XX 有幾個專案」「XX 專案數」
+  - 「XX 有多少專案」「XX 有幾個專案」「XX 專案數」（XX 為客戶名稱，如 WD, Samsung）
   - 「統計專案數量」「專案總數」
 - 參數：customer (可選，若指定特定客戶)
+- 【重要區分】
+  - 如果問題中有「Known Issues」「issue」「issues」「已知問題」→ 不使用 count_projects，而應使用 count_project_known_issues 或相關 intent
+  - 「XX 有多少專案」中的 XX 是客戶名稱（WD, Samsung 等），若 XX 是專案名稱（DEMETER, Springsteen）則是 count_project_known_issues
 
 ### 16. list_all_customers - 列出所有客戶
 用戶想知道系統中有哪些客戶時使用。
@@ -1299,6 +1302,12 @@ Sub Version 代碼：AA (512GB), AB (1024GB/1TB), AC (2048GB/2TB), AD (4096GB/4T
 輸入：Springsteen 的 issues 數量
 輸出：{"intent": "count_project_known_issues", "parameters": {"project_name": "Springsteen"}, "confidence": 0.92}
 
+輸入：Springsteen 專案有多少 Known Issues？
+輸出：{"intent": "count_project_known_issues", "parameters": {"project_name": "Springsteen"}, "confidence": 0.95}
+
+輸入：DEMETER 專案有多少 Known Issues
+輸出：{"intent": "count_project_known_issues", "parameters": {"project_name": "DEMETER"}, "confidence": 0.95}
+
 輸入：統計 XX 的問題數量
 輸出：{"intent": "count_project_known_issues", "parameters": {"project_name": "XX"}, "confidence": 0.90}
 
@@ -1799,14 +1808,17 @@ class SAFIntentAnalyzer:
         detected_customer = self._detect_customer(query)
         if detected_customer:
             # 檢查是數量查詢還是列表查詢
-            if self._has_count_keywords(query):
+            # 注意：若包含 known issues 關鍵字，跳過此處，讓後續步驟正確處理
+            _ki_check = ['known issue', 'known issues', 'known-issue', 'known-issues',
+                         'issue', 'issues', '已知問題']
+            if self._has_count_keywords(query) and not any(kw in query_lower for kw in _ki_check):
                 return IntentResult(
                     intent=IntentType.COUNT_PROJECTS,
                     parameters={'customer': detected_customer},
                     confidence=0.6,
                     raw_response=f"Fallback: detected customer={detected_customer}, count query"
                 )
-            elif self._has_project_keywords(query):
+            elif self._has_project_keywords(query) and not any(kw in query_lower for kw in _ki_check):
                 return IntentResult(
                     intent=IntentType.QUERY_PROJECTS_BY_CUSTOMER,
                     parameters={'customer': detected_customer},
@@ -1825,7 +1837,11 @@ class SAFIntentAnalyzer:
             )
         
         # 3. 通用數量查詢（無特定客戶）
-        if self._has_count_keywords(query):
+        # 注意：若查詢包含 known issues 關鍵字，不應在此提前返回，
+        # 須讓後續步驟（6.5 / 8）正確分派至 COUNT_PROJECT_KNOWN_ISSUES
+        known_issues_early_check = ['known issue', 'known issues', 'known-issue', 'known-issues',
+                                    'issue', 'issues', '已知問題']
+        if self._has_count_keywords(query) and not any(kw in query_lower for kw in known_issues_early_check):
             return IntentResult(
                 intent=IntentType.COUNT_PROJECTS,
                 parameters={},
