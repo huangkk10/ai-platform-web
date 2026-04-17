@@ -1,6 +1,6 @@
 ---
 name: protocol-assistant
-description: 'Protocol Assistant 功能架構與實作知識。Use when: modifying Protocol Assistant chat flow, search routing, Dify integration, uncertainty detection, keyword detection, search modes (mode A / mode B), two-tier search, fallback logic, external knowledge base API, ProtocolGuide model, vector search, smart search router, or any Protocol Assistant related feature.'
+description: 'Protocol Assistant 功能架構與實作知識。Use when: modifying Protocol Assistant chat flow, search routing, Dify integration, uncertainty detection, keyword detection, search modes (mode A / mode B), two-tier search, fallback logic, external knowledge base API, ProtocolGuide model, vector search, vector database, pgvector, embeddings, document_embeddings, document_section_embeddings, SearchThresholdSetting, SectionSearchService, embedding model, multilingual-e5-large, cosine similarity, threshold, smart search router, or any Protocol Assistant related feature.'
 argument-hint: 'What do you want to understand or modify? (e.g., search routing, Dify call, fallback, keyword detection)'
 ---
 
@@ -14,6 +14,7 @@ argument-hint: 'What do you want to understand or modify? (e.g., search routing,
 | 完整呼叫流程圖 | [flow.md](./references/flow.md) |
 | 所有檔案對應表 | [files-map.md](./references/files-map.md) |
 | 常見修改任務 | [common-tasks.md](./references/common-tasks.md) |
+| 向量資料庫架構與原理 | [vector-database.md](./references/vector-database.md) |
 
 ## 核心概念（必讀）
 
