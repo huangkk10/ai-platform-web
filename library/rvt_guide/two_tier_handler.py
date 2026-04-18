@@ -113,6 +113,23 @@ class TwoTierSearchHandler:
             
             stage_1_answer = stage_1_response.get('answer', '')
             
+            # 若 Dify 本身失敗（非空回答），記錄錯誤並提前降級
+            if stage_1_response.get('success') == False:
+                dify_error = stage_1_response.get('error', '未知錯誤')
+                logger.error(f"   ❌ 階段 1 Dify 呼叫失敗: {dify_error}")
+                return {
+                    'answer': f"\n\n---\n\n💡 **建議您參考以下文件以獲取更準確的資訊。**",
+                    'mode': 'mode_b',
+                    'stage': 1,
+                    'is_fallback': True,
+                    'fallback_reason': f'Dify 錯誤: {dify_error}',
+                    'message_id': None,
+                    'conversation_id': conversation_id,
+                    'response_time': time.time() - start_time,
+                    'tokens': {},
+                    'metadata': {},
+                }
+            
             # 檢測 AI 回答是否不確定
             is_stage_1_uncertain, stage_1_keyword = is_uncertain_response(stage_1_answer)
             
@@ -147,6 +164,23 @@ class TwoTierSearchHandler:
             )
             
             stage_2_answer = stage_2_response.get('answer', '')
+            
+            # 若 Dify 本身失敗，提前降級
+            if stage_2_response.get('success') == False:
+                dify_error = stage_2_response.get('error', '未知錯誤')
+                logger.error(f"   ❌ 階段 2 Dify 呼叫失敗: {dify_error}")
+                return {
+                    'answer': f"\n\n---\n\n💡 **建議您參考以下文件以獲取更準確的資訊。**",
+                    'mode': 'mode_b',
+                    'stage': 2,
+                    'is_fallback': True,
+                    'fallback_reason': f'Dify 錯誤 (Stage 2): {dify_error}',
+                    'message_id': None,
+                    'conversation_id': conversation_id,
+                    'response_time': time.time() - start_time,
+                    'tokens': {},
+                    'metadata': {},
+                }
             
             # 檢測階段 2 回答是否不確定
             is_stage_2_uncertain, stage_2_keyword = is_uncertain_response(stage_2_answer)
@@ -248,6 +282,26 @@ class TwoTierSearchHandler:
                 inputs=inputs,  # ← 通過 inputs 傳遞 search_mode
                 verbose=False
             )
+            
+            # 檢測 Dify 呼叫是否失敗
+            if response.get('success') == False:
+                error_msg = response.get('error', '未知錯誤')
+                logger.error(f"❌ Dify 回應失敗: {error_msg}")
+                
+                # 若是對話 ID 無效（過期/不存在），以空 ID 重試
+                if any(k in error_msg for k in ['Conversation Not Exists', 'conversation_id', '404', '400']):
+                    if conversation_id:
+                        logger.warning(f"   ⚠️ 對話 ID 無效，以空 ID 重試...")
+                        retry_response = self.dify_client.chat(
+                            question=rewritten_query,
+                            conversation_id="",
+                            user=user_id,
+                            inputs=inputs,
+                            verbose=False
+                        )
+                        if retry_response.get('success') != False:
+                            return retry_response
+                        logger.error(f"   ❌ 重試仍失敗: {retry_response.get('error')}")
             
             return response
         

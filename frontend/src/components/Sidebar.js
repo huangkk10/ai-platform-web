@@ -39,14 +39,14 @@ const Sidebar = ({ collapsed, onCollapse }) => {
   const getTopMenuItems = () => {
     const baseItems = [];
 
-    // Protocol RAG - 需要 web_protocol_rag 權限
-    if (isAuthenticated && user && hasPermission('webProtocolRAG')) {
-      baseItems.push({
-        key: 'know-issue-chat',
-        icon: <MessageOutlined />,
-        label: 'Protocol RAG',
-      });
-    }
+    // Protocol RAG - 暫時隱藏
+    // if (isAuthenticated && user && hasPermission('webProtocolRAG')) {
+    //   baseItems.push({
+    //     key: 'know-issue-chat',
+    //     icon: <MessageOutlined />,
+    //     label: 'Protocol RAG',
+    //   });
+    // }
 
     // AI OCR - 需要 web_ai_ocr 權限
     if (isAuthenticated && user && hasPermission('webAIOCR')) {

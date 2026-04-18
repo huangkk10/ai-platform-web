@@ -340,11 +340,13 @@ class AIOCRAPIHandler:
                         
                         return Response(response_data, status=status.HTTP_200_OK)
                     else:
+                        dify_error = result.get('error', '文件分析失敗')
+                        logger.error(f"AI OCR file analysis failed: {dify_error}")
                         return Response({
                             'success': False,
-                            'error': result.get('error', '文件分析失敗'),
+                            'error': dify_error,
                             'response_time': elapsed
-                        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                        }, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
                         
                 except Exception as e:
                     # 清理臨時文件

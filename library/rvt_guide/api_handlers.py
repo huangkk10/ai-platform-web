@@ -222,7 +222,7 @@ class RVTGuideAPIHandler(BaseKnowledgeBaseAPIHandler):
                     conversation=session,
                     role='assistant',
                     content=assistant_answer,
-                    message_id=message_id,  # Dify 返回的 message_id
+                    message_id=message_id or '',  # Dify 返回的 message_id（fallback 時為空字串）
                     response_time=response_time,
                     token_usage=tokens,
                     content_type='text'

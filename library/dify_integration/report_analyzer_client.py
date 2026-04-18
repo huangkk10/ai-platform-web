@@ -447,7 +447,10 @@ class ReportAnalyzerClient(DifyChatClient):
             "Authorization": f"Bearer {self.config['api_key']}",
             "Content-Type": "application/json"
         }
-        
+
+        last_error_msg = '所有聊天格式都失敗'
+        last_status_code = None
+
         for i, chat_data in enumerate(chat_formats, 1):
             if verbose:
                 print(f"📤 嘗試格式 {i}")
@@ -463,6 +466,7 @@ class ReportAnalyzerClient(DifyChatClient):
                 )
                 
                 elapsed = time.time() - start_time
+                last_status_code = response.status_code
                 
                 if verbose:
                     print(f"📥 響應狀態: {response.status_code}")
@@ -486,21 +490,27 @@ class ReportAnalyzerClient(DifyChatClient):
                             'raw_response': response_data
                         }
                 
-                # 記錄失敗但繼續嘗試
-                if verbose:
-                    try:
-                        error_data = response.json()
-                        print(f"⚠️ 格式 {i} 失敗: {error_data.get('message', 'Unknown error')}")
-                    except:
+                # 記錄失敗但繼續嘗試，保存最後一次的真實錯誤訊息
+                try:
+                    error_data = response.json()
+                    dify_msg = error_data.get('message', 'Unknown error')
+                    last_error_msg = f'Dify 錯誤 (HTTP {response.status_code}): {dify_msg}'
+                    if verbose:
+                        print(f"⚠️ 格式 {i} 失敗: {dify_msg}")
+                except Exception:
+                    last_error_msg = f'Dify 錯誤 (HTTP {response.status_code}): {response.text[:200]}'
+                    if verbose:
                         print(f"⚠️ 格式 {i} 失敗: {response.text[:100]}...")
                         
             except Exception as e:
+                last_error_msg = f'請求異常: {str(e)}'
                 if verbose:
                     print(f"⚠️ 格式 {i} 異常: {str(e)}")
         
         return {
             'success': False,
-            'error': '所有聊天格式都失敗',
+            'error': last_error_msg,
+            'dify_status_code': last_status_code,
             'response_time': 0
         }
 
