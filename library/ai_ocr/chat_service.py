@@ -463,7 +463,7 @@ class AIOCRChatService:
                 
                 save_result = ocr_db_manager.save_benchmark_data(
                     parsed_data,
-                    original_image_data=uploaded_file.read(),
+                    original_image_data=None,  # 檔案已被讀取，不重複讀取
                     original_image_filename=uploaded_file.name,
                     original_image_content_type=uploaded_file.content_type,
                     ai_raw_text=ai_answer,

@@ -1009,6 +1009,138 @@ class OCRDatabaseManager:
             print(f"❌ 保存到 OCR 資料庫失敗: {e}")
             return {'success': False, 'error': str(e)}
     
+    def save_benchmark_data(self, parsed_data: Dict[str, Any],
+                            original_image_data: bytes = None,
+                            original_image_filename: str = None,
+                            original_image_content_type: str = None,
+                            ai_raw_text: str = '',
+                            uploaded_by=None,
+                            project_name: str = None) -> Dict[str, Any]:
+        """
+        保存 benchmark 數據到資料庫（供 api_handlers 使用）
+        
+        Args:
+            parsed_data (dict): 解析出的測試資料
+            original_image_data (bytes): 原始圖片數據（選填，目前不存入資料庫）
+            original_image_filename (str): 原始圖片檔名（選填）
+            original_image_content_type (str): 圖片 MIME 類型（選填）
+            ai_raw_text (str): AI 回答的原始文本
+            uploaded_by: 上傳者 User instance
+            project_name (str): 專案名稱（若提供則覆蓋 parsed_data 中的值）
+            
+        Returns:
+            dict: 保存結果
+        """
+        try:
+            # 準備 JSON 安全的資料
+            json_safe_data = parsed_data.copy()
+            if isinstance(json_safe_data.get('test_datetime'), datetime):
+                json_safe_data['test_datetime'] = json_safe_data['test_datetime'].isoformat()
+            # 移除不可序列化的 raw_ai_response（若存在）
+            json_safe_data.pop('raw_ai_response', None)
+            
+            # 處理 test_item，根據解析出的值查找對應的 OCRTestClass
+            test_class_id = None
+            if parsed_data.get('test_item'):
+                test_item_name = parsed_data['test_item']
+                print(f"🔍 查找測試項目: {test_item_name}")
+                try:
+                    from api.models import OCRTestClass
+                    test_class = OCRTestClass.objects.filter(
+                        name__iexact=test_item_name, is_active=True
+                    ).first()
+                    if not test_class:
+                        test_class = OCRTestClass.objects.filter(
+                            name__icontains=test_item_name, is_active=True
+                        ).first()
+                    if not test_class:
+                        for cls in OCRTestClass.objects.filter(is_active=True):
+                            if test_item_name.upper() in cls.name.upper() or cls.name.upper() in test_item_name.upper():
+                                test_class = cls
+                                break
+                    if test_class:
+                        test_class_id = test_class.id
+                        print(f"✅ 找到匹配的測試類別: {test_class.name} (ID: {test_class_id})")
+                    else:
+                        print(f"⚠️ 未找到匹配的測試類別: {test_item_name}")
+                except Exception as e:
+                    print(f"⚠️ 查找測試類別時發生錯誤: {e}")
+            
+            # 使用傳入的 project_name 覆蓋 parsed_data 中的值
+            effective_project_name = project_name or parsed_data.get('project_name')
+            
+            save_data = {
+                'project_name': effective_project_name,
+                'benchmark_score': parsed_data.get('benchmark_score'),
+                'average_bandwidth': parsed_data.get('average_bandwidth'),
+                'device_model': parsed_data.get('device_model'),
+                'firmware_version': parsed_data.get('firmware_version'),
+                'benchmark_version': parsed_data.get('benchmark_version', ''),
+                'mark_version_3d': parsed_data.get('benchmark_version'),
+                'test_class_id': test_class_id,
+                'ocr_raw_text': ai_raw_text,
+                'ai_structured_data': json_safe_data,
+                'ocr_confidence': parsed_data.get('ocr_confidence', 0.95),
+                'uploaded_by': uploaded_by,
+            }
+            
+            # 處理測試時間
+            if parsed_data.get('test_datetime'):
+                if isinstance(parsed_data['test_datetime'], datetime):
+                    save_data['test_datetime'] = parsed_data['test_datetime']
+                else:
+                    try:
+                        test_date_str = str(parsed_data['test_datetime']).replace('/', '-').replace('‑', '-').strip()
+                        date_formats = [
+                            '%Y-%m-%d %H:%M:%S',
+                            '%Y-%m-%d %H:%M',
+                            '%Y/%m/%d %H:%M:%S',
+                            '%Y/%m/%d %H:%M'
+                        ]
+                        parsed_datetime = None
+                        for fmt in date_formats:
+                            try:
+                                parsed_datetime = datetime.strptime(test_date_str, fmt)
+                                break
+                            except ValueError:
+                                continue
+                        save_data['test_datetime'] = parsed_datetime
+                        if parsed_datetime:
+                            print(f"✅ 成功解析測試時間: {parsed_datetime}")
+                        else:
+                            print(f"⚠️ 無法解析為有效的 datetime 格式，設置為空值: {test_date_str}")
+                    except Exception as e:
+                        print(f"⚠️ 日期解析失敗: {e}")
+                        save_data['test_datetime'] = None
+            
+            # 清理 None 值（保留 uploaded_by 供 ForeignKey 處理）
+            save_data = {k: v for k, v in save_data.items() if v is not None or k == 'uploaded_by'}
+            
+            # 必填欄位確保有預設值（避免 IntegrityError）
+            if not save_data.get('project_name'):
+                save_data['project_name'] = 'Unknown Project'
+            if save_data.get('benchmark_score') is None:
+                save_data['benchmark_score'] = 0
+            if not save_data.get('average_bandwidth'):
+                save_data['average_bandwidth'] = '-'
+            if not save_data.get('device_model'):
+                save_data['device_model'] = 'Unknown Device'
+            if not save_data.get('firmware_version'):
+                save_data['firmware_version'] = '-'
+            if not save_data.get('benchmark_version'):
+                save_data['benchmark_version'] = '-'
+            
+            print(f"\n💾 save_benchmark_data: 準備保存 {len(save_data)} 個欄位")
+            print(f"  benchmark_score: {save_data.get('benchmark_score')}")
+            print(f"  project_name: {save_data.get('project_name')}")
+            print(f"  device_model: {save_data.get('device_model')}")
+            
+            return self._save_to_django_model(save_data)
+            
+        except Exception as e:
+            print(f"❌ save_benchmark_data 失敗: {e}")
+            return {'success': False, 'error': str(e)}
+    
     def _save_to_django_model(self, save_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         實際保存到 Django 模型的邏輯
@@ -1049,7 +1181,6 @@ class OCRDatabaseManager:
                 'success': True,
                 'message': 'OCR 資料已成功保存到資料庫',
                 'record_id': ocr_record.id,
-                'data': save_data,
                 'performance_summary': {
                     'benchmark_score': save_data.get('benchmark_score'),
                     'average_bandwidth': save_data.get('average_bandwidth'),
